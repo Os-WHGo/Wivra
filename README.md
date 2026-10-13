@@ -1,104 +1,103 @@
 # AgentCut (working name)
 
-**ES · Un editor de video para Android que una IA puede controlar desde un chat dentro de la propia app.**
-**EN · An Android video editor that an AI can drive from a chat built into the app itself.**
+**ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
+**EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
 > Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre provisional. Antes de publicar, revisar `TRADEMARK.md` de Concat para no usar su nombre.
+> Nombre provisional / working name. Revisar que no choque con marcas existentes antes de publicar.
 
 ---
 
-## ¿Qué es? / What is it?
+## La idea / The idea
 
-**ES.** Un fork de [Concat](https://github.com/jub0t/Concat) (editor de video libre, motor en Rust, alternativa a CapCut) con un panel de chat. Escribes "quita los silencios, ponle subtítulos y exporta vertical", la IA decide los pasos y la app los ejecuta **en tu teléfono**. No necesitas computadora.
+**ES.** Hoy los agentes de IA que manejan aplicaciones lo hacen casi siempre en computadoras de escritorio. Hasta donde sabemos, no hay un editor de video pensado para el teléfono que una IA pueda controlar así (no verificado de forma exhaustiva; si conoces uno, abre un issue). AgentCut quiere aprovechar la potencia que ya tienen los teléfonos: tú escribes "quita los silencios, ponle subtítulos y exporta vertical", la IA decide los pasos y el editor los ejecuta **en tu teléfono**. Sin computadora, sin instalar nada.
 
-**EN.** A fork of Concat (free, Rust-engine, CapCut-style editor) with a chat panel. You type "remove the silences, add captions, export vertical"; the AI plans the steps and the app runs them **on your phone**. No computer needed.
+**EN.** AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
 
-## Motivación / Motivation
+## Cómo funciona / How it works
 
-**ES.** En la experiencia del autor, la IA que traen los editores móviles populares (como CapCut) es limitada: acciones y plantillas fijas. Aquí un modelo de primer nivel (primero Claude y ChatGPT; luego Meta y otros) maneja un motor de edición real: entiende instrucciones largas o vagas, aprende cómo trabaja el usuario y encadena muchas ediciones.
-
-**EN.** In the author's experience, the AI built into popular mobile editors is limited to fixed actions and templates. Here a frontier model (Claude and ChatGPT first, then Meta and others) drives a real editing engine, so it can follow long or vague instructions and chain many edits.
-
-## ¿Por qué así? / Why this design?
-
-Una IA en la nube no puede "entrar" a una app de tu teléfono: el teléfono no tiene una dirección pública estable. Así que invertimos la dirección: **la app llama a la IA**, y la IA responde con llamadas a herramientas (tool calls) que la app ejecuta localmente.
-
-A cloud AI cannot reach into an app on your phone. So we flip it: **the app calls the AI**, and the AI answers with tool calls the app runs locally.
+- **App web (PWA):** se abre desde un enlace en Safari o Chrome del teléfono. Editor propio y simple: importar video de la galería, cortar, poner texto y exportar. Visual y táctil desde el primer día.
+- **Chat dentro de la app:** la app llama a la IA y la IA responde con llamadas a herramientas (tool calls) que la app ejecuta localmente. Una IA en la nube no puede "entrar" a una página de tu teléfono, así que invertimos la dirección.
+- **El video no se sube.** Solo viajan texto y resultados de herramientas. Enviar fotogramas para que la IA "vea" sería opcional y avisado.
 
 ```
-┌──────────────── Android phone ────────────────┐
-│  Chat panel ──► Agent loop ──► Tool layer     │
-│        ▲            │               │         │
-│        │            │               ▼         │
-│        │            │        Concat engine    │
-│        │            │   (project, media, edit,│
-│        │            │    export, catalogue)   │
-└────────┼────────────┼─────────────────────────┘
-         │            ▼ (text + tool results only)
-         │     AI provider (internet)
-         └── Claude API · OpenAI-compatible APIs · local model (later)
+┌──────────────── Teléfono (navegador) ─────────────┐
+│  Chat ──► Bucle del agente ──► Capa de herramientas│
+│    ▲              │                    │           │
+│    │              │                    ▼           │
+│    │              │          Editor propio (web)   │
+│    │              │   (proyecto, medios, edición,  │
+│    │              │        exportación)            │
+└────┼──────────────┼────────────────────────────────┘
+     │              ▼ (solo texto y resultados)
+     │       Proveedor de IA (internet)
+     └── Claude · ChatGPT · Meta · otros · modelo local (más adelante)
 ```
 
-- El video **no se sube**. Solo viajan texto y resultados de herramientas. (Si algún día se envían fotogramas para que la IA "vea", será opcional y claramente avisado.)
-- Video stays on the device. Only text and tool results travel. Sending frames for vision, if added, must be opt-in.
+Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), verificando la licencia de cada pieza. **No copiamos código, imágenes ni marca de CapCut ni de otras apps propietarias.**
 
 ## Herramientas que ve la IA / Tools the AI sees
 
-Mapeadas a la API de Concat (`concat-api`). Nombres de la documentación de Concat v0.2:
+Contrato independiente del motor (se detalla en el issue #3):
 
-| Tool | Concat method |
+| Tool | Qué hace / What it does |
 | --- | --- |
-| `version` | `version` |
-| `project_create` / `project_open` / `project_save` | `project.create`, `project.open`, `project.save` |
-| `media_import` | `media.import` |
-| `edit_apply` (one edit command) / batch | `edit.apply` |
-| `catalogue_list` | `catalogue.list` |
-| `export_run` | `export.run` (job + progress events) |
+| `project_create` / `project_open` / `project_save` | Gestionar el proyecto |
+| `media_import` | Añadir un video, foto o audio al proyecto |
+| `edit_apply` (uno o por lotes) | Aplicar una edición: cortar, recortar, mover, texto, volumen |
+| `catalogue_list` | Listar los efectos y plantillas disponibles |
+| `export_run` | Exportar el video (con progreso) |
 
 Reglas del bucle del agente / agent-loop rules:
-1. Llamar `version` primero y leer `capabilities`.
-2. Nunca adivinar ids de clips: leerlos del `EditorView` devuelto.
-3. Una exportación a la vez (`busy` si hay otra).
-4. Pedir confirmación al usuario antes de borrar, sobrescribir o exportar sobre un archivo existente.
-5. Las herramientas solo pueden tocar la carpeta del proyecto.
+1. Nunca adivinar ids de clips: leerlos del estado devuelto por el editor.
+2. Una exportación a la vez.
+3. Pedir confirmación al usuario antes de borrar, sobrescribir o exportar sobre un archivo existente.
+4. Las herramientas solo tocan el proyecto actual.
 
 ## Proveedores de IA / AI providers
 
-| Provider | How it connects | Notes |
+| Proveedor | Cómo se conecta | Notas |
 | --- | --- | --- |
-| Claude | Anthropic API, **API key** | Pay per use, separate from any chat subscription |
-| OpenAI-compatible (incl. Meta Model API) | Base URL + API key | Meta's API was a U.S.-only public preview as of July 2026; check availability |
-| Local small model | On-device | Later stage; small models still struggle to chain tools reliably |
+| Claude | API de Anthropic, **clave de API** | Se paga por uso, aparte de cualquier suscripción de chat |
+| ChatGPT / compatibles con OpenAI | URL base + clave de API | Verificar condiciones de uso desde el navegador |
+| Meta | API de modelos de Meta | En julio de 2026 era una vista previa solo para EE. UU.; verificar disponibilidad |
+| Modelo local pequeño | En el dispositivo | Etapa tardía; los modelos pequeños aún fallan al encadenar herramientas |
 
-**Sobre "iniciar sesión" / About "sign in":** as far as we know, chat subscriptions (Claude.ai, ChatGPT, Meta AI) do not give third-party apps access. Apps use an **API key** the user pastes in (stored in Android Keystore) or, where a provider offers it, OAuth. This needs to be verified per provider before building the login screen.
+**Sobre "iniciar sesión" / About "sign in":** hasta donde sabemos, las suscripciones de chat (Claude.ai, ChatGPT, Meta AI) no dan acceso a apps de terceros. Las apps usan una **clave de API** que la persona pega, o, si un proveedor lo ofrece, OAuth. La clave se guarda solo en el dispositivo. Hay que verificarlo por proveedor antes de construir la pantalla de conexión.
 
 ## Plan por etapas / Roadmap
 
-La capa de agente (chat, bucle, proveedores) es **independiente del motor**: cada motor de edición entra como un adaptador que ofrece las mismas herramientas. / The agent layer (chat, loop, providers) is engine-agnostic: each editing engine plugs in as an adapter exposing the same tools.
+- **M0 — Prototipo web mínimo:** abrir desde el teléfono, importar un video de Fotos, línea de tiempo simple (dividir y recortar), texto y exportar MP4. Probar en iPhone y en Android. La pregunta clave es qué aguanta el navegador del teléfono (decodificar y exportar video, memoria, pantalla bloqueada).
+- **M1 — Chat + herramientas:** panel de chat, bucle del agente, herramientas de la tabla, un solo proveedor (Claude).
+- **M2 — Más proveedores:** ChatGPT, Meta cuando esté disponible, selector de proveedor.
+- **M3 — Herramientas de creador:** quitar silencios, subtítulos, exportación vertical 9:16.
+- **M4 — Video de podcast:** plantilla (audio + onda o subtítulos + fondo).
+- **M5 — En vivo (investigación):** transmisión desde gafas Ray-Ban Meta. Hay que investigar qué permite Meta antes de prometer nada.
+- **M6 — Modelo local:** un modelo pequeño en el teléfono, sin internet.
 
-- **M0a — Web first (works on iPhone, no computer):** adaptador para un editor web libre (candidato: OpenCut clásico, MIT) que corre en Safari, sin instalar nada. Verificar rendimiento y exportación con video real en iPhone; límites de Safari en segundo plano.
-- **M0b — Concat on Android:** Concat builds and runs on an Android device from the fork. Find out whether the engine API (JSON-RPC types in `concat-api`) can be called **in-process** on Android. Compilar en la nube (GitHub Actions) y descargar el APK desde el celular.
-- **iPhone nativo (Concat):** marcado "por probar" por Concat; instalar fuera de la App Store suele requerir una computadora al menos una vez. Fuera de alcance al inicio.
-- **M1 — Chat + 6 tools:** panel de chat, bucle del agente, herramientas de la tabla, un solo proveedor (Claude).
-- **M2 — More providers:** adaptador OpenAI-compatible, selector de proveedor, almacenamiento seguro de claves.
-- **M3 — Creator tools:** quitar silencios, subtítulos (Whisper local de Concat), exportación vertical 9:16.
-- **M4 — Podcast video:** plantilla de video de podcast (audio + onda/subtítulos + fondo).
-- **M5 — Live (research):** transmisión en vivo desde gafas Ray-Ban Meta. Hay que investigar qué permite el SDK/API de Meta antes de prometer nada.
-- **M6 — Local model:** modelo pequeño en el teléfono, sin internet.
+**Referencias, no dependencias:** [OpenCut](https://github.com/OpenCut-app/OpenCut) (MIT) y [Concat](https://github.com/jub0t/Concat) (AGPL-3.0) son editores abiertos que sirven de inspiración técnica. En la prueba del issue #1, OpenCut cargó e importó en un iPhone, pero el clip no se quedó en la línea de tiempo con el dedo.
 
 ## Preguntas abiertas / Open questions
 
-1. ¿Expone la versión de Android la API del motor sin ventana? / Does the Android build expose the engine API?
-2. ¿Qué tan bien encadena herramientas un modelo local pequeño? / How reliable are small local models at tool use?
-3. ¿Qué permite Meta para apps de terceros con las gafas? / What does Meta allow third-party apps to do with the glasses?
-4. ¿Se puede contribuir un servidor MCP al proyecto original? / Can an MCP server be upstreamed to Concat? (Concat's docs list MCP as planned, not shipped.)
+1. ¿Qué APIs del navegador sirven para decodificar y exportar video en iPhone y Android? / Which browser APIs can decode and encode video on iPhone and Android?
+2. ¿Dónde se aloja la app (hosting estático)? / Where is the app hosted (static hosting)?
+3. ¿Puede la página llamar directamente a las APIs de los proveedores de IA, o hace falta un pequeño intermediario? / Can the page call AI provider APIs directly, or is a small proxy needed?
+4. ¿Cómo encadenan herramientas los modelos locales pequeños? / How reliable are small local models at tool use?
+5. ¿Qué permite Meta a apps de terceros con las gafas? / What does Meta allow third-party apps to do with the glasses?
+6. ¿Qué licencia tendrá el código nuevo? Decisión del propietario del repo. / Which license for the new code? Owner's decision.
+
+## Cómo trabajamos / How we work
+
+- El **propietario del repo decide**. Las IAs colaboradoras proponen opciones con pros y contras; no declaran reglas "no negociables".
+- Todo cambio va en un **pull request en borrador**. Nada se fusiona a `main` sin revisión del propietario.
+- Cada dato se marca como **verificado (con fuente)** o **no verificado**.
+- Primero lo que funciona en un teléfono real; después la documentación extra.
+- Los comentarios y commits se firman con el nombre de quien los escribe (Claude, ChatGPT, etc.), porque todos usan la misma cuenta de GitHub.
 
 ## Se buscan manos / Help wanted
 
-Rust, Kotlin/Android (Compose), diseño de agentes con herramientas, pruebas en dispositivos reales, traducciones.
+JavaScript/TypeScript y APIs de video del navegador (WebCodecs, WebAssembly), diseño táctil móvil, agentes con herramientas, pruebas en iPhone y Android reales, traducciones.
 
 ## Licencia / License
 
-Concat es **AGPL-3.0-or-later**; este fork hereda esa licencia. Un programa que solo habla con Concat por su API es un cliente; ver `LICENSE-EXCEPTIONS.md` de Concat.
-Concat is AGPL-3.0-or-later; this fork inherits it.
+Por decidir. / To be decided.
