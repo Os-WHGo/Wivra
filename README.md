@@ -36,6 +36,17 @@
 
 Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), verificando la licencia de cada pieza. **No copiamos código, imágenes ni marca de CapCut ni de otras apps propietarias.**
 
+## Enfoque: crear reels y contenido / Focus: creator content
+
+**ES.** AgentCut está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
+- **Reconocer:** texto en pantalla (carteles, nombres de calles), lugares (apoyándose en el GPS del video cuando exista), momentos clave y silencios. Los modelos con visión leen texto en los fotogramas, pero la precisión varía y hay que verificarla. No identificamos personas por su cara.
+- **Sugerir ideas:** ganchos de apertura, títulos, estructura del reel, guiones y hashtags a partir de lo que aparece en los videos.
+- **Teleprompter:** el guion se desplaza en pantalla mientras grabas, con velocidad ajustable.
+- **Cualquier IA:** una capa de proveedores intercambiable (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros). Cada persona trae su propia clave.
+- **Privacidad y costo:** el video queda en el teléfono; solo se envían unos fotogramas y texto, con permiso, y se muestra una estimación del costo antes de analizar.
+
+**EN.** AgentCut aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
+
 ## Herramientas que ve la IA / Tools the AI sees
 
 Contrato independiente del motor (se detalla en el issue #3):
@@ -61,6 +72,7 @@ Reglas del bucle del agente / agent-loop rules:
 | Claude | API de Anthropic, **clave de API** | Se paga por uso, aparte de cualquier suscripción de chat |
 | ChatGPT / compatibles con OpenAI | URL base + clave de API | Verificar condiciones de uso desde el navegador |
 | Meta | API de modelos de Meta | En julio de 2026 era una vista previa solo para EE. UU.; verificar disponibilidad |
+| Gemini y otros | API del proveedor, mediante un adaptador | Cada proveedor tiene su propio formato de herramientas e imágenes; el adaptador lo oculta |
 | Modelo local pequeño | En el dispositivo | Etapa tardía; los modelos pequeños aún fallan al encadenar herramientas |
 
 **Sobre "iniciar sesión" / About "sign in":** hasta donde sabemos, las suscripciones de chat (Claude.ai, ChatGPT, Meta AI) no dan acceso a apps de terceros. Las apps usan una **clave de API** que la persona pega, o, si un proveedor lo ofrece, OAuth. La clave se guarda solo en el dispositivo. Hay que verificarlo por proveedor antes de construir la pantalla de conexión.
@@ -71,6 +83,8 @@ Reglas del bucle del agente / agent-loop rules:
 - **M1 — Chat + herramientas:** panel de chat, bucle del agente, herramientas de la tabla, un solo proveedor (Claude).
 - **M2 — Más proveedores:** ChatGPT, Meta cuando esté disponible, selector de proveedor.
 - **M3 — Herramientas de creador:** quitar silencios, subtítulos, exportación vertical 9:16.
+- **M3b — Análisis de video y asistente de contenido:** sacar fotogramas y transcripción en el teléfono, reconocer texto y lugares, sugerir ideas y guiones (issue #6).
+- **M3c — Teleprompter:** guion que se desplaza mientras grabas (issue #7).
 - **M4 — Video de podcast:** plantilla (audio + onda o subtítulos + fondo).
 - **M5 — En vivo (investigación):** transmisión desde gafas Ray-Ban Meta. Hay que investigar qué permite Meta antes de prometer nada.
 - **M6 — Modelo local:** un modelo pequeño en el teléfono, sin internet.
