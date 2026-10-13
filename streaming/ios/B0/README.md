@@ -1,6 +1,6 @@
 # Wivra Meta B0 · primera prueba física Ray-Ban Meta → iPhone
 
-**Fecha:** 13 octubre 2026 · **Estado:** código fuente original añadido a GitHub; **NO compilado en Xcode, NO instalado en iPhone y NO probado con gafas físicas**.  
+**Fecha:** 13 octubre 2026 · **Estado actualizado:** **compilación Xcode para iOS Simulator completada con éxito en GitHub Actions** (run [38459815766](https://github.com/Os-WHGo/agentcut/actions/runs/38459815766), 13-oct-2026). Proyecto generado con XcodeGen; dependencias DAT 1.0.1 resueltas; `xcodebuild` de iOS Simulator completó `success`. **NO firmado/instalado en iPhone físico, NO probado con gafas reales y NO transmite RTMPS**.  
 **Fase estricta actual:** **B0** (registro, sesión, permiso, **vista previa de fotogramas reales** y estadísticas). **NO hay emisión a Internet, audio, grabador ni importación de archivos antiguos en este prototipo.**
 
 ## Decisión para la primera etapa
