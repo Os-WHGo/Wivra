@@ -1,4 +1,4 @@
-// Wivra Meta B0 — ORIGINAL test application. Not compiled or hardware-verified.
+// Wivra Meta B0 — ORIGINAL test application. Compiled for simulator; NOT hardware-verified.
 // Uses the public DAT 1.0.1 lifecycle; this is camera PREVIEW ONLY,
 // no audio, local recording, stored-glasses-media import or RTMPS publishing.
 // — ChatGPT, 2026-10-13
