@@ -16,8 +16,18 @@ Regenerar el archivo: `node app/build.mjs`.
 
 **Línea de tiempo, probado:** Chromium simulando iPhone 13 (cortar, borrar, deshacer, arrastrar borde, texto, zoom, reproducir). **NO probado:** arrastre con el dedo en un iPhone real, videos largos, miniaturas en Safari.
 
-**Diseño de editor (pantalla de teléfono):** barra superior, vista previa grande, fila de controles (tiempo, reproducir, deshacer/rehacer), línea de tiempo con la línea blanca **fija al centro** (se desliza el contenido, no la línea) y barra de herramientas abajo (Cortar, Borrar, Texto, IA, Observar). Texto, IA y Observar abren una hoja desde abajo. Los iconos, colores y nombres son propios. Audio, Efectos y Subtítulos aparecen marcados "pronto" porque aún no existen; Exportar tampoco.
+**Diseño de editor (pantalla de teléfono):** barra superior, vista previa grande, fila de controles (tiempo, reproducir, deshacer/rehacer), línea de tiempo con la línea blanca **fija al centro** (se desliza el contenido, no la línea) y barra de herramientas abajo (Cortar, Borrar, Texto, IA, Observar). Texto, IA y Observar abren una hoja desde abajo. Los iconos, colores y nombres son propios. Audio, Efectos y Subtítulos aparecen marcados "pronto" porque aún no existen.
 **Probado:** Chromium simulando iPhone 13 (cargar, deslizar la línea de tiempo, cortar, borrar, deshacer, recortar arrastrando, texto, IA con JSON pegado, reproducir). **NO probado:** iPhone real, pantallas pequeñas (SE) ni horizontal.
 
 **Varios videos y orden (hoja "Videos"):** se pueden elegir varios videos a la vez con el selector del teléfono (en iPhone abre Fotos, incluida iCloud si está activada; en Archivos se pueden navegar iCloud Drive y otras ubicaciones; **[NV]** Google Fotos y otras apps dependen del sistema). Luego aparece una lista con cuadritos para cambiar el orden arrastrando el ≡ o con ▲ ▼; el video se rearma en ese orden (un solo deshacer). Una página web **no puede listar la galería por su cuenta**: solo ve lo que la persona elige en el selector del sistema.
 **Probado:** Chromium simulando iPhone 13 con 3 videos (carga, reordenar con botones y arrastre, deshacer, reproducir cruzando los 3). **NO probado:** iPhone real, muchos o muy largos videos, cambio de video durante la reproducción en Safari (puede haber un pequeño salto), iCloud/Google Fotos.
+
+## Exportar (nivel: probado en navegador de escritorio simulando iPhone; NO validado en iPhone real)
+
+`export.mjs` graba el resultado dentro del teléfono: reproduce cada clip en orden (con su audio), lo dibuja en un canvas con los textos y lo guarda con `MediaRecorder`. Sin servidor, sin librerías, sin subir nada; los originales no se tocan.
+- **Va en tiempo real:** un video de 20 s tarda unos 20 s. La pantalla debe seguir encendida y la pestaña abierta.
+- **Formato:** MP4 si el navegador lo permite (Safari), si no WebM. Tamaño: forma del primer video, máx. 1080 en el lado corto.
+- **Probado:** 2 clips con tonos de 440 y 880 Hz + texto → salida de 7 s con audio correcto, texto visible y cambio de clip (Chromium con iPhone simulado).
+- **NO probado / por validar en iPhone real:** que Safari grabe el audio de los clips (`createMediaElementSource`), formato MP4 resultante, ".mov" HEVC, y el menú "Guardar o compartir".
+- **Límite conocido:** no hay mezcla de audio por pistas ni música aparte; el audio es el de cada clip.
+- Alternativa futura, más rápida que tiempo real: WebCodecs con Mediabunny (MPL-2.0; sin verificar en Safari/HEVC).
