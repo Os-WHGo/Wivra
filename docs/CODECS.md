@@ -20,7 +20,7 @@ Fuentes: [caniuse AV1](https://caniuse.com/av1), [Bitmovin](https://bitmovin.com
 
 ## Dónde se ahorra de verdad
 
-1. **No recomprimir.** Cortar en los puntos donde el video ya tiene cuadros completos se hace copiando datos, sin perder nada y casi sin gasto de batería. Solo se recodifica lo que realmente cambia (un texto encima, un cruce). **[NV]** que Mediabunny lo haga bien en Safari; es lo primero que habría que probar.
+1. **No recomprimir.** Cortar en los puntos donde el video ya tiene cuadros completos se hace copiando datos, sin perder nada y casi sin gasto de batería. Solo se recodifica lo que realmente cambia (un texto encima, un cruce). **[V]** Mediabunny intenta copiar sin recodificar por defecto, pero su documentación avisa de que, **por ahora, recortar con un inicio distinto de cero fuerza recodificar video y audio**; el final sí se puede recortar copiando. Además la copia depende de los cuadros clave (el tramo puede ampliarse o reducirse). **[NV]** cómo se comporta en Safari. Ver `docs/VERIFICATION.md`.
 2. **Calidad objetivo en vez de peso fijo.** Pedir "esta calidad" en lugar de "tantos Mbps" deja que lo fácil pese poco y lo difícil pese más. **[NV]** que Safari lo permita con WebCodecs.
 3. **Tope realista para Reels:** 1080×1920 y 30 cuadros/s. Subir más no se ve en el teléfono y las plataformas lo vuelven a comprimir **[NV]**. Las gafas Meta ya entregan como máximo 720×1280 **[V]**.
 4. **Exportar una sola vez en buena calidad:** como cada red social vuelve a comprimir, subir un archivo ya muy comprimido empeora el resultado final **[NV]**.
