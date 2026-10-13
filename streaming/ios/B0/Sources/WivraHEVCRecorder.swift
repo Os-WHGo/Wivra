@@ -149,7 +149,8 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                         let count = self.appendedCount
                         let dropped = self.droppedCount
                         self.reset()
-                        if successful && (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0) ?? 0 > 0 {
+                        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
+                        if successful && size > 0 {
                             continuation.resume(returning: .saved(url, frames: count, dropped: dropped))
                         } else {
                             try? FileManager.default.removeItem(at: url)
