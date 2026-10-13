@@ -103,7 +103,8 @@ export function decideIRL({
    }
  }else if(uplink==="weak"){
    internetStatus="degraded";
-   if(currentProfile==="standard")targetProfile="economy";
+   // DO NOT downgrade DAT camera just because internet uplink weakens.
+   // Keep the source profile stable; change *only* phone H.264 publisher.
    actions.push("reduce_outgoing_encoder_bitrate_when_supported");
    actions.push("keep_local_recording_while_frames_arrive");
    warnings.push("Lower phone-to-platform bitrate cannot repair glasses-to-phone link quality or thermal load.");
@@ -123,7 +124,8 @@ export function decideIRL({
    phoneUplinkStatus:internetStatus,
    cameraTransportSwitchSupported:false,
    proposedNextSessionSourceProfile:targetProfile,
-   outgoingVideoKbpsLimit:uplink==="weak"?Math.min(profiles[targetProfile].videoKbps,950)
+   outgoingVideoKbpsLimit:uplink==="offline"?0:
+     uplink==="weak"?Math.min(profiles[currentProfile].videoKbps,950)
      :profiles[currentProfile].videoKbps,
    localRecordingMayContinue:capturePreserved,
    actions,warnings,
