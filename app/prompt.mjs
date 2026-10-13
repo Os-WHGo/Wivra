@@ -1,5 +1,5 @@
 // Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
-export function buildPrompt(request, project) {
+export function buildPrompt(request, project, observation = null) {
   return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
 
 Operaciones permitidas (tiempos en segundos):
@@ -14,6 +14,10 @@ Si algo es imposible, responde [] y nada más.
 
 Proyecto actual:
 ${JSON.stringify({ revision: project.revision, assets: project.assets, clips: project.clips, texts: project.texts })}
+Información visual local opcional (resumen numérico; NO fotografías ni reconocimiento semántico):
+${observation ? JSON.stringify(observation) : 'Sin análisis visual.'}
+Importante: NO afirmes que viste fotogramas, que reconociste calles, conversaciones, rostros ni acontecimientos por estas puntuaciones. Indica incertidumbre cuando la evidencia sea insuficiente.
+${observation ? 'La persona decidió copiar estas métricas al chat, pero la app NO envió el video.' : ''}
 
 Petición del usuario: ${request}`;
 }
