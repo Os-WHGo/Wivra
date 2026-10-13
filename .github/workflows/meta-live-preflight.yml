@@ -16,6 +16,6 @@ jobs:
         with:
           node-version: '22'
       - name: Test state transitions and consent gates
-        run: node --test streaming/tests/live-preflight.test.mjs
+        run: node --test streaming/tests/*.test.mjs
       - name: Validate source syntax
-        run: node --check streaming/live-preflight.mjs
+        run: node --check streaming/live-preflight.mjs && node --check streaming/hybrid-link-policy.mjs
