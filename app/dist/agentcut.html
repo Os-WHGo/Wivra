@@ -459,7 +459,11 @@ $('file').addEventListener('change', () => {
     $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
     say('Video cargado. Ya puedes editar.', 'ok');
   };
-  v.onerror = () => { $('info').textContent = 'Este teléfono/navegador no puede reproducir este video.'; };
+  v.onerror = () => {
+    const e = v.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido';
+    $('info').textContent = 'Este navegador no puede reproducir este video.';
+    say(`Detalle para el desarrollador: archivo “${f.name}”, tipo “${f.type || 'sin tipo'}”, ${(f.size / 1048576).toFixed(1)} MB, error: ${cod}${e && e.message ? ' (' + e.message + ')' : ''}. Navegador: ${navigator.userAgent}`, 'bad');
+  };
 });
 
 $('trim').onclick = () => {
