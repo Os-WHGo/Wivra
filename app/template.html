@@ -629,15 +629,21 @@ function renderShootPlan(){
   const row=document.createElement('div');row.className='row';
   const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
-  const choose=document.createElement('button');choose.className='btn sec';choose.style.marginTop='4px';
-  choose.textContent='Asociar video';
-  choose.onclick=()=>{
-    const assets=session?.project.assets||[];
-    if(!assets.length){say('Primero importa un video en la aplicación.','bad');return}
-    const choice=window.prompt('ID del video que corresponde a esta toma:\\n'+assets.map(a=>a.id+': '+(a.name||'video')).join('\\n'),assets[0].id);
-    if(choice===null)return;
-    try{shootPlan=updateShot(shootPlan,shot.id,{assetId:choice,state:'done'},{project:session.project});saveShootPlan();renderShootPlan();say('Video asociado.','ok')}
-    catch(e){say(e.message,'bad')}
+  const choose=document.createElement('select');
+  choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
+  choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
+  const none=document.createElement('option');none.value='';none.textContent='Asociar video...';choose.append(none);
+  (session?.project.assets||[]).forEach(asset=>{
+    const opt=document.createElement('option');opt.value=asset.id;opt.textContent=asset.name||asset.id;
+    choose.append(opt);
+  });
+  choose.value=shot.assetId||'';
+  choose.onchange=()=>{
+    if(!session||!choose.value)return;
+    try{
+      shootPlan=updateShot(shootPlan,shot.id,{assetId:choose.value,state:'done'},{project:session.project});
+      saveShootPlan();renderShootPlan();say('Video asociado a la toma.','ok');
+    }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
   if(shot.assetId){
