@@ -20,6 +20,9 @@
 ## Entrada del editor
 El .mov se comparte desde el iPhone para importarlo manualmente. El adaptador a un MediaAsset estable del editor de Claude es una integración futura y requerirá coordinación entre ramas. El usuario final tendrá una sola Wivra.
 
+## Compilación de prueba para un iPhone
+La CI de Xcode empaqueta además un archivo IPA **sin firma** llamado WivraMetaB1-UNSIGNED.ipa y lo publica como artefacto temporal del workflow (retención de 7 días). Un IPA **sin firma NO se puede instalar directamente** en iOS. El usuario debe firmarlo legítimamente con su propia cuenta Apple y los permisos de DAT antes de usarlo en su teléfono; no debe compartir contraseñas, certificados o tokens en GitHub o ChatGPT. Dependiendo del método de instalación puede ser imprescindible Xcode/macOS y provisión de entitlements.
+La creación de este archivo no prueba compatibilidad Bluetooth ni conexión real. La app seguirá experimental. No incluir claves privadas ni secretos en los artefactos públicos del repositorio.
 ## Próximo paso exacto
 Verificar que GitHub Actions compile el proyecto B1A para simulator y generic iOS ARM64 sin firma. Corregir errores Swift. Después Xcode/Apple Team para instalar en iPhone y probar Meta DAT con gafas reales. Sin un dispositivo físico no se valida la grabación.
 
