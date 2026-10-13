@@ -69,6 +69,23 @@
     <input id="title" type="text" maxlength="120" placeholder="Por ejemplo: Camino a Vancouver" disabled>
     <p class="muted">Se muestra en la vista previa y se dibuja sobre el video exportado.</p>
   </section>
+  <section class="panel" id="agentPanel">
+    <h2>3B. Instrucciones y análisis local</h2>
+    <p class="muted">Primera etapa experimental: interpreta órdenes sencillas mediante reglas locales, no mediante ChatGPT o Claude. Propone un plan y <b>solo lo aplica cuando tú lo apruebas</b>. También puede inspeccionar hasta 8 fotogramas en el dispositivo para localizar cambios visuales aproximados. Aún NO reconoce calles, conversaciones ni objetos.</p>
+    <label for="agentPrompt">Indicación para el editor</label>
+    <textarea id="agentPrompt" rows="3" style="width:100%;background:#10121a;color:white;border:1px solid #777b88;border-radius:9px;padding:10px;font:inherit" placeholder='Recorta desde 2 hasta 8 y pon texto "Mi viaje"'></textarea>
+    <div class="row">
+      <button id="agentPropose" type="button" disabled>Preparar edición</button>
+      <button id="agentObserve" type="button" disabled>Observar escenas</button>
+    </div>
+    <p id="agentStatus" class="muted" role="status" aria-live="polite">Importa un video para comenzar.</p>
+    <div id="agentPlan" class="muted" style="white-space:pre-wrap"></div>
+    <div class="row">
+      <button id="agentApprove" class="primary" type="button" disabled>Aprobar cambios</button>
+      <button id="agentUndo" type="button" disabled>Deshacer</button>
+    </div>
+    <div id="agentCandidates" class="muted" aria-live="polite"></div>
+  </section>
   <section class="panel">
     <h2>4. Exporta</h2>
     <label for="resolution">Tamaño máximo</label>
@@ -292,6 +309,92 @@
   window.addEventListener("pagehide",()=>{if(recording)finishRecording("Exportación interrumpida.")});
   buttonState(false);
 })();
+</script>
+<script type="module">
+import {inspectProject,parseInstruction,validateEdit,suggestedWindows} from './agent-core.mjs';
+import {inspectVideoFrames} from './agent-vision.mjs';
+const $=id=>document.getElementById(id);
+const ids=['video','start','end','title','keepAudio','resolution','agentPrompt','agentPropose','agentObserve','agentStatus','agentPlan','agentApprove','agentUndo','agentCandidates','cancel'];
+const ui=Object.fromEntries(ids.map(id=>[id,$(id)]));
+let proposed=null,undo=null,observing=false;
+const tell=(text)=>{ui.agentStatus.textContent=text};
+const lock=()=>!Number.isFinite(ui.video.duration)||ui.video.duration<=0||ui.start.disabled||observing||!ui.cancel.classList.contains('hidden');
+function state(){
+ return inspectProject({duration:ui.video.duration,start:Number(ui.start.value),
+   end:Number(ui.end.value),text:ui.title.value,keepAudio:ui.keepAudio.checked,
+   resolution:Number(ui.resolution.value),width:ui.video.videoWidth,height:ui.video.videoHeight,
+   sourceName:$('file').files?.[0]?.name||''});
+}
+function refresh(){
+ const disabled=lock();ui.agentPropose.disabled=disabled;ui.agentObserve.disabled=disabled;
+ ui.agentApprove.disabled=disabled||!proposed;ui.agentUndo.disabled=disabled||!undo;
+}
+function putState(next){
+ ui.start.value=String(next.start);ui.end.value=String(next.end);
+ ui.title.value=next.text;ui.keepAudio.checked=next.keepAudio;
+ ui.resolution.value=String(next.resolution);
+ for(const id of ['start','end','title','keepAudio','resolution']){
+   ui[id].dispatchEvent(new Event(id==='title'?'input':'change',{bubbles:true}));
+ }
+ ui.start.dispatchEvent(new Event('input',{bubbles:true}));
+}
+ui.video.addEventListener('loadedmetadata',()=>{proposed=null;undo=null;ui.agentPlan.textContent='';ui.agentCandidates.replaceChildren();tell('Video listo. Puedes ordenar un recorte o analizar fotogramas.');refresh()});
+$('file').addEventListener('change',()=>{proposed=null;undo=null;ui.agentPlan.textContent='';ui.agentCandidates.replaceChildren();refresh()});
+ui.agentPropose.addEventListener('click',()=>{
+ if(lock())return;
+ try{
+   const plan=parseInstruction(ui.agentPrompt.value,state());proposed=plan;
+   const edits=plan.proposed.map(x=>x.tool==='set_trim'?('Recortar: '+x.start+' s → '+x.end+' s'):
+     x.tool==='set_text'?('Texto: '+x.text):x.tool==='set_audio'?('Audio: '+(x.enabled?'sí':'no')):('Resolución máxima: '+x.maxDimension));
+   ui.agentPlan.textContent='Plan para revisar (NO aplicado):\n• '+edits.join('\n• ');
+   tell('Plan preparado mediante reglas sencillas. No se ha ejecutado ni se ha contactado a una IA.');
+ }catch(error){proposed=null;ui.agentPlan.textContent='';tell(error.message)}
+ refresh();
+});
+ui.agentApprove.addEventListener('click',()=>{
+ if(lock()||!proposed)return;
+ try{
+   const previous=state();const next=validateEdit(previous,proposed.proposed);
+   putState(next);undo=previous;proposed=null;ui.agentPlan.textContent='';
+   tell('Cambios aplicados a la vista previa. El archivo original permanece intacto.');refresh();
+ }catch(error){tell('No se aplicaron cambios: '+error.message)}
+});
+ui.agentUndo.addEventListener('click',()=>{
+ if(lock()||!undo)return;
+ const previous=undo;undo=null;putState(previous);proposed=null;ui.agentPlan.textContent='';
+ tell('Se restauró la edición anterior.');refresh();
+});
+ui.agentObserve.addEventListener('click',async()=>{
+ if(lock())return;
+ observing=true;proposed=null;ui.agentCandidates.replaceChildren();refresh();
+ tell('Observando fotogramas localmente…');
+ try{
+   const summary=await inspectVideoFrames(ui.video,{sampleCount:8,onProgress:(n,total)=>tell('Fotogramas analizados: '+n+'/'+total+'.')});
+   const candidates=suggestedWindows(summary.changes,summary.duration,{maxResults:3});
+   const heading=document.createElement('p');
+   heading.textContent='Cambios visuales aproximados. No se han reconocido lugares, voz ni acciones:';
+   ui.agentCandidates.appendChild(heading);
+   candidates.forEach((candidate,index)=>{
+     const item=document.createElement('div');item.style.margin='9px 0';
+     const at=document.createElement('button');at.type='button';
+     at.textContent='Ver '+candidate.inspectedAt+' s';at.addEventListener('click',()=>{ui.video.currentTime=candidate.inspectedAt});
+     const apply=document.createElement('button');apply.type='button';
+     apply.textContent='Proponer corte '+(index+1);
+     apply.addEventListener('click',()=>{
+       try{
+         proposed={proposed:[{tool:'set_trim',start:candidate.start,end:candidate.end}]};
+         validateEdit(state(),proposed.proposed);
+         ui.agentPlan.textContent='Plan para revisar (NO aplicado): recortar desde '+candidate.start+' hasta '+candidate.end+' segundos. No es una sugerencia semántica.';
+         tell('Corte propuesto a partir de un cambio visual aproximado. Revisa antes de aprobar.');
+       }catch(e){proposed=null;tell(e.message)}refresh();
+     });
+     item.append(at,apply);ui.agentCandidates.appendChild(item);
+   });
+   tell('Análisis visual local finalizado. No se enviaron fotogramas. Las sugerencias pueden ser irrelevantes.');
+ }catch(error){tell('No se pudo analizar este video: '+error.message+'. Prueba otro formato o un archivo más corto.')}
+ finally{observing=false;refresh()}
+});
+refresh();
 </script>
 </body>
 </html>
