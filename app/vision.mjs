@@ -58,7 +58,7 @@ export async function inspectVideoFrames(video,{
      const frame=lumaAndTexture(ctx.getImageData(0,0,w,h).data,w,h);
      const delta=previous?changeScore(previous,frame.pixels):0;
      result.push({time:Math.round(t*100)/100,brightness:Math.round(frame.brightness*1000)/1000,
-       texture:Math.round(frame.texture*1000)/1000,delta});
+       texture:Math.round(frame.texture*1000)/1000,delta,thumbnailDataUrl:canvas.toDataURL('image/jpeg',0.58)});
      previous=frame.pixels;
      onProgress(i+1,sampleCount);
    }
