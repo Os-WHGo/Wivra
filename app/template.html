@@ -16,10 +16,26 @@
   input, textarea { width:100%; font-size:16px; /* 16px evita el zoom de iOS */ background:#000; color:var(--fg); border:1px solid #3a3a3c; border-radius:10px; padding:10px; }
   textarea { min-height:90px; } label { font-size:14px; color:var(--mut); }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
-  video { width:100%; max-height:50vh; background:#000; border-radius:10px; }
+  video { width:100%; max-height:34vh; background:#000; border-radius:10px; }
   .stage { position:relative; } #ov { position:absolute; left:0; right:0; bottom:12%; text-align:center; font-weight:700; font-size:22px; text-shadow:0 0 6px #000; pointer-events:none; }
   .item { padding:8px 0; border-top:1px solid #2c2c2e; font-size:15px; } .item:first-child { border-top:0; }
   #msg { white-space:pre-wrap; font-size:15px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .tlbar { display:flex; align-items:center; gap:8px; margin-bottom:8px; } .tlbar span { font-variant-numeric:tabular-nums; font-size:15px; flex:1; }
+  .tlbar button { width:auto; min-width:48px; margin:0; padding:8px 14px; }
+  #tlwrap { overflow-x:auto; overflow-y:hidden; background:#0b0b0c; border-radius:10px; -webkit-overflow-scrolling:touch; }
+  #tlinner { position:relative; height:150px; }
+  #ruler { position:absolute; top:0; left:0; right:0; height:28px; touch-action:none; background:#161618; font-size:11px; color:var(--mut); }
+  #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #3a3a3c; padding-left:3px; font-style:normal; line-height:28px; pointer-events:none; }
+  .trk { position:absolute; left:0; right:0; }
+  #vtrack { top:34px; height:60px; } #ttrack { top:100px; height:36px; }
+  .blk { position:absolute; top:0; height:100%; border-radius:8px; overflow:hidden; background:#2c2c2e; border:2px solid #48484a; box-sizing:border-box; }
+  .blk.sel { border-color:#ffd60a; }
+  .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
+  .blk .lb { position:absolute; left:6px; bottom:2px; font-size:11px; text-shadow:0 0 4px #000; pointer-events:none; }
+  .hd { position:absolute; top:0; width:24px; height:100%; background:#ffd60a99; touch-action:none; display:none; }
+  .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
+  .txb { background:#5e5ce6; border-color:#8e8cf0; font-size:12px; padding:6px; white-space:nowrap; }
+  #head { position:absolute; top:0; width:2px; height:100%; background:#fff; pointer-events:none; box-shadow:0 0 4px #000; }
   input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
 </style>
 </head>
@@ -32,17 +48,22 @@
   <label class="btn" for="file" id="pick">Elegir video del teléfono</label>
   <input id="file" type="file" accept="video/*">
   <p class="m" id="info">Ningún video elegido.</p>
-  <div class="stage"><video id="v" playsinline controls></video><div id="ov"></div></div>
-  <button id="play" class="sec" disabled>▶ Ver el resultado editado</button>
+  <div class="stage"><video id="v" playsinline></video><div id="ov"></div></div>
 </section>
 
 <section>
-  <h2>2. Edición manual (sin IA)</h2>
-  <div class="row"><div><label>Inicio (s)</label><input id="tin" inputmode="decimal" placeholder="2"></div><div><label>Fin (s)</label><input id="tout" inputmode="decimal" placeholder="8"></div></div>
-  <button id="trim" disabled>Recortar el primer clip</button>
-  <label>Texto en pantalla</label><input id="txt" placeholder="Vancouver">
-  <button id="addtxt" class="sec" disabled>Poner texto al inicio (3 s)</button>
-  <button id="undo" class="sec" disabled>↩ Deshacer</button>
+  <h2>2. Línea de tiempo</h2>
+  <div class="tlbar"><button id="play" class="sec" disabled>▶</button><span><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></span><button id="zo" class="sec" disabled>−</button><button id="zi" class="sec" disabled>＋</button></div>
+  <div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div><div id="head"></div></div></div>
+  <p class="m" id="hint">Elige un video para ver su línea de tiempo.</p>
+  <div class="row"><button id="split" disabled>✂ Cortar aquí</button><button id="del" class="sec" disabled>🗑 Borrar clip</button></div>
+  <div class="row"><button id="undo" class="sec" disabled>↩ Deshacer</button><button id="redo" class="sec" disabled>↪ Rehacer</button></div>
+  <label>Texto en pantalla (en la línea blanca, 3 s)</label><input id="txt" placeholder="Vancouver">
+  <button id="addtxt" class="sec" disabled>Poner texto aquí</button>
+  <details><summary class="m">Recorte por números (avanzado)</summary>
+    <div class="row"><div><label>Inicio (s)</label><input id="tin" inputmode="decimal" placeholder="2"></div><div><label>Fin (s)</label><input id="tout" inputmode="decimal" placeholder="8"></div></div>
+    <button id="trim" class="sec" disabled>Recortar el primer clip</button>
+  </details>
 </section>
 
 <section>
@@ -66,12 +87,13 @@
   <p class="m">Cuando uses «Copiar el mensaje para mi IA», podrás incluir estas métricas numéricas. La IA no verá los fotogramas originales: si necesita reconocer lugares, tendrás que compartir imágenes por separado y con tu permiso.</p>
 </section>
 
-<section><h2>Línea de tiempo</h2><div id="tl"><p class="m">Vacía.</p></div></section>
+
 
 <script>
 /*__CORE__*/
 const $ = (id) => document.getElementById(id);
-let session = null, objUrl = null, previewTimer = null;
+let session = null, objUrl = null;
+let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, thumbs = [], thumbStep = 1;
 let visualEvidence = null, visualBusy = false;
 
 function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
@@ -80,17 +102,18 @@ function fmt(n) { return Math.round(n * 100) / 100; }
 function render() {
   const p = session?.project;
   const on = !!p;
-  for (const id of ['trim','addtxt','copy','apply','play']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
-  if (!p || (!p.clips.length && !p.texts.length)) { $('tl').innerHTML = '<p class="m">Vacía.</p>'; return; }
-  $('tl').innerHTML = p.clips.map(c => `<div class="item"><b>${c.id}</b> · usa ${fmt(c.in)}–${fmt(c.out)} s · empieza en ${fmt(c.start)} s</div>`).join('') +
-    p.texts.map(t => `<div class="item"><b>${t.id}</b> · texto “${t.text.replace(/</g,'&lt;')}” · ${fmt(t.start)}–${fmt(t.end)} s</div>`).join('') +
-    `<div class="item">Duración total: ${fmt(totalDuration(p))} s · revisión ${p.revision}</div>`;
+  $('redo').disabled = !on || !session.redoStack.length;
+  $('del').disabled = !on || !selId;
+  renderTimeline();
 }
-
+function stopPlayIfAny() { if (typeof playing !== 'undefined' && playing) { playing = false; $('v').pause(); $('play').textContent = '▶'; } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
+  if (session.project.clips.every(c => c.id !== selId)) selId = null;
+  tlTime = Math.min(tlTime, totalDuration(session.project));
   render();
   return r;
 }
@@ -106,7 +129,10 @@ $('file').addEventListener('change', () => {
     if (!isFinite(v.duration)) { $('info').textContent = 'No pude leer la duración de este video.'; return; }
     const d = Math.round(v.duration * 100) / 100;
     session = new Session(createProject({ assets: [{ id: 'a1', duration: d, name: f.name }] }));
+    selId = null; tlTime = 0; thumbs = []; stopPlayIfAny();
     run([{ op: 'add_clip', asset_id: 'a1' }]);
+    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth - 24) / d));
+    render(); makeThumbs(objUrl, d, v.videoWidth, v.videoHeight);
     $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
     say('Video cargado. Ya puedes editar.', 'ok');
   };
@@ -115,15 +141,9 @@ $('file').addEventListener('change', () => {
 
 $('trim').onclick = () => {
   const c = session.project.clips[0];
-  const r = run([{ op: 'trim_clip', clip_id: c?.id, in: parseFloat($('tin').value.replace(',', '.')), out: parseFloat($('tout').value.replace(',', '.')) }]);
+  const r = edit([{ op: 'trim_clip', clip_id: c?.id, in: parseFloat($('tin').value.replace(',', '.')), out: parseFloat($('tout').value.replace(',', '.')) }]);
   say(r.ok ? 'Recortado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
-$('addtxt').onclick = () => {
-  const r = run([{ op: 'add_text', text: $('txt').value, start: 0, duration: 3 }]);
-  say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
-};
-$('undo').onclick = () => { session.undo(); render(); say('Deshecho.', 'ok'); };
-
 $('copy').onclick = async () => {
   const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
@@ -134,25 +154,6 @@ $('apply').onclick = () => {
   if (!ops) return say('No encontré una lista de operaciones en lo que pegaste. Pídele a la IA: “responde solo con el JSON”.', 'bad');
   const r = run(ops);
   say(r.ok ? `Aplicado (${ops.length} operaciones).` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
-};
-
-$('play').onclick = () => {
-  const v = $('v'), p = session.project;
-  const clips = [...p.clips].sort((a, b) => a.start - b.start);
-  if (!clips.length) return;
-  clearInterval(previewTimer);
-  let i = 0, t0 = 0;
-  const go = () => { v.currentTime = clips[i].in; v.play().catch(() => {}); };
-  go();
-  let elapsed = 0;
-  previewTimer = setInterval(() => {
-    const c = clips[i];
-    const now = clips.slice(0, i).reduce((s, k) => s + (k.out - k.in), 0) + (v.currentTime - c.in);
-    $('ov').textContent = p.texts.filter(t => now >= t.start && now < t.end).map(t => t.text).join(' ');
-    if (v.currentTime >= c.out - 0.05) {
-      if (++i >= clips.length) { v.pause(); clearInterval(previewTimer); $('ov').textContent = ''; } else go();
-    }
-  }, 100);
 };
 
 $('observe').onclick=async()=>{
@@ -188,6 +189,152 @@ $('observe').onclick=async()=>{
   }catch(e){visualEvidence=null;$('visionStatus').textContent='No se pudo observar este archivo: '+e.message}
   finally{visualBusy=false;render()}
 };
+
+/* ---------- Línea de tiempo visual (lógica pura en timeline.mjs) ---------- */
+function edit(ops, opts) {            // edición manual: valida, cierra huecos, un solo deshacer
+  const plan = planEdit(session.project, ops, opts);
+  if (!plan.ok) return plan;
+  return run(plan.ops);
+}
+const vv = () => $('v');
+function showFrame() {                // muestra en el video el instante tlTime de la línea
+  const hit = clipAt(session.project, tlTime);
+  if (hit && Math.abs(vv().currentTime - hit.assetTime) > 0.04) { try { vv().currentTime = hit.assetTime; } catch {} }
+  $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+}
+function setTime(t, seek = true) {
+  const tot = totalDuration(session.project);
+  tlTime = Math.max(0, Math.min(t, tot));
+  if (seek) showFrame();
+  paintHead();
+}
+function paintHead() {
+  if (!session) return;
+  $('head').style.left = (tlTime * pps) + 'px';
+  $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project));
+  const w = $('tlwrap'), x = tlTime * pps;
+  if (playing && (x < w.scrollLeft + 10 || x > w.scrollLeft + w.clientWidth - 30)) w.scrollLeft = Math.max(0, x - 40);
+}
+function renderTimeline() {
+  const p = session?.project, inner = $('tlinner'), wrap = $('tlwrap');
+  $('vtrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
+  if (!p) { $('hint').textContent = 'Elige un video para ver su línea de tiempo.'; return; }
+  const tot = totalDuration(p);
+  inner.style.width = Math.max(tot * pps + 60, wrap.clientWidth) + 'px';
+  const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
+  for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
+  const asset = (id) => p.assets.find(a => a.id === id);
+  for (const c0 of sortedClips(p)) {
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
+    b.style.left = (c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
+    for (const th of thumbs) {
+      const left = (th.t - thumbStep / 2 - c.in) * pps, w = thumbStep * pps;
+      if (left + w < 0 || left > (c.out - c.in) * pps) continue;
+      const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
+    }
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = c.id + ' · ' + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('vtrack').appendChild(b);
+  }
+  for (const t of p.texts) {
+    const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
+  }
+  $('hint').textContent = selId ? 'Clip elegido: arrastra los bordes amarillos para recortar.' : 'Toca un clip para elegirlo. Toca la regla de arriba para mover la línea blanca.';
+  paintHead();
+}
+// tocar un clip / regla
+$('tlinner').addEventListener('click', (e) => {
+  const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
+  selId = b.dataset.id; const r = $('tlinner').getBoundingClientRect(); setTime((e.clientX - r.left) / pps); render();
+});
+$('ruler').addEventListener('pointerdown', (e) => {
+  const mv = (ev) => { const r = $('tlinner').getBoundingClientRect(); setTime((ev.clientX - r.left) / pps); };
+  mv(e); const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+});
+// arrastrar bordes = recortar
+$('tlinner').addEventListener('pointerdown', (e) => {
+  const h = e.target.closest('.hd'); if (!h) return;
+  const id = h.parentElement.dataset.id, c = session.project.clips.find(k => k.id === id), a = session.project.assets.find(k => k.id === c.asset_id);
+  const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
+  e.preventDefault();
+  const mv = (ev) => {
+    const d = (ev.clientX - x0) / pps;
+    if (side === 'l') drag.in = round2(Math.max(0, Math.min(c.in + d, c.out - 0.2)));
+    else drag.out = round2(Math.min(a.duration, Math.max(c.out + d, c.in + 0.2)));
+    renderTimeline();
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    const d = drag; drag = null;
+    if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
+      const r = edit([{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }]);
+      say(r.ok ? `Recortado: ahora usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+    } else render();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+});
+$('split').onclick = () => {
+  const r = splitAt(session.project, tlTime); if (!r.ok) return say(r.message, 'bad');
+  const rr = run(r.ops); say(rr.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + rr.message, rr.ok ? 'ok' : 'bad');
+};
+$('del').onclick = () => {
+  if (!selId) return say('Toca un clip para elegirlo.', 'bad');
+  const r = edit([{ op: 'delete_clip', clip_id: selId }]); say(r.ok ? 'Clip borrado; los siguientes se juntaron.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('addtxt').onclick = () => {
+  const tot = totalDuration(session.project);
+  const r = run([{ op: 'add_text', text: $('txt').value, start: Math.min(tlTime, Math.max(0, tot - 0.1)), duration: 3 }]);
+  say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('undo').onclick = () => { session.undo(); setTime(tlTime, false); render(); say('Deshecho.', 'ok'); };
+$('redo').onclick = () => { session.redo(); render(); say('Rehecho.', 'ok'); };
+$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); };
+$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); };
+// reproducir el resultado editado, saltando huecos
+function stopPlay() { playing = false; vv().pause(); $('play').textContent = '▶'; }
+$('play').onclick = () => {
+  if (playing) return stopPlay();
+  const p = session.project, clips = sortedClips(p); if (!clips.length) return;
+  if (tlTime >= totalDuration(p) - 0.05) tlTime = 0;
+  playing = true; $('play').textContent = '⏸';
+  let cur = null;
+  const frame = () => {
+    if (!playing) return;
+    const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
+    if (!hit) {                                                    // hueco o fin
+      const next = sortedClips(session.project).find(c => c.start > tlTime);
+      if (!next) { stopPlay(); return; }
+      tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
+    }
+    if (cur !== hit.clip.id) { cur = hit.clip.id; vv().currentTime = hit.assetTime; vv().play().catch(() => {}); }
+    const c = hit.clip;
+    tlTime = c.start + (vv().currentTime - c.in);
+    if (vv().currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+    paintHead(); requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+};
+vv().addEventListener('click', () => { if (session) $('play').click(); });
+// miniaturas: se sacan con un segundo video oculto, una por una
+async function makeThumbs(url, dur, vw, vh) {
+  thumbs = []; const n = Math.max(6, Math.min(30, Math.round(dur))); thumbStep = dur / n;
+  const t = document.createElement('video'); t.muted = true; t.playsInline = true; t.preload = 'auto'; t.src = url;
+  const cv = document.createElement('canvas'); cv.height = 56; cv.width = Math.max(24, Math.round(56 * (vw / vh || 0.56)));
+  const cx = cv.getContext('2d');
+  const seekTo = (time) => new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('seek')), 4000); t.onseeked = () => { clearTimeout(to); res(); }; t.currentTime = time; });
+  try {
+    await new Promise((res, rej) => { t.onloadeddata = res; t.onerror = rej; setTimeout(rej, 6000); });
+    for (let i = 0; i < n; i++) {
+      if (url !== objUrl) return;
+      const time = (i + 0.5) * thumbStep; await seekTo(time);
+      cx.drawImage(t, 0, 0, cv.width, cv.height); thumbs.push({ t: time, url: cv.toDataURL('image/jpeg', 0.5) });
+      if (i % 4 === 3 || i === n - 1) renderTimeline();
+    }
+  } catch { /* sin miniaturas: los bloques se ven igual */ }
+}
 
 render();
 </script>
