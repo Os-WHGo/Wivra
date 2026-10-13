@@ -2,6 +2,8 @@
 **Investigación 2026-10-13 · — ChatGPT**  
 **Estado:** investigación; NO implementación, NO prueba en teléfono real, NO decisión del propietario. Complementa [PR #9 de Claude](https://github.com/Os-WHGo/agentcut/pull/9) (recursos generales). M0 (importar, cortar, texto y exportar en una web de teléfono) sigue teniendo prioridad: [PR #5](https://github.com/Os-WHGo/agentcut/pull/5).
 
+> **ACLARACIÓN DEL PROPIETARIO (13 oct 2026, posterior a esta investigación):** AgentCut **no tiene la arquitectura web-only decidida**. Su alcance incluye un **agente de streaming** que conecte Ray-Ban Meta con plataformas LIVE, guarde copia local y al finalizar **proponga automáticamente highlights para Reels/TikTok/Shorts/historias**. Las tres arquitecturas (nativa/híbrida/web+puente) quedan abiertas. Leer la propuesta complementaria: [STREAMING_AGENT_AND_AUTO_HIGHLIGHTS.md](STREAMING_AGENT_AND_AUTO_HIGHLIGHTS.md). Los párrafos siguientes que dicen "prioridad web" describen **el prototipo técnico previo**, no una elección del propietario.
+
 ## Resumen para la persona propietaria
 
 **Hoy, sin instalar una app propia:** guardar las capturas desde las gafas usando la app Meta AI y seleccionarlas en AgentCut Web desde Fotos/Archivos. Meta confirma que, después de importadas, las capturas están en la fototeca del teléfono ([Meta, julio 2026](https://about.fb.com/news/2026/07/metas-ai-glasses-your-questions-answered/); [FAQ Ray-Ban](https://www.ray-ban.com/usa/c/frequently-asked-questions-ray-ban-meta-smart-glasses)). El usuario ya graba con Ray-Ban Meta; esta opción no necesita ordenador para **usar** el editor web publicado. Aún no está probada de extremo a extremo en AgentCut.
