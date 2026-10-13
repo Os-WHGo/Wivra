@@ -10,6 +10,8 @@
 const SUPPORTED_DESTINATIONS = Object.freeze(['youtube','twitch','kick','facebook','instagram','tiktok','custom']);
 const SOURCE_MODES = Object.freeze(['meta-ios','meta-android','phone-camera','mock-device']);
 const FRAME_RATES = Object.freeze([2,7,15,24,30]);
+const CAMERA_LINKS = Object.freeze(['bluetooth-classic','wifi-softap','phone-camera','unverified']);
+const UPLINK_PATHS = Object.freeze(['cellular','existing-wifi','unknown']);
 const RESOLUTIONS = Object.freeze({
   low: Object.freeze({width:360,height:640}),
   medium: Object.freeze({width:504,height:896}),
@@ -34,16 +36,28 @@ function oneOf(v,list,label) { if(!list.includes(v)) fail('Unsupported '+label);
 export function getCapabilities() {
   return {destinations:[...SUPPORTED_DESTINATIONS],sourceModes:[...SOURCE_MODES],
     metaStreamingSizes:RESOLUTIONS,frameRates:[...FRAME_RATES],
+    cameraLinkOptions:[...CAMERA_LINKS],phoneUplinkOptions:[...UPLINK_PATHS],
+    wifiCameraTransportIntroducedDAT080:true,
+    wifiSoftApDisplacesNormalPhoneWifi:true,
+    cameraTransportIsNotRuntimeToggled:true,
     sourceCodec:'HEVC/hvc1 (when requested)',publishProfile:'H.264 + AAC provisional, per-destination verification needed',
     metaLiveSourceRequiresNativeBridge:true,experimentalPcmAudioNotForProduction:true};
 }
 /** Create non-secret preflight. Caller holds the actual credentials in platform secure store. */
 export function createPreflight({
   sourceMode='meta-ios',resolution='medium',fps=24,
+  cameraLink=null,phoneUplink='unknown',
   destinations=[],recordLocal=true,audioPath='phone-mic',
   forwarding='single'
 }={}){
   oneOf(sourceMode,SOURCE_MODES,'sourceMode');
+  const actualCameraLink=cameraLink ?? (sourceMode.startsWith('meta-')?'bluetooth-classic':'phone-camera');
+  oneOf(actualCameraLink,CAMERA_LINKS,'cameraLink');
+  oneOf(phoneUplink,UPLINK_PATHS,'phoneUplink');
+  if(sourceMode.startsWith('meta-') && actualCameraLink==='phone-camera')
+    fail('Camera link cannot be phone-camera for Meta glasses');
+  if(!sourceMode.startsWith('meta-') && actualCameraLink!=='phone-camera')
+    fail('Phone camera cannot request Meta camera transport');
   if(!(resolution in RESOLUTIONS))fail('Unsupported resolution');
   oneOf(fps,FRAME_RATES,'fps');
   oneOf(audioPath,['phone-mic','glasses-bluetooth-hfp','none'],'audioPath');
@@ -71,7 +85,8 @@ export function createPreflight({
       : 'Stream without audio; destination compatibility may vary.';
   return Object.freeze({
     schemaVersion:'agentcut-live-preflight-0.1',
-    sourceMode,sourceRequested:{...RESOLUTIONS[resolution],resolution,fps,codec:'hevc'},
+    sourceMode,cameraLink:actualCameraLink,phoneUplink,
+    sourceRequested:{...RESOLUTIONS[resolution],resolution,fps,codec:'hevc'},
     destinations:clean,recordLocal:true,audioPath,forwarding,
     publisherCodec:'h264',publisherAudioCodec:audioPath==='none'?null:'aac',
     archivalCodec:'hevc-passthrough-if-compressed-DAT-sample',
@@ -80,7 +95,17 @@ export function createPreflight({
     warnings:[
       'This is only a plan, not a real Meta connection, encoder or publisher.',
       'No direct access from Safari to the DAT camera stream is established.',
-      'Requested resolution is an upper request, not guaranteed quality: DAT adapts Bluetooth throughput.',
+      'Requested resolution is an upper request, not guaranteed: DAT transport, network, firmware and device adapt actual resolution/FPS.',
+      actualCameraLink==='wifi-softap'
+        ? 'Meta DAT Wi-Fi uses glasses soft-AP. On iOS it can displace normal Wi-Fi; an internet LIVE uplink may need cellular, which can be costly/unreliable. Meta July 2026 recommended BTC for live outbound apps. Validate current DAT versions and real phone network routing.'
+        : actualCameraLink==='bluetooth-classic'
+          ? 'Meta DAT Bluetooth Classic has lower video bandwidth, but preserves the normal phone Wi-Fi internet route and was Meta staff recommendation for internet LIVE as of July 2026.'
+          : 'Verify camera transport and internet route on device.',
+      actualCameraLink==='wifi-softap' && phoneUplink==='existing-wifi'
+        ? 'Warning: Wi-Fi softAP cannot guarantee simultaneous normal phone Wi-Fi for internet. This plan must NOT proceed as ready without testing an alternate uplink.'
+        : phoneUplink==='cellular'
+          ? 'Cellular internet may incur data charges; measure effective uplink and dropped frames.'
+          : 'Internet uplink path not yet verified.',
       audioWarning,
       forwarding==='relay'?'Relay software can be open-source but server bandwidth/hosting is not guaranteed free.':
         forwarding==='multiple-direct'?'Each destination may require a separate phone upload; live data usage multiplies.':
