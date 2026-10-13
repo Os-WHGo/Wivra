@@ -3,71 +3,116 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AgentCut · prueba en teléfono</title>
+<meta name="theme-color" content="#12141a">
+<title>AgentCut · editor</title>
 <style>
-  :root { --bg:#111; --card:#1c1c1e; --fg:#f2f2f7; --mut:#9a9aa3; --ac:#0a84ff; --bad:#ff453a; --ok:#30d158; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.4 -apple-system, system-ui, sans-serif; padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin-inline:auto; }
-  h1 { font-size:22px; margin:16px 0 4px; } h2 { font-size:17px; margin:0 0 8px; }
-  p.m { color:var(--mut); margin:0 0 12px; font-size:15px; }
-  section { background:var(--card); border-radius:14px; padding:14px; margin:12px 0; }
-  button, .btn { display:block; width:100%; min-height:48px; font:inherit; font-weight:600; border:0; border-radius:12px; background:var(--ac); color:#fff; padding:12px; margin:8px 0; text-align:center; }
-  button.sec { background:#3a3a3c; } button:disabled { opacity:.4; }
-  input, textarea { width:100%; font-size:16px; /* 16px evita el zoom de iOS */ background:#000; color:var(--fg); border:1px solid #3a3a3c; border-radius:10px; padding:10px; }
-  textarea { min-height:90px; } label { font-size:14px; color:var(--mut); }
+  :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
+  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:100dvh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; }
+  .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
+  .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
+  .pill { height:36px; padding:0 14px; border-radius:18px; background:var(--bar); border:1px solid var(--line); display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:14px; }
+  .pill.go { background:var(--ac); border-color:var(--ac); color:#0c1022; } .pill:disabled { opacity:.45; }
+  #info { font-size:12px; color:var(--mut); padding:0 14px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:18px; }
+  .stage { position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0 14px; }
+  video { max-width:100%; max-height:100%; border-radius:6px; background:#000; display:none; }
+  .stage.on video { display:block; }
+  #ov { position:absolute; left:14px; right:14px; bottom:10%; text-align:center; font-weight:800; font-size:22px; text-shadow:0 0 8px #000, 0 0 2px #000; pointer-events:none; }
+  .empty { position:absolute; inset:14px; border:1.5px dashed var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--mut); padding:20px; }
+  .stage.on .empty { display:none; }
+  .empty .pill { font-size:16px; height:46px; padding:0 22px; }
+  .ctl { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:6px 14px; }
+  .ctl .t { font:600 13px ui-rounded, -apple-system, system-ui, sans-serif; font-variant-numeric:tabular-nums; color:var(--mut); } .ctl .t b { color:var(--fg); font-weight:700; }
+  .ctl .r { display:flex; justify-content:flex-end; gap:2px; }
+  .ib { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; } .ib:active { background:var(--bar); } .ib:disabled { opacity:.35; }
+  #play { width:54px; height:54px; border-radius:27px; background:var(--fg); color:#12141a; } #play:active { background:#fff; }
+  svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
+  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
+  #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
+  #tlinner { position:relative; height:134px; }
+  #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
+  #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #ttrack { top:94px; height:30px; }
+  .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
+  .blk.sel { border-color:var(--sel); } .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
+  .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
+  .hd { position:absolute; top:0; width:22px; height:100%; background:#ffc53dcc; touch-action:none; display:none; } .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
+  .hd::after { content:''; position:absolute; top:35%; bottom:35%; left:9px; width:3px; border-radius:2px; background:#12141a; }
+  .txb { background:#3b2f66; border-color:var(--tx); font-size:12px; padding:5px 8px; white-space:nowrap; }
+  #head { position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px; background:#fff; pointer-events:none; box-shadow:0 0 6px #000; z-index:3; }
+  #head::before { content:''; position:absolute; top:0; left:-4px; border:5px solid transparent; border-top:7px solid #fff; border-bottom:0; }
+  .zoom { position:absolute; right:8px; top:26px; display:flex; flex-direction:column; gap:6px; z-index:4; }
+  .zoom button { width:34px; height:34px; border-radius:17px; background:#191c24dd; border:1px solid var(--line); font-weight:700; } .zoom button:disabled { opacity:.4; }
+  .bar { display:flex; gap:2px; overflow-x:auto; padding:6px 8px 8px; scrollbar-width:none; } .bar::-webkit-scrollbar { display:none; }
+  .tool { flex:0 0 auto; min-width:68px; padding:6px 6px 4px; border-radius:12px; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; color:var(--fg); } .tool:active { background:var(--bar); }
+  .tool:disabled { opacity:.35; } .tool.soon { color:var(--mut); opacity:.6; } .tool small { font-size:9px; color:var(--mut); margin-top:-3px; }
+  #toast { position:fixed; left:50%; transform:translateX(-50%); top:calc(58px + env(safe-area-inset-top)); max-width:92%; background:#232834; border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:14px; white-space:pre-wrap; display:none; z-index:20; } #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
+  .back { position:fixed; inset:0; background:#0009; display:none; z-index:30; } .back.on { display:block; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; max-width:560px; margin-inline:auto; max-height:82dvh; overflow-y:auto; background:var(--bar); border-radius:18px 18px 0 0; border:1px solid var(--line); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:none; z-index:31; } .sheet.on { display:block; }
+  .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
+  input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
+  .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
-  video { width:100%; max-height:50vh; background:#000; border-radius:10px; }
-  .stage { position:relative; } #ov { position:absolute; left:0; right:0; bottom:12%; text-align:center; font-weight:700; font-size:22px; text-shadow:0 0 6px #000; pointer-events:none; }
-  .item { padding:8px 0; border-top:1px solid #2c2c2e; font-size:15px; } .item:first-child { border-top:0; }
-  #msg { white-space:pre-wrap; font-size:15px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  #msg { white-space:pre-wrap; font-size:14px; margin-top:8px; } .item { padding:8px 0; border-top:1px solid var(--line); font-size:14px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
   input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+  .vrow { display:grid; grid-template-columns:30px 56px 1fr auto auto; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line); touch-action:pan-y; background:var(--bar); }
+  .vrow:first-child { border-top:0; } .vrow.drag { background:#232834; box-shadow:0 6px 20px #000a; position:relative; z-index:5; }
+  .vrow .n { font:700 13px ui-rounded,-apple-system,sans-serif; color:var(--mut); text-align:center; }
+  .vrow .th { width:56px; height:56px; border-radius:8px; background:#262b36 center/cover no-repeat; border:1px solid var(--line); }
+  .vrow .nm { min-width:0; } .vrow .nm b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .vrow .nm span { font-size:12px; color:var(--mut); }
+  .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
+  .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
+  .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
+  @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
 </style>
 </head>
 <body>
-<h1>AgentCut</h1>
-<p class="m">Prueba de teléfono · el video NO sale de tu teléfono · todavía no exporta</p>
+<div class="top"><b>AgentCut</b><span class="sp"></span>
+  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
+  <button class="pill go" disabled title="Todavía no exporta">Exportar · pronto</button></div>
+<div id="info">Ningún video elegido.</div>
+<div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
+  <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
+<div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
+  <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+  <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
+<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+  <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
+<div class="bar" role="toolbar" aria-label="Herramientas">
+  <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
+  <button class="tool" id="split" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M7 8 3 12l4 4M17 8l4 4-4 4"/></svg>Cortar</button>
+  <button class="tool" id="del" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Borrar</button>
+  <button class="tool" id="bText" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Texto</button>
+  <button class="tool" id="bAI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>IA</button>
+  <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio<small>pronto</small></button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="back" id="back"></div>
 
-<section>
-  <h2>1. Tu video</h2>
-  <label class="btn" for="file" id="pick">Elegir video del teléfono</label>
-  <input id="file" type="file" accept="video/*">
-  <p class="m" id="info">Ningún video elegido.</p>
-  <div class="stage"><video id="v" playsinline controls></video><div id="ov"></div></div>
-  <button id="play" class="sec" disabled>▶ Ver el resultado editado</button>
-</section>
+<div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
+  <div id="vlist"></div>
+  <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
+  <button id="vdone" class="btn">Listo</button></div>
 
-<section>
-  <h2>2. Edición manual (sin IA)</h2>
-  <div class="row"><div><label>Inicio (s)</label><input id="tin" inputmode="decimal" placeholder="2"></div><div><label>Fin (s)</label><input id="tout" inputmode="decimal" placeholder="8"></div></div>
-  <button id="trim" disabled>Recortar el primer clip</button>
-  <label>Texto en pantalla</label><input id="txt" placeholder="Vancouver">
-  <button id="addtxt" class="sec" disabled>Poner texto al inicio (3 s)</button>
-  <button id="undo" class="sec" disabled>↩ Deshacer</button>
-</section>
+<div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
+  <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
-<section>
-  <h2>3. Con tu IA (gratis, sin clave)</h2>
-  <p class="m">Usa ChatGPT o Claude normales. Copias, pegas y vuelves.</p>
-  <label>¿Qué quieres que haga?</label>
-  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
-  <button id="copy" disabled>① Copiar el mensaje para mi IA</button>
-  <label>② Pega aquí la respuesta de la IA</label>
-  <textarea id="reply"></textarea>
-  <button id="apply" disabled>③ Aplicar</button>
-  <div id="msg"></div>
-</section>
+<div class="sheet" id="sAI"><h2>Con tu IA</h2><p class="m">Gratis y sin clave: copias el mensaje, lo pegas en ChatGPT o Claude, y traes la respuesta.</p>
+  <label>¿Qué quieres que haga?</label><textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
+  <button id="copy" class="btn" disabled>1. Copiar el mensaje para mi IA</button>
+  <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
+  <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></div>
 
-<section>
-  <h2>4. Observar el video (local)</h2>
-  <p class="m">Escanea ocho fotogramas livianos y propone momentos con cambios visuales. Las imágenes nunca salen del dispositivo desde esta pantalla. No identifica calles, personas ni voz.</p>
-  <button id="observe" class="sec" disabled>🔍 Inspeccionar fotogramas</button>
-  <div id="visionStatus" class="m" role="status" aria-live="polite"></div>
-  <div id="visualCandidates"></div>
-  <p class="m">Cuando uses «Copiar el mensaje para mi IA», podrás incluir estas métricas numéricas. La IA no verá los fotogramas originales: si necesita reconocer lugares, tendrás que compartir imágenes por separado y con tu permiso.</p>
-</section>
-
-<section><h2>Línea de tiempo</h2><div id="tl"><p class="m">Vacía.</p></div></section>
-
+<div class="sheet" id="sObs"><h2>Observar el video</h2><p class="m">Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada.</p>
+  <button id="observe" class="btn" disabled>Inspeccionar fotogramas</button>
+  <div id="visionStatus" class="m" role="status" aria-live="polite" style="margin-top:8px"></div><div id="visualCandidates"></div>
+  <label>Recorte por números del primer clip</label>
+  <div class="row"><div><input id="tin" inputmode="decimal" placeholder="Inicio (s)"></div><div><input id="tout" inputmode="decimal" placeholder="Fin (s)"></div></div>
+  <button id="trim" class="btn sec" disabled>Recortar</button></div>
 <script>
 // AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
 // — Claude
@@ -170,6 +215,11 @@ class Session {
     const r = applyBatch(this.project, ops, expectedRevision);
     if (r.ok) { this.undoStack.push(this.project); this.redoStack = []; this.project = r.project; }
     return r.ok ? { ok: true, revision: this.project.revision, results: r.results } : r;
+  }
+  // Agregar un video al proyecto no es una edición: no se deshace. Se copia a todo el historial para que deshacer/rehacer sigan válidos.
+  addAsset(asset) {
+    for (const pr of [this.project, ...this.undoStack, ...this.redoStack])
+      if (!pr.assets.some((a) => a.id === asset.id)) pr.assets.push({ ...asset });
   }
   undo() {
     if (!this.undoStack.length) return { ok: false, code: 'nothing_to_undo', message: 'No hay nada que deshacer' };
@@ -353,89 +403,203 @@ function evidenceForPrompt(evidence){
  };
 }
 
-const $ = (id) => document.getElementById(id);
-let session = null, objUrl = null, previewTimer = null;
-let visualEvidence = null, visualBusy = false;
+// Línea de tiempo visual: lógica pura (sin DOM) para poder probarla. — Claude
 
-function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
-function fmt(n) { return Math.round(n * 100) / 100; }
 
-function render() {
-  const p = session?.project;
-  const on = !!p;
-  for (const id of ['trim','addtxt','copy','apply','play']) $(id).disabled = !on;
-  $('observe').disabled = !on || visualBusy;
-  $('undo').disabled = !on || !session.undoStack.length;
-  if (!p || (!p.clips.length && !p.texts.length)) { $('tl').innerHTML = '<p class="m">Vacía.</p>'; return; }
-  $('tl').innerHTML = p.clips.map(c => `<div class="item"><b>${c.id}</b> · usa ${fmt(c.in)}–${fmt(c.out)} s · empieza en ${fmt(c.start)} s</div>`).join('') +
-    p.texts.map(t => `<div class="item"><b>${t.id}</b> · texto “${t.text.replace(/</g,'&lt;')}” · ${fmt(t.start)}–${fmt(t.end)} s</div>`).join('') +
-    `<div class="item">Duración total: ${fmt(totalDuration(p))} s · revisión ${p.revision}</div>`;
+const round2 = (n) => Math.round(n * 100) / 100;
+const sortedClips = (p) => [...p.clips].sort((a, b) => a.start - b.start);
+const clipEnd = (c) => c.start + (c.out - c.in);
+
+// ¿Qué clip se ve en el instante t de la línea de tiempo? Devuelve el clip y el tiempo dentro del video original.
+function clipAt(p, t) {
+  for (const c of sortedClips(p)) if (t >= c.start && t < clipEnd(c)) return { clip: c, assetTime: round2(c.in + (t - c.start)) };
+  return null;
 }
 
+// Cierra huecos: cada clip empieza donde termina el anterior (el primero empieza en 0).
+function rippleOps(p) {
+  const ops = []; let cursor = 0;
+  for (const c of sortedClips(p)) {
+    const start = round2(cursor);
+    if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
+    cursor = start + (c.out - c.in);
+  }
+  return ops;
+}
+
+// Edición manual: aplica las operaciones en una copia, y agrega las que cierran huecos. Un solo lote = un solo deshacer.
+function planEdit(project, ops, { ripple = true } = {}) {
+  const r = applyBatch(project, ops);
+  if (!r.ok) return { ok: false, ...r };
+  return { ok: true, ops: ripple ? [...ops, ...rippleOps(r.project)] : ops };
+}
+
+function splitAt(project, t, clipId) {
+  const hit = clipId ? project.clips.find((c) => c.id === clipId) : clipAt(project, t)?.clip;
+  if (!hit) return { ok: false, message: 'No hay clip en ese instante.' };
+  if (t <= hit.start + 0.1 || t >= clipEnd(hit) - 0.1) return { ok: false, message: 'Mueve la línea blanca al interior del clip (no en el borde).' };
+  return planEdit(project, [{ op: 'split_clip', clip_id: hit.id, at: round2(hit.in + (t - hit.start)) }], { ripple: false });
+}
+
+const fmtTime = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, '0')}`; };
+
+// Reordenar: recibe los ids de los clips en el orden nuevo y los coloca uno tras otro desde 0 (un solo deshacer).
+function reorderOps(project, orderedIds) {
+  const byId = new Map(project.clips.map((c) => [c.id, c]));
+  if (orderedIds.length !== byId.size || orderedIds.some((id) => !byId.has(id))) return null;
+  const ops = []; let cursor = 0;
+  for (const id of orderedIds) {
+    const c = byId.get(id); const start = round2(cursor);
+    if (Math.abs(c.start - start) > 0.004) ops.push({ op: 'move_clip', clip_id: id, start });
+    cursor += c.out - c.in;
+  }
+  return ops;
+}
+
+const $ = (id) => document.getElementById(id);
+let session = null, objUrl = null;
+let visualEvidence = null, visualBusy = false;
+let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
+const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
+let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+
+function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
+  const m = $('msg'); m.textContent = t; m.className = cls || '';
+  const x = $('toast'); x.textContent = t.length > 160 ? t.slice(0, 157) + '…' : t; x.className = cls || ''; x.style.display = 'block';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { x.style.display = 'none'; }, 3800);
+}
+function fmt(n) { return Math.round(n * 100) / 100; }
+function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); }
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
+$('back').onclick = closeSheets;
+$('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
+$('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
+
+function render() {
+  const p = session?.project, on = !!p;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids']) $(id).disabled = !on;
+  $('observe').disabled = !on || visualBusy;
+  $('undo').disabled = !on || !session.undoStack.length;
+  $('redo').disabled = !on || !session.redoStack.length;
+  $('del').disabled = !on || !selId;
+  $('stage').classList.toggle('on', on);
+  renderTimeline();
+  if ($('sVids').classList.contains('on')) renderVids();
+}
+function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
-  render();
+  if (session.project.clips.every(c => c.id !== selId)) selId = null;
+  tlTime = Math.min(tlTime, totalDuration(session.project));
+  render(); syncScroll();
   return r;
 }
 
-$('file').addEventListener('change', () => {
-  const f = $('file').files[0]; if (!f) return;
-  visualEvidence=null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent='';
-  if (objUrl) URL.revokeObjectURL(objUrl);
-  objUrl = URL.createObjectURL(f);
-  const v = $('v'); v.src = objUrl;
-  $('info').textContent = 'Leyendo…';
-  v.onloadedmetadata = () => {
-    if (!isFinite(v.duration)) { $('info').textContent = 'No pude leer la duración de este video.'; return; }
-    const d = Math.round(v.duration * 100) / 100;
-    session = new Session(createProject({ assets: [{ id: 'a1', duration: d, name: f.name }] }));
-    run([{ op: 'add_clip', asset_id: 'a1' }]);
-    $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
-    say('Video cargado. Ya puedes editar.', 'ok');
-  };
-  v.onerror = () => { $('info').textContent = 'Este teléfono/navegador no puede reproducir este video.'; };
+function probe(file) {          // lee duración y tamaño de un archivo sin tocar el video principal
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), t = document.createElement('video');
+    t.muted = true; t.playsInline = true; t.preload = 'metadata'; t.src = url;
+    const fail = () => { const e = t.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido'; URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}, ${(file.size / 1048576).toFixed(1)} MB): ${cod}${e && e.message ? ' (' + e.message + ')' : ''}`)); };
+    t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
+  });
+}
+function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
+  const v = $('v'), m = media[id]; if (!m) return;
+  if (curAsset !== id) {
+    curAsset = id; pendingSeek = time; v.src = m.url;
+    v.onloadedmetadata = () => { if (pendingSeek != null) { try { v.currentTime = pendingSeek; } catch {} pendingSeek = null; if (playing) v.play().catch(() => {}); } };
+    return;
+  }
+  if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
+}
+let loading = false;
+$('file').addEventListener('change', async () => {
+  const files = [...$('file').files]; $('file').value = ''; if (!files.length || loading) return;
+  loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
+  const failed = [], added = [];
+  for (const f of files) {
+    try {
+      const m = await probe(f); const id = 'a' + (++assetSeq);
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1 };
+      if (!session) session = new Session(createProject({ assets: [] }));
+      session.addAsset({ id, duration: m.duration, name: f.name }); added.push(id);
+    } catch (e) { failed.push(e.message); }
+  }
+  if (added.length) {
+    let start = totalDuration(session.project);
+    const ops = added.map(id => { const o = { op: 'add_clip', asset_id: id, start: round2(start) }; start += media[id].duration; return o; });
+    const first = !session.project.clips.length;
+    $('stage').classList.add('on');
+    if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
+    run(ops);
+    if (first) useAsset(added[0], 0);
+    for (const id of added) thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    const n = session.project.clips.length;
+    $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total`;
+    say(added.length > 1 ? `${added.length} videos cargados. Revisa el orden.` : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    if (n > 1) { renderVids(); openSheet('sVids'); }
+  } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
+  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
+  loading = false;
 });
+
+/* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
+function renderVids() {
+  const L = $('vlist'); L.replaceChildren(); if (!session) return;
+  const clips = sortedClips(session.project);
+  clips.forEach((c, i) => {
+    const m = media[c.asset_id], r = document.createElement('div'); r.className = 'vrow'; r.dataset.id = c.id;
+    const th = m?.thumbs?.[0]?.url;
+    r.innerHTML = `<div class="n">${i + 1}</div><div class="th"${th ? ` style="background-image:url(${th})"` : ''}></div><div class="nm"><b></b><span>${fmt(c.out - c.in)} s</span></div><div class="mv"><button aria-label="Subir">▲</button><button aria-label="Bajar">▼</button></div><div class="hd2" aria-label="Arrastrar">≡</div>`;
+    r.querySelector('b').textContent = m ? m.name : c.asset_id;
+    const [up, dn] = r.querySelectorAll('.mv button'); up.disabled = i === 0; dn.disabled = i === clips.length - 1;
+    up.onclick = () => moveClip(c.id, i - 1); dn.onclick = () => moveClip(c.id, i + 1);
+    r.querySelector('.hd2').addEventListener('pointerdown', (e) => dragRow(e, r, i));
+    L.appendChild(r);
+  });
+}
+function moveClip(id, to) {
+  const ids = sortedClips(session.project).map(c => c.id), from = ids.indexOf(id);
+  if (to < 0 || to >= ids.length) return;
+  ids.splice(to, 0, ids.splice(from, 1)[0]); commitOrder(ids);
+}
+function commitOrder(ids) {
+  const ops = reorderOps(session.project, ids); if (!ops) return say('No se pudo reordenar.', 'bad');
+  if (ops.length) { const r = run(ops); if (!r.ok) return say('No se pudo: ' + r.message, 'bad'); }
+  renderVids();
+}
+function dragRow(e, row, from) {
+  e.preventDefault(); const rows = [...$('vlist').children], h = row.offsetHeight, y0 = e.clientY; let to = from;
+  row.classList.add('drag');
+  const mv = (ev) => {
+    const dy = ev.clientY - y0; row.style.transform = `translateY(${dy}px)`;
+    to = Math.max(0, Math.min(rows.length - 1, Math.round(from + dy / h)));
+    rows.forEach((r, i) => { if (r !== row) r.style.transform = (from < to && i > from && i <= to) ? `translateY(${-h}px)` : (from > to && i < from && i >= to) ? `translateY(${h}px)` : ''; });
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    if (to !== from) moveClip(row.dataset.id, to); else renderVids();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
 
 $('trim').onclick = () => {
   const c = session.project.clips[0];
-  const r = run([{ op: 'trim_clip', clip_id: c?.id, in: parseFloat($('tin').value.replace(',', '.')), out: parseFloat($('tout').value.replace(',', '.')) }]);
+  const r = edit([{ op: 'trim_clip', clip_id: c?.id, in: parseFloat($('tin').value.replace(',', '.')), out: parseFloat($('tout').value.replace(',', '.')) }]);
   say(r.ok ? 'Recortado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
-$('addtxt').onclick = () => {
-  const r = run([{ op: 'add_text', text: $('txt').value, start: 0, duration: 3 }]);
-  say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
-};
-$('undo').onclick = () => { session.undo(); render(); say('Deshecho.', 'ok'); };
-
 $('copy').onclick = async () => {
   const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
-  catch { $('reply').value = ''; $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
+  catch { $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
 $('apply').onclick = () => {
   const ops = parseReply($('reply').value);
   if (!ops) return say('No encontré una lista de operaciones en lo que pegaste. Pídele a la IA: “responde solo con el JSON”.', 'bad');
   const r = run(ops);
-  say(r.ok ? `Aplicado (${ops.length} operaciones).` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
-};
-
-$('play').onclick = () => {
-  const v = $('v'), p = session.project;
-  const clips = [...p.clips].sort((a, b) => a.start - b.start);
-  if (!clips.length) return;
-  clearInterval(previewTimer);
-  let i = 0, t0 = 0;
-  const go = () => { v.currentTime = clips[i].in; v.play().catch(() => {}); };
-  go();
-  let elapsed = 0;
-  previewTimer = setInterval(() => {
-    const c = clips[i];
-    const now = clips.slice(0, i).reduce((s, k) => s + (k.out - k.in), 0) + (v.currentTime - c.in);
-    $('ov').textContent = p.texts.filter(t => now >= t.start && now < t.end).map(t => t.text).join(' ');
-    if (v.currentTime >= c.out - 0.05) {
-      if (++i >= clips.length) { v.pause(); clearInterval(previewTimer); $('ov').textContent = ''; } else go();
-    }
-  }, 100);
+  if (r.ok) closeSheets();
+  say(r.ok ? `Aplicado (${ops.length} operaciones). Revisa la línea de tiempo.` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
 };
 
 $('observe').onclick=async()=>{
@@ -471,6 +635,134 @@ $('observe').onclick=async()=>{
   }catch(e){visualEvidence=null;$('visionStatus').textContent='No se pudo observar este archivo: '+e.message}
   finally{visualBusy=false;render()}
 };
+
+/* ---------- Línea de tiempo: la línea blanca está fija al centro y el contenido se desliza por debajo ---------- */
+function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if (!plan.ok) return plan; return run(plan.ops); }
+const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
+function showFrame() {
+  const hit = clipAt(session.project, tlTime);
+  if (hit) useAsset(hit.clip.asset_id, hit.assetTime);
+  $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+}
+function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
+function syncScroll() { if (session) wrap().scrollLeft = tlTime * pps; labels(); }
+wrap().addEventListener('scroll', () => {
+  if (!session || playing) return;
+  const t = Math.max(0, Math.min(wrap().scrollLeft / pps, totalDuration(session.project)));
+  if (Math.abs(t - tlTime) < 0.004) return;
+  tlTime = t; showFrame(); labels();
+}, { passive: true });
+function renderTimeline() {
+  const p = session?.project, inner = $('tlinner'), L = padL();
+  $('vtrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
+  if (!p) { labels(); return; }
+  const tot = totalDuration(p);
+  inner.style.width = (L * 2 + tot * pps) + 'px';
+  const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
+  for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (L + t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
+  for (const c0 of sortedClips(p)) {
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
+    const mm = media[c.asset_id], step = mm ? mm.step : 1;
+    for (const th of (mm ? mm.thumbs : [])) {
+      const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
+      if (left + w < 0 || left > (c.out - c.in) * pps) continue;
+      const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
+    }
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('vtrack').appendChild(b);
+  }
+  for (const t of p.texts) {
+    const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
+  }
+  labels();
+}
+$('tlinner').addEventListener('click', (e) => {
+  const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
+  selId = selId === b.dataset.id ? null : b.dataset.id; render();
+});
+$('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bordes amarillos = recortar
+  const h = e.target.closest('.hd'); if (!h) return;
+  const id = h.parentElement.dataset.id, c = session.project.clips.find(k => k.id === id), a = session.project.assets.find(k => k.id === c.asset_id);
+  const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
+  e.preventDefault();
+  const mv = (ev) => {
+    const d = (ev.clientX - x0) / pps;
+    if (side === 'l') drag.in = round2(Math.max(0, Math.min(c.in + d, c.out - 0.2)));
+    else drag.out = round2(Math.min(a.duration, Math.max(c.out + d, c.in + 0.2)));
+    renderTimeline();
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    const d = drag; drag = null;
+    if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
+      const r = edit([{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }]);
+      say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+    } else render();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+});
+$('split').onclick = () => {
+  const r = splitAt(session.project, tlTime); if (!r.ok) return say(r.message, 'bad');
+  const rr = run(r.ops); say(rr.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + rr.message, rr.ok ? 'ok' : 'bad');
+};
+$('del').onclick = () => {
+  if (!selId) return say('Toca un clip para elegirlo.', 'bad');
+  const r = edit([{ op: 'delete_clip', clip_id: selId }]); say(r.ok ? 'Clip borrado; los siguientes se juntaron.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('addtxt').onclick = () => {
+  const tot = totalDuration(session.project);
+  const r = run([{ op: 'add_text', text: $('txt').value, start: Math.min(tlTime, Math.max(0, tot - 0.1)), duration: 3 }]);
+  if (r.ok) closeSheets(); say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
+$('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
+function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
+$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
+$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
+$('play').onclick = () => {
+  if (playing) return stopPlay();
+  const p = session.project; if (!p.clips.length) return;
+  if (tlTime >= totalDuration(p) - 0.05) tlTime = 0;
+  playing = true; $('play').innerHTML = PAUSE; let cur = null;
+  const frame = () => {
+    if (!playing) return;
+    const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
+    if (!hit) {
+      const next = sortedClips(session.project).find(c => c.start > tlTime);
+      if (!next) { stopPlay(); return; }
+      tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
+    }
+    if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
+    if (cur !== hit.clip.id) { cur = hit.clip.id; const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
+    const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
+    if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+    wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+};
+$('v').addEventListener('click', () => { if (session) $('play').click(); });
+
+async function makeThumbs(id) {
+  const m = media[id]; if (!m) return;
+  const dur = m.duration, n = Math.max(6, Math.min(30, Math.round(dur))); m.step = dur / n; m.thumbs = [];
+  const t = document.createElement('video'); t.muted = true; t.playsInline = true; t.preload = 'auto'; t.src = m.url;
+  const cv = document.createElement('canvas'); cv.height = 56; cv.width = Math.max(24, Math.round(56 * (m.w / m.h || 0.56)));
+  const cx = cv.getContext('2d');
+  const seekTo = (time) => new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('seek')), 4000); t.onseeked = () => { clearTimeout(to); res(); }; t.currentTime = time; });
+  try {
+    await new Promise((res, rej) => { t.onloadeddata = res; t.onerror = rej; setTimeout(rej, 6000); });
+    for (let i = 0; i < n; i++) {
+      const time = (i + 0.5) * m.step; await seekTo(time);
+      cx.drawImage(t, 0, 0, cv.width, cv.height); m.thumbs.push({ t: time, url: cv.toDataURL('image/jpeg', 0.5) });
+      if (i % 4 === 3 || i === n - 1 || i === 0) { renderTimeline(); if ($('sVids').classList.contains('on')) renderVids(); }
+    }
+  } catch { /* sin miniaturas: los bloques se ven igual */ }
+}
 
 render();
 </script>
