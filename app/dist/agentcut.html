@@ -57,6 +57,15 @@
   <div id="msg"></div>
 </section>
 
+<section>
+  <h2>4. Observar el video (local)</h2>
+  <p class="m">Escanea ocho fotogramas livianos y propone momentos con cambios visuales. Las imágenes nunca salen del dispositivo desde esta pantalla. No identifica calles, personas ni voz.</p>
+  <button id="observe" class="sec" disabled>🔍 Inspeccionar fotogramas</button>
+  <div id="visionStatus" class="m" role="status" aria-live="polite"></div>
+  <div id="visualCandidates"></div>
+  <p class="m">Cuando uses «Copiar el mensaje para mi IA», podrás incluir estas métricas numéricas. La IA no verá los fotogramas originales: si necesita reconocer lugares, tendrás que compartir imágenes por separado y con tu permiso.</p>
+</section>
+
 <section><h2>Línea de tiempo</h2><div id="tl"><p class="m">Vacía.</p></div></section>
 
 <script>
@@ -207,7 +216,7 @@ function runTool(session, name, args = {}) {
 }
 
 // Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
-function buildPrompt(request, project) {
+function buildPrompt(request, project, observation = null) {
   return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
 
 Operaciones permitidas (tiempos en segundos):
@@ -222,6 +231,10 @@ Si algo es imposible, responde [] y nada más.
 
 Proyecto actual:
 ${JSON.stringify({ revision: project.revision, assets: project.assets, clips: project.clips, texts: project.texts })}
+Información visual local opcional (resumen numérico; NO fotografías ni reconocimiento semántico):
+${observation ? JSON.stringify(observation) : 'Sin análisis visual.'}
+Importante: NO afirmes que viste fotogramas, que reconociste calles, conversaciones, rostros ni acontecimientos por estas puntuaciones. Indica incertidumbre cuando la evidencia sea insuficiente.
+${observation ? 'La persona decidió copiar estas métricas al chat, pero la app NO envió el video.' : ''}
 
 Petición del usuario: ${request}`;
 }
@@ -235,8 +248,114 @@ function parseReply(text) {
   return Array.isArray(v) && v.length ? v : null;
 }
 
+/**
+ * Local VISUAL observation: sample a few downscaled video frames.
+ * Not OCR, geolocation, semantic video understanding or a neural network.
+ * Frames never leave the browser. May be slow/unsupported on some Safari builds.
+ * — ChatGPT
+ */
+function changeScore(previous, next){
+ if(!previous||!next||previous.length!==next.length||next.length===0)throw new Error("Comparable frames required");
+ let s=0;for(let i=0;i<next.length;i++)s+=Math.abs(next[i]-previous[i]);
+ return Math.round((s/next.length)/255*10000)/10000;
+}
+function lumaAndTexture(data,w,h){
+ const luma=new Uint8Array(w*h);let sum=0,diff=0,count=0;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const idx=y*w+x,i=idx*4;
+   const v=Math.round(.2126*data[i]+.7152*data[i+1]+.0722*data[i+2]);
+   luma[idx]=v;sum+=v;
+   if(x){diff+=Math.abs(v-luma[idx-1]);count++}
+ }
+ return {pixels:luma,brightness:Math.round(sum/(w*h))/255,texture:count?diff/count/255:0};
+}
+function seek(video,time,timeoutMs){
+ return new Promise((resolve,reject)=>{
+   let settled=false;
+   const finish=error=>{
+     if(settled)return;settled=true;
+     video.removeEventListener('seeked',onSeek);video.removeEventListener('error',onError);
+     clearTimeout(timer);error?reject(error):resolve();
+   };
+   const onSeek=()=>finish();
+   const onError=()=>finish(new Error('Video seek failed'));
+   const timer=setTimeout(()=>finish(new Error('Video seek timeout')),timeoutMs);
+   video.addEventListener('seeked',onSeek,{once:true});
+   video.addEventListener('error',onError,{once:true});
+   try {video.currentTime=time;if(Math.abs(video.currentTime-time)<.025&&!video.seeking&&video.readyState>=2)finish();}
+   catch(error){finish(error)}
+ });
+}
+async function inspectVideoFrames(video,{
+ sampleCount=8, onProgress=()=>{}, signal=null, timeoutMs=6500
+}={}){
+ if(!video||!Number.isFinite(video.duration)||video.duration<=0||!video.videoWidth)throw new Error('Video not ready');
+ if(!Number.isInteger(sampleCount)||sampleCount<2||sampleCount>20)throw new RangeError('Use 2–20 frames');
+ const wasPaused=video.paused,originalTime=video.currentTime;
+ const w=96,h=Math.max(2,Math.round(96*video.videoHeight/video.videoWidth));
+ const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw new Error('Canvas 2D unavailable');
+ const result=[];let previous=null;
+ video.pause();
+ try{
+   for(let i=0;i<sampleCount;i++){
+     if(signal?.aborted)throw new Error('Analysis cancelled');
+     // Keep away from end to improve Safari seeking reliability.
+     const t=Math.min(Math.max(0,video.duration-.12),(.1+(i+.5)/sampleCount*(video.duration-.2)));
+     await seek(video,t,timeoutMs);
+     if(signal?.aborted)throw new Error('Analysis cancelled');
+     ctx.drawImage(video,0,0,w,h);
+     const frame=lumaAndTexture(ctx.getImageData(0,0,w,h).data,w,h);
+     const delta=previous?changeScore(previous,frame.pixels):0;
+     result.push({time:Math.round(t*100)/100,brightness:Math.round(frame.brightness*1000)/1000,
+       texture:Math.round(frame.texture*1000)/1000,delta,thumbnailDataUrl:canvas.toDataURL('image/jpeg',0.58)});
+     previous=frame.pixels;
+     onProgress(i+1,sampleCount);
+   }
+ }finally{
+   try{await seek(video,Math.min(originalTime,Math.max(0,video.duration-.12)),timeoutMs)}catch{}
+   if(!wasPaused){try{await video.play()}catch{}}
+ }
+ return {
+   method:'sparse_local_frame_differences_v1',sampledFrames:result.length,
+   frameSize:{width:w,height:h},duration:video.duration,
+   changes:result.slice(1).sort((a,b)=>b.delta-a.delta),
+   samples:result,
+   warnings:[
+     'Scenes and streets are NOT semantically recognized. Differences may come from motion, lighting or camera movement.',
+     'No GPS, audio, OCR or facial identification. Source frames stay on-device.',
+     'Sparse sampling can skip important events; do not represent these as verified highlights.'
+   ]
+ };
+}
+
+/** Turn measured frame changes into cautious clip candidates. */
+function visualCandidates(evidence,maxCount=3){
+ if(!evidence?.changes||!Number.isFinite(evidence.duration))throw new Error('Observación válida requerida');
+ return evidence.changes.slice(0,maxCount).map((x,i)=>({
+   id:'visual-'+(i+1),at:x.time,
+   start:Math.round(Math.max(0,x.time-3)*100)/100,
+   end:Math.round(Math.min(evidence.duration,x.time+7)*100)/100,
+   basis:'Cambio visual aproximado, sin comprensión del contenido',
+   confidence:'unknown'
+ })).filter(x=>x.end>x.start);
+}
+/** Minimal, non-identifying context for remote LLMs: NO frame bytes. */
+function evidenceForPrompt(evidence){
+ if(!evidence)return null;
+ return {
+   method:evidence.method,
+   sourceDurationSeconds:Math.round(evidence.duration*100)/100,
+   sampledFrames:evidence.sampledFrames,
+   visualChangeCandidates:visualCandidates(evidence).map(({at,start,end,basis})=>({at,start,end,basis})),
+   confirmedStreetName:null,confirmedSpeech:null,confirmedObjects:null,
+   warning:'Solo diferencias visuales numéricas; NO se enviaron ni observaron imágenes semánticas. Sin reconocimiento de voz, calles ni GPS. No inventes eventos.'
+ };
+}
+
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null, previewTimer = null;
+let visualEvidence = null, visualBusy = false;
 
 function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
 function fmt(n) { return Math.round(n * 100) / 100; }
@@ -245,6 +364,7 @@ function render() {
   const p = session?.project;
   const on = !!p;
   for (const id of ['trim','addtxt','copy','apply','play']) $(id).disabled = !on;
+  $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   if (!p || (!p.clips.length && !p.texts.length)) { $('tl').innerHTML = '<p class="m">Vacía.</p>'; return; }
   $('tl').innerHTML = p.clips.map(c => `<div class="item"><b>${c.id}</b> · usa ${fmt(c.in)}–${fmt(c.out)} s · empieza en ${fmt(c.start)} s</div>`).join('') +
@@ -260,6 +380,7 @@ function run(ops) {
 
 $('file').addEventListener('change', () => {
   const f = $('file').files[0]; if (!f) return;
+  visualEvidence=null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent='';
   if (objUrl) URL.revokeObjectURL(objUrl);
   objUrl = URL.createObjectURL(f);
   const v = $('v'); v.src = objUrl;
@@ -287,7 +408,7 @@ $('addtxt').onclick = () => {
 $('undo').onclick = () => { session.undo(); render(); say('Deshecho.', 'ok'); };
 
 $('copy').onclick = async () => {
-  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project);
+  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
   catch { $('reply').value = ''; $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
@@ -316,6 +437,41 @@ $('play').onclick = () => {
     }
   }, 100);
 };
+
+$('observe').onclick=async()=>{
+  if(!session||visualBusy)return;
+  visualBusy=true;render();$('visualCandidates').replaceChildren();
+  $('visionStatus').textContent='Inspeccionando video localmente. No hay envío a servidores.';
+  try{
+    const seen=await inspectVideoFrames($('v'),{
+      sampleCount:8,
+      onProgress:(n,total)=>{$('visionStatus').textContent='Fotogramas inspeccionados: '+n+'/'+total}
+    });
+    visualEvidence=seen;
+    const candidates=visualCandidates(seen);
+    for(const c of candidates){
+      const row=document.createElement('div');row.className='item';
+      const sample=seen.samples.reduce((best,x)=>!best||Math.abs(x.time-c.at)<Math.abs(best.time-c.at)?x:best,null);
+      if(sample?.thumbnailDataUrl){
+        const img=document.createElement('img');img.src=sample.thumbnailDataUrl;img.alt='Fotograma local aprox. '+c.at+' segundos';img.width=112;img.height=70;img.style.cssText='object-fit:contain;border-radius:8px;background:#000;float:right;margin-left:8px';
+        row.appendChild(img);
+      }
+      const title=document.createElement('p');title.textContent='Cambio visual aproximado cerca de '+c.at+' s. No se sabe qué ocurre allí.';
+      row.appendChild(title);
+      const see=document.createElement('button');see.className='sec';see.textContent='Ver ese momento';
+      see.onclick=()=>{$('v').currentTime=c.at};
+      row.appendChild(see);
+      const prepare=document.createElement('button');prepare.className='sec';
+      prepare.textContent='Preparar corte '+c.start+' a '+c.end+' s';
+      prepare.onclick=()=>{$('tin').value=String(c.start);$('tout').value=String(c.end);
+        $('visionStatus').textContent='Propuesta preparada en Inicio/Fin. Revisa y pulsa «Recortar el primer clip» si estás conforme.';};
+      row.appendChild(prepare);$('visualCandidates').appendChild(row);
+    }
+    $('visionStatus').textContent='Listo: ocho fotogramas observados de forma local. Los cambios son indicios, no highlights confirmados.';
+  }catch(e){visualEvidence=null;$('visionStatus').textContent='No se pudo observar este archivo: '+e.message}
+  finally{visualBusy=false;render()}
+};
+
 render();
 </script>
 </body>
