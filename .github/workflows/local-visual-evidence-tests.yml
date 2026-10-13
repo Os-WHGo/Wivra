@@ -1,0 +1,23 @@
+name: Local Visual Evidence Tests
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - '.github/workflows/local-visual-evidence-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check visual module and basic safeguards
+        run: node --test app/tests/vision.test.mjs
+      - name: Verify existing core is still valid
+        run: cd core && npm test
+      - name: Rebuild single-file app and check committed output
+        run: node app/build.mjs && git diff --exit-code -- app/dist/agentcut.html
