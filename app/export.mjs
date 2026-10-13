@@ -1,4 +1,4 @@
-// AgentCut · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
+// Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 
