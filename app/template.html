@@ -57,12 +57,22 @@
   <div id="msg"></div>
 </section>
 
+<section>
+  <h2>4. Observar el video (local)</h2>
+  <p class="m">Escanea ocho fotogramas livianos y propone momentos con cambios visuales. Las imágenes nunca salen del dispositivo desde esta pantalla. No identifica calles, personas ni voz.</p>
+  <button id="observe" class="sec" disabled>🔍 Inspeccionar fotogramas</button>
+  <div id="visionStatus" class="m" role="status" aria-live="polite"></div>
+  <div id="visualCandidates"></div>
+  <p class="m">Cuando uses «Copiar el mensaje para mi IA», podrás incluir estas métricas numéricas. La IA no verá los fotogramas originales: si necesita reconocer lugares, tendrás que compartir imágenes por separado y con tu permiso.</p>
+</section>
+
 <section><h2>Línea de tiempo</h2><div id="tl"><p class="m">Vacía.</p></div></section>
 
 <script>
 /*__CORE__*/
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null, previewTimer = null;
+let visualEvidence = null, visualBusy = false;
 
 function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
 function fmt(n) { return Math.round(n * 100) / 100; }
@@ -71,6 +81,7 @@ function render() {
   const p = session?.project;
   const on = !!p;
   for (const id of ['trim','addtxt','copy','apply','play']) $(id).disabled = !on;
+  $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   if (!p || (!p.clips.length && !p.texts.length)) { $('tl').innerHTML = '<p class="m">Vacía.</p>'; return; }
   $('tl').innerHTML = p.clips.map(c => `<div class="item"><b>${c.id}</b> · usa ${fmt(c.in)}–${fmt(c.out)} s · empieza en ${fmt(c.start)} s</div>`).join('') +
@@ -86,6 +97,7 @@ function run(ops) {
 
 $('file').addEventListener('change', () => {
   const f = $('file').files[0]; if (!f) return;
+  visualEvidence=null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent='';
   if (objUrl) URL.revokeObjectURL(objUrl);
   objUrl = URL.createObjectURL(f);
   const v = $('v'); v.src = objUrl;
@@ -113,7 +125,7 @@ $('addtxt').onclick = () => {
 $('undo').onclick = () => { session.undo(); render(); say('Deshecho.', 'ok'); };
 
 $('copy').onclick = async () => {
-  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project);
+  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
   catch { $('reply').value = ''; $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
@@ -142,6 +154,41 @@ $('play').onclick = () => {
     }
   }, 100);
 };
+
+$('observe').onclick=async()=>{
+  if(!session||visualBusy)return;
+  visualBusy=true;render();$('visualCandidates').replaceChildren();
+  $('visionStatus').textContent='Inspeccionando video localmente. No hay envío a servidores.';
+  try{
+    const seen=await inspectVideoFrames($('v'),{
+      sampleCount:8,
+      onProgress:(n,total)=>{$('visionStatus').textContent='Fotogramas inspeccionados: '+n+'/'+total}
+    });
+    visualEvidence=seen;
+    const candidates=visualCandidates(seen);
+    for(const c of candidates){
+      const row=document.createElement('div');row.className='item';
+      const sample=seen.samples.reduce((best,x)=>!best||Math.abs(x.time-c.at)<Math.abs(best.time-c.at)?x:best,null);
+      if(sample?.thumbnailDataUrl){
+        const img=document.createElement('img');img.src=sample.thumbnailDataUrl;img.alt='Fotograma local aprox. '+c.at+' segundos';img.width=112;img.height=70;img.style.cssText='object-fit:contain;border-radius:8px;background:#000;float:right;margin-left:8px';
+        row.appendChild(img);
+      }
+      const title=document.createElement('p');title.textContent='Cambio visual aproximado cerca de '+c.at+' s. No se sabe qué ocurre allí.';
+      row.appendChild(title);
+      const see=document.createElement('button');see.className='sec';see.textContent='Ver ese momento';
+      see.onclick=()=>{$('v').currentTime=c.at};
+      row.appendChild(see);
+      const prepare=document.createElement('button');prepare.className='sec';
+      prepare.textContent='Preparar corte '+c.start+' a '+c.end+' s';
+      prepare.onclick=()=>{$('tin').value=String(c.start);$('tout').value=String(c.end);
+        $('visionStatus').textContent='Propuesta preparada en Inicio/Fin. Revisa y pulsa «Recortar el primer clip» si estás conforme.';};
+      row.appendChild(prepare);$('visualCandidates').appendChild(row);
+    }
+    $('visionStatus').textContent='Listo: ocho fotogramas observados de forma local. Los cambios son indicios, no highlights confirmados.';
+  }catch(e){visualEvidence=null;$('visionStatus').textContent='No se pudo observar este archivo: '+e.message}
+  finally{visualBusy=false;render()}
+};
+
 render();
 </script>
 </body>
