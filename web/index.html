@@ -166,7 +166,7 @@
     ];
     return formats.find(type=>MediaRecorder.isTypeSupported(type))||null;
   }
-  async function ensureAudio(){
+  function ensureAudio(){
     const Ctx=window.AudioContext||window.webkitAudioContext;
     if(!Ctx)throw new Error("Este navegador no permite mezclar audio mediante Web Audio.");
     if(!audioContext){
@@ -175,7 +175,8 @@
       mediaSource.connect(audioDestination);
       mediaSource.connect(audioContext.destination);
     }
-    await audioContext.resume();
+    // Resume within the user gesture; do not await before calling video.play() on iOS.
+    void audioContext.resume();
     const tracks=audioDestination.stream.getAudioTracks();
     if(!tracks.length)throw new Error("No se pudo crear la pista de sonido.");
     return tracks;
@@ -240,12 +241,11 @@
       layoutCanvas();paintFrame();el.renderWrap.classList.remove("hidden");
       el.progress.classList.remove("hidden");el.progress.value=0;
       // Request an audio context only on an explicit user interaction. A few Safari builds can still reject this graph.
-      const pendingAudio=withAudio?ensureAudio():Promise.resolve([]);
+      const audioTracks=withAudio?ensureAudio():[];
       const videoStream=el.renderCanvas.captureStream(24);
       const tracks=videoStream.getVideoTracks();
       if(!tracks.length)throw new Error("No se obtuvo ninguna pista de video.");
       stream=new MediaStream(tracks);
-      const audioTracks=await pendingAudio;
       for(const track of audioTracks)stream.addTrack(track);
       recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2100000});
       recorder.addEventListener("dataavailable",e=>{if(e.data && e.data.size)parts.push(e.data)});
@@ -283,9 +283,10 @@
       message("Exportando en tiempo real. Mantén esta pantalla abierta. Formato: "+mime);
       raf=requestAnimationFrame(tick);
     }catch(error){
-      abortReason="";parts=[];
+      const failure="No se pudo exportar: "+(error.message||String(error))+". Puedes intentar otra vez sin audio.";
+      abortReason=failure;parts=[];
       if(recorder && recorder.state!=="inactive"){try{recorder.stop()}catch(e){}}
-      cleanup();message("No se pudo exportar: "+(error.message||String(error))+". Puedes intentar otra vez sin audio.","error");
+      cleanup();message(failure,"error");
     }
   });
   window.addEventListener("pagehide",()=>{if(recording)finishRecording("Exportación interrumpida.")});
