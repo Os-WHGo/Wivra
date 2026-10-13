@@ -1,6 +1,6 @@
 // Junta core/ + prompt en UN solo archivo HTML (se puede abrir desde el teléfono sin servidor). — Claude
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-const strip = (s) => s.replace(/^import .*$/gm, '').replace(/^export (class|function|const|default)/gm, '$1');
+const strip = (s) => s.replace(/^import .*$/gm, '').replace(/^export (?=async function|class|function|const|default)/gm, '');
 const core = ['../core/project.mjs', '../core/operations.mjs', '../core/session.mjs', '../core/tools.mjs', './prompt.mjs', './vision.mjs']
   .map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
