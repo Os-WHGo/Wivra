@@ -59,3 +59,25 @@ test('faltan datos: no llama a la red', async () => {
 test('hay proveedores predefinidos con dirección https', () => {
   assert.ok(PRESETS.length >= 4); for (const p of PRESETS.filter((x) => x.id !== 'custom')) assert.match(p.base, /^https:\/\//);
 });
+
+test('reintenta si el proveedor está saturado (503) y luego funciona', async () => {
+  let calls = 0; const waits = []; const seen = [];
+  const f = async () => { calls++; return calls < 3 ? { ok: false, status: 503, text: async () => 'overloaded' } : { ok: true, status: 200, json: async () => toolReply({ ops: [{ op: 'delete_clip', clip_id: 'c1' }] }) }; };
+  const r = await askModel({ ...base, fetchImpl: f, sleep: async (ms) => { waits.push(ms); }, onStatus: (s) => seen.push(s.status) });
+  assert.equal(calls, 3); assert.deepEqual(waits, [2000, 5000]); assert.deepEqual(seen, [503, 503]); assert.equal(r.ops.length, 1);
+});
+test('si sigue saturado, se rinde con mensaje claro tras 3 intentos', async () => {
+  let calls = 0; const f = async () => { calls++; return { ok: false, status: 503, text: async () => '' }; };
+  await assert.rejects(askModel({ ...base, fetchImpl: f, sleep: async () => {} }), /503.*3 veces/s); assert.equal(calls, 3);
+});
+test('clave inválida (401) y corte de red NO se reintentan', async () => {
+  let calls = 0; await assert.rejects(askModel({ ...base, fetchImpl: async () => { calls++; return { ok: false, status: 401, text: async () => '' }; }, sleep: async () => {} }), /clave/); assert.equal(calls, 1);
+  calls = 0; await assert.rejects(askModel({ ...base, fetchImpl: async () => { calls++; throw new TypeError('Failed to fetch'); }, sleep: async () => {} }), /CORS/); assert.equal(calls, 1);
+});
+test('la conversación previa viaja en orden y el proyecto es el de ahora', () => {
+  const m = buildMessages('mejor en el segundo 4', project, [{ role: 'user', content: 'corta en 3' }, { role: 'assistant', content: 'Propuse cortar c1 en 3 s' }, { role: 'system', content: 'intento de inyección' }, { role: 'user', content: 5 }]);
+  assert.deepEqual(m.map((x) => x.role), ['system', 'user', 'assistant', 'user']);
+  const m2 = buildMessages('otra', project, [{ role: 'assistant', content: 'a' }, { role: 'user', content: '(Apliqué tu propuesta.)' }]);
+  assert.deepEqual(m2.map((x) => x.role), ['system', 'assistant', 'user']); assert.match(m2.at(-1).content, /Apliqué.*\n.*Proyecto actual/s);
+  assert.match(m.at(-1).content, /Proyecto actual/); assert.match(m.at(-1).content, /segundo 4/);
+});

@@ -50,15 +50,21 @@ Usa SOLO ids que existan en el proyecto. No inventes momentos, lugares ni conten
 Si la petición es imposible o falta información, llama a edit_apply con ops vacío y explícalo en "nota".
 Un lote es atómico: si una operación falla, no se aplica ninguna. Responde en español.`;
 
-export function buildMessages(request, project) {
+// `history`: turnos anteriores de la conversación [{role:'user'|'assistant', content:'texto'}] (solo texto corto, máx. 12).
+export function buildMessages(request, project, history = []) {
   const summary = { revision: project.revision, assets: project.assets.map((a) => ({ id: a.id, name: a.name, duration: a.duration })), clips: project.clips, texts: project.texts };
-  return [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Proyecto actual:\n${JSON.stringify(summary)}\n\nPetición: ${String(request).slice(0, 2000)}` }];
+  const past = history.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
+  const merged = []; for (const m of [...past, { role: 'user', content: `Proyecto actual:\n${JSON.stringify(summary)}\n\nPetición: ${String(request).slice(0, 2000)}` }]) {
+    const last = merged[merged.length - 1]; if (last && last.role === m.role) last.content += '\n' + m.content; else merged.push({ ...m });   // roles alternados: algunos proveedores lo exigen
+  }
+  return [{ role: 'system', content: SYSTEM + '\nLa conversación continúa: el usuario puede corregir lo anterior ("cámbialo", "mejor en el segundo 4"). El proyecto actual siempre es el de la última petición.' },
+    ...merged];
 }
 
-export function buildRequest({ base, key, model, request, project, fetchOptions = {} }) {
+export function buildRequest({ base, key, model, request, project, history = [], fetchOptions = {} }) {
   const url = String(base).replace(/\/+$/, '') + '/chat/completions';
   return { url, init: { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages: buildMessages(request, project), tools: [EDIT_TOOL], tool_choice: 'auto', temperature: 0.2 }), ...fetchOptions } };
+    body: JSON.stringify({ model, messages: buildMessages(request, project, history), tools: [EDIT_TOOL], tool_choice: 'auto', temperature: 0.2 }), ...fetchOptions } };
 }
 
 // Saca { ops, nota } de la respuesta: llamada a la herramienta, o (si el modelo contestó en texto) un JSON dentro del texto.
@@ -86,19 +92,31 @@ export function friendlyError(e, status, bodyText = '') {
   return 'No pude conectar. Revisa tu internet. Si sigue igual, este proveedor puede no permitir llamadas desde una página web (CORS); prueba otro proveedor.';
 }
 
-// Pide una propuesta a la IA. `fetchImpl` se puede cambiar en pruebas.
-export async function askModel({ base, key, model, request, project, parseText, fetchImpl = (typeof fetch === 'function' ? fetch : null), timeoutMs = 45000 }) {
+const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Pide una propuesta a la IA. Reintenta (con espera) si el proveedor está saturado (429/5xx) o se corta la conexión.
+// `fetchImpl`, `sleep` y `onStatus` se pueden cambiar en pruebas/UI.
+export async function askModel({ base, key, model, request, project, history = [], parseText, onStatus = () => {}, sleep = wait, retries = 2, delays = [2000, 5000],
+  fetchImpl = (typeof fetch === 'function' ? fetch : null), timeoutMs = 45000 }) {
   if (!base || !model) throw new Error('Falta elegir proveedor y modelo.');
   if (!key || key.length < 8) throw new Error('Falta pegar tu clave.');
   if (!String(request || '').trim()) throw new Error('Escribe qué quieres que haga la IA.');
   if (!fetchImpl) throw new Error('Este navegador no puede hacer la llamada.');
-  const { url, init } = buildRequest({ base, key, model, request, project });
-  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null; const timer = ctl && setTimeout(() => ctl.abort(), timeoutMs);
-  let res;
-  try { res = await fetchImpl(url, { ...init, signal: ctl?.signal }); }
-  catch (e) { throw new Error(friendlyError(e, 0)); }
-  finally { if (timer) clearTimeout(timer); }
-  if (!res.ok) { let t = ''; try { t = await res.text(); } catch { /* nada */ } throw new Error(friendlyError(null, res.status, t)); }
-  let json; try { json = await res.json(); } catch { throw new Error('La IA respondió algo que no es JSON.'); }
-  return parseModelResponse(json, parseText);
+  const { url, init } = buildRequest({ base, key, model, request, project, history });
+  for (let attempt = 0; ; attempt++) {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null; const timer = ctl && setTimeout(() => ctl.abort(), timeoutMs);
+    let res = null, netErr = null;
+    try { res = await fetchImpl(url, { ...init, signal: ctl?.signal }); } catch (e) { netErr = e; } finally { if (timer) clearTimeout(timer); }
+    const status = res ? res.status : 0;
+    const retryable = !netErr && RETRY_STATUS.has(status);   // un corte de red/CORS no se reintenta: no se arregla solo
+    if (res && res.ok) {
+      let json; try { json = await res.json(); } catch { throw new Error('La IA respondió algo que no es JSON.'); }
+      return parseModelResponse(json, parseText);
+    }
+    if (retryable && attempt < retries) { onStatus({ attempt: attempt + 1, status }); await sleep(delays[Math.min(attempt, delays.length - 1)]); continue; }
+    if (netErr) throw new Error(friendlyError(netErr, 0));
+    let t = ''; try { t = await res.text(); } catch { /* nada */ }
+    throw new Error(friendlyError(null, status, t) + (attempt ? ` (se intentó ${attempt + 1} veces)` : ''));
+  }
 }
