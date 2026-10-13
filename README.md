@@ -73,11 +73,11 @@ Reglas del bucle del agente / agent-loop rules:
 
 **Sobre "iniciar sesión" / About "sign in":** as far as we know, chat subscriptions (Claude.ai, ChatGPT, Meta AI) do not give third-party apps access. Apps use an **API key** the user pastes in (stored in Android Keystore) or, where a provider offers it, OAuth. This needs to be verified per provider before building the login screen.
 
-## Voz 100 % gratuita y abierta / Free and open-source voices
+## Voces y audio gratuitos / Free voice proposal (later stage)
 
-**Decisión propuesta / Proposed requirement:** transcripción, subtítulos, síntesis de voz y herramientas de audio esenciales deben ser gratuitas, sin APIs de voz de pago y funcionar localmente después de descargar los modelos. Primero reutilizar la implementación de Concat; auditar licencias de cada motor, voz y dependencia. Clonación solo con consentimiento explícito. La propuesta está documentada, **aún no implementada**.
+**Propuesta pendiente de aprobación del propietario, no implementada.** La preferencia expresada es disponer de narración, transcripción y subtítulos gratuitos y, cuando sea viable, con software y modelos de código abierto. Prioridad inmediata: **editor web táctil en Safari/Android que importa, corta, agrega texto y exporta un clip**. Las voces se investigarán después; se verificarán licencias de cada componente y límites del navegador. No se exige usar Concat ni una API de voz pagada.
 
-**Especificación para Claude y futuros colaboradores / Contributor handoff:** [docs/VOICE_OPEN_SOURCE_POLICY.md](docs/VOICE_OPEN_SOURCE_POLICY.md).
+**Revisión de opciones y pruebas pendientes:** [docs/VOICE_OPEN_SOURCE_POLICY.md](docs/VOICE_OPEN_SOURCE_POLICY.md).
 
 ## Plan por etapas / Roadmap
 
