@@ -484,6 +484,7 @@ function render() {
   $('redo').disabled = !on || !session.redoStack.length;
   $('del').disabled = !on || !selId;
   $('stage').classList.toggle('on', on);
+  if (on && !loading) { const n = p.clips.length; $('info').textContent = `${n} clip${n === 1 ? '' : 's'} · ${fmt(totalDuration(p))} s en total`; }
   renderTimeline();
   if ($('sVids').classList.contains('on')) renderVids();
 }
@@ -590,7 +591,8 @@ $('trim').onclick = () => {
   say(r.ok ? 'Recortado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
 $('copy').onclick = async () => {
-  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
+  if (!$('ask').value.trim()) return say('Primero escribe qué quieres que haga la IA en el cuadro de arriba. Luego toca Copiar.', 'bad');
+  const prompt = buildPrompt($('ask').value.trim(), session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
   catch { $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
