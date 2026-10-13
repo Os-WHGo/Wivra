@@ -7,6 +7,14 @@
 
 El README y `AGENTS.md` decían "app web solo para teléfono". Eso fue una interpretación mía y de ChatGPT, no una decisión del propietario. Este documento la reemplaza: **la arquitectura queda abierta y se decide con los datos de abajo**. Lo único fijo es el objetivo: abrir AgentCut en el teléfono, elegir videos o conectar las gafas, hablar con la IA preferida y que el editor ejecute lo pedido.
 
+## 0b. Decisiones del propietario (13 oct 2026, dichas en el chat con Claude)
+
+- **Una sola app**, no dos productos: editor con IA y, más adelante, transmisión (IRL, Ray-Ban Meta). Lo grabado en vivo debe abrirse como proyecto en el mismo editor.
+- **Prioridad al editor.** Orden: 1) editor con IA que funcione en el teléfono (importar, observar, operaciones validadas, vista previa, exportar); 2) grabar sin conexión con marcadores; 3) investigar y construir la transmisión, sin bloquear lo anterior.
+- **Sin clave de API por ahora.** El primer prototipo usa el modo "copiar y pegar" con ChatGPT o Claude normales (`app/`, PR #30) y, más adelante, opciones gratis (Gemini, GitHub Models) o IA local. Qué IA controla mejor se decide con la prueba de aceptación (sección 7), no antes.
+- Idiomas, traducción y subtítulos: el propietario cree que OpenAI es lo mejor. **[NV]** Se probará, no se da por hecho.
+- Un clasificador "descartar lo que no sirve antes de editar" va antes que cualquier procesamiento masivo (issue #28). Los "300 videos" eran un ejemplo, no la meta.
+
 ## 1. Recomendación en una frase
 
 **Un núcleo en TypeScript (proyecto, operaciones, validador, agente de IA, motor de edición) que hoy corre en el navegador del iPhone y más adelante se mete dentro de una app nativa pequeña (Capacitor u otra cápsula), la cual añade solo lo que la web no puede hacer: cámara de las gafas y transmisión en vivo.**
@@ -162,7 +170,7 @@ Después, en este orden: análisis de video (issue #6) → segundo proveedor (Ch
 
 1. ¿Autoriza GitHub Pages para probar la web en el iPhone?
 2. ¿Acepta, llegado el momento, pagar la cuenta de Apple Developer (99 USD/año) para instalar la app nativa en su iPhone?
-3. ¿Qué proveedor de IA quiere para el primer prototipo (recomiendo Claude por rapidez de integración; el segundo sería ChatGPT)?
-4. ¿Qué plataformas de transmisión le importan primero? (Recomiendo YouTube y Twitch para empezar, por tener requisitos más claros.)
+3. ~~Proveedor de IA para el primer prototipo~~ **Respondida:** sin clave por ahora; copiar y pegar con ChatGPT o Claude, y se compara con la prueba de aceptación. (Aviso: Claude tiene sesgo a favor de sí mismo; por eso se mide.)
+4. ¿Qué plataformas de transmisión le importan primero? (Se retoma después del editor.) (Recomiendo YouTube y Twitch para empezar, por tener requisitos más claros.)
 
 — Claude
