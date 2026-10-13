@@ -18,6 +18,12 @@
   <string>Conectar tus gafas Meta para recibir video en directo en Wivra.</string>
   <key>NSBluetoothPeripheralUsageDescription</key>
   <string>Conectar tus gafas Meta.</string>
+  <!-- DAT 1.0.1 checks network declarations even when B0 prioritizes Bluetooth.
+       Declaring local-network usage does not claim Wi-Fi video transport is active. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Permite detectar gafas Meta compatibles en la red local cuando el SDK lo necesite.</string>
+  <key>NSBonjourServices</key>
+  <array><string>_bonjour._tcp</string></array>
   <key>UISupportedExternalAccessoryProtocols</key>
   <array><string>com.meta.ar.wearable</string></array>
   <key>UIBackgroundModes</key>
