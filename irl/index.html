@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>AgentCut IRL offline · prueba</title>
+<style>
+:root{color-scheme:dark;background:#11131d;color:#f6f6fa;font:16px system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}body{margin:0;padding:calc(env(safe-area-inset-top) + 15px) 14px 34px}
+main{max-width:620px;margin:auto}h1{font-size:1.35rem}h2{font-size:1.05rem;margin:0 0 10px}
+p{line-height:1.48}.panel{background:#1d2130;border:1px solid #44485a;border-radius:14px;padding:15px;margin:12px 0}
+button{font:inherit;border:1px solid #8494cd;color:white;background:#3658c3;min-height:44px;padding:9px 13px;border-radius:11px;margin:4px 4px 4px 0}
+button:disabled{opacity:.45}input{font:inherit;max-width:100%}input[type=file]{display:block;padding:14px 0}
+video{display:block;background:black;width:100%;max-height:55vh;border-radius:10px;margin-top:12px}
+small,.muted{color:#bfc5d5}ol{padding-left:23px}li{padding:5px 0}a{color:#bad0ff}
+</style></head><body><main>
+<h1>📹 AgentCut · IRL offline</h1>
+<p class="muted">Primera prueba para marcar momentos de una grabación. <b>No graba, no transmite, no usa IA y no sube archivos.</b> Puedes grabar con la cámara del teléfono o con tus Ray-Ban Meta y después elegir ese video aquí.</p>
+<section class="panel"><h2>1. Elegir tu grabación</h2>
+<label for="source">Video desde Fotos o Archivos</label><input id="source" type="file" accept="video/*">
+<p id="status" role="status" aria-live="polite">No hay video seleccionado.</p>
+<video id="video" playsinline controls preload="metadata"></video>
+</section>
+<section class="panel"><h2>2. Marcar momentos interesantes</h2>
+<button id="mark" disabled>⭐ Marcar este instante</button>
+<button id="clear" disabled>Borrar marcas</button>
+<ol id="markers"><li>Sin marcas todavía.</li></ol>
+</section>
+<section class="panel"><h2>3. Sugerir intervalos</h2>
+<p class="muted">Por cada marca se propone una ventana de hasta 7 segundos antes y 12 segundos después, fusionando ventanas solapadas. <b>Son propuestas matemáticas, no descubrimientos de IA.</b></p>
+<button id="suggest" disabled>Ver candidatos a clips</button>
+<ol id="candidates"><li>Necesitas marcas y un video.</li></ol>
+<button id="export" disabled>⬇ Guardar proyecto JSON</button>
+<p class="muted">Guarda el video original aparte. El archivo JSON contiene marcas y tiempos, <b>no copia el video</b>. Podrás importarlo en el editor de AgentCut cuando esa función exista.</p>
+</section>
+<footer class="muted">Prueba original, sin dependencias, no validada aún en hardware iPhone/Android. No modifica ni borra archivos de Fotos.</footer>
+</main><script type="module">
+import {addMarker,makeProject,suggestHighlights} from './irl-project.mjs';
+const el=id=>document.getElementById(id);
+const v=el('video');let url=null;let markers=[];let src=null;let candidates=[];
+function pretty(s){return new Date(Math.max(0,s)*1000).toISOString().slice(11,19)}
+function render(){
+ const list=el('markers');list.replaceChildren();
+ if(!markers.length){const li=document.createElement('li');li.textContent='Sin marcas todavía.';list.appendChild(li)}
+ for(const m of markers){const li=document.createElement('li');const b=document.createElement('button');
+ b.type='button';b.textContent='Ir a '+pretty(m.second);
+ b.onclick=()=>{v.currentTime=m.second;v.play().catch(()=>{})};
+ li.appendChild(b);li.appendChild(document.createTextNode(' '+m.label));list.appendChild(li)}
+ el('suggest').disabled=!markers.length||!src;
+ el('clear').disabled=!markers.length;
+ el('export').disabled=!src;
+}
+el('source').addEventListener('change',()=>{
+ if(url){URL.revokeObjectURL(url);url=null}
+ markers=[];candidates=[];src=null;el('mark').disabled=true;el('candidates').replaceChildren();render();
+ const file=el('source').files?.[0];if(!file)return;
+ url=URL.createObjectURL(file);v.src=url;src={file,ready:false};
+ el('status').textContent='Leyendo el archivo local: '+file.name;
+});
+v.addEventListener('loadedmetadata',()=>{
+ if(!src)return;
+ if(!Number.isFinite(v.duration)||v.duration<=0){el('status').textContent='Duración no compatible.';return}
+ src.ready=true;src.duration=v.duration;el('mark').disabled=false;
+ el('status').textContent='Video listo ('+pretty(v.duration)+'). Pulsa marcar mientras reproduces.';
+ render();
+});
+v.addEventListener('error',()=>{if(src){src.ready=false;el('mark').disabled=true;el('status').textContent='Este formato no se reproduce en este navegador.'}});
+el('mark').addEventListener('click',()=>{
+ if(!src?.ready)return;
+ markers=addMarker(markers,v.currentTime,'Marca manual',src.duration);
+ render();el('status').textContent='Marca guardada en '+pretty(v.currentTime)+'.';
+});
+el('clear').addEventListener('click',()=>{markers=[];candidates=[];el('candidates').replaceChildren();render()});
+el('suggest').addEventListener('click',()=>{
+ if(!src?.ready)return;
+ candidates=suggestHighlights(markers,src.duration);
+ const list=el('candidates');list.replaceChildren();
+ for(const c of candidates){const li=document.createElement('li');
+ const b=document.createElement('button');b.textContent=pretty(c.startSeconds)+' → '+pretty(c.endSeconds);
+ b.onclick=()=>{v.currentTime=c.startSeconds;v.play().catch(()=>{})};
+ li.appendChild(b);li.appendChild(document.createTextNode(' · '+c.reasons.join(', ')));list.appendChild(li)}
+});
+el('export').addEventListener('click',()=>{
+ if(!src?.ready)return;
+ const project=makeProject({sourceType:'imported_local',filename:src.file.name,durationSeconds:src.duration,mimeType:src.file.type,markers});
+ const blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json'});
+ const downloadURL=URL.createObjectURL(blob);const a=document.createElement('a');a.href=downloadURL;a.download='agentcut-irl-project.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(downloadURL),30000);
+});
+window.addEventListener('pagehide',()=>{if(url)URL.revokeObjectURL(url)});
+render();
+</script></body></html>
