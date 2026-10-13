@@ -19,3 +19,11 @@ jobs:
         run: node --test streaming/tests/*.test.mjs
       - name: Validate source syntax
         run: node --check streaming/live-preflight.mjs && node --check streaming/hybrid-link-policy.mjs && node --check streaming/irl-resilience.mjs
+
+      - name: Swift B0 syntax grammar (NOT SDK compile)
+        run: |
+          if command -v swiftc >/dev/null 2>&1; then
+            swiftc -frontend -parse streaming/ios/B0/Sources/*.swift
+          else
+            echo 'swiftc not available on this Linux runner; native compile requires Xcode.'
+          fi
