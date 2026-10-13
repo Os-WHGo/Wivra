@@ -6,7 +6,7 @@
 
 // Direcciones tomadas de la documentación de cada proveedor. Límites gratuitos y CORS: por verificar en uso real.
 export const PRESETS = Object.freeze([
-  { id: 'gemini', name: 'Google Gemini (AI Studio)', base: 'https://generativelanguage.googleapis.com/v1beta/openai/', model: 'gemini-2.5-flash', keyUrl: 'https://aistudio.google.com/apikey' },
+  { id: 'gemini', name: 'Google Gemini (AI Studio)', base: 'https://generativelanguage.googleapis.com/v1beta/openai/', model: 'gemini-flash-latest', keyUrl: 'https://aistudio.google.com/apikey' },
   { id: 'groq', name: 'Groq', base: 'https://api.groq.com/openai/v1/', model: 'openai/gpt-oss-120b', keyUrl: 'https://console.groq.com/keys' },
   { id: 'openrouter', name: 'OpenRouter', base: 'https://openrouter.ai/api/v1/', model: 'openai/gpt-oss-120b:free', keyUrl: 'https://openrouter.ai/keys' },
   { id: 'openai', name: 'OpenAI (de pago)', base: 'https://api.openai.com/v1/', model: 'gpt-4.1-mini', keyUrl: 'https://platform.openai.com/api-keys' },
