@@ -34,10 +34,24 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee build.log
+      - name: Compile generic iPhone device (arm64), NO signing or install
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj \
+            -scheme WivraMetaB0 \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee device-build.log
       - name: Summarize errors if build fails
         if: failure()
         working-directory: streaming/ios/B0
         run: |
-          if test -f build.log; then
-            grep -E '(error:|BUILD FAILED|fatal error:)' build.log | tail -40 || true
-          fi
+          for logfile in build.log device-build.log; do
+            if test -f "$logfile"; then
+              echo "== $logfile errors =="
+              grep -E '(error:|BUILD FAILED|fatal error:)' "$logfile" | tail -40 || true
+            fi
+          done
