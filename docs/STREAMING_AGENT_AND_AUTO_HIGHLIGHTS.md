@@ -2,6 +2,8 @@
 **Propuesta del propietario aclarada 2026-10-13 · Documentado por ChatGPT**
 **Estado:** DISEÑO / NO IMPLEMENTADO / pruebas de hardware pendientes. Complementa [PR #12](https://github.com/Os-WHGo/agentcut/pull/12) y [PR #9 de Claude](https://github.com/Os-WHGo/agentcut/pull/9). **No fusionar main**.
 
+> **Ampliación del propietario (13 oct 2026):** la lista de destinos incluye **Facebook Live** y debe ser extensible a cualquier plataforma con ingreso autorizado. AgentCut tendrá compatibilidad opcional con **Muse/Meta Model API y Meta AI donde exista integración oficial**, además de Claude/ChatGPT. El archivo del directo debe conservarse **localmente** con buen equilibrio calidad/espacio, idealmente HEVC por hardware cuando sea viable, sin sacrificar estabilidad. Consultar el documento específico [META_MUSE_FACEBOOK_STORAGE_CODECS.md](META_MUSE_FACEBOOK_STORAGE_CODECS.md) para modelos reales, costos, codecs y opciones técnicas. Todo sigue sujeto a pruebas y elección del propietario.
+
 ## 0. Corrección de alcance y decisión de arquitectura
 
 La persona propietaria **NO eligió "web-only" como requisito**. Quiere *un producto de teléfono que actúe como editor conversacional y agente de streaming con Ray-Ban Meta*. Web, nativa o híbrida son decisiones de implementación a comparar, no instrucciones del propietario.
