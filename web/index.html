@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#10121a">
+  <title>AgentCut · Prueba móvil</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark;background:#10121a;color:#f5f5f7}
+    *{box-sizing:border-box}body{margin:0;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 32px)}
+    main{max-width:600px;margin:auto}header{margin-bottom:16px}h1{font-size:1.35rem;margin:0}h2{font-size:1rem;margin:0 0 12px}
+    .muted{color:#bdc0ca;font-size:.85rem;line-height:1.45}.panel{background:#1b1d28;border:1px solid #373948;border-radius:16px;padding:15px;margin:12px 0}
+    .preview{position:relative;background:#000;border-radius:12px;overflow:hidden;min-height:170px;display:grid;place-items:center}
+    video{display:block;width:100%;max-height:60vh;background:#000;object-fit:contain}
+    .caption{position:absolute;left:9%;right:9%;bottom:9%;text-align:center;font-size:clamp(16px,5vw,27px);font-weight:750;line-height:1.25;white-space:pre-wrap;overflow-wrap:anywhere;text-shadow:0 2px 5px #000,0 0 9px #000;pointer-events:none}
+    input,button,select{font:inherit}button,.picker{border-radius:11px;min-height:44px;padding:10px 13px;border:1px solid #666b7b;background:#323747;color:white;cursor:pointer}
+    button.primary,.picker{background:#426cf5;border-color:#426cf5;color:#fff;font-weight:700}
+    button:disabled,input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+    .picker{display:inline-block;text-align:center;position:relative}
+    .picker input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+    input[type=text],input[type=number],select{width:100%;min-height:43px;border-radius:9px;border:1px solid #777b88;background:#10121a;padding:8px;color:white}
+    input[type=range]{width:100%;accent-color:#8198ff;min-height:30px}
+    label{display:block;font-size:.88rem;font-weight:600;margin-bottom:5px}
+    .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+    .times{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:11px 0}
+    .times label{margin-bottom:4px}.mini{font-size:.85rem}.status{margin:10px 0;min-height:42px;line-height:1.5}
+    .status[data-kind="error"]{color:#ffb7b7}.status[data-kind="success"]{color:#a9f6c4}
+    a{color:#aac4ff}.hidden{display:none!important}
+    canvas{width:100%;height:auto;background:black;border-radius:10px;display:block}
+    progress{width:100%;height:12px;accent-color:#7796ff}
+    .inline{display:flex;align-items:center;gap:9px}.inline input{width:18px;height:18px}
+    footer{padding:5px 3px 25px}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🎬 AgentCut · prueba móvil</h1>
+    <p class="muted">Versión experimental sin cuenta ni servidor. Tus videos permanecen en el dispositivo. No incluye conexión con IA todavía.</p>
+  </header>
+  <section class="panel">
+    <h2>1. Selecciona un video</h2>
+    <label class="picker">Elegir desde Fotos o Archivos
+      <input id="file" type="file" accept="video/*" aria-label="Seleccionar video">
+    </label>
+    <p id="fileInfo" class="muted">Para la primera prueba usa un clip corto, idealmente de 10 a 30 segundos.</p>
+    <div class="preview">
+      <video id="video" controls playsinline webkit-playsinline preload="metadata"></video>
+      <div id="previewTitle" class="caption" aria-hidden="true"></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>2. Recorta sin arrastrar pistas</h2>
+    <label for="seek">Posición del video: <span id="position">0:00.0</span></label>
+    <input id="seek" type="range" min="0" max="1" step=".1" value="0" disabled>
+    <div class="row">
+      <button id="setStart" type="button" disabled>Inicio = posición</button>
+      <button id="setEnd" type="button" disabled>Fin = posición</button>
+    </div>
+    <div class="times">
+      <div><label for="start">Inicio (segundos)</label><input id="start" type="number" min="0" step=".1" value="0" disabled></div>
+      <div><label for="end">Fin (segundos)</label><input id="end" type="number" min="0" step=".1" value="0" disabled></div>
+    </div>
+    <p id="selection" class="muted">Selecciona un archivo para ajustar sus cortes.</p>
+  </section>
+  <section class="panel">
+    <h2>3. Ponle texto</h2>
+    <label for="title">Texto sobre el video</label>
+    <input id="title" type="text" maxlength="120" placeholder="Por ejemplo: Camino a Vancouver" disabled>
+    <p class="muted">Se muestra en la vista previa y se dibuja sobre el video exportado.</p>
+  </section>
+  <section class="panel">
+    <h2>4. Exporta</h2>
+    <label for="resolution">Tamaño máximo</label>
+    <select id="resolution" disabled>
+      <option value="480">480 píxeles (prueba rápida)</option>
+      <option value="720" selected>720 píxeles (mejor calidad)</option>
+    </select>
+    <p class="inline mini"><input id="keepAudio" type="checkbox" checked disabled><label for="keepAudio" style="margin:0">Conservar el audio original (experimental)</label></p>
+    <button id="export" class="primary" type="button" disabled>Exportar clip</button>
+    <button id="cancel" class="hidden" type="button">Cancelar exportación</button>
+    <progress id="progress" class="hidden" max="100" value="0"></progress>
+    <div id="renderWrap" class="hidden" aria-label="Vista de exportación"><canvas id="renderCanvas"></canvas></div>
+    <p id="status" class="status muted" role="status" aria-live="polite">Los formatos disponibles se comprobarán en tu navegador al exportar.</p>
+    <a id="result" class="hidden" download="agentcut-edicion.mp4">Descargar video editado</a>
+    <p class="muted">La exportación se graba en tiempo real: un clip de 20 segundos tarda aproximadamente su duración o más. Mantén Safari abierto y la pantalla encendida. Si algo falla, conservas tu archivo original.</p>
+  </section>
+  <footer class="muted">Prototipo de validación para iPhone y Android. No se ha verificado todavía en un iPhone real. Software original sin dependencias externas; licencia del proyecto por decidir.</footer>
+</main>
+<script>
+"use strict";
+(() => {
+  const $ = id => document.getElementById(id);
+  const el = Object.fromEntries(["file","fileInfo","video","previewTitle","seek","position","setStart","setEnd","start","end","selection","title","resolution","keepAudio","export","cancel","progress","renderWrap","renderCanvas","status","result"].map(id=>[id,$(id)]));
+  let objectURL = null, outputURL = null, duration = 0, recording = false, abortReason = "", recorder = null;
+  let raf = 0, stream = null, audioContext = null, audioDestination = null, mediaSource = null, parts = [], stopOnce = false;
+  const getNumber = node => Number(node.value);
+  const format = seconds => { const s = Math.max(0,Number(seconds)||0); return Math.floor(s/60) + ":" + String(Math.floor(s%60)).padStart(2,"0") + "." + Math.floor((s%1)*10); };
+  const message = (msg,kind="info")=>{el.status.textContent=msg;el.status.dataset.kind=kind};
+  const audioEnabled = ()=>el.keepAudio.checked;
+  const buttonState = (loaded,locked=false)=>{
+    ["file","seek","setStart","setEnd","start","end","title","resolution","keepAudio","export"].forEach(id=>{el[id].disabled=locked || (id!=="file" && !loaded)});
+    el.cancel.classList.toggle("hidden",!locked);
+    el.video.controls=!locked;
+  };
+  const validSelection = ()=>{
+    const a=getNumber(el.start),b=getNumber(el.end);
+    return Number.isFinite(a)&&Number.isFinite(b)&&a>=0&&b<=duration+.05&&b-a>=.2;
+  };
+  const refreshSelection = ()=>{
+    el.selection.textContent=validSelection()?("Se exportarán "+format(getNumber(el.end)-getNumber(el.start))+" de video."):
+      "El final debe ser mayor al inicio (mínimo 0,2 s) y ambos dentro del video.";
+    el.export.disabled=!duration || !validSelection() || recording;
+  };
+  function clearOutput(){
+    el.result.classList.add("hidden");el.result.removeAttribute("href");
+    if(outputURL){URL.revokeObjectURL(outputURL);outputURL=null}
+  }
+  function releaseMedia(){
+    if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null}
+    clearOutput();
+  }
+  el.file.addEventListener("change",()=>{
+    if(recording) return;
+    const file=el.file.files && el.file.files[0];
+    if(!file) return;
+    releaseMedia();
+    duration=0;buttonState(false);el.video.removeAttribute("src");el.video.load();
+    objectURL=URL.createObjectURL(file);el.video.src=objectURL;
+    el.fileInfo.textContent=file.name+" · "+(file.size/1048576).toFixed(1)+" MB";
+    message("Cargando metadatos del video…");
+  });
+  el.video.addEventListener("loadedmetadata",()=>{
+    const d=el.video.duration;
+    if(!Number.isFinite(d) || d<=0){message("Duración desconocida: este archivo no es compatible con la prueba.","error");return}
+    duration=d;el.start.value="0";el.end.value=String(Math.round(d*10)/10);
+    el.seek.max=String(d);el.seek.value="0";buttonState(true);refreshSelection();
+    message("Video cargado. Ajusta inicio, fin y texto. No se ha enviado a ningún servidor.","success");
+  });
+  el.video.addEventListener("error",()=>{
+    if(!objectURL) return;
+    message("El navegador no pudo abrir ese formato de video. Prueba con MP4/H.264.","error");
+  });
+  el.video.addEventListener("timeupdate",()=>{
+    if(recording) return;
+    const t=el.video.currentTime;
+    el.seek.value=String(t);el.position.textContent=format(t);
+  });
+  el.seek.addEventListener("input",()=>{
+    if(!duration||recording)return;
+    const t=getNumber(el.seek);el.video.currentTime=t;el.position.textContent=format(t);
+  });
+  el.setStart.addEventListener("click",()=>{el.start.value=String(Math.min(el.video.currentTime,Math.max(0,getNumber(el.end)-.2)).toFixed(1));refreshSelection()});
+  el.setEnd.addEventListener("click",()=>{el.end.value=String(Math.max(el.video.currentTime,getNumber(el.start)+.2).toFixed(1));refreshSelection()});
+  [el.start,el.end].forEach(input=>input.addEventListener("input",refreshSelection));
+  el.title.addEventListener("input",()=>{el.previewTitle.textContent=el.title.value;clearOutput()});
+  [el.start,el.end,el.resolution,el.keepAudio].forEach(input=>input.addEventListener("change",clearOutput));
+  function chooseType(withAudio){
+    if(typeof MediaRecorder==="undefined"||!MediaRecorder.isTypeSupported) return null;
+    const formats=withAudio?[
+      'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',"video/mp4",
+      'video/webm;codecs="vp8,opus"',"video/webm"
+    ]:[
+      'video/mp4;codecs="avc1.42E01E"',"video/mp4",
+      'video/webm;codecs="vp8"',"video/webm"
+    ];
+    return formats.find(type=>MediaRecorder.isTypeSupported(type))||null;
+  }
+  async function ensureAudio(){
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)throw new Error("Este navegador no permite mezclar audio mediante Web Audio.");
+    if(!audioContext){
+      audioContext=new Ctx();audioDestination=audioContext.createMediaStreamDestination();
+      mediaSource=audioContext.createMediaElementSource(el.video);
+      mediaSource.connect(audioDestination);
+      mediaSource.connect(audioContext.destination);
+    }
+    await audioContext.resume();
+    const tracks=audioDestination.stream.getAudioTracks();
+    if(!tracks.length)throw new Error("No se pudo crear la pista de sonido.");
+    return tracks;
+  }
+  function layoutCanvas(){
+    const max=Math.max(el.video.videoWidth,el.video.videoHeight);
+    if(!max)throw new Error("Faltan las dimensiones del video.");
+    const limit=Number(el.resolution.value);
+    const scale=Math.min(1,limit/max);
+    el.renderCanvas.width=Math.max(2,2*Math.round(el.video.videoWidth*scale/2));
+    el.renderCanvas.height=Math.max(2,2*Math.round(el.video.videoHeight*scale/2));
+  }
+  function paintFrame(){
+    const canvas=el.renderCanvas, ctx=canvas.getContext("2d",{alpha:false});
+    const w=canvas.width,h=canvas.height;
+    ctx.fillStyle="#000";ctx.fillRect(0,0,w,h);
+    if(el.video.readyState>=2)ctx.drawImage(el.video,0,0,w,h);
+    const text=el.title.value.trim().replace(/\s+/g," ").slice(0,120);
+    if(!text)return;
+    const fontSize=Math.max(17,Math.round(w*.06));
+    ctx.font="700 "+fontSize+"px system-ui,-apple-system,sans-serif";
+    ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
+    const words=text.split(" "),lines=[];let line="";
+    for(const word of words){
+      const next=line?line+" "+word:word;
+      if(ctx.measureText(next).width>w*.84 && line){lines.push(line);line=word}
+      else line=next;
+    }
+    if(line)lines.push(line);
+    const shown=lines.slice(0,3),lh=fontSize*1.18;
+    const y=h*.88-(shown.length-1)*lh;
+    shown.forEach((txt,i)=>{
+      ctx.lineWidth=Math.max(3,Math.round(fontSize*.18));ctx.strokeStyle="rgba(0,0,0,.9)";
+      ctx.strokeText(txt,w/2,y+i*lh,w*.9);
+      ctx.fillStyle="white";ctx.fillText(txt,w/2,y+i*lh,w*.9);
+    });
+  }
+  function cleanup(){
+    cancelAnimationFrame(raf);raf=0;
+    if(stream){stream.getVideoTracks().forEach(track=>track.stop());stream=null}
+    recorder=null;recording=false;stopOnce=false;
+    el.renderWrap.classList.add("hidden");el.progress.classList.add("hidden");
+    buttonState(Boolean(duration));refreshSelection();
+  }
+  function finishRecording(reason=""){
+    if(stopOnce)return;stopOnce=true;
+    if(reason)abortReason=reason;
+    if(!el.video.paused)el.video.pause();
+    if(recorder && recorder.state!=="inactive"){try{recorder.stop()}catch(error){cleanup();message(error.message,"error")}}
+    else cleanup();
+  }
+  el.cancel.addEventListener("click",()=>finishRecording("Exportación cancelada por el usuario."));
+  document.addEventListener("visibilitychange",()=>{if(recording && document.hidden)finishRecording("Exportación detenida al salir de la app o bloquear la pantalla.")});
+  el.export.addEventListener("click",async()=>{
+    if(recording||!duration||!validSelection())return;
+    clearOutput();abortReason="";parts=[];
+    const withAudio=audioEnabled(),mime=chooseType(withAudio);
+    if(!mime){message("Este navegador no admite un formato de exportación probado con estas opciones. Prueba desactivar el audio; si persiste, registra el navegador y modelo.","error");return}
+    if(typeof el.renderCanvas.captureStream!=="function"){message("Este navegador no admite capturar el lienzo de video.","error");return}
+    recording=true;buttonState(true,true);
+    try{
+      layoutCanvas();paintFrame();el.renderWrap.classList.remove("hidden");
+      el.progress.classList.remove("hidden");el.progress.value=0;
+      // Request an audio context only on an explicit user interaction. A few Safari builds can still reject this graph.
+      const pendingAudio=withAudio?ensureAudio():Promise.resolve([]);
+      const videoStream=el.renderCanvas.captureStream(24);
+      const tracks=videoStream.getVideoTracks();
+      if(!tracks.length)throw new Error("No se obtuvo ninguna pista de video.");
+      stream=new MediaStream(tracks);
+      const audioTracks=await pendingAudio;
+      for(const track of audioTracks)stream.addTrack(track);
+      recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2100000});
+      recorder.addEventListener("dataavailable",e=>{if(e.data && e.data.size)parts.push(e.data)});
+      recorder.addEventListener("error",e=>finishRecording("Error del grabador: "+(e.error?.message||"desconocido")));
+      recorder.addEventListener("stop",()=>{
+        const reason=abortReason, currentParts=parts.slice();
+        const actualType=recorder && recorder.mimeType || mime;
+        cleanup();parts=[];
+        if(reason){message(reason,"error");return}
+        const blob=new Blob(currentParts,{type:actualType});
+        if(!blob.size){message("No se generó video. Comprueba la compatibilidad de MediaRecorder en el dispositivo.","error");return}
+        const ext=actualType.includes("mp4")?"mp4":"webm";
+        outputURL=URL.createObjectURL(blob);el.result.href=outputURL;
+        el.result.download="agentcut-edicion."+ext;el.result.textContent="⬇ Descargar "+ext.toUpperCase()+" ("+(blob.size/1048576).toFixed(1)+" MB)";
+        el.result.classList.remove("hidden");
+        message("Exportación terminada. Revisa el video descargado, especialmente el sonido y la sincronización.","success");
+      },{once:true});
+      const start=getNumber(el.start),end=getNumber(el.end),clipDuration=end-start;
+      el.video.pause();el.video.currentTime=start;
+      // Call play directly from the button handler's action where possible, avoiding hidden autoplay.
+      const startPlayback=el.video.play();
+      await startPlayback;paintFrame();
+      recorder.start(500);
+      let lastVideoTime=el.video.currentTime,lastProgressAt=performance.now();
+      const tick=()=>{
+        if(!recording)return;
+        paintFrame();
+        const t=el.video.currentTime;
+        el.progress.value=Math.min(100,Math.max(0,(t-start)/clipDuration*100));
+        if(t>lastVideoTime+.01){lastVideoTime=t;lastProgressAt=performance.now()}
+        if(t>=end-.04||el.video.ended){finishRecording();return}
+        if(performance.now()-lastProgressAt>9000){finishRecording("El video dejó de avanzar durante la exportación.");return}
+        raf=requestAnimationFrame(tick);
+      };
+      message("Exportando en tiempo real. Mantén esta pantalla abierta. Formato: "+mime);
+      raf=requestAnimationFrame(tick);
+    }catch(error){
+      abortReason="";parts=[];
+      if(recorder && recorder.state!=="inactive"){try{recorder.stop()}catch(e){}}
+      cleanup();message("No se pudo exportar: "+(error.message||String(error))+". Puedes intentar otra vez sin audio.","error");
+    }
+  });
+  window.addEventListener("pagehide",()=>{if(recording)finishRecording("Exportación interrumpida.")});
+  buttonState(false);
+})();
+</script>
+</body>
+</html>
