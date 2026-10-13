@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AgentCut · Laboratorio de calidad</title>
+<style>
+body{font:16px system-ui,-apple-system,sans-serif;background:#11131e;color:#f5f6fc;max-width:640px;margin:auto;padding:24px 16px;line-height:1.5}
+.panel{background:#1d2030;border:1px solid #44495c;border-radius:16px;padding:18px;margin:16px 0}
+label,button{display:block;margin:12px 0}input,button,select{font:inherit;max-width:100%}
+button,select{background:#3b4376;color:white;padding:11px;border-radius:9px;border:1px solid #929ecb}
+button{min-height:46px}input[type=file]{width:100%}small,.muted{color:#c1c6d6}h1{font-size:1.4rem}
+strong{color:#a5bcff}output{display:block;white-space:pre-wrap;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<h1>🎞️ AgentCut · Laboratorio de calidad</h1>
+<p class="muted"><b>Experimento. No comprime ni modifica archivos.</b> Consulta los metadatos de un archivo local y propone un camino de edición conservador.</p>
+<section class="panel">
+<label for="file">Elegir un video desde Fotos o Archivos</label>
+<input type="file" id="file" accept="video/*">
+<p id="status">No se ha seleccionado video. Nada se envía por internet.</p>
+<label for="purpose">¿Para qué lo usarás?</label>
+<select id="purpose"><option value="preview">Editar rápido (crear proxy)</option><option value="archive">Archivar/comprimir (investigar)</option><option value="publish">Publicar clip</option><option value="live">Transmisión en vivo</option></select>
+<button id="analyze" disabled>Analizar archivo</button>
+<output id="results" aria-live="polite"></output>
+</section>
+<section class="panel"><h2>Prueba matemática para tu biblioteca</h2>
+<p>Ejemplo de 200 GB, sin convertir ni borrar nada.</p>
+<label for="reduction">Reducción hipotética: <span id="pct">50%</span></label>
+<input type="range" min="0" max="80" value="50" id="reduction">
+<output id="estimate"></output>
+</section>
+<p class="muted">La resolución indicada es la del ARCHIVO, no prueba de captura 4K nativa. El bitrate promedio no demuestra calidad. Sin exportación ni borrado. Funcionamiento en teléfonos reales todavía no verificado.</p>
+<script type="module">
+import {inspectAsset,planExport,hypotheticalSavings} from './quality-planner.mjs';
+const el=id=>document.getElementById(id);
+let chosen=null;
+let blobUrl=null;
+function updateEstimate(){
+ const reduction=Number(el('reduction').value)/100;
+ const h=hypotheticalSavings(200,reduction);
+ el('pct').textContent=Math.round(reduction*100)+'%';
+ el('estimate').textContent='Si se lograra: '+h.toGB+' GB restantes; '+h.savedGB+' GB ahorrados. Sin prueba real: no es una predicción.';
+}
+el('reduction').addEventListener('input',updateEstimate);updateEstimate();
+el('file').addEventListener('change',()=>{
+ chosen=el('file').files?.[0]||null;
+ if(blobUrl){URL.revokeObjectURL(blobUrl);blobUrl=null}
+ el('analyze').disabled=!chosen;
+ el('results').textContent='';
+ el('status').textContent=chosen?'Archivo elegido: '+chosen.name+' ('+(chosen.size/1e6).toFixed(1)+' MB).':'Sin archivo.';
+});
+el('analyze').addEventListener('click',async()=>{
+ if(!chosen)return;
+ const video=document.createElement('video');
+ blobUrl=URL.createObjectURL(chosen);
+ video.preload='metadata';video.src=blobUrl;
+ el('status').textContent='Leyendo metadatos localmente…';
+ try {
+   await new Promise((resolve,reject)=>{
+     video.onloadedmetadata=resolve;
+     video.onerror=()=>reject(new Error('El navegador no puede leer el formato seleccionado.'));
+     video.load();
+   });
+   const asset=inspectAsset({sizeBytes:chosen.size,durationSeconds:video.duration,width:video.videoWidth,height:video.videoHeight});
+   const p=planExport(asset,{purpose:el('purpose').value});
+   el('results').textContent=
+     'Resolución del archivo: '+asset.file.width+'×'+asset.file.height+
+     '\nDuración: '+asset.file.durationSeconds.toFixed(2)+' s'+
+     '\nTasa media total aproximada: '+asset.file.avgTotalMbps+' Mbps'+
+     '\nCaptura original certificada: NO'+
+     '\nRuta propuesta: '+p.action+
+     '\nCódec elegido: '+(p.codec||'todavía no')+
+     '\n'+p.note;
+   el('status').textContent='Diagnóstico completado. Sin cambios ni subidas.';
+ }catch(error){el('status').textContent='Error: '+error.message}
+ finally {video.removeAttribute('src');video.load();if(blobUrl){URL.revokeObjectURL(blobUrl);blobUrl=null}}
+});
+</script>
+</body>
+</html>
