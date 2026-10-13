@@ -24,6 +24,7 @@ final class MetaB0Model {
     var frameWidth = 0
     var frameHeight = 0
     var lastErrorWasThermal = false
+    var chosenProfile = "balanced" // switched only before a new preview session
 
     private let wearables: any WearablesInterface
     private let selector: AutoDeviceSelector
@@ -141,10 +142,11 @@ final class MetaB0Model {
         // B0: .raw avoids implementing VideoToolbox HEVC decode before
         // first-frame and link reliability tests. The SDK performs decoding.
         // B1 will move the file/RTMPS path to .hvc1 compressed samples.
+        let economy = chosenProfile == "economy"
         let config = StreamConfiguration(
             videoCodec: .raw,
-            resolution: .medium,    // Requested 504 x 896
-            frameRate: 24           // Requested, actual rate may adapt.
+            resolution: economy ? .low : .medium,
+            frameRate: economy ? 15 : 24
         )
         do {
             guard let newCamera = try session.addCamera(config: config) else {
@@ -159,6 +161,7 @@ final class MetaB0Model {
                 Task { @MainActor [weak self] in
                     self?.streamState = state
                     if state == .stopped {
+                        self?.camera?.stop()
                         self?.clearPreview()
                     }
                 }
@@ -248,6 +251,6 @@ final class MetaB0Model {
         firstFrameTime = nil
         lastCountTime = nil
         framesThisSecond = 0
-        if streamState != .stopping { streamState = .stopped }
+        streamState = .stopped
     }
 }
