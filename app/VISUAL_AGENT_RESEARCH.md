@@ -56,6 +56,22 @@
 
 Estos proyectos **no están incluidos como dependencias** en esta entrega. Repositorio OSS ≠ licencia de modelos, datos, patentes ni distribuciones; ninguna biblioteca está verificada como funcional en iPhone del propietario. La lista se amplía en [PR #27 de Claude](https://github.com/Os-WHGo/agentcut/pull/27).
 
+### Más candidatos verificados: reconocimiento visual avanzado (sin adopción automática)
+
+| Repositorio | Licencia del repositorio | Posible uso, riesgo |
+| --- | --- | --- |
+| [OpenCV](https://github.com/opencv/opencv) | Apache-2.0 | Detección de cambios, estabilización, patrones de imagen; adaptación a plataformas móviles y consumo por medir |
+| [OpenCV contrib](https://github.com/opencv/opencv_contrib) | Apache-2.0 | Módulos adicionales; licencias de ciertos recursos y algoritmos deben revisarse |
+| [Ultralytics](https://github.com/ultralytics/ultralytics) | **AGPL-3.0** | Detección de objetos; obligaciones de distribución fuertes o licencia comercial, **NO copiar sin evaluación legal** |
+| [DINOv2](https://github.com/facebookresearch/dinov2) | Apache-2.0 repositorio | Embeddings visuales para buscar escenas similares; modelos y rendimiento iPhone separados |
+| [Kornia](https://github.com/kornia/kornia) | Apache-2.0 | Geometría visual y extracción de características; Python/PyTorch no implica app móvil |
+| [MMDetection](https://github.com/open-mmlab/mmdetection) | Apache-2.0 | Referencia de reconocimiento de objetos; requiere exportar/convertir modelos |
+| [Janus](https://github.com/deepseek-ai/Janus) | MIT repositorio | Comprensión multimodal; pesos, potencia y memoria de teléfonos pendientes |
+| [ExecuTorch](https://github.com/pytorch/executorch) | Licencia **no validada** por metadata | Inferencia on-device con PyTorch; leer LICENSE real antes de recomendar integración |
+| [GoPro GPMF parser](https://github.com/gopro/gpmf-parser) | Apache-2.0 | Extraer telemetría de medios GoPro; **no** sirve universalmente para GPS de Ray-Ban Meta o de iPhone |
+
+Recomendación técnica: evaluar primero la solución liviana de OpenCV y el OCR local sobre **fotogramas seleccionados**; después comparar redes de visión. No instalar modelos multimodales de escritorio en un teléfono sin benchmark de RAM y calidad.
+
 ## Análisis rápido: «Evidence-first AgentCut Pipeline» (idea de I+D)
 
 ```
