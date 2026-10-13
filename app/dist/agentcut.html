@@ -102,7 +102,10 @@
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
 <div class="sheet" id="sAI"><h2>Con tu IA</h2>
-  <label>¿Qué quieres que haga?</label><textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
+  <div id="aiLog" aria-live="polite"></div>
+  <label>¿Qué quieres que haga? <button id="aiMic" type="button" class="pill" style="height:30px;padding:0 10px;margin-left:6px;display:none">🎤 Dictar</button> <button id="aiNew" type="button" class="pill" style="height:30px;padding:0 10px;display:none">Nueva conversación</button></label>
+  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
+  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
   <div id="aiDirect">
     <label>Proveedor</label><select id="aiProv"></select>
     <label>Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -671,15 +674,21 @@ Usa SOLO ids que existan en el proyecto. No inventes momentos, lugares ni conten
 Si la petición es imposible o falta información, llama a edit_apply con ops vacío y explícalo en "nota".
 Un lote es atómico: si una operación falla, no se aplica ninguna. Responde en español.`;
 
-function buildMessages(request, project) {
+// `history`: turnos anteriores de la conversación [{role:'user'|'assistant', content:'texto'}] (solo texto corto, máx. 12).
+function buildMessages(request, project, history = []) {
   const summary = { revision: project.revision, assets: project.assets.map((a) => ({ id: a.id, name: a.name, duration: a.duration })), clips: project.clips, texts: project.texts };
-  return [{ role: 'system', content: SYSTEM }, { role: 'user', content: `Proyecto actual:\n${JSON.stringify(summary)}\n\nPetición: ${String(request).slice(0, 2000)}` }];
+  const past = history.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
+  const merged = []; for (const m of [...past, { role: 'user', content: `Proyecto actual:\n${JSON.stringify(summary)}\n\nPetición: ${String(request).slice(0, 2000)}` }]) {
+    const last = merged[merged.length - 1]; if (last && last.role === m.role) last.content += '\n' + m.content; else merged.push({ ...m });   // roles alternados: algunos proveedores lo exigen
+  }
+  return [{ role: 'system', content: SYSTEM + '\nLa conversación continúa: el usuario puede corregir lo anterior ("cámbialo", "mejor en el segundo 4"). El proyecto actual siempre es el de la última petición.' },
+    ...merged];
 }
 
-function buildRequest({ base, key, model, request, project, fetchOptions = {} }) {
+function buildRequest({ base, key, model, request, project, history = [], fetchOptions = {} }) {
   const url = String(base).replace(/\/+$/, '') + '/chat/completions';
   return { url, init: { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages: buildMessages(request, project), tools: [EDIT_TOOL], tool_choice: 'auto', temperature: 0.2 }), ...fetchOptions } };
+    body: JSON.stringify({ model, messages: buildMessages(request, project, history), tools: [EDIT_TOOL], tool_choice: 'auto', temperature: 0.2 }), ...fetchOptions } };
 }
 
 // Saca { ops, nota } de la respuesta: llamada a la herramienta, o (si el modelo contestó en texto) un JSON dentro del texto.
@@ -707,21 +716,33 @@ function friendlyError(e, status, bodyText = '') {
   return 'No pude conectar. Revisa tu internet. Si sigue igual, este proveedor puede no permitir llamadas desde una página web (CORS); prueba otro proveedor.';
 }
 
-// Pide una propuesta a la IA. `fetchImpl` se puede cambiar en pruebas.
-async function askModel({ base, key, model, request, project, parseText, fetchImpl = (typeof fetch === 'function' ? fetch : null), timeoutMs = 45000 }) {
+const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Pide una propuesta a la IA. Reintenta (con espera) si el proveedor está saturado (429/5xx) o se corta la conexión.
+// `fetchImpl`, `sleep` y `onStatus` se pueden cambiar en pruebas/UI.
+async function askModel({ base, key, model, request, project, history = [], parseText, onStatus = () => {}, sleep = wait, retries = 2, delays = [2000, 5000],
+  fetchImpl = (typeof fetch === 'function' ? fetch : null), timeoutMs = 45000 }) {
   if (!base || !model) throw new Error('Falta elegir proveedor y modelo.');
   if (!key || key.length < 8) throw new Error('Falta pegar tu clave.');
   if (!String(request || '').trim()) throw new Error('Escribe qué quieres que haga la IA.');
   if (!fetchImpl) throw new Error('Este navegador no puede hacer la llamada.');
-  const { url, init } = buildRequest({ base, key, model, request, project });
-  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null; const timer = ctl && setTimeout(() => ctl.abort(), timeoutMs);
-  let res;
-  try { res = await fetchImpl(url, { ...init, signal: ctl?.signal }); }
-  catch (e) { throw new Error(friendlyError(e, 0)); }
-  finally { if (timer) clearTimeout(timer); }
-  if (!res.ok) { let t = ''; try { t = await res.text(); } catch { /* nada */ } throw new Error(friendlyError(null, res.status, t)); }
-  let json; try { json = await res.json(); } catch { throw new Error('La IA respondió algo que no es JSON.'); }
-  return parseModelResponse(json, parseText);
+  const { url, init } = buildRequest({ base, key, model, request, project, history });
+  for (let attempt = 0; ; attempt++) {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null; const timer = ctl && setTimeout(() => ctl.abort(), timeoutMs);
+    let res = null, netErr = null;
+    try { res = await fetchImpl(url, { ...init, signal: ctl?.signal }); } catch (e) { netErr = e; } finally { if (timer) clearTimeout(timer); }
+    const status = res ? res.status : 0;
+    const retryable = !netErr && RETRY_STATUS.has(status);   // un corte de red/CORS no se reintenta: no se arregla solo
+    if (res && res.ok) {
+      let json; try { json = await res.json(); } catch { throw new Error('La IA respondió algo que no es JSON.'); }
+      return parseModelResponse(json, parseText);
+    }
+    if (retryable && attempt < retries) { onStatus({ attempt: attempt + 1, status }); await sleep(delays[Math.min(attempt, delays.length - 1)]); continue; }
+    if (netErr) throw new Error(friendlyError(netErr, 0));
+    let t = ''; try { t = await res.text(); } catch { /* nada */ }
+    throw new Error(friendlyError(null, status, t) + (attempt ? ` (se intentó ${attempt + 1} veces)` : ''));
+  }
 }
 
 const $ = (id) => document.getElementById(id);
@@ -1037,24 +1058,48 @@ $('aiProv').onchange = aiPreset; aiPreset();
 function aiSync() { $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || $('aiKey').value.trim().length < 8; }
 for (const id of ['ask', 'aiKey', 'aiModel']) $(id).addEventListener('input', aiSync);
 function aiClear() { aiPending = null; $('aiProp').style.display = 'none'; }
-$('aiDiscard').onclick = () => { aiClear(); aiSay('Propuesta descartada. No cambió nada.'); };
+$('aiDiscard').onclick = () => { aiClear(); aiHistory.push({ role: 'user', content: '(Descarté tu propuesta; no se aplicó nada.)' }); aiSay('Propuesta descartada. No cambió nada.'); };
+let aiHistory = [];
+function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item'; d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
+$('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren(); $('aiNew').style.display = 'none'; aiClear(); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
-  const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0];
+  const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
   try {
-    const r = await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request: $('ask').value, project: session.project, parseText: parseReply });
-    if (!r.ops.length) return aiSay(r.nota ? 'La IA no propone cambios: ' + r.nota : 'La IA no propuso cambios.', 'bad');
+    const r = await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, parseText: parseReply,
+      onStatus: ({ attempt }) => aiSay(`El proveedor está saturado. Reintentando (${attempt}/2)…`) });
+    aiLogAdd('tú', request); aiHistory.push({ role: 'user', content: request });
+    if (!r.ops.length) { const t = r.nota ? 'No propongo cambios: ' + r.nota : 'No propongo cambios.'; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); $('ask').value = ''; return aiSay('La IA no propone cambios.', 'bad'); }
     const trial = planEdit(session.project, r.ops, { ripple: false });
-    if (!trial.ok) return aiSay(`La app rechazó la propuesta (operación ${trial.failed_index + 1}): ${trial.message}\nNada cambió. Prueba pedirlo de otra forma.`, 'bad');
+    if (!trial.ok) { const t = `Mi propuesta fue rechazada por el editor (operación ${trial.failed_index + 1}): ${trial.message}`; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); return aiSay(t + '\nNada cambió. Corrígela con otra frase.', 'bad'); }
     aiPending = { ops: r.ops, revision: session.project.revision };
-    $('aiPropText').textContent = (r.nota ? r.nota + '\n' : '') + r.ops.map((o, i) => `${i + 1}. ${describeOp(o)}`).join('\n'); $('aiPropText').style.whiteSpace = 'pre-wrap';
-    $('aiProp').style.display = 'block'; aiSay('Revisa la propuesta. Nada cambia hasta que toques Aplicar.', 'ok');
+    const lines = r.ops.map((o, i) => `${i + 1}. ${describeOp(o)}`).join('\n');
+    $('aiPropText').textContent = (r.nota ? r.nota + '\n' : '') + lines; $('aiPropText').style.whiteSpace = 'pre-wrap';
+    aiLogAdd('ia', (r.nota ? r.nota + '\n' : '') + lines); aiHistory.push({ role: 'assistant', content: 'Propuse:\n' + lines });
+    $('ask').value = ''; aiSync();
+    $('aiProp').style.display = 'block'; aiSay('Revisa la propuesta. Nada cambia hasta que toques Aplicar. Para corregirla, escribe o dicta otra frase.', 'ok');
   } catch (e) { aiSay(e.message, 'bad'); } finally { aiBusy = false; aiSync(); }
 };
+/* Dictado: Web Speech del navegador (si existe). El micrófono del teclado del iPhone también sirve en el cuadro de texto. */
+(() => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $('aiMicHint').textContent = 'Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba.'; return; }
+  $('aiMic').style.display = 'inline-flex'; $('aiMicHint').textContent = 'El dictado lo hace tu navegador y puede usar los servidores de Apple o Google; Wivra no guarda audio. (Sin verificar en tu teléfono.)';
+  let rec = null, base = '';
+  $('aiMic').onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = /^es/i.test(navigator.language || '') ? navigator.language : 'es-ES'; rec.continuous = true; rec.interimResults = true; base = $('ask').value.trim();
+    rec.onresult = (e) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; $('ask').value = (base + ' ' + t).trim(); aiSync(); };
+    rec.onerror = (e) => aiSay(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'El navegador no dejó usar el micrófono. Actívalo en Ajustes del teléfono, o usa el micrófono del teclado.' : 'Micrófono: ' + e.error, 'bad');
+    rec.onend = () => { rec = null; $('aiMic').textContent = '🎤 Dictar'; aiSync(); };
+    try { rec.start(); $('aiMic').textContent = '⏹ Detener'; aiSay('Escuchando… habla y toca Detener cuando termines.'); } catch (err) { rec = null; aiSay('No pude iniciar el dictado: ' + err.message, 'bad'); }
+  };
+})();
 $('aiApply').onclick = () => {
   if (!aiPending) return;
   if (aiPending.revision !== session.project.revision) { aiClear(); return aiSay('El proyecto cambió mientras tanto. Vuelve a pedírselo a la IA.', 'bad'); }
   const r = run(aiPending.ops); aiClear();
+  if (r.ok) aiHistory.push({ role: 'user', content: '(Apliqué tu propuesta.)' });
   if (r.ok) { closeSheets(); say('Aplicado. Puedes deshacerlo con la flecha.', 'ok'); } else aiSay('No se pudo aplicar: ' + r.message, 'bad');
 };
 function describeOp(o) {
