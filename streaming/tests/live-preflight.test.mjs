@@ -33,7 +33,7 @@ test('multistream requires relay or multiple direct phone uploads',()=>{
 test('estimate clearly shows two direct streams cost roughly twice one',()=>{
  const one=estimateTransfer({minutes:60,videoKbps:2500,audioKbps:128,streams:1});
  const two=estimateTransfer({minutes:60,videoKbps:2500,audioKbps:128,streams:2});
- assert.equal(two.phoneUplinkGB,Math.round(one.singleStreamGB*2*1000)/1000);
+ assert.ok(Math.abs(two.phoneUplinkGB - one.singleStreamGB*2) < 0.003, 'Expected approx. 2x with rounding');
  assert.ok(one.note.includes('not measured'));
 });
 test('cannot claim preview or LIVE by software alone',()=>{
