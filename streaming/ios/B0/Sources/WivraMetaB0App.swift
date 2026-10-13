@@ -79,8 +79,12 @@ struct MetaB0Screen: View {
                 .pickerStyle(.segmented)
                 .disabled(model.hasPreview)
                 Text(model.chosenProfile == "economy"
-                     ? "Bluetooth Classic · 360 × 640, 15 FPS solicitados"
-                     : "Bluetooth Classic · 504 × 896, 24 FPS solicitados")
+                     ? "DAT · 360 × 640, 15 FPS solicitados"
+                     : "DAT · 504 × 896, 24 FPS solicitados")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Text("Transporte efectivo: gestionado por Meta DAT; aún sin medición de enlace físico.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
