@@ -1,10 +1,10 @@
-# AgentCut (working name)
+# AgentCut
 
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
 > Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre provisional / working name. Revisar que no choque con marcas existentes antes de publicar.
+> Nombre oficial: **AgentCut** (Agent + Cut, escrito con "Cut", no "Code"). Pendiente: revisar que no choque con marcas existentes antes de publicar.
 
 ---
 

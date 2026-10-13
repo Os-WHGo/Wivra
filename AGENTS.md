@@ -4,7 +4,7 @@
 
 ## Proyecto
 
-AgentCut (nombre provisional): una app para teléfono (iPhone y Android) con un editor de video y un chat de IA integrado que lo controla. **Web, híbrida o nativa: todavía no está decidido** (ver `docs/ARCHITECTURE.md`; decide el propietario). Enfocada en crear reels y contenido. Por defecto el video no sale del teléfono; todo envío (fotogramas, transmisión) es opcional y avisado. Lee primero el `README.md`, luego `docs/ARCHITECTURE.md`, `docs/RESOURCES.md` y los issues abiertos.
+AgentCut (nombre oficial, escrito "Cut", no "Code"): una app para teléfono (iPhone y Android) con un editor de video y un chat de IA integrado que lo controla. **Web, híbrida o nativa: todavía no está decidido** (ver `docs/ARCHITECTURE.md`; decide el propietario). Enfocada en crear reels y contenido. Por defecto el video no sale del teléfono; todo envío (fotogramas, transmisión) es opcional y avisado. Lee primero el `README.md`, luego `docs/ARCHITECTURE.md`, `docs/RESOURCES.md` y los issues abiertos.
 
 ## Roles
 
