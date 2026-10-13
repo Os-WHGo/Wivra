@@ -61,7 +61,7 @@ En Xcode:
 ### Estados de compilación (distintos de gafas conectadas)
 
 - ✅ Compilación **iOS Simulator**: validada por GitHub Actions, run [38459815766](https://github.com/Os-WHGo/Wivra/actions/runs/38459815766).
-- ⏳ Compilación **generic iOS device, sin firma**: comprobación de CI agregada; revisar su ejecución, sin asumir éxito antes del resultado.
+- ✅ Compilación **generic iOS device ARM64, sin firma**: Xcode **aprobado**, run [38480299219](https://github.com/Os-WHGo/Wivra/actions/runs/38480299219). Esto demuestra compilación de destino físico, **no instalación en hardware ni reproducción real**.
 - ⏳ Firma de desarrollo e instalación en iPhone: requiere acción del propietario y credenciales solo en su equipo.
 - ⏳ Prueba real de datos desde Ray-Ban Meta: pendiente.
 
