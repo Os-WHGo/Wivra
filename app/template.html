@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
-<title>AgentCut · editor</title>
+<title>Wivra · editor</title>
 <style>
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -69,7 +69,7 @@
 </style>
 </head>
 <body>
-<div class="top"><b>AgentCut</b><span class="sp"></span>
+<div class="top"><b>Wivra</b><span class="sp"></span>
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
@@ -412,7 +412,7 @@ $('expGo').onclick = async () => {
     $('expBar').style.display = 'none';
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (expUrl) URL.revokeObjectURL(expUrl);
-    expUrl = URL.createObjectURL(r.blob); const name = `agentcut-${Date.now()}.${r.ext}`;
+    expUrl = URL.createObjectURL(r.blob); const name = `wivra-${Date.now()}.${r.ext}`;
     $('expVid').src = expUrl; $('expDl').href = expUrl; $('expDl').download = name;
     $('expShare').onclick = async () => {
       const file = new File([r.blob], name, { type: r.mime });
