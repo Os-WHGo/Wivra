@@ -123,6 +123,12 @@
     <div><label for="dirPlatform">Formato principal</label><select id="dirPlatform" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"><option value="reels">Reels</option><option value="tiktok">TikTok</option><option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option><option value="other">Otro</option></select></div>
     <div><label for="dirSeconds">Duración objetivo (s)</label><input id="dirSeconds" type="number" min="1" max="7200" placeholder="Opcional"></div>
   </div>
+  <label for="dirOutputs">Cuántas versiones quieres</label><input id="dirOutputs" type="number" min="1" max="12" value="1">
+  <label for="dirOtherFormats">Otros formatos además del principal</label>
+  <select id="dirOtherFormats" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px">
+    <option value="">Ninguno</option><option value="reels">Reels</option><option value="tiktok">TikTok</option>
+    <option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option>
+  </select>
   <label for="dirNotes">Estilo y recursos (subtítulos, voz de IA, música, efectos, etc.)</label>
   <textarea id="dirNotes" rows="2" placeholder="Ej.: humor seco, voz en off, subtítulos, tres cortes rápidos..."></textarea>
   <div id="dirAssetBox">
@@ -486,8 +492,8 @@ function readDirectorBrief(){
  const raw=$('dirSeconds').value.trim();
  const durationSeconds=raw?Number(raw):null;
  const fresh=createDirectorBrief({
-   mode,goal,platforms:[$('dirPlatform').value],
-   durationSeconds,notes:$('dirNotes').value.trim()
+   mode,goal,platforms:[...new Set([$('dirPlatform').value,$('dirOtherFormats').value].filter(Boolean))],
+   durationSeconds,outputCount:Number($('dirOutputs').value),notes:$('dirNotes').value.trim()
  });
  if(directorBrief){
    fresh.utterances=directorBrief.utterances;
