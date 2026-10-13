@@ -12,7 +12,7 @@ struct WivraMetaB0App: App {
         do {
             try Wearables.configure()
         } catch {
-            NSLog("[WivraMetaB0] DAT configuration failed: %s", error.localizedDescription)
+            NSLog("[WivraMetaB0] DAT configuration failed: %@", error.localizedDescription)
         }
         _model = State(initialValue: MetaB0Model(wearables: Wearables.shared))
     }
@@ -72,7 +72,15 @@ struct MetaB0Screen: View {
                 .background(.black)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                Text("Bluetooth Classic · 504 × 896 solicitados · 24 FPS solicitados")
+                Picker("Perfil de cámara", selection: $model.chosenProfile) {
+                    Text("Equilibrado").tag("balanced")
+                    Text("Ahorro").tag("economy")
+                }
+                .pickerStyle(.segmented)
+                .disabled(model.hasPreview)
+                Text(model.chosenProfile == "economy"
+                     ? "Bluetooth Classic · 360 × 640, 15 FPS solicitados"
+                     : "Bluetooth Classic · 504 × 896, 24 FPS solicitados")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
