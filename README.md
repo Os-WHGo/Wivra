@@ -110,6 +110,8 @@ Reglas del bucle del agente / agent-loop rules:
 
 ## Se buscan manos / Help wanted
 
+Lista de tareas detenidas y qué falta en cada una: [`docs/HELP_WANTED.md`](docs/HELP_WANTED.md).
+
 JavaScript/TypeScript y APIs de video del navegador (WebCodecs, WebAssembly), diseño táctil móvil, agentes con herramientas, pruebas en iPhone y Android reales, traducciones.
 
 ## Licencia / License
