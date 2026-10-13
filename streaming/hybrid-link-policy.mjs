@@ -46,7 +46,7 @@ function suitableMediaLevel(internet,camera,phoneLink){
   const factor=phoneLink==='cellular'?LIMITS.minCellularHeadroom:LIMITS.minOtherHeadroom;
   return [...MEDIA_LEVELS].reverse().find(level=>
     internet.measuredUploadMbps*1000 >= level.bitrateKbps*factor &&
-    camera.observedFps >= Math.min(level.fps,24)
+    camera.observedFps >= level.fps
   )||null;
 }
 /**
@@ -77,7 +77,7 @@ export function evaluateHybridLink({
     const reasons=[],capture=normalizeLinkMetrics(measuredCapture[link]);
     const eligibleBuild=nativeBuildAvailableLinks.includes(link);
     const route=link==='wifi-softap'?'cellular':
-      (measuredInternet['existing-wifi']?.stable===true?'existing-wifi':'cellular');
+      ((measuredInternet['existing-wifi']?.stable===true && measuredInternet['existing-wifi']?.testVerified===true)?'existing-wifi':'cellular');
     const internet=normalizeInternet(measuredInternet[route]);
     if(!eligibleBuild)reasons.push('this build has not verified this transport');
     const health=assessCapture(capture);
