@@ -1,12 +1,12 @@
 # Wivra Meta B0 · primera prueba física Ray-Ban Meta → iPhone
 
-**Fecha:** 13 octubre 2026 · **Estado actualizado:** **compilación Xcode para iOS Simulator completada con éxito en GitHub Actions** (run [38459815766](https://github.com/Os-WHGo/agentcut/actions/runs/38459815766), 13-oct-2026). Proyecto generado con XcodeGen; dependencias DAT 1.0.1 resueltas; `xcodebuild` de iOS Simulator completó `success`. **NO firmado/instalado en iPhone físico, NO probado con gafas reales y NO transmite RTMPS**.  
+**Fecha:** 13 octubre 2026 · **Estado actualizado:** **compilación Xcode para iOS Simulator completada con éxito en GitHub Actions** (run [38459815766](https://github.com/Os-WHGo/Wivra/actions/runs/38459815766), 13-oct-2026). Proyecto generado con XcodeGen; dependencias DAT 1.0.1 resueltas; `xcodebuild` de iOS Simulator completó `success`. **NO firmado/instalado en iPhone físico, NO probado con gafas reales y NO transmite RTMPS**.  
 **Fase estricta actual:** **B0** (registro, sesión, permiso, **vista previa de fotogramas reales** y estadísticas). **NO hay emisión a Internet, audio, grabador ni importación de archivos antiguos en este prototipo.**
 
 ## Decisión para la primera etapa
 
 - **Fuente:** Ray-Ban Meta Gen 2 y otras Meta autorizadas compatibles con DAT.
-- **Radio de cámara:** **Bluetooth Classic**. Esta configuración no instala el transporte Wi-Fi softAP ni pide cambiar de red en cada sesión.
+- **Transporte de prueba preferido:** Bluetooth Classic, por su posibilidad de mantener Wi-Fi normal en el teléfono. **DAT decide el enlace efectivo**: el perfil de cámara y los permisos del archivo Info.plist no fuerzan por sí solos que se use Bluetooth Classic. No hemos medido aún el transporte elegido en el iPhone real. Declarar `NSLocalNetworkUsageDescription` y `NSBonjourServices` es necesario para el SDK aunque B0 no solicite usar Wi-Fi.
 - **Perfil equilibrado:** imagen decodificada **.raw**, `.medium` (solicitado **504×896**), **24 FPS** solicitados. Elegido para evitar escribir todavía un decoder VideoToolbox propio y demostrar fotogramas de verdad.
 - **Perfil ahorro:** `.raw`, `.low` (solicitado **360×640**), **15 FPS**. Permite comparar autonomía/calor en sesiones separadas sin afirmar que consumirá menos antes de medirlo.
 - **Observaciones en pantalla:** estado de registro, sesión, estado de cámara, frames **realmente recibidos**, FPS observado, resolución real y segundos desde primer frame. Si se sobrecalientan las gafas, respetar `thermalHot` y detener cámara.
@@ -24,8 +24,8 @@
 ## Compilar (sin copiar código SDK al repositorio)
 
 ```bash
-git clone https://github.com/Os-WHGo/agentcut.git
-cd agentcut
+git clone https://github.com/Os-WHGo/Wivra.git
+cd Wivra
 git fetch origin
 git switch chatgpt/meta-dat-live-bridge-spike-20261013
 cd streaming/ios/B0
@@ -41,6 +41,8 @@ En Xcode:
 - Si la app muestra que la cámara sigue en `waitingForDevice`, revisar que las gafas estén encendidas, enlazadas y próximas al iPhone. Si el SDK pide actualizar firmware o app en gafas, seguir los pasos oficiales.
 - En la prueba B0, **la app se mantiene abierta en primer plano**. Si entra al fondo, detiene explícitamente la sesión. No afirmar streaming ininterrumpido con iPhone bloqueado.
 
+**Si no tienes Mac con Xcode:** GitHub Actions puede compilar el proyecto para iPhone real **sin firma**, pero no instalarlo. La instalación en tu teléfono necesita firma de desarrollo y un Mac con Xcode o un método legítimo de distribución firmado. Nunca compartas contraseña Apple ID, certificados privados o claves de transmisión en un issue de GitHub. Prueba desde Meta AI en tu iPhone si el menú de desarrollador está disponible, mientras preparamos la firma.
+
 **Alternativa para verificar que la instalación DAT funciona antes de depurar nuestro código:** clonar **el proyecto oficial** y ejecutar `samples/CameraAccess/CameraAccess.xcodeproj` (Meta es el titular del código, no incorporarlo al repo Wivra). Su app implementa conexión, previsualización, grabación local y MockDeviceKit; **no demuestra todavía RTMP**.
 
 ## Prueba de campo objetiva
@@ -55,6 +57,13 @@ En Xcode:
 | 6 — Comportamiento seguro | Poner app en background/recibir interrupción | No afirmar que sigue grabando; UI y sesión regresan a estado seguro |
 
 **Registro manual** que debe acompañar resultado: modelo exacto de gafas, firmware, versión iOS/Meta AI, porcentaje de batería inicial/final, temperatura ambiental aproximada, duración, resolución/FPS observados, errores mostrados y capturas de pantalla. Si la batería se calienta, dejarla descansar según recomendaciones del fabricante; no experimentar hasta apagado térmico.
+
+### Estados de compilación (distintos de gafas conectadas)
+
+- ✅ Compilación **iOS Simulator**: validada por GitHub Actions, run [38459815766](https://github.com/Os-WHGo/Wivra/actions/runs/38459815766).
+- ⏳ Compilación **generic iOS device, sin firma**: comprobación de CI agregada; revisar su ejecución, sin asumir éxito antes del resultado.
+- ⏳ Firma de desarrollo e instalación en iPhone: requiere acción del propietario y credenciales solo en su equipo.
+- ⏳ Prueba real de datos desde Ray-Ban Meta: pendiente.
 
 ### Criterio de éxito B0
 
