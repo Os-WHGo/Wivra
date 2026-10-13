@@ -72,3 +72,37 @@ test('failed recordings never become saved',()=>{
  s.requestStop({humanRequested:true});
  s.failRecording();assert.equal(s.state,'recording_failed');assert.equal(s.savedFile,null);
 });
+
+
+// DAT 0.8 introduced Wi-Fi high-bandwidth link. SDK 1.0 link selection/entitlements
+// still require native tests; never treat Wi-Fi import as public RTMP streaming.
+test('Wi-Fi camera link warns about displaced infrastructure Wi-Fi',()=>{
+ const plan=createPreflight({
+   sourceMode:'meta-ios',cameraLink:'wifi-softap',phoneUplink:'cellular',
+   destinations:[d()],fps:30,resolution:'high'
+ });
+ assert.equal(plan.cameraLink,'wifi-softap');
+ assert.equal(plan.sourceRequested.width,720);
+ assert.ok(plan.warnings.some(x=>x.includes('displace normal Wi-Fi')));
+ assert.ok(plan.warnings.some(x=>x.includes('BTC for live')));
+ assert.equal(plan.liveReady,false);
+});
+test('Wi-Fi camera+normal Wi-Fi as internet uplink cannot be assumed',()=>{
+ const plan=createPreflight({
+  sourceMode:'meta-ios',cameraLink:'wifi-softap',phoneUplink:'existing-wifi',
+  destinations:[d()]
+ });
+ assert.ok(plan.warnings.some(x=>x.includes('must NOT proceed as ready')));
+});
+test('Bluetooth camera and normal Wi-Fi internet can be selected as a plan',()=>{
+ const plan=createPreflight({
+  sourceMode:'meta-ios',cameraLink:'bluetooth-classic',phoneUplink:'existing-wifi',
+  destinations:[d()]
+ });
+ assert.equal(plan.cameraLink,'bluetooth-classic');
+ assert.ok(plan.warnings.some(x=>x.includes('preserves the normal phone Wi-Fi internet')));
+});
+test('camera transport is source-specific and cannot claim unverified Meta Wi-Fi link on phone camera',()=>{
+ assert.throws(()=>createPreflight({sourceMode:'phone-camera',cameraLink:'wifi-softap',destinations:[d()]}),/Phone camera/);
+ assert.throws(()=>createPreflight({sourceMode:'meta-ios',cameraLink:'phone-camera',destinations:[d()]}),/Camera link/);
+});
