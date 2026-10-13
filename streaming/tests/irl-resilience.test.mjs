@@ -33,7 +33,7 @@ test('hot glasses require safety and cannot be fixed just by reducing output bit
  assert.equal(p.proposedNextSessionSourceProfile,'thermalLow');
  assert.ok(p.actions.includes('warn_wearer_about_glasses_temperature'));
  assert.ok(p.actions.includes('respect_native_sdk_thermal_pause_or_stop'));
- assert.ok(p.warnings.some(x=>x.includes('does not')));
+ assert.ok(p.warnings.some(x=>x.includes('Do not assume changing RTMP bitrate cools glasses')));
 });
 test('critical thermal or lost camera does not pretend recording still works',()=>{
  const p=decideIRL({sourceThermal:'critical'});
