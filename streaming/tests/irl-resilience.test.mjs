@@ -4,6 +4,7 @@ import {decideIRL,calculateSessionProbe} from '../irl-resilience.mjs';
 test('mobile connection fails while glasses-to-phone remains stable: KEEP LOCAL RECORDING',()=>{
  const p=decideIRL({cameraState:'streaming',localRecorder:'recording',uplink:'offline',sourceThermal:'cool'});
  assert.equal(p.phoneUplinkStatus,'reconnecting');
+ assert.equal(p.outgoingVideoKbpsLimit,0);
  assert.equal(p.localRecordingMayContinue,true);
  assert.ok(p.actions.includes('keep_local_recording_while_frames_arrive'));
  assert.ok(p.actions.includes('suspend_remote_publish_and_retry_when_network_returns'));
@@ -22,7 +23,7 @@ test('Twitch disconnect protection is conditional on actual supported encoder an
 });
 test('weakened phone uplink reduces outgoing bitrate without changing glasses-to-phone link',()=>{
  const p=decideIRL({uplink:'weak',cameraState:'streaming',sourceLink:'bluetooth-classic',currentProfile:'standard'});
- assert.equal(p.proposedNextSessionSourceProfile,'economy');
+ assert.equal(p.proposedNextSessionSourceProfile,'standard');
  assert.equal(p.outgoingVideoKbpsLimit,950);
  assert.equal(p.localRecordingMayContinue,true);
  assert.equal(p.sourceLink,'bluetooth-classic');
