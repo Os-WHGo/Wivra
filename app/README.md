@@ -46,3 +46,9 @@ Regenerar el archivo: `node app/build.mjs`.
 - **Reintentos:** si el proveedor responde 429/500/502/503/504, se reintenta 2 veces (espera 2 s y 5 s) y avisa en pantalla. Clave inválida (401) o corte de red/CORS NO se reintentan.
 - **Voz:** botón "Dictar" con Web Speech del navegador (si existe) para instrucciones largas; si no existe, se indica usar el micrófono del teclado. El dictado lo hace el navegador y podría usar servidores de Apple/Google (sin verificar); Wivra no guarda audio. **No validado en iPhone real.**
 - **Pruebas:** 28 de app; recorrido en Chromium con 503 + reintento, dictado simulado y dos turnos de conversación.
+
+## Integración (rama `claude/integration-director`)
+Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + checklist y agente local (#40, de ChatGPT) + exportación (#42) + IA directa (#43). Conflictos resueltos en `template.html` y `build.mjs`; `dist` regenerado. Sin nombres repetidos entre módulos.
+- **Probado (Chromium con iPhone simulado):** abrir el Director sin video y con 2 videos, pedir un corte a un proveedor simulado y aplicarlo, exportar con audio. Sin errores de consola. 22 pruebas de núcleo y 28 de app.
+- **Pendiente de integrar de verdad:** el "agente local básico" del #40 (`localBasicCommand`) y la IA directa (#43) son caminos separados; falta unificar la conversación para que el Director y la IA compartan el mismo historial y las mismas notas por video.
+- La barra inferior ya tiene 7 botones activos y se desliza hacia el lado en pantallas angostas (el de "Director" queda parcialmente fuera hasta deslizar).

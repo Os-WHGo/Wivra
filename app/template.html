@@ -86,6 +86,7 @@
   <button class="tool" id="del" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Borrar</button>
   <button class="tool" id="bText" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Texto</button>
   <button class="tool" id="bAI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>IA</button>
+  <button class="tool" id="bDirector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h12M4 18h9M18 14l2 2-5 5h-3v-3z"/></svg>Director</button>
   <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio<small>pronto</small></button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
@@ -122,6 +123,68 @@
     <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
     <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></details></div>
 
+<div class="sheet" id="sDirector">
+  <h2>Director creativo (prototipo)</h2>
+  <p class="m">Explica tu idea hablando con el micrófono del teclado o escribiendo. Prepara un briefing para tu IA, incluso si todavía no has grabado. No edita ni genera voz por sí solo.</p>
+  <label for="dirMode">Qué quieres hacer</label>
+  <select id="dirMode" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px">
+    <option value="automatic">Elegir los mejores momentos</option>
+    <option value="guided">Explicar qué hay en mis videos</option>
+    <option value="preproduction">Planear un video antes de grabar</option>
+  </select>
+  <label for="dirGoal">Cuéntame la idea o dicta instrucciones largas</label>
+  <textarea id="dirGoal" rows="5" placeholder="Ej.: Tengo cinco videos; quiero un capítulo y tres reels. Que tenga un gancho, cortes naturales, subtítulos y narración."></textarea>
+  <div class="row">
+    <div><label for="dirPlatform">Formato principal</label><select id="dirPlatform" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"><option value="reels">Reels</option><option value="tiktok">TikTok</option><option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option><option value="other">Otro</option></select></div>
+    <div><label for="dirSeconds">Duración objetivo (s)</label><input id="dirSeconds" type="number" min="1" max="7200" placeholder="Opcional"></div>
+  </div>
+  <label for="dirOutputs">Cuántas versiones quieres</label><input id="dirOutputs" type="number" min="1" max="12" value="1">
+  <label for="dirOtherFormats">Otros formatos además del principal</label>
+  <select id="dirOtherFormats" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px">
+    <option value="">Ninguno</option><option value="reels">Reels</option><option value="tiktok">TikTok</option>
+    <option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option>
+  </select>
+  <label for="dirNotes">Estilo y recursos (subtítulos, voz de IA, música, efectos, etc.)</label>
+  <textarea id="dirNotes" rows="2" placeholder="Ej.: humor seco, voz en off, subtítulos, tres cortes rápidos..."></textarea>
+  <div id="dirAssetBox">
+    <label for="dirAsset">Qué contiene cada video (tu explicación ayuda a encontrarlo)</label>
+    <select id="dirAsset" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"></select>
+    <textarea id="dirAssetDescription" rows="2" placeholder="Ej.: aquí caminé por Granville y grabé el teatro Vogue."></textarea>
+    <button id="dirSaveAsset" class="btn sec">Guardar explicación de este video</button>
+    <p class="m" id="dirAssetStatus"></p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Guía de grabación en Wivra</h3>
+    <p class="m">Genera un checklist sencillo y marca cada toma al grabarla. La plantilla es local, todavía no usa un modelo de IA ni inventa lugares cercanos.</p>
+    <label for="dirSpot">Lugar o tema que quieres grabar</label><input id="dirSpot" placeholder="Ej.: el parque, una cafetería o el barrio">
+    <div class="row">
+      <div><label for="dirShotCount">Cantidad de tomas</label><input id="dirShotCount" type="number" min="3" max="12" value="5"></div>
+      <div><label for="dirShootLength">Duración final deseada (s)</label><input id="dirShootLength" type="number" min="10" max="3600" value="45"></div>
+    </div>
+    <button id="dirGenerateChecklist" class="btn">Crear lista de tomas aquí</button>
+    <div id="dirPlanInfo" class="m" role="status" aria-live="polite" style="margin:10px 0"></div>
+    <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
+    <input type="file" id="directorCamera" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+    <p class="m">«Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma.</p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Edición directa dentro de Wivra (prueba básica)</h3>
+    <p class="m">No necesitas copiar prompts para esta prueba. Las órdenes muy sencillas se convierten en operaciones reales del editor, con vista previa del cambio y aprobación. Todavía NO es un modelo de IA.</p>
+    <textarea id="dirQuickEdit" rows="2" placeholder='Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver"'></textarea>
+    <button class="btn sec" id="dirPrepareEdit">Revisar propuesta local</button>
+    <pre id="dirPreparedOps" style="white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.4 monospace;color:var(--mut)"></pre>
+    <button class="btn" id="dirApplyEdit" disabled>Aplicar al editor</button>
+  </div>
+  <label for="dirCorrection">Instrucción adicional o corrección (no reemplaza las anteriores)</label>
+  <textarea id="dirCorrection" rows="2" placeholder="No, mejor que el comienzo use la segunda toma..."></textarea>
+  <button id="dirAddCorrection" class="btn sec">Agregar a la conversación</button>
+  <p id="dirHistory" class="m" role="status" aria-live="polite"></p>
+  <button id="dirCopy" class="btn">Preparar y copiar briefing para mi IA</button>
+  <label for="dirExportText">Briefing preparado (copia manual si no funciona el portapapeles)</label>
+  <textarea id="dirExportText" rows="4" readonly placeholder="Aquí aparecerá tu briefing."></textarea>
+  <p class="m" id="dirStatus" role="status" aria-live="polite">La IA aún no está conectada; puedes usar este briefing en ChatGPT o Claude.</p>
+</div>
+
 <div class="sheet" id="sObs"><h2>Observar el video</h2><p class="m">Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada.</p>
   <button id="observe" class="btn" disabled>Inspeccionar fotogramas</button>
   <div id="visionStatus" class="m" role="status" aria-live="polite" style="margin-top:8px"></div><div id="visualCandidates"></div>
@@ -145,6 +208,8 @@ let visualEvidence = null, visualBusy = false;
 let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
+let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
+const SHOOT_STORAGE_KEY='agentcut-shoot-checklist-v1';
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
 function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
@@ -158,9 +223,11 @@ function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.c
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
+$('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 
 function render() {
   const p = session?.project, on = !!p;
+  if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
   for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy; aiSync();
   $('undo').disabled = !on || !session.undoStack.length;
@@ -198,8 +265,8 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
 let loading = false;
-$('file').addEventListener('change', async () => {
-  const files = [...$('file').files]; $('file').value = ''; if (!files.length || loading) return;
+async function importSelectedFiles(files) {
+  if (!files.length || loading) return;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
   for (const f of files) {
@@ -226,6 +293,24 @@ $('file').addEventListener('change', async () => {
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
   if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
   loading = false;
+}
+$('file').addEventListener('change', async () => {
+  const chosen=[...$('file').files];$('file').value='';
+  await importSelectedFiles(chosen);
+});
+$('directorCamera').addEventListener('change',async()=>{
+  const files=[...$('directorCamera').files];$('directorCamera').value='';
+  if(!files.length)return;
+  const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
+  await importSelectedFiles(files);
+  const added=session?.project.assets.find(a=>!existing.has(a.id));
+  if(added&&shootPlan&&selectedShootId){
+   try{
+     shootPlan=updateShot(shootPlan,selectedShootId,{state:'done',assetId:added.id},{project:session.project});
+     saveShootPlan();renderShootPlan();
+     say('Toma grabada y asociada al proyecto.','ok');
+   }catch(e){say(e.message,'bad')}
+  }
 });
 
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
@@ -549,6 +634,182 @@ async function makeThumbs(id) {
     }
   } catch { /* sin miniaturas: los bloques se ven igual */ }
 }
+
+
+/* Creative Director context, complementary to Claude core. No model calls. */
+let directorBrief=null;
+function directorProject(){return session?.project||createProject()}
+function refreshDirectorAssets(){
+ const assets=directorProject().assets,sel=$('dirAsset');
+ const previous=sel.value;sel.replaceChildren();
+ for(const asset of assets){
+  const option=document.createElement('option');
+  option.value=asset.id;option.textContent=(asset.name||asset.id)+' ('+asset.id+')';
+  sel.appendChild(option);
+ }
+ if(assets.some(x=>x.id===previous))sel.value=previous;
+ $('dirAssetBox').style.display=assets.length?'block':'none';
+ syncDirectorAssetDescription();
+}
+function syncDirectorAssetDescription(){
+ $('dirAssetDescription').value=directorBrief?.assetDescriptions?.[$('dirAsset').value]?.description||'';
+}
+$('dirAsset').addEventListener('change',syncDirectorAssetDescription);
+function readDirectorBrief(){
+ const mode=$('dirMode').value,goal=$('dirGoal').value.trim();
+ const raw=$('dirSeconds').value.trim();
+ const durationSeconds=raw?Number(raw):null;
+ const fresh=createDirectorBrief({
+   mode,goal,platforms:[...new Set([$('dirPlatform').value,$('dirOtherFormats').value].filter(Boolean))],
+   durationSeconds,outputCount:Number($('dirOutputs').value),notes:$('dirNotes').value.trim()
+ });
+ if(directorBrief){
+   fresh.utterances=directorBrief.utterances;
+   fresh.assetDescriptions=directorBrief.assetDescriptions;
+   fresh.shotIdeas=mode==='preproduction'?directorBrief.shotIdeas:[];
+ }
+ return fresh;
+}
+$('dirMode').addEventListener('change',()=>{
+ $('dirAssetBox').style.display=$('dirMode').value==='preproduction'?'none':directorProject().assets.length?'block':'none';
+});
+$('dirSaveAsset').addEventListener('click',()=>{
+ try{
+   let b=readDirectorBrief();
+   b=describeAsset(b,directorProject(),{
+      assetId:$('dirAsset').value,description:$('dirAssetDescription').value,
+      source:'typed'
+   });
+   directorBrief=b;
+   $('dirAssetStatus').textContent='Explicación guardada en esta sesión como información que aportaste tú, aún no verificada por visión.';
+ }catch(e){$('dirAssetStatus').textContent=e.message}
+});
+$('dirAddCorrection').addEventListener('click',()=>{
+ try{
+   let b=readDirectorBrief();
+   b=recordInstruction(b,$('dirCorrection').value,{source:'typed',kind:'correction'});
+   directorBrief=b;
+   $('dirCorrection').value='';
+   $('dirHistory').textContent='Instrucciones adicionales conservadas: '+b.utterances.length;
+ }catch(e){$('dirHistory').textContent=e.message}
+});
+$('dirCopy').addEventListener('click',async()=>{
+ try{
+   directorBrief=readDirectorBrief();
+   const prompt=directorPrompt(directorProject(),directorBrief);
+   $('dirExportText').value=prompt;
+   try{
+     await navigator.clipboard.writeText(prompt);
+     $('dirStatus').textContent='Briefing copiado. Pégalo en tu IA; no se envió ningún video ni se realizó edición.';
+   }catch{
+     $('dirStatus').textContent='El navegador no permitió copiar. Selecciona el texto de abajo para copiarlo manualmente.';
+     $('dirExportText').focus();$('dirExportText').select();
+   }
+ }catch(e){$('dirStatus').textContent='Falta información: '+e.message}
+});
+
+
+/* Director: checklist offline and validated quick edits, no hidden AI service. */
+function saveShootPlan(){
+ try{if(shootPlan)localStorage.setItem(SHOOT_STORAGE_KEY,JSON.stringify(shootPlan))}
+ catch{ /* private mode or file scheme may refuse local storage */ }
+}
+function loadShootPlan(){
+ try{
+  const restored=JSON.parse(localStorage.getItem(SHOOT_STORAGE_KEY)||'null');
+  if(restored?.schema==='agentcut-shoot-plan-v0.1'&&Array.isArray(restored.shots)){
+    // Saved asset IDs do NOT grant access to files after page reload.
+    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null}))};
+  }
+ }catch{ /* ignore corrupt storage */ }
+}
+function renderShootPlan(){
+ const list=$('dirChecklist'),places=$('dirPlaceHints');
+ list.replaceChildren();places.replaceChildren();
+ if(!shootPlan){
+  $('dirPlanInfo').textContent='Todavía no hay lista de tomas.';
+  return;
+ }
+ const p=progress(shootPlan);
+ $('dirPlanInfo').textContent=p.done+' de '+p.total+' tomas completadas ('+p.percent+' %). '+(p.readyToEdit?'Lista lista para revisar tus videos.':'Marca las tomas que hayas grabado.');
+ const sub=document.createElement('p');sub.className='m';
+ sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
+ places.append(sub);
+ for(const loc of shootPlan.shotLocations){
+  const hint=document.createElement('p');hint.className='m';hint.textContent='• '+loc.hint;places.append(hint);
+ }
+ for(const shot of shootPlan.shots){
+  const card=document.createElement('div');card.className='item';
+  const title=document.createElement('label');title.style.cssText='display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--fg)';
+  const check=document.createElement('input');check.type='checkbox';check.checked=shot.state==='done';
+  check.style.cssText='width:24px;height:24px;flex:none';
+  check.setAttribute('aria-label','Toma completada: '+shot.title);
+  check.onchange=()=>{
+   shootPlan=updateShot(shootPlan,shot.id,{state:check.checked?'done':'todo'});
+   saveShootPlan();renderShootPlan();
+  };
+  const label=document.createElement('span');label.textContent=shot.title+' · '+shot.durationSeconds+' s';
+  title.append(check,label);
+  const body=document.createElement('p');body.className='m';body.style.margin='4px 0';body.textContent=shot.direction;
+  const row=document.createElement('div');row.className='row';
+  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
+  cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
+  const choose=document.createElement('select');
+  choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
+  choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
+  const none=document.createElement('option');none.value='';none.textContent='Asociar video...';choose.append(none);
+  (session?.project.assets||[]).forEach(asset=>{
+    const opt=document.createElement('option');opt.value=asset.id;opt.textContent=asset.name||asset.id;
+    choose.append(opt);
+  });
+  choose.value=shot.assetId||'';
+  choose.onchange=()=>{
+    if(!session||!choose.value)return;
+    try{
+      shootPlan=updateShot(shootPlan,shot.id,{assetId:choose.value,state:'done'},{project:session.project});
+      saveShootPlan();renderShootPlan();say('Video asociado a la toma.','ok');
+    }catch(e){say(e.message,'bad')}
+  };
+  row.append(cam,choose);
+  if(shot.assetId){
+    const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
+    card.append(title,body,linked,row);
+  }else card.append(title,body,row);
+  list.append(card);
+ }
+}
+$('dirGenerateChecklist').onclick=()=>{
+ try{
+  const subject=$('dirSpot').value.trim()||$('dirGoal').value.trim();
+  shootPlan=createShootPlan({subject,
+   platform:$('dirPlatform').value,shotCount:Number($('dirShotCount').value),
+   durationSeconds:Number($('dirShootLength').value),style:$('dirNotes').value.trim()});
+  saveShootPlan();renderShootPlan();
+ }catch(e){$('dirPlanInfo').textContent=e.message}
+};
+$('dirPrepareEdit').onclick=async()=>{
+ if(!session){say('Importa al menos un video antes de editar.','bad');return}
+ try{
+  quickAgent=createAgentToolController({session,
+   model:async ({message,project})=>localBasicCommand(message,project)});
+  quickPending=await quickAgent.propose({message:$('dirQuickEdit').value});
+  $('dirPreparedOps').textContent='Propuesta local, aún NO aplicada:\n'+JSON.stringify(quickPending.operations,null,2);
+  $('dirApplyEdit').disabled=false;
+ }catch(e){quickPending=null;quickAgent=null;$('dirApplyEdit').disabled=true;
+  $('dirPreparedOps').textContent=e.message}
+};
+$('dirApplyEdit').onclick=()=>{
+ if(!quickAgent||!quickPending)return;
+ try{
+  const result=quickAgent.approve();quickPending=null;quickAgent=null;
+  $('dirPreparedOps').textContent='Aplicado '+result.operationsApplied+' cambio(s). Puedes deshacerlos.';
+  selId=null;tlTime=Math.min(tlTime,totalDuration(session.project));
+  render();syncScroll();say('Edición realizada dentro de Wivra.','ok');
+ }catch(e){quickPending=null;quickAgent=null;
+  $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
+};
+loadShootPlan();
+renderShootPlan();
 
 render();
 </script>

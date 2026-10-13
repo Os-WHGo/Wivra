@@ -1,0 +1,29 @@
+name: Creative Director Brief Tests
+on:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'app/**'
+      - '.github/workflows/creative-director-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test creative director and existing core
+        run: cd core && npm test
+      - name: Check JavaScript grammar
+        run: node --check core/creative-director.mjs && node --check app/build.mjs
+      - name: Rebuild single-file editor and verify it matches committed version
+        run: node app/build.mjs && git diff --exit-code -- app/dist/agentcut.html
+      - name: Check director UI is present
+        run: |
+          grep -q 'id="bDirector"' app/dist/agentcut.html
+          grep -q 'id="dirAssetDescription"' app/dist/agentcut.html
+          grep -q 'directorPrompt(directorProject()' app/dist/agentcut.html
