@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject } from '../../core/project.mjs';
 import { Session } from '../../core/session.mjs';
-import { clipAt, rippleOps, planEdit, splitAt, fmtTime } from '../timeline.mjs';
+import { clipAt, rippleOps, planEdit, splitAt, fmtTime, reorderOps } from '../timeline.mjs';
 
 const mk = () => { const s = new Session(createProject({ assets: [{ id: 'a1', duration: 22 }] })); s.apply([{ op: 'add_clip', asset_id: 'a1' }]); return s; };
 
@@ -39,4 +39,15 @@ test('el borde del clip no se puede dividir y los errores del validador pasan', 
 test('rippleOps no hace nada si no hay huecos; formato de tiempo', () => {
   assert.deepEqual(rippleOps(mk().project), []);
   assert.equal(fmtTime(65.25), '1:05.3');
+});
+
+test('reordenar clips: B, A queda B en 0 y A después, en un solo deshacer', () => {
+  const s = mk(); s.addAsset({ id: 'a2', duration: 5 });
+  s.apply([{ op: 'trim_clip', clip_id: 'c1', in: 0, out: 10 }, { op: 'add_clip', asset_id: 'a2', start: 10 }]);
+  const ops = reorderOps(s.project, ['c2', 'c1']);
+  assert.equal(s.apply(ops).ok, true);
+  const get = (id) => s.project.clips.find((c) => c.id === id);
+  assert.equal(get('c2').start, 0); assert.equal(get('c1').start, 5);
+  s.undo(); assert.equal(get('c1').start, 0);
+  assert.equal(reorderOps(s.project, ['c1']), null);          // lista incompleta: se rechaza
 });

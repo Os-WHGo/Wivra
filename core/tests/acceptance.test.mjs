@@ -53,3 +53,13 @@ test('mismas herramientas en formato OpenAI y Anthropic', () => {
   assert.equal(toOpenAI().length, TOOLS.length);
   assert.ok(toAnthropic().every((t) => t.input_schema));
 });
+
+test('agregar un medio no se deshace y sigue válido tras deshacer/rehacer', () => {
+  const s = fresh();
+  runTool(s, 'edit_apply', { ops: [{ op: 'add_clip', asset_id: 'a1' }] });
+  s.addAsset({ id: 'a2', duration: 10 });
+  runTool(s, 'edit_apply', { ops: [{ op: 'add_clip', asset_id: 'a2', start: 22 }] });
+  s.undo(); assert.equal(s.project.assets.length, 2);
+  s.undo(); assert.equal(s.project.assets.length, 2);
+  s.redo(); s.redo(); assert.equal(s.project.clips.length, 2);
+});

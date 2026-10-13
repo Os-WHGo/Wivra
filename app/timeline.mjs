@@ -37,3 +37,16 @@ export function splitAt(project, t, clipId) {
 }
 
 export const fmtTime = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, '0')}`; };
+
+// Reordenar: recibe los ids de los clips en el orden nuevo y los coloca uno tras otro desde 0 (un solo deshacer).
+export function reorderOps(project, orderedIds) {
+  const byId = new Map(project.clips.map((c) => [c.id, c]));
+  if (orderedIds.length !== byId.size || orderedIds.some((id) => !byId.has(id))) return null;
+  const ops = []; let cursor = 0;
+  for (const id of orderedIds) {
+    const c = byId.get(id); const start = round2(cursor);
+    if (Math.abs(c.start - start) > 0.004) ops.push({ op: 'move_clip', clip_id: id, start });
+    cursor += c.out - c.in;
+  }
+  return ops;
+}
