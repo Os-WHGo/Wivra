@@ -17,7 +17,7 @@
 
 | Opción | Detalle | Estado de verificación |
 | --- | --- | --- |
-| Whisper con transformers.js | ONNX Runtime Web: usa WebGPU si existe y WebAssembly si no. Modelos aproximados: tiny ~120 MB, base ~210 MB, small ~590 MB | Tamaños y velocidades vienen de un artículo comparativo. El artículo dice que **Safari no tiene WebGPU en 2026**, por lo que en iPhone caería a WebAssembly, más lento (**inferencia mía, no medida**) |
+| Whisper con transformers.js | ONNX Runtime Web: usa WebGPU si existe y WebAssembly si no. Modelos aproximados: tiny ~120 MB, base ~210 MB, small ~590 MB | Tamaños y velocidades vienen de un artículo comparativo. **Corrección (13 oct):** ese artículo decía que Safari no tiene WebGPU, pero caniuse y el blog de WebKit indican que **WebGPU está soportado en iOS 26 o superior** (ver `docs/VERIFICATION.md`). En un iPhone con iOS 26+ debería poder usarse la ruta WebGPU; velocidad real **no medida** |
 | whisper.cpp en WebAssembly | Sin aceleración por GPU | Según el mismo artículo |
 | Moonshine | Pequeño, solo inglés, sin marcas de tiempo | Según el mismo artículo |
 | Meta "Muse Voice Transcribe" | Transcripción de voz de la plataforma de Meta | Aparece listada en su página de desarrolladores. **No verificado:** precio, límites, uso desde navegador |
