@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AgentCut · prueba en teléfono</title>
+<style>
+  :root { --bg:#111; --card:#1c1c1e; --fg:#f2f2f7; --mut:#9a9aa3; --ac:#0a84ff; --bad:#ff453a; --ok:#30d158; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.4 -apple-system, system-ui, sans-serif; padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin-inline:auto; }
+  h1 { font-size:22px; margin:16px 0 4px; } h2 { font-size:17px; margin:0 0 8px; }
+  p.m { color:var(--mut); margin:0 0 12px; font-size:15px; }
+  section { background:var(--card); border-radius:14px; padding:14px; margin:12px 0; }
+  button, .btn { display:block; width:100%; min-height:48px; font:inherit; font-weight:600; border:0; border-radius:12px; background:var(--ac); color:#fff; padding:12px; margin:8px 0; text-align:center; }
+  button.sec { background:#3a3a3c; } button:disabled { opacity:.4; }
+  input, textarea { width:100%; font-size:16px; /* 16px evita el zoom de iOS */ background:#000; color:var(--fg); border:1px solid #3a3a3c; border-radius:10px; padding:10px; }
+  textarea { min-height:90px; } label { font-size:14px; color:var(--mut); }
+  .row { display:flex; gap:8px; } .row > * { flex:1; }
+  video { width:100%; max-height:50vh; background:#000; border-radius:10px; }
+  .stage { position:relative; } #ov { position:absolute; left:0; right:0; bottom:12%; text-align:center; font-weight:700; font-size:22px; text-shadow:0 0 6px #000; pointer-events:none; }
+  .item { padding:8px 0; border-top:1px solid #2c2c2e; font-size:15px; } .item:first-child { border-top:0; }
+  #msg { white-space:pre-wrap; font-size:15px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
+  input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+</style>
+</head>
+<body>
+<h1>AgentCut</h1>
+<p class="m">Prueba de teléfono · el video NO sale de tu teléfono · todavía no exporta</p>
+
+<section>
+  <h2>1. Tu video</h2>
+  <label class="btn" for="file" id="pick">Elegir video del teléfono</label>
+  <input id="file" type="file" accept="video/*">
+  <p class="m" id="info">Ningún video elegido.</p>
+  <div class="stage"><video id="v" playsinline controls></video><div id="ov"></div></div>
+  <button id="play" class="sec" disabled>▶ Ver el resultado editado</button>
+</section>
+
+<section>
+  <h2>2. Edición manual (sin IA)</h2>
+  <div class="row"><div><label>Inicio (s)</label><input id="tin" inputmode="decimal" placeholder="2"></div><div><label>Fin (s)</label><input id="tout" inputmode="decimal" placeholder="8"></div></div>
+  <button id="trim" disabled>Recortar el primer clip</button>
+  <label>Texto en pantalla</label><input id="txt" placeholder="Vancouver">
+  <button id="addtxt" class="sec" disabled>Poner texto al inicio (3 s)</button>
+  <button id="undo" class="sec" disabled>↩ Deshacer</button>
+</section>
+
+<section>
+  <h2>3. Con tu IA (gratis, sin clave)</h2>
+  <p class="m">Usa ChatGPT o Claude normales. Copias, pegas y vuelves.</p>
+  <label>¿Qué quieres que haga?</label>
+  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
+  <button id="copy" disabled>① Copiar el mensaje para mi IA</button>
+  <label>② Pega aquí la respuesta de la IA</label>
+  <textarea id="reply"></textarea>
+  <button id="apply" disabled>③ Aplicar</button>
+  <div id="msg"></div>
+</section>
+
+<section><h2>Línea de tiempo</h2><div id="tl"><p class="m">Vacía.</p></div></section>
+
+<script>
+// AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
+// — Claude
+function createProject({ assets = [] } = {}) {
+  return { revision: 0, assets: structuredClone(assets), clips: [], texts: [], nextId: 1 };
+}
+const totalDuration = (p) => p.clips.reduce((m, c) => Math.max(m, c.start + (c.out - c.in)), 0);
+const clipLength = (c) => c.out - c.in;
+
+// Operaciones validadas. La IA propone; el validador decide. Todo-o-nada por lote.
+// — Claude
+
+
+const MAX_TEXT = 120;
+const err = (code, message) => ({ ok: false, code, message });
+const num = (v) => typeof v === 'number' && Number.isFinite(v);
+const findAsset = (p, id) => p.assets.find((a) => a.id === id);
+const findClip = (p, id) => p.clips.find((c) => c.id === id);
+
+const handlers = {
+  add_clip(p, { asset_id, start = 0 }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    const id = `c${p.nextId++}`;
+    p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
+    return { ok: true, id };
+  },
+  trim_clip(p, { clip_id, in: tin, out }) {
+    const c = findClip(p, clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    const a = findAsset(p, c.asset_id);
+    if (!num(tin) || !num(out)) return err('bad_time', 'in y out deben ser números');
+    if (tin < 0 || out > a.duration) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${out}`);
+    if (out <= tin) return err('bad_time', 'out debe ser mayor que in');
+    c.in = tin; c.out = out;
+    return { ok: true };
+  },
+  split_clip(p, { clip_id, at }) {
+    const c = findClip(p, clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
+    const id = `c${p.nextId++}`;
+    const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
+    c.out = at;
+    p.clips.push(right);
+    return { ok: true, id };
+  },
+  move_clip(p, { clip_id, start }) {
+    const c = findClip(p, clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    c.start = start;
+    return { ok: true };
+  },
+  delete_clip(p, { clip_id }) {
+    const i = p.clips.findIndex((c) => c.id === clip_id);
+    if (i < 0) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    p.clips.splice(i, 1);
+    return { ok: true };
+  },
+  add_text(p, { text, start, duration }) {
+    if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
+    if (!num(start) || !num(duration) || start < 0 || duration <= 0) return err('bad_time', 'start >= 0 y duration > 0');
+    const total = totalDuration(p);
+    if (start >= total) return err('out_of_range', `El video dura ${total} s; el texto empieza en ${start}`);
+    const id = `t${p.nextId++}`;
+    p.texts.push({ id, text, start, end: Math.min(start + duration, total) });
+    return { ok: true, id };
+  },
+};
+
+const OPERATION_NAMES = Object.keys(handlers);
+
+// Aplica un lote de forma atómica. Si una operación falla, el proyecto queda intacto.
+function applyBatch(project, ops, expectedRevision) {
+  if (expectedRevision !== undefined && expectedRevision !== project.revision)
+    return { ok: false, code: 'stale_revision', message: `El proyecto está en la revisión ${project.revision}, no ${expectedRevision}. Vuelve a leerlo.` };
+  if (!Array.isArray(ops) || ops.length === 0) return { ok: false, code: 'empty_batch', message: 'No hay operaciones' };
+  const draft = structuredClone(project);
+  const results = [];
+  for (let i = 0; i < ops.length; i++) {
+    const { op, ...args } = ops[i] ?? {};
+    const h = handlers[op];
+    if (!h) return { ok: false, failed_index: i, code: 'unknown_op', message: `Operación desconocida: ${op}`, applied: 0 };
+    const r = h(draft, args);
+    if (!r.ok) return { ...r, failed_index: i, applied: 0 };
+    results.push(r);
+  }
+  draft.revision = project.revision + 1;
+  return { ok: true, project: draft, results };
+}
+
+// Sesión: proyecto + historial. Un mensaje del chat = un paso de deshacer.
+// — Claude
+
+class Session {
+  constructor(project) { this.project = project; this.undoStack = []; this.redoStack = []; }
+  apply(ops, expectedRevision) {
+    const r = applyBatch(this.project, ops, expectedRevision);
+    if (r.ok) { this.undoStack.push(this.project); this.redoStack = []; this.project = r.project; }
+    return r.ok ? { ok: true, revision: this.project.revision, results: r.results } : r;
+  }
+  undo() {
+    if (!this.undoStack.length) return { ok: false, code: 'nothing_to_undo', message: 'No hay nada que deshacer' };
+    this.redoStack.push(this.project); this.project = this.undoStack.pop();
+    return { ok: true, revision: this.project.revision };
+  }
+  redo() {
+    if (!this.redoStack.length) return { ok: false, code: 'nothing_to_redo', message: 'No hay nada que rehacer' };
+    this.undoStack.push(this.project); this.project = this.redoStack.pop();
+    return { ok: true, revision: this.project.revision };
+  }
+}
+
+// Herramientas que ve la IA (independientes del proveedor) + adaptadores a formato OpenAI y Anthropic.
+// — Claude
+const time = { type: 'number', minimum: 0, description: 'segundos' };
+const ops = {
+  type: 'array', minItems: 1,
+  items: { oneOf: [
+    { type: 'object', required: ['op', 'asset_id'], properties: { op: { const: 'add_clip' }, asset_id: { type: 'string' }, start: time } },
+    { type: 'object', required: ['op', 'clip_id', 'in', 'out'], properties: { op: { const: 'trim_clip' }, clip_id: { type: 'string' }, in: time, out: time } },
+    { type: 'object', required: ['op', 'clip_id', 'at'], properties: { op: { const: 'split_clip' }, clip_id: { type: 'string' }, at: time } },
+    { type: 'object', required: ['op', 'clip_id', 'start'], properties: { op: { const: 'move_clip' }, clip_id: { type: 'string' }, start: time } },
+    { type: 'object', required: ['op', 'clip_id'], properties: { op: { const: 'delete_clip' }, clip_id: { type: 'string' } } },
+    { type: 'object', required: ['op', 'text', 'start', 'duration'], properties: { op: { const: 'add_text' }, text: { type: 'string', maxLength: 120 }, start: time, duration: { type: 'number', exclusiveMinimum: 0 } } },
+  ] },
+};
+const TOOLS = [
+  { name: 'project_get', description: 'Lee el proyecto actual (medios, clips, textos, revisión). Úsalo antes de editar.', parameters: { type: 'object', properties: {} } },
+  { name: 'edit_apply', description: 'Aplica un lote de operaciones de forma atómica: si una falla, no se aplica ninguna. Pasa expected_revision de project_get.', parameters: { type: 'object', required: ['ops'], properties: { ops, expected_revision: { type: 'integer' } } } },
+  { name: 'edit_undo', description: 'Deshace el último cambio del chat.', parameters: { type: 'object', properties: {} } },
+];
+const toOpenAI = (t = TOOLS) => t.map((x) => ({ type: 'function', function: { name: x.name, description: x.description, parameters: x.parameters } }));
+const toAnthropic = (t = TOOLS) => t.map((x) => ({ name: x.name, description: x.description, input_schema: x.parameters }));
+
+// Ejecuta una llamada de la IA contra una sesión. Los errores vuelven como datos para que la IA corrija.
+function runTool(session, name, args = {}) {
+  switch (name) {
+    case 'project_get': return { ok: true, project: session.project };
+    case 'edit_apply': return session.apply(args.ops, args.expected_revision);
+    case 'edit_undo': return session.undo();
+    default: return { ok: false, code: 'unknown_tool', message: `Herramienta desconocida: ${name}` };
+  }
+}
+
+// Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
+function buildPrompt(request, project) {
+  return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
+
+Operaciones permitidas (tiempos en segundos):
+- {"op":"trim_clip","clip_id":"c1","in":2,"out":8}  (in/out dentro de la duración del medio)
+- {"op":"split_clip","clip_id":"c1","at":5}
+- {"op":"move_clip","clip_id":"c1","start":0}
+- {"op":"delete_clip","clip_id":"c1"}
+- {"op":"add_clip","asset_id":"a1","start":0}
+- {"op":"add_text","text":"Hola","start":0,"duration":3}  (texto máx. 120 caracteres)
+
+Si algo es imposible, responde [] y nada más.
+
+Proyecto actual:
+${JSON.stringify({ revision: project.revision, assets: project.assets, clips: project.clips, texts: project.texts })}
+
+Petición del usuario: ${request}`;
+}
+function parseReply(text) {
+  const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = (m ? m[1] : text).trim();
+  const tryParse = (s) => { try { return JSON.parse(s); } catch { return undefined; } };
+  let v = tryParse(raw);
+  if (v === undefined) { const a = raw.indexOf('['), b = raw.lastIndexOf(']'); if (a >= 0 && b > a) v = tryParse(raw.slice(a, b + 1)); }
+  if (v && !Array.isArray(v) && Array.isArray(v.ops)) v = v.ops;
+  return Array.isArray(v) && v.length ? v : null;
+}
+
+const $ = (id) => document.getElementById(id);
+let session = null, objUrl = null, previewTimer = null;
+
+function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
+function fmt(n) { return Math.round(n * 100) / 100; }
+
+function render() {
+  const p = session?.project;
+  const on = !!p;
+  for (const id of ['trim','addtxt','copy','apply','play']) $(id).disabled = !on;
+  $('undo').disabled = !on || !session.undoStack.length;
+  if (!p || (!p.clips.length && !p.texts.length)) { $('tl').innerHTML = '<p class="m">Vacía.</p>'; return; }
+  $('tl').innerHTML = p.clips.map(c => `<div class="item"><b>${c.id}</b> · usa ${fmt(c.in)}–${fmt(c.out)} s · empieza en ${fmt(c.start)} s</div>`).join('') +
+    p.texts.map(t => `<div class="item"><b>${t.id}</b> · texto “${t.text.replace(/</g,'&lt;')}” · ${fmt(t.start)}–${fmt(t.end)} s</div>`).join('') +
+    `<div class="item">Duración total: ${fmt(totalDuration(p))} s · revisión ${p.revision}</div>`;
+}
+
+function run(ops) {
+  const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
+  render();
+  return r;
+}
+
+$('file').addEventListener('change', () => {
+  const f = $('file').files[0]; if (!f) return;
+  if (objUrl) URL.revokeObjectURL(objUrl);
+  objUrl = URL.createObjectURL(f);
+  const v = $('v'); v.src = objUrl;
+  $('info').textContent = 'Leyendo…';
+  v.onloadedmetadata = () => {
+    if (!isFinite(v.duration)) { $('info').textContent = 'No pude leer la duración de este video.'; return; }
+    const d = Math.round(v.duration * 100) / 100;
+    session = new Session(createProject({ assets: [{ id: 'a1', duration: d, name: f.name }] }));
+    run([{ op: 'add_clip', asset_id: 'a1' }]);
+    $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
+    say('Video cargado. Ya puedes editar.', 'ok');
+  };
+  v.onerror = () => { $('info').textContent = 'Este teléfono/navegador no puede reproducir este video.'; };
+});
+
+$('trim').onclick = () => {
+  const c = session.project.clips[0];
+  const r = run([{ op: 'trim_clip', clip_id: c?.id, in: parseFloat($('tin').value.replace(',', '.')), out: parseFloat($('tout').value.replace(',', '.')) }]);
+  say(r.ok ? 'Recortado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('addtxt').onclick = () => {
+  const r = run([{ op: 'add_text', text: $('txt').value, start: 0, duration: 3 }]);
+  say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('undo').onclick = () => { session.undo(); render(); say('Deshecho.', 'ok'); };
+
+$('copy').onclick = async () => {
+  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project);
+  try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
+  catch { $('reply').value = ''; $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
+};
+$('apply').onclick = () => {
+  const ops = parseReply($('reply').value);
+  if (!ops) return say('No encontré una lista de operaciones en lo que pegaste. Pídele a la IA: “responde solo con el JSON”.', 'bad');
+  const r = run(ops);
+  say(r.ok ? `Aplicado (${ops.length} operaciones).` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
+};
+
+$('play').onclick = () => {
+  const v = $('v'), p = session.project;
+  const clips = [...p.clips].sort((a, b) => a.start - b.start);
+  if (!clips.length) return;
+  clearInterval(previewTimer);
+  let i = 0, t0 = 0;
+  const go = () => { v.currentTime = clips[i].in; v.play().catch(() => {}); };
+  go();
+  let elapsed = 0;
+  previewTimer = setInterval(() => {
+    const c = clips[i];
+    const now = clips.slice(0, i).reduce((s, k) => s + (k.out - k.in), 0) + (v.currentTime - c.in);
+    $('ov').textContent = p.texts.filter(t => now >= t.start && now < t.end).map(t => t.text).join(' ');
+    if (v.currentTime >= c.out - 0.05) {
+      if (++i >= clips.length) { v.pause(); clearInterval(previewTimer); $('ov').textContent = ''; } else go();
+    }
+  }, 100);
+};
+render();
+</script>
+</body>
+</html>
