@@ -9,12 +9,14 @@ import { execFileSync } from 'node:child_process';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
-assert.equal(scripts.length, 1, 'Debe haber un único script propio sin CDN');
+assert.equal(scripts.length, 2, 'Deben existir un script editor y un módulo de agente propios, sin CDN');
 const dir = mkdtempSync(join(tmpdir(), 'agentcut-smoke-'));
 try {
-  const filename = join(dir, 'editor.js');
-  writeFileSync(filename, scripts[0][1]);
-  execFileSync(process.execPath, ['--check', filename], { stdio: 'pipe' });
+  for(let i=0;i<scripts.length;i++){
+    const filename=join(dir,'script'+i+'.mjs');
+    writeFileSync(filename,scripts[i][1]);
+    execFileSync(process.execPath,['--check',filename],{stdio:'pipe'});
+  }
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
@@ -28,5 +30,5 @@ for (const needle of ['type="file"', 'playsinline', 'captureStream(', 'new Media
 }
 assert.ok(!/<script[^>]+src=|<iframe|<form|\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\s*\(/i.test(html),
   'El prototipo M0 no debe tener red ni servidores externos.');
-assert.ok(!/https?:\/\//.test(scripts[0][1]), 'No debe introducir direcciones externas en JavaScript.');
-console.log('OK: HTML requerido presente; JavaScript válido; sin red explícita. NO probado en hardware.');
+assert.ok(scripts.every(s=>!/https?:\/\//.test(s[1])), 'No debe introducir direcciones externas en JavaScript.');
+console.log('OK: HTML/editor/agent parseados; sin red explícita. NO probado en hardware.');
