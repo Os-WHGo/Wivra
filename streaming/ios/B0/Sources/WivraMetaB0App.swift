@@ -45,7 +45,7 @@ struct MetaB0Screen: View {
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
-                Text("Prueba de conexión entre Ray-Ban Meta y iPhone. No transmite a internet ni graba archivos.")
+                Text("Vista previa B0 y grabación HEVC B1A experimental. Todavía no graba audio ni transmite LIVE.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -61,7 +61,11 @@ struct MetaB0Screen: View {
                             VStack(spacing: 10) {
                                 Image(systemName: "eyeglasses")
                                     .font(.system(size: 38))
-                                Text("Esperando video de las gafas")
+                                Text(model.isCompressedMode
+                                     ? "Modo HEVC comprimido: sin vista previa visual; revisa contador de fotogramas"
+                                     : "Esperando video de las gafas")
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 12)
                             }
                             .foregroundStyle(.white)
                         }
@@ -71,6 +75,13 @@ struct MetaB0Screen: View {
                 .frame(maxWidth: .infinity)
                 .background(.black)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                Picker("Modo de cámara", selection: $model.receiveCompressedHEVC) {
+                    Text("B0 · Vista previa").tag(false)
+                    Text("B1A · Grabar HEVC").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .disabled(model.hasPreview)
 
                 Picker("Perfil de cámara", selection: $model.chosenProfile) {
                     Text("Equilibrado").tag("balanced")
@@ -120,6 +131,43 @@ struct MetaB0Screen: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("start_meta_preview")
 
+                if model.receiveCompressedHEVC {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Button(model.recordingArmed ? "Detener y guardar MOV" : "Grabar HEVC") {
+                                if model.recordingArmed {
+                                    Task { await model.finishRecording() }
+                                } else {
+                                    model.beginRecording()
+                                }
+                            }
+                            .disabled(!model.canRecord)
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("meta_b1_record")
+                            if model.recordingArmed {
+                                Label("REC · video sin sonido", systemImage: "record.circle.fill")
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        Text(model.recordingStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("meta_b1_recording_status")
+                        if let url = model.lastRecordedURL {
+                            ShareLink(item: url) {
+                                Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
+                            }
+                            .accessibilityIdentifier("meta_b1_export_mov")
+                            Text("Archivo local: \(url.lastPathComponent). Verifica su reproducción antes de usarlo en el editor.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
                 HStack {
                     Button("Detener vista previa") { model.stopPreview() }
                         .disabled(!model.hasPreview)
@@ -134,7 +182,7 @@ struct MetaB0Screen: View {
                         .foregroundStyle(.red)
                 }
 
-                Text("Usa esta pantalla en primer plano y toma capturas del contador/FPS para registrar las pruebas. No sobrecalientes las gafas ni tapes sus ventilaciones.")
+                Text("Mantén Wivra en primer plano. B1A guarda solo video, sin audio, y no garantiza grabaciones largas. No uses el modo experimental en situaciones donde perder una toma sea importante. Respeta los avisos térmicos de Meta.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
