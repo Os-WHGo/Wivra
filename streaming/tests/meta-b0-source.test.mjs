@@ -6,7 +6,8 @@ test('B0 is real iOS source with exact SDK dependency but not fabricated CI hard
  const project=read('project.yml'),doc=read('README.md');
  assert.match(project,/exactVersion:\s*1\.0\.1/);
  assert.match(project,/MWDATCore/);assert.match(project,/MWDATCamera/);
- assert.match(doc,/NO compilado/);
+ assert.match(doc,/compilación Xcode para iOS Simulator completada con éxito/);
+ assert.match(doc,/NO firmado\/instalado en iPhone físico/);
  assert.match(doc,/Criterio de éxito B0/);
 });
 test('Bluetooth camera path is explicitly configured; Wi-Fi softAP not accidentally active',()=>{
@@ -14,7 +15,10 @@ test('Bluetooth camera path is explicitly configured; Wi-Fi softAP not accidenta
  assert.match(info,/com\.meta\.ar\.wearable/);
  assert.match(info,/<string>external-accessory<\/string>/);
  assert.match(info,/wivrametab0:\/\//);
- assert.doesNotMatch(info,/HotspotConfiguration|wifi-info|NSBonjourServices/);
+ assert.match(info,/NSLocalNetworkUsageDescription/);
+ assert.match(info,/NSBonjourServices/);
+ assert.match(info,/_bonjour\._tcp/);
+ assert.doesNotMatch(info,/HotspotConfiguration|wifi-info/);
 });
 test('DAT registration and permission request require the actual SDK and a human choice',()=>{
  const app=read('Sources/WivraMetaB0App.swift'),model=read('Sources/MetaB0Model.swift');
