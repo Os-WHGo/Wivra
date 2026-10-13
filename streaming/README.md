@@ -27,6 +27,25 @@ Ray-Ban Meta (stream solicitado HEVC .hvc1, 504x896/24 fps)
 
 La **vista previa**, **registro local** y **transmisión** son tres acciones/estados diferentes. Obtener frames de gafas NO equivale a haber transmitido; obtener enlace RTMP NO equivale a haber guardado un archivo. Un archivador no debe declarar «guardado» hasta escribir, cerrar y **verificar** el video reproducible con audio/tiempos.
 
+## Corrección importante del propietario: Wi-Fi integrado en las gafas
+
+**Verificado en fuentes primarias, 2026-10-13:** las gafas sí tienen Wi-Fi propio, y Meta incorporó **`[Feature] WiFi transport` en DAT iOS 0.8.0 (25-06-2026)**; los SDKs posteriores 1.0 mantienen esta rama de conectividad. Es diferente de que Meta AI pueda transferir grabaciones existentes por Wi-Fi. El SDK **también puede recibir imágenes en directo por ese enlace**, con mayor ancho de banda potencial.
+
+- [Meta iOS CHANGELOG 0.8.0](https://github.com/facebook/meta-wearables-dat-ios/blob/main/CHANGELOG.md)
+- [Meta iOS AGENTS.md](https://github.com/facebook/meta-wearables-dat-ios/blob/main/AGENTS.md) exige claves de `Info.plist` para Wi-Fi: `NSLocalNetworkUsageDescription` y `NSBonjourServices` con `_bonjour._tcp`; también documenta el enlace Bluetooth Classic (`UISupportedExternalAccessoryProtocols`, `external-accessory`).
+- [Flutter bridge](https://github.com/rodcone/flutter_meta_wearables_dat#choose-your-camera-transport-wi-fi-recommended-or-bluetooth-classic) documenta que en **esa integración iOS** la elección Wi-Fi vs Bluetooth se hace con `Info.plist` y *entitlements*, sin conmutador en caliente. Requiere capacidades de Wi-Fi/hotspot e inscripción/firma Apple adecuada, a verificar con Meta 1.0 y compilación real, no asumir que una cuenta Apple gratuita permite todo.
+- [Issue Meta #233](https://github.com/facebook/meta-wearables-dat-ios/issues/233), cerrado julio 2026 como mejora conocida: con Wi-Fi la app se une al **softAP** de las gafas, desplazando el Wi-Fi de internet normal del iPhone. El acceso internet exterior pasa por **datos celulares**. En un comentario del **2 de julio 2026**, un representante de Meta recomendó **Bluetooth Classic para live que se publica a internet**, ya que el modo Wi-Fi disponible entonces no resolvía el uplink Wi-Fi de infraestructura.
+- La conversación de [release DAT 0.8 #226](https://github.com/facebook/meta-wearables-dat-ios/discussions/226) reportó 720×1280 a 30 FPS con Wi-Fi en un Gen 2, pero **con errores de decodificación HEVC y bloqueos** en esa versión/firmware. Es experiencia de desarrolladores de junio/julio, no prueba de rendimiento en 1.0.1.
+
+**No confundir**:
+1. **Wi-Fi para importar media grabada** desde gafas a Meta AI: no es en sí una API oficial para que AgentCut enumere el almacenamiento del dispositivo.
+2. **Wi-Fi de DAT para cámara en directo**: disponible desde 0.8 en SDK, pero requiere permisos de red, soporte de firmware y prueba de enlace.
+3. **Salida de AgentCut hacia Twitch/YouTube/Kick**: una **segunda conexión a internet**, que debe funcionar *al mismo tiempo* que la entrada de la cámara. Con Wi-Fi softAP puede depender de celular; con Bluetooth Classic puede aprovechar Wi-Fi normal del teléfono o celular.
+
+**Decisión experimental para IRL:** mantener **Bluetooth Classic como primer ensayo B0→B2**, por la recomendación de Meta y menor interrupción de la ruta normal de internet, aunque reduzca la resolución. Probar **Wi-Fi softAP como alternativa B2W** en un segundo build de iOS firmado adecuadamente, priorizando una señal 720p recibida en el teléfono y el funcionamiento simultáneo del uplink **celular**. No cambiar de enlace automáticamente sin API documentada. Medir duración conexión, estabilidad, corrupción de HEVC, FPS reales, temperatura, batería, latencia, uso de datos y factibilidad de retransmitir durante 5 minutos. El objetivo no es 4K ficticio sino video usable.
+
+**Código actualizado:** `streaming/live-preflight.mjs` declara explícitamente `cameraLink` (`bluetooth-classic`/`wifi-softap`), `phoneUplink` (`cellular`/`existing-wifi`/`unknown`) y advierte combinación Wi-Fi softAP + uplink Wi-Fi normal. Es **solo planificación**, no cambio físico de transporte. Los tests distinguen ambas rutas.
+
 ## Novedad relevante de Meta DAT 1.0 (verificada leyendo fuente oficial)
 
 Fuentes primarias consultadas 2026-10-13:
