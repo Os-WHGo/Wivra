@@ -1,6 +1,6 @@
 # Wivra Meta B1A: grabación HEVC en iPhone (video sin audio)
 
-**Estado:** código experimental, todavía sin conexión física Meta ni reproducción real comprobada. Basado en B0, compilación simulador + generic iPhone ARM64 previamente superada. PR #46 apilado sobre PR #35.
+**Estado (13-oct-2026): compilación B1A aprobada en GitHub Actions** para iOS Simulator y generic iPhone ARM64 sin firma, [run 38487153632](https://github.com/Os-WHGo/Wivra/actions/runs/38487153632). Aún SIN instalación en iPhone, SIN conexión física Meta, SIN reproducción real de archivos. PR #46 apilado sobre PR #35.
 
 ## Única miniapp de prueba
 - Modo B0: RAW para vista previa; mostrar imágenes reales si hay gafas conectadas.
