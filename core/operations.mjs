@@ -34,7 +34,7 @@ const handlers = {
     return { ok: true, id };
   },
   // Pista de audio aparte (no cambia la duración del video). start puede ser el tiempo del video + el desfase medido; in/out recortan el medio.
-  add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted }) {
+  add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted, track }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
     const o = out === undefined ? a.duration : out;
@@ -43,8 +43,10 @@ const handlers = {
     if (!AUDIO_ROLES.includes(role)) return err('bad_audio', `role debe ser uno de ${AUDIO_ROLES.join(', ')}`);
     if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
     if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    if (track !== undefined && (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS)) return err('bad_audio', `track debe ser un entero de 1 a ${MAX_TRACKS}`);
     const id = `u${p.nextId++}`;
     const c = { id, asset_id, in: tin, out: Math.min(o, a.duration), start, role };
+    if (track !== undefined) c.track = track;
     if (volume !== undefined) c.volume = volume;
     if (muted !== undefined) c.muted = muted;
     (p.audioClips ||= []).push(c);
@@ -75,6 +77,16 @@ const handlers = {
     const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
     const bad = overlayProblem(n); if (bad) return err('bad_overlay', bad);
     Object.assign(c, n);
+    return { ok: true };
+  },
+  set_audio_clip(p, { clip_id, track, role }) {      // pasar una pista de audio a otra fila, o cambiar su papel (voz 1, voz 2, música…)
+    const c = (p.audioClips || []).find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe la pista de audio ${clip_id}`);
+    if (track === undefined && role === undefined) return err('bad_audio', 'Indica track y/o role');
+    if (track !== undefined && (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS)) return err('bad_audio', `track debe ser un entero de 1 a ${MAX_TRACKS}`);
+    if (role !== undefined && !AUDIO_ROLES.includes(role)) return err('bad_audio', `role debe ser uno de ${AUDIO_ROLES.join(', ')}`);
+    if (track !== undefined) c.track = track;
+    if (role !== undefined) c.role = role;
     return { ok: true };
   },
   set_clip_fx(p, { clip_id, intro, outro, dur }) {      // efecto al aparecer / desaparecer (video principal o superpuesto)

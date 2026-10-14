@@ -49,3 +49,14 @@ test('set_clip_fx: valida, deshace, y el corte reparte entrada/salida; fxAt da a
   assert.equal(fxAt(c, 10).dx, 1); assert.equal(fxAt({ ...c, fxIn: 'zoom', fxOut: undefined }, 0).scale, 0.6);
   assert.deepEqual(fxAt({ start: 0, in: 0, out: 4 }, 1), { alpha: 1, dx: 0, scale: 1 });
 });
+
+test('audio en varias filas: add_audio_clip con track, set_audio_clip valida y se deshace', () => {
+  const s = mk();
+  assert.ok(s.apply([{ op: 'add_audio_clip', asset_id: 'v', start: 0, track: 2, role: 'voice_guest' }]).ok);
+  const id = s.project.audioClips[0].id; assert.equal(s.project.audioClips[0].track, 2);
+  assert.equal(s.apply([{ op: 'add_audio_clip', asset_id: 'v', track: 9 }]).ok, false);
+  assert.ok(s.apply([{ op: 'set_audio_clip', clip_id: id, track: 3, role: 'music' }]).ok); assert.deepEqual([s.project.audioClips[0].track, s.project.audioClips[0].role], [3, 'music']);
+  for (const op of [{}, { track: 0 }, { role: 'x' }, { clip_id: 'c1', track: 2 }]) assert.equal(s.apply([{ op: 'set_audio_clip', clip_id: id, ...op }]).ok, false, JSON.stringify(op));
+  s.undo(); assert.equal(s.project.audioClips[0].track, 2);
+  assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 4 }]).ok); assert.equal(s.project.audioClips[1].track, 2);
+});

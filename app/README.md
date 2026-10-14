@@ -89,3 +89,10 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Mover**: mantén el dedo ~0,3 s sobre cualquier bloque (audio, capa, video) y arrástralo; si ya está elegido, se arrastra directo.
 - **Quitar audio** de un tramo ahora silencia también la vista previa (antes solo se marcaba) y el tramo queda vacío con borde de puntos; «Poner audio» lo devuelve. Se quitaron los iconos de parlante dentro de los bloques; quedan los de la columna izquierda (por pista).
 - Estado: **implementado + pruebas automáticas (núcleo 45, app 41) + Chromium simulado**. **No probado en iPhone.** Transiciones entre dos clips (cruce) y «separar audio» aún no.
+
+## Más pistas, mover entre pistas, pantalla ampliada · 14-10-2026 (noche)
+- Botón **+** en la columna izquierda, en la fila de Video (otra capa de video encima) y en la de Audio (otra pista de audio). Hasta 3 filas de video encima y 3 de audio; siempre queda una fila vacía para soltar un clip en ella.
+- Mantén pulsado un bloque y arrástralo **hacia arriba o abajo** para cambiarlo de pista (video encima y audio). Audio: `track` en `add_audio_clip` y operación `set_audio_clip` (pista y papel: voz 1, voz 2, música).
+- Círculo amarillo de tamaño más pequeño (el área para tocarlo sigue siendo grande).
+- **Pantalla ampliada**: botón ⤢ sobre la pantalla o doble toque; esconde la línea de tiempo y la barra.
+- Estado: implementado + pruebas automáticas (núcleo 46, app 41) + Chromium simulado. **No probado en iPhone.** Subtítulos automáticos desde audio y pistas de texto aparte: **no hechos** (ver decisión pendiente).
