@@ -93,7 +93,7 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 
 **ChatGPT (captura PR #51 / futuro LIVE):** scene deck y su interfaz en módulo Live Studio, compositor/enrutador de destinos, Media Launcher en transmisión, control de estado y eventos LIVE-to-Editor. **Coordinar contrato compartido con Claude en issue #49 antes de duplicar código**; no reescribir `app/`, `core/`.
 
-**Meta AI:** investigación Meta DAT + dispositivos, opcionales aspectos de CG/voz si se le consulta; no convertir en backlog catálogos de memes ni hardware enfriador.
+**Meta AI:** investigación de las capacidades públicas de Meta DAT y opciones de CG/voz, solo cuando sea relevante al software.
 
 [línea retirada]
 
@@ -131,7 +131,7 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 3. Contrato de assets, codecs soportados, pack local, escenas de CG y evento LIVE, acordado entre ambas ramas antes de integración. Estado: **NO implementado**.
 4. Pruebas: crear meme/tarjeta una sola vez → lanzar en LIVE (cuando disponible) → reutilizar mismo archivo en Editor → export mismo diseño; retirar LIVE instantáneo; mostrar video reacción PiP; memoria/latencia/offline sin duplicación ni cobro. No avanzar con CGI complejo, VR, generadores de avatar 3D ni IA generativa en directo.
 
-**No merger a main sin aprobación.** No actualizar prioridades hacia hardware refrigerador, monetización tours o catálogo viral externo por recomendaciones de investigación.
+**No merger a main sin aprobación.** No ampliar el alcance del editor ni de LIVE por propuestas externas no verificadas.
 
 
 ## 8. Más usados y Alertas
