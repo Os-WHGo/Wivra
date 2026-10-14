@@ -192,7 +192,7 @@ struct WivraLiveNativeSceneLab: View {
                       "Cámara RAW no disponible: solo puedes usar escenas CG",
                       systemImage: cameraReady() ? "checkmark.circle" : "video.slash")
                     .font(.caption)
-                    .foregroundStyle(cameraReady() ? .green : .secondary)
+                    .foregroundStyle(cameraReady() ? Color.green : Color.secondary)
 
                 Picker("Preparar escena", selection: $selection) {
                     ForEach(WivraLabScene.allCases) { scene in
