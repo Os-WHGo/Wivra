@@ -100,3 +100,35 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 **Fuente de verdad:** código/contratos GitHub, documentos de Meta AI solo investigación; user decide qué se implementa, sin merge automático a main.
 
 — ChatGPT
+
+
+## 7. DECISIÓN FINAL: una sola aplicación con Editor y LIVE Studio; CGI fuera
+
+**Aclaración explícita posterior del propietario:** quiere **TODAS las ideas funcionales de Wivra LIVE Studio** propuestas (Scene Deck, lanzar video local, reacciones caminando, PiP/split/collage, flyers, lower thirds, alerta visual, CG de rótulo, control de audio, biblioteca de memes, guardado LIVE→Editor), y que **las mismas gráficas/medios/plantillas** se usen en el editor. **No quiere CGI entendido como efecto especial generado mediante 3D ni generación de efectos visuales pesada/IA en tiempo real**, que consumiría cómputo/red. Los CG 2D existentes no constituyen CGI: texto, rectángulos, PNG, animaciones simples, composiciones ya renderizables y reutilizables.
+
+**Respuesta arquitectónica cerrada: UNA aplicación Wivra, NO dos apps.** Dos modos de trabajo en navegación: **Editor** (montaje offline multipista, export, Director IA opcional) y **LIVE Studio** (captura + compositor en tiempo real + RTMP(S) + control deck). Opcional accesos Capturar, Biblioteca/Proyectos, Ajustes. No lanzar dos procesos/apps independientes como requisito. La UI de LIVE debe tener controles de botones grandes y vista previa, NO la timeline profesional completa mientras transmite; luego abrir proyecto LIVE en Editor para ajustes finos. Una sola biblioteca y sistema de proyectos para evitar importaciones duplicadas y mantener recursos locales.
+
+**Aislación técnica correcta:** motor de reproducción/export y renderer del editor (Claude) pueden diferir del compositor nativo LIVE (ChatGPT) porque latencia, duración, codecs y carga térmica son distintos. COMPARTIR esquema/recursos/semántica visual entre los dos, no forzar un runtime único ni duplicar editor en streaming. Consumir plantilla compartida con dos adaptadores y test visual de salida. Un solo teléfono soporta el flujo inicial; un segundo teléfono para ver retorno/control remoto es mejora posterior opcional. Una aplicación ≠ pretender edición compleja multitarea mientras livestream; LIVE utiliza editor rápido de CG y scene deck, y el editor completo queda para después.
+
+### Biblioteca de memes accesible desde ambos modos
+
+- **Biblioteca Local:** botón Memes en LIVE y en Editor; archivos subidos/importados por usuario (imagen/video/GIF de formato compatible) y una colección pequeña de stickers/plantillas ORIGINALES o recursos **con licencias reusables verificadas individualmente**. El usuario puede añadir favoritos, etiquetas, buscar, previsualizar y fijar para botones de acceso rápido. No imponer nombres/catálogo de memes comerciales ni insertar contenido sin autorización.
+- **Biblioteca Online opcional:** cuando hay internet y proveedor autorizado, buscar/preview, seleccionar y descargar a proyecto según licencia/condiciones/copyright y caché permitida. No prometer que Tenor/GIPHY/Imgflip permiten incrustar o redistribuir cualquier asset, no almacenar permanentemente ni retransmitir memes protegidos sin derechos.
+- **LIVE:** preparar meme antes de ponerlo al aire, mostrar/ocultar en CG layer, ajustar tamaño/posición/tiempo y opcional audio; lanzar desde Deck si ya está en caché. No bloquear emisión si sin red y la colección local existe.
+- **EDITOR:** misma referencia AssetId y preset; insertar en V2/G1 con tiempo/posición/animación, keyframe opcional, undo/trim/duplicar/export. No volver a bajar el meme ni renderizarlo a video cada vez.
+- **Avisos:** protección ante material con sonido alto, derechos inciertos, encuadre que tape cara/cámara, permisos y cambios de aspecto. Todo gratuito en funcionalidades locales; costos de internet o APIs externas nunca ocultos.
+
+### Contrato de integración y propiedad
+
+`SharedAsset {id, kind: image|video|audio|sticker|meme|cg_template, localUri, sourceLicense?, attribution?, duration?, size?, createdByUser}` (conceptual; no código). `CGTemplate` + `CGInstance` de este documento se mantienen iguales para Editor y LIVE. `LiveCue {action, targetId, duration}` guarda eventos al tiempo de transmisión. Biblioteca persistente, no-cloud por defecto, acceso por ID en ambos modos; gestionar estado de permiso local/archivos borrados, migración de esquema y resolución de fuentes/licencias.
+
+**Puente LIVE→Editor:** guardar una grabación compuesta opcional y una lista de eventos (e.g. scene change, show/hide CG, video reaction start/stop) junto a medias originales si se conservaron. Después editar/reordenar los CG y memes como pistas editables **solo si existen los assets y eventos**; si únicamente se almacenó MOV final mezclado, no fingir capas recuperables.
+
+### Entregables para desarrollo, sin crear otra app
+
+1. Claude debe evaluar la **biblioteca compartida, importación y CG temporizado en Editor**, con render/export off-line, duraciones y estado de proyecto, sin reescribir el capturador.
+2. ChatGPT diseñará Deck y CG Live Launcher en `streaming/`, ingest de medios y estado on-air/preview, con un solo motor de composición de LIVE y sin depender del editor de Claude.
+3. Contrato de assets, codecs soportados, pack local, escenas de CG y evento LIVE, acordado entre ambas ramas antes de integración. Estado: **NO implementado**.
+4. Pruebas: crear meme/tarjeta una sola vez → lanzar en LIVE (cuando disponible) → reutilizar mismo archivo en Editor → export mismo diseño; retirar LIVE instantáneo; mostrar video reacción PiP; memoria/latencia/offline sin duplicación ni cobro. No avanzar con CGI complejo, VR, generadores de avatar 3D ni IA generativa en directo.
+
+**No merger a main sin aprobación.** No actualizar prioridades hacia hardware refrigerador, monetización tours o catálogo viral externo por recomendaciones de investigación.
