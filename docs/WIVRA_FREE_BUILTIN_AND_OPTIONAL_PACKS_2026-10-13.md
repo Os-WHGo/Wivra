@@ -54,3 +54,22 @@ Referencias cruzadas:
 - [Biblioteca inteligente y LIVE](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md)
 
 — ChatGPT
+
+
+## Corrección terminológica final: descarga de recursos, NO complementos de pago
+
+**El propietario aclaró que estos packs NO son un modelo de negocio Plus/Pro/premium:** son simplemente **recursos que se omiten de la instalación inicial para ahorrar almacenamiento** y que pueden bajarse gratuitamente desde **su propio servidor/CDN** o, cuando las licencias y términos lo autoricen, **directamente del servidor del proveedor legítimo**. No es necesario que los paquetes provengan de una tienda de apps. La experiencia central de edición, compositor y transmisión pertenece a la app instalada; los assets son **datos** consumidos por el motor que ya soporta esos formatos. Tampoco se requiere crear un sistema de comercio, cuentas de suscripción, crédito, compra, pagos, compras in-app ni activaciones Pro.
+
+**Rutas de entrega respaldadas (investigación técnica, todavía sin backend):**
+- `bundled://`: recursos esenciales incorporados dentro de Wivra, disponibles al instalar, sin red.
+- `wivra-cdn://` (identificador lógico, no protocolo implementado): catálogo versionado que apunta a HTTPS controlado por el propietario con archivos cuya redistribución esté permitida. Descarga voluntaria, hash/comprobación, licencia/autor e instalación en caché local.
+- `provider://` (identificador lógico): acceso autorizado al sitio/API del creador; si los términos permiten descarga/caché y uso en transmisión/export, se almacena localmente; si NO, se limita a acceso/preview/enlace permitido y muestra restricciones. **No hacer espejo de catálogos ajenos en nuestro servidor sin licencia.**
+- `user-local://`: archivos importados del teléfono, siempre bajo autorización de acceso; originales intactos, referencias de proyecto controladas.
+
+**Fases:** en P0 los recursos de base funcionan sin descargar nada. P1 permite catálogo de recursos adicionales + descarga a petición + instalar, usar offline, actualizar/eliminar/reparar. Las categorías pueden incluir presets pequeños, paquetes de 10 transiciones compatibles, títulos animados, imágenes/memes propios/licenciados, SFX y plantillas musicales. No descargar efectos durante una emisión activa si bloquean la señal. Compartir caché y asset IDs entre Editor y LIVE.
+
+**Límite de plataforma:** recursos de datos y presets son adecuados para descarga, pero no dar por legal ni técnicamente posible descargar y ejecutar código nuevo de plugins/shaders desde servidores arbitrarios en iOS. El equipo debe estudiar las reglas App Store y arquitectura del renderizador antes de habilitar shaders descargados. Como primera versión, mantener shaders necesarios/implementaciones de efectos en la app y descargar **configuraciones/plantillas/valores** que usan ese motor, sin ejecutar código externo. Igualmente, una app web no recibe automáticamente el sistema de recursos On-Demand del runtime iOS.
+
+**UX de catálogo:** `Incluido` | `Gratis · Descargar` | `Descargado` | `Disponible en línea`, con medida real de bytes, licencia, preview, Compatibilidad Editor/LIVE, versión y espacio; NUNCA `Plus`, `Pro`, `Comprar` o `Desbloquear`. Un pack puede contener uno o múltiples recursos y la app debe permitir eliminarlo si no rompe proyectos activos.
+
+— Corrección explícita solicitada por el propietario.
