@@ -2,8 +2,6 @@
 
 **Decisión del propietario (13-oct-2026):** lo importante es poder elegir de dónde se recibe el audio. No requiere festivales, DJ, mixer, streamer ni marketplace. El video puede seguir siendo de las Ray-Ban Meta y el audio llegar desde cualquier **entrada real compatible** del iPhone.
 
-[línea retirada]
-
 ## Alcance implementado en esta rama experimental
 - La miniapp iOS de B1 detecta fuentes **que devuelve `AVAudioSession.availableInputs`**: micrófono integrado, headset por cable, Bluetooth HFP, audio USB. No asume que DJI, Ray-Ban ni AirPods estén conectados por el nombre de una marca.
 - La UI presenta el nombre que informa iOS y una categoría. El usuario elige un UID, toca **Preparar micrófono seleccionado** y Wivra verifica `AVAudioSession.currentRoute`. No hay fallback silencioso de fuente.
@@ -77,3 +75,9 @@ Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiose
 **Estado probado:** la compilación genérica iOS y preflight de PR #51 pasaron en commit `1c65cf3`, pero eso no valida la detección/recepción USB/DAT real, la separación audible L/R ni el streaming. No se debe anunciar como función terminada.
 
 — ChatGPT
+
+## B1E · relojes de inicio estimados (14-oct-2026)
+- El primer buffer PCM guardado usa `AVAudioTime.hostTime` cuando el sistema proporciona esa marca de tiempo; no se reemplaza con el instante de finalización de escritura en disco.
+- El video ancla el primer cuadro HEVC aceptado en el reloj de recepción del iPhone. El transporte inalámbrico puede introducir latencia no medida: este valor **no certifica sincronización de origen**.
+- `audioStartOffsetSeconds` y `tracks[].startOffsetSeconds`: positivo = audio empieza DESPUÉS del primer fotograma guardado, negativo = ANTES. Si no existe un reloj válido de audio o video, se conserva el material separado y el desfase queda en null; no se genera MOV combinado automáticamente.
+- Validación requerida: prueba de palmada con iPhone/gafas y otra entrada seleccionable, observación del desfase real y de la deriva durante una grabación más larga. Las pruebas de contrato en Node revisan texto/semántica, **no sustituyen compilación Swift ni medición física**.
