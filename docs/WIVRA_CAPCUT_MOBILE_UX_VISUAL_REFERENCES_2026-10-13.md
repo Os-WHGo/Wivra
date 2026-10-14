@@ -79,3 +79,12 @@ Las 4 capturas enseñan **inicio, proyectos y descubrimiento IA**, **no una pant
 Las capturas son referencias aportadas en el chat por el propietario. Este archivo solo recopila descripciones hechas a partir de ellas; ninguna captura se ha adjuntado ni publicado en GitHub. Claude podrá leer el análisis en GitHub, pero necesitará que el usuario le muestre las imágenes si pretende hacer una inspección visual directa. Todas las funciones de terceros requieren licencia compatible y marcas/medios de terceros se mantienen fuera del producto.
 
 — ChatGPT
+
+
+## Continuación de referencias: editor avanzado y pistas de audio
+
+El propietario entregó **10 capturas adicionales** de una línea de tiempo de CapCut con menús de edición avanzada: efectos de imagen, máscaras y transformación, estabilización, AI video (borrado, contacto visual, relighting, ampliación), voz y audio, traducción de videos con sincronización labial y una **pista visible de audio extraído con waveform**. Estas se agregan a las capturas previas de timeline, recortadora IA y proyectos.
+
+**Análisis pantalla por pantalla, prioridades, criterios de aceptación y checklist técnico para Claude:** [WIVRA_CAPCUT_EDITOR_ADVANCED_TOOLS_AUDIO_AI_REFERENCE_2026-10-13.md](./WIVRA_CAPCUT_EDITOR_ADVANCED_TOOLS_AUDIO_AI_REFERENCE_2026-10-13.md).
+
+Requisito clave que no debe diluirse: **extraer audio no significa dibujar una pista decorativa**. La pista debe funcionar de modo independiente en reproducción, recorte, offset, mute/volumen, deshacer, exportación y persistencia. Las funciones de traducción/doblaje/lip-sync son posteriores y deben declarar modelo, permisos, costes y resultado verificable. Ninguna imagen privada se ha publicado en GitHub; se documentan solo observaciones descriptivas.
