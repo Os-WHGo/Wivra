@@ -6,6 +6,42 @@ import Foundation
 struct WivraMicPort: Identifiable, Equatable {
     let id: String
     let name: String
+    func activateSelectedInput() throws -> String {
+        guard authorized && !selectedUID.isEmpty else {
+            throw WivraAudioRouteError.noSelection
+        }
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .videoRecording,
+                                options: [.allowBluetoothHFP, .mixWithOthers])
+        try session.setActive(true)
+        guard let input = session.availableInputs?.first(where: {
+            $0.uid == selectedUID && $0.portType == .bluetoothHFP
+        }) else {
+            throw WivraAudioRouteError.inputLost
+        }
+        try session.setPreferredInput(input)
+        // Preferred input is only a request: verify the active route.
+        guard hasSelectedRoute else { throw WivraAudioRouteError.routeRejected }
+        status = "Micrófono confirmado: " + input.portName
+        return input.portName
+    }
+
+    var hasSelectedRoute: Bool {
+        !selectedUID.isEmpty && AVAudioSession.sharedInstance().currentRoute.inputs.contains {
+            $0.uid == selectedUID && $0.portType == .bluetoothHFP
+        }
+    }
+}
+
+enum WivraAudioRouteError: LocalizedError {
+    case noSelection, inputLost, routeRejected
+    var errorDescription: String? {
+        switch self {
+        case .noSelection: "Selecciona explícitamente el micrófono Bluetooth de tus gafas."
+        case .inputLost: "Ya no está conectado el micrófono Bluetooth elegido."
+        case .routeRejected: "iOS seleccionó otra entrada. No se grabará el micrófono equivocado."
+        }
+    }
 }
 
 @MainActor @Observable
