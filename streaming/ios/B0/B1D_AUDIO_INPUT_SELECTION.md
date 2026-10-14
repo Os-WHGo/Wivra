@@ -13,7 +13,8 @@ Consultado antes de desarrollar: [Drive Meta AI Specialist](https://drive.google
 
 ## Qué NO prueba ni implementa
 - No son **dos entradas simultáneas**. El audio de gafas por HFP y el audio USB-C no se pueden ofrecer como dos pistas simultáneas sin un motor/hardware distinto realmente demostrado.
-- Si un receptor USB con 2 TX expone dos canales, el prototipo **todavía no separa los canales como dos clips**; conserva el archivo original y su número de canales. Claude podrá importar dos pistas solo después de implementar esa ruta y validarla en dispositivo real.
+- Si un receptor USB con 2 TX expone dos canales, el prototipo los **describe como dos pistas lógicas** en JSON, pero **todavía no los separa en archivos ni los importa como dos clips al editor**. Conserva el archivo original con ambos canales. Claude podrá importar dos pistas solo después de implementar esa ruta y validarla en dispositivo real.
+- Si la entrada USB reporta **exactamente dos canales PCM**, el manifiesto crea dos **referencias lógicas** a canales L/R del mismo CAF (roles `other`, sin presumir que son dos personas ni dos transmisores). No crea dos WAV físicos ni garantiza que los canales sean diferentes; Claude puede separarlos de forma no destructiva cuando los archivos sean compatibles. Otras configuraciones mantienen una sola referencia al archivo original.
 - **No incluye** selector de cámara del iPhone; el objetivo de esta rama se limita al audio con video DAT. La futura app unificará cámaras y editor.
 - **No se ha instalado ni probado** en iPhone firmado con Ray-Ban, AirPods, DJI u otros micrófonos reales. Compilar Swift y ejecutar test Node no es prueba de hardware.
 - **No se presume** que todos los dispositivos USB/BT aparezcan en `availableInputs` ni que AirPods permitan audio de alta calidad en todas las combinaciones de sistema/mode.
