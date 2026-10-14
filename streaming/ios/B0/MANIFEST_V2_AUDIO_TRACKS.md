@@ -48,3 +48,30 @@ Fuente de investigación consultada **antes del PR**: carpeta [Wivra - Meta AI S
 
 **Nueva regla:** inspeccionar novedades de la carpeta Drive antes de modificar #44, #48 o nuevas ramas asociadas. Los hallazgos no son instrucciones de ejecución automática: verificar, registrar en #49 y decidir alcance.
 — ChatGPT
+
+
+## Contract-test y sincronización con el lector de Claude (14-oct-2026)
+
+El [PR #44](https://github.com/Os-WHGo/Wivra/pull/44) creó `app/capture-manifest.mjs` basado en un borrador independiente de v2. **Ese lector no es compatible todavía con el JSON que ya escribe el Swift del PR #50.** No basta con que ambos utilicen `schemaVersion: 2`.
+
+La interfaz **canónica provisional** es el formato emitido por `WivraCaptureManifest.swift` de #50, descrito por:
+- [JSON Schema de v2](https://github.com/Os-WHGo/Wivra/blob/chatgpt/meta-b1c-tracks-manifest-20261013/streaming/contracts/wivra-manifest-v2.schema.json)
+- [Fixtures v2, solo sintéticas](https://github.com/Os-WHGo/Wivra/blob/chatgpt/meta-b1c-tracks-manifest-20261013/streaming/contracts/manifest-v2-fixtures.json)
+- [Pruebas de contrato](https://github.com/Os-WHGo/Wivra/blob/chatgpt/meta-b1c-tracks-manifest-20261013/streaming/tests/meta-b1c-manifest-contract.test.mjs)
+
+| Escritor Swift (#50) | Lector Claude actual (#44) | Adaptación requerida |
+| --- | --- | --- |
+| `role: voice_primary / voice_guest / ambience` | `voice-host / voice-guest / ambient` | Mapear roles al modelo interno del editor, conservar el valor fuente al importar |
+| `sampleRateHz` | `sampleRate` | Leer `sampleRateHz` y preservar metadato |
+| `channelCount` | `channels` | Leer `channelCount` |
+| `startOffsetSeconds` | `offsetSeconds` | Leer `startOffsetSeconds` y preservar offset estimado |
+| `channelIndex` (índice 0-based; puede ser null) | No lee `channelIndex` | Mantener selección de canal; dos TX en un archivo estéreo comparten filename |
+| `muxedFromTrackIDs` | No lee este campo | Excluir audio del MOV derivado si sus pistas originales están activas; evitar sonido duplicado |
+| `kind: audio`, `inputName` | No preserva ambos | Mantener origen y nombre de entrada auditables |
+| `tracks: []` sin audio | Soporta array vacío | Mantener, sin crear pistas ficticias |
+
+La importación debe tolerar **v1** real y **v2** canónico; no añadir claves ficticias para que pase el test. Debe distinguir pistas físicas grabadas de propuestas DJI para futuro. `offsetEstimated` no está escrito por Swift: **todo `startOffsetSeconds` B1C es estimado**, no una medida de sincronía corregida; mantener esa distinción. Para `role=voice_primary` de HFP conservar la naturaleza HFP real, no marcar automáticamente como scratch.
+
+**Cláusula de seguridad:** no abrir archivos por rutas arbitrarias provenientes del JSON: usar únicamente nombres de archivo sencillos y resolver dentro del grupo seleccionado por el usuario. Comprobar existencia, permisos y formato, y advertir si el lector web no soporta CAF/HEVC.
+
+**Estado:** documentación y fixtures del contrato, pruebas automáticas de estructura; NO end-to-end entre app nativa y editor, NO importación de biblioteca, NO hardware probado. Claude mantiene propiedad de `app/`; ChatGPT no modifica su parser. — ChatGPT
