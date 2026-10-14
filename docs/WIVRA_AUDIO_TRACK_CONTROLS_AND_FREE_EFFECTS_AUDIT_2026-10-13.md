@@ -71,3 +71,17 @@
 - Indicadores UI de micrófono/sonido son solo propuesta hasta prueba en iPhone real; no entregar botones inertes como funciones terminadas.
 
 — ChatGPT
+
+
+## 6. Resultado de auditoría: primera colección MIT seleccionada
+
+**Auditoría finalizada, candidatos seleccionados (NO instalados):** [WIVRA_FREE_EFFECTS_SHORTLIST_2026-10-13.json](./WIVRA_FREE_EFFECTS_SHORTLIST_2026-10-13.json). Incluye nombre de archivo/autor/licencia y SHA **de blob GitHub** para 10 transiciones de GLSL. Estos diez shaders concretos tienen **`License: MIT` en su cabecera**, comprobado en su fuente, además del MIT del repositorio. Antes de incluir uno en Wivra, fijar el commit del repositorio, revalidar autoría/procedencia/licencia y conservar avisos de derechos.
+
+**P0:** `fade.glsl` (cruce), `fadecolor.glsl` (a negro/blanco), `Directional.glsl` (deslizar), `wipeLeft.glsl`/`wipeRight.glsl` (barridos), `SimpleZoom.glsl` (zoom). **P1:** `SimpleZoomOut.glsl`, `fadegrayscale.glsl`, `directionalwipe.glsl`, `LinearBlur.glsl` (éste hace muestreos múltiples y puede resultar costoso en móvil). Cortes secos, colores/contraste/saturación/opacidad y audio fades pueden resolverse internamente con parámetros simples, sin paquete de efectos.
+
+**Selección de arquitectura recomendada:** integrar adaptador GLSL/Metal/WebGL compatible con el motor que se elija y **los shaders específicos**. No añadir `pixijs/filters` como dependencia si el motor no utiliza PixiJS; `glfx.js` queda como referencia de algoritmos, no recomendación de dependencia principal. Conservar un panel pequeño de presets gratuitos y ligeros, sin botón «Descargar» por efecto ni gastos de API.
+
+**Bloqueos de aceptación:** un `.glsl` no implementa por sí solo una transición de videos en Safari. Claude debe garantizar dos frames/texturas con color/orientación correcta, progreso de transición sincronizado al reloj de proyecto, preview fluido, export que reproduzca el MISMO shader, iPhone sin red, medición de peso incremental en KB/MB, FPS y memoria. Ningún shader o librería de terceros se ha copiado a `app/` o `core/`, ni se ha aprobado el motor todavía.
+
+**Observación clave de UI:** ícono de parlante en cabecera izquierda por pista, mutear sin destruir origen y con undo, **Dividir solo el segmento seleccionado** en la barra contextual inferior. Esta decisión ya se encontraba en la solicitud auténtica del usuario, sin depender del texto generado accidentalmente por un botón de respuesta.
+
