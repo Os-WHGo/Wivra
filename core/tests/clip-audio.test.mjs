@@ -52,3 +52,17 @@ test('overlayAt: cuándo se ve un video superpuesto y desde dónde', () => {
   const c = { start: 2, in: 1, out: 4 };
   assert.equal(overlayAt(c, 1.9), null); assert.equal(overlayAt(c, 2), 1); assert.equal(overlayAt(c, 3.5), 2.5); assert.equal(overlayAt(c, 5), null);
 });
+
+import { formatSize, fitRect, effectiveFit, outputSize } from '../../app/export.mjs';
+test('formatSize: tamaño de salida según el formato', () => {
+  assert.deepEqual(formatSize({ aspect: '9:16' }, 1920, 1080), { w: 1080, h: 1920 });
+  assert.deepEqual(formatSize({ aspect: '1:1' }, 100, 100), { w: 1080, h: 1080 });
+  assert.deepEqual(formatSize({ aspect: '4:5' }, 1, 1), { w: 1080, h: 1350 });
+  assert.deepEqual(formatSize({ aspect: '16:9' }, 1, 1), { w: 1920, h: 1080 });
+  assert.deepEqual(formatSize({ aspect: 'original' }, 1936, 2576), outputSize(1936, 2576)); assert.deepEqual(formatSize(undefined, 720, 1280), outputSize(720, 1280));
+});
+test('fitRect y effectiveFit: rellenar recorta centrado; entero deja barras; original nunca recorta', () => {
+  const c = fitRect(1920, 1080, 1080, 1920, 'cover'); assert.equal(c.h, 1920); assert.ok(c.w > 1080); assert.equal(c.x, (1080 - c.w) / 2); assert.equal(c.y, 0);
+  const n = fitRect(1920, 1080, 1080, 1920, 'contain'); assert.equal(n.w, 1080); assert.ok(n.h < 1920); assert.equal(n.x, 0);
+  assert.equal(effectiveFit({ aspect: 'original', fit: 'cover' }), 'contain'); assert.equal(effectiveFit({ aspect: '9:16', fit: 'cover' }), 'cover'); assert.equal(effectiveFit({ aspect: '9:16', fit: 'contain' }), 'contain');
+});

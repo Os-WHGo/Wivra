@@ -74,3 +74,11 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Al soltar la barra de tiempo después de moverla, la reproducción **continúa** si estaba sonando.
 - La exportación dibuja las capas (pista mayor = más arriba) y mezcla su audio. Verificado en Chromium simulado: el color del video superpuesto aparece en el cuadro exportado mientras dura y desaparece al terminar.
 - **No hecho / no verificado:** pellizcar para cambiar tamaño (solo controles), rotación, recorte/forma (círculo), pantalla verde, transiciones, grabar voz con el micrófono, más de 2 pistas encima en la interfaz, que el video superpuesto dure más que el video principal (se corta al final del principal), prueba en iPhone real, vista previa de varios videos a la vez en iPhone (la prueba corta de 2 videos en lienzo sí funcionó; reproducir 3 `<video>` a la vez en pantalla no está medido).
+
+## Formato, altavoces por pista, mover, borrar conservando audio, tamaño con los dedos · 14-10-2026 (noche)
+- **Formato** (botón de la barra de abajo): Original, 9:16, 1:1, 4:5, 16:9, y *Rellenar* (recorta lo que sobra, centrado) o *Entero* (barras). Operación `set_format`; el cuadro de la vista previa y la exportación tienen esa forma. Proyectos viejos sin `format` siguen valiendo.
+- **Altavoz por pista** en la columna de nombres: silencia o activa toda la pista de una vez (un solo deshacer).
+- **Mover con la mano**: toca un bloque para seleccionarlo y arrástralo (audio y superpuestos de lado a lado; el superpuesto también cambia de pista; los clips de video principal se reordenan).
+- **Borrar un tramo**: borra de verdad, no solo silencia. En el video principal pregunta si quieres borrar todo o **solo la imagen y conservar el sonido** (queda negro con el audio en su sitio; se reproduce y se exporta).
+- **Tamaño del superpuesto con los dedos**: pellizco sobre el video o círculo amarillo en su esquina.
+- Estado: **implementado + pruebas automáticas (núcleo 44, app 41) + navegador simulado Chromium**. **No probado en iPhone.**

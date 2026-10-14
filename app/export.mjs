@@ -13,6 +13,8 @@ export function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(c.out - c.in) });
     cursor = Math.max(cursor, c.start + (c.out - c.in));
   }
+  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
 }
@@ -23,6 +25,22 @@ export function outputSize(w, h, shortSide = 1080) {
   const k = Math.min(1, shortSide / Math.min(w, h));
   const even = (n) => Math.max(2, Math.round((n * k) / 2) * 2);
   return { w: even(w), h: even(h) };
+}
+
+// Forma del cuadro según el formato elegido. 'original' sigue la forma del primer video; los demás son fijos (lado corto 1080).
+export const ASPECTS = { '9:16': [9, 16], '1:1': [1, 1], '4:5': [4, 5], '16:9': [16, 9] };
+export function formatSize(format, w, h, shortSide = 1080) {
+  const a = ASPECTS[format && format.aspect];
+  if (!a) return outputSize(w, h, shortSide);
+  const k = shortSide / Math.min(a[0], a[1]);
+  return { w: Math.round((a[0] * k) / 2) * 2, h: Math.round((a[1] * k) / 2) * 2 };
+}
+// Con formato 'original' el cuadro sigue al primer video: no se recorta (los demás clips se ven enteros). Con formato fijo manda `fit`.
+export const effectiveFit = (format) => (!format || !ASPECTS[format.aspect] ? 'contain' : (format.fit === 'contain' ? 'contain' : 'cover'));
+// Dónde dibujar un video de vw×vh dentro de W×H: 'contain' = entero con barras; 'cover' = rellena y recorta lo que sobra, centrado.
+export function fitRect(vw, vh, W, H, fit) {
+  const k = fit === 'cover' ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh), w = vw * k, h = vh * k;
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
 }
 
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
@@ -74,8 +92,8 @@ export function wrapLines(text, maxWidth, measure) {
 export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
-    const k = Math.min(W / video.videoWidth, H / video.videoHeight), dw = video.videoWidth * k, dh = video.videoHeight * k;
-    try { g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch { /* fotograma aún no listo */ }
+    const r = fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format));
+    try { g.drawImage(video, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ }
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
@@ -101,10 +119,10 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
-  if (!firstClip) throw new Error('No hay clips para exportar.');
+  if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
-  const first = media[firstClip.clip.asset_id] || {};
-  const { w: W, h: H } = outputSize(first.w, first.h);
+  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find(Boolean) || {};
+  const { w: W, h: H } = formatSize(project.format, first.w, first.h);
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d');
 

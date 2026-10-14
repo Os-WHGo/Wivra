@@ -14,6 +14,9 @@ const groupOf = (p, c) => GROUPS.find(([g]) => (p[g] || []).includes(c));
 const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
+// Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
+export const FORMATS = ['original', '9:16', '1:1', '4:5', '16:9'];
+export const FITS = ['cover', 'contain'];
 const overlayProblem = ({ track, x, y, scale }) => {
   if (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS) return `track debe ser un entero de 1 a ${MAX_TRACKS}`;
   if (!num(x) || !num(y) || x < 0 || x > 1 || y < 0 || y > 1) return 'x e y deben estar entre 0 y 1';
@@ -71,6 +74,13 @@ const handlers = {
     const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
     const bad = overlayProblem(n); if (bad) return err('bad_overlay', bad);
     Object.assign(c, n);
+    return { ok: true };
+  },
+  set_format(p, { aspect, fit }) {
+    if (aspect === undefined && fit === undefined) return err('bad_format', 'Indica aspect y/o fit');
+    if (aspect !== undefined && !FORMATS.includes(aspect)) return err('bad_format', `aspect debe ser uno de ${FORMATS.join(', ')}`);
+    if (fit !== undefined && !FITS.includes(fit)) return err('bad_format', `fit debe ser uno de ${FITS.join(', ')}`);
+    p.format = { aspect: aspect ?? p.format?.aspect ?? 'original', fit: fit ?? p.format?.fit ?? 'cover' };
     return { ok: true };
   },
   trim_clip(p, { clip_id, in: tin, out }) {

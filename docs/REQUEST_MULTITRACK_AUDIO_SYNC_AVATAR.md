@@ -73,3 +73,9 @@ Orden sugerido: modelo de pistas (B) → micrófono (C) → transiciones/efectos
 | 3–4 / B | Más pistas, superponer videos con tamaño y posición, botón para agregar pista | **Implementado + prueba automática + navegador simulado** (modelo `overlayClips`, `add_overlay_clip`, `set_overlay`, botón ＋ Pista, controles y arrastre, exportación con capas). **No probado en iPhone.** Pantalla verde, pellizcar y rotación: no hechos |
 | — | Seleccionar solo video o solo audio y quitar el audio de un tramo | **Implementado + navegador simulado.** No probado en iPhone |
 | C | Grabar con el micrófono mientras edita | Sigue como **idea** |
+
+## Actualización 14-10-2026 (noche)
+| # | Pedido | Estado |
+|---|---|---|
+| — | Altavoz por pista, mover pistas/bloques con la mano, borrar de verdad (también solo la imagen conservando el audio) | **Implementado + navegador simulado.** No probado en iPhone |
+| — | Tamaño del superpuesto con pellizco y esquina; formato del video (9:16, 1:1, 4:5, 16:9) con recorte automático | **Implementado + navegador simulado.** No probado en iPhone. En iPhone el pellizco real puede chocar con gestos de Safari: **NV** |
