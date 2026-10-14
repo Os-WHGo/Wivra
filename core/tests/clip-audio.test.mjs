@@ -30,3 +30,14 @@ test('deshacer revierte el cambio de audio', () => {
 test('clipGain: silenciado 0, por defecto 1, limitado a 0–2', () => {
   assert.equal(clipGain({}), 1); assert.equal(clipGain({ muted: true, volume: 2 }), 0); assert.equal(clipGain({ volume: 0.5 }), 0.5); assert.equal(clipGain({ volume: 9 }), 2);
 });
+
+import { audioStartAt } from '../../app/export.mjs';
+test('audioStartAt: cuándo y desde dónde arranca una pista de audio aparte', () => {
+  const c = { start: 2, in: 1, out: 5 };            // dura 4 s, suena del 2 al 6 del timeline
+  assert.deepEqual(audioStartAt(c, 2), { offset: 1, dur: 4 });
+  assert.deepEqual(audioStartAt(c, 3), { offset: 2, dur: 3 });   // entra tarde (p. ej. tras un hueco): arranca en el punto correcto
+  assert.equal(audioStartAt(c, 1), null);                         // aún no
+  assert.equal(audioStartAt(c, 6), null);                         // ya terminó
+  assert.equal(audioStartAt({ ...c, muted: true }, 3), null);
+  assert.deepEqual(audioStartAt(c, 1.99), { offset: 1, dur: 4 }); // tolerancia de un fotograma antes
+});

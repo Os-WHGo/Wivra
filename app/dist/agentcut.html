@@ -31,13 +31,14 @@
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
   #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
   #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
-  #tlinner { position:relative; height:168px; }
+  #tlinner { position:relative; height:204px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
-  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #ttrack { top:128px; height:30px; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #utrack { top:128px; height:30px; } #ttrack { top:164px; height:30px; }
   .ablk { background:#1c3a33; border-color:#2f6b5c; cursor:pointer; }
   .ablk::before { content:''; position:absolute; inset:5px 0 5px 28px; background:repeating-linear-gradient(90deg,#5fd3b0 0 2px,transparent 2px 5px); opacity:.55; -webkit-mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); pointer-events:none; }
   .ablk.off { background:#2a2d34; border-color:#3a4150; } .ablk.off::before { opacity:.12; }
+  .ulb { position:absolute; left:30px; right:4px; top:0; line-height:30px; font-size:11px; color:#cfeee4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
   .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
   .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
   .blk.sel { border-color:var(--sel); } .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
@@ -74,7 +75,7 @@
 </head>
 <body>
 <div class="top"><b>Wivra</b><span class="sp"></span>
-  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
+  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
@@ -82,7 +83,7 @@
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
-<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
   <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
@@ -213,7 +214,7 @@
 // AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
 // — Claude
 function createProject({ assets = [] } = {}) {
-  return { revision: 0, assets: structuredClone(assets), clips: [], texts: [], nextId: 1 };
+  return { revision: 0, assets: structuredClone(assets), clips: [], audioClips: [], texts: [], nextId: 1 };
 }
 const totalDuration = (p) => p.clips.reduce((m, c) => Math.max(m, c.start + (c.out - c.in)), 0);
 const clipLength = (c) => c.out - c.in;
@@ -226,7 +227,10 @@ const MAX_TEXT = 120;
 const err = (code, message) => ({ ok: false, code, message });
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
-const findClip = (p, id) => p.clips.find((c) => c.id === id);
+// Los clips de audio (pistas aparte, p. ej. el micrófono de una captura) viven en p.audioClips y comparten operaciones con los de video.
+const findClip = (p, id) => p.clips.find((c) => c.id === id) || (p.audioClips || []).find((c) => c.id === id);
+const listOf = (p, id) => (p.clips.some((c) => c.id === id) ? p.clips : p.audioClips);
+const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
@@ -235,6 +239,23 @@ const handlers = {
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     const id = `c${p.nextId++}`;
     p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
+    return { ok: true, id };
+  },
+  // Pista de audio aparte (no cambia la duración del video). start puede ser el tiempo del video + el desfase medido; in/out recortan el medio.
+  add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    const o = out === undefined ? a.duration : out;
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);
+    if (!AUDIO_ROLES.includes(role)) return err('bad_audio', `role debe ser uno de ${AUDIO_ROLES.join(', ')}`);
+    if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
+    if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    const id = `u${p.nextId++}`;
+    const c = { id, asset_id, in: tin, out: Math.min(o, a.duration), start, role };
+    if (volume !== undefined) c.volume = volume;
+    if (muted !== undefined) c.muted = muted;
+    (p.audioClips ||= []).push(c);
     return { ok: true, id };
   },
   trim_clip(p, { clip_id, in: tin, out }) {
@@ -251,12 +272,14 @@ const handlers = {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
-    const id = `c${p.nextId++}`;
+    const audio = !p.clips.includes(c);
+    const id = `${audio ? 'u' : 'c'}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
+    if (c.role !== undefined) right.role = c.role;
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     c.out = at;
-    p.clips.push(right);
+    listOf(p, c.id).push(right);
     return { ok: true, id };
   },
   move_clip(p, { clip_id, start }) {
@@ -278,9 +301,10 @@ const handlers = {
     return { ok: true };
   },
   delete_clip(p, { clip_id }) {
-    const i = p.clips.findIndex((c) => c.id === clip_id);
+    const l = p.clips.some((c) => c.id === clip_id) ? p.clips : (p.audioClips || []);
+    const i = l.findIndex((c) => c.id === clip_id);
     if (i < 0) return err('unknown_clip', `No existe el clip ${clip_id}`);
-    p.clips.splice(i, 1);
+    l.splice(i, 1);
     return { ok: true };
   },
   add_text(p, { text, start, duration }) {
@@ -968,6 +992,14 @@ const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 // Ganancia del audio original de un clip: silenciado = 0; si no, su volumen (por defecto 1), limitado a 0–2.
 const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
 
+// Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
+function audioStartAt(c, t) {
+  const len = c.out - c.in, into = t - c.start;
+  if (c.muted || into < -0.02 || into >= len - 0.03) return null;
+  const k = Math.max(0, into);
+  return { offset: c.in + k, dur: len - k };
+}
+
 const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -1028,6 +1060,28 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
 
+  // Pistas de audio aparte (p. ej. el micrófono de una captura): se decodifican antes y se lanzan según el tiempo del timeline.
+  const aClips = (project.audioClips || []).filter((c) => !c.muted && clipGain(c) > 0), buffers = new Map(), skippedAudio = [];
+  if (ac && dest) {
+    for (const c of aClips) {
+      if (buffers.has(c.asset_id) || skippedAudio.includes(c.asset_id)) continue;
+      const m = media[c.asset_id];
+      try { if (!m) throw new Error('sin medio'); buffers.set(c.asset_id, await ac.decodeAudioData(await (await fetch(m.url)).arrayBuffer())); }
+      catch { skippedAudio.push(c.asset_id); }
+    }
+  } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  const started = new Set(), sources = [];
+  const audioTick = (t) => {
+    if (!ac || !dest) return;
+    for (const c of aClips) {
+      if (started.has(c.id) || !buffers.has(c.asset_id)) continue;
+      const a = audioStartAt(c, t); if (!a) continue;
+      started.add(c.id);
+      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
+      src.connect(gn); gn.connect(dest); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+    }
+  };
+
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -1042,6 +1096,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       if (seg.type === 'gap') {
         const s = performance.now();
         while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
+          audioTick(seg.start + (performance.now() - s) / 1000);
           drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
         continue;
@@ -1054,7 +1109,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       await new Promise((res) => {
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
-          drawFrame(g, W, H, ev, project, t); report(t);
+          audioTick(t); drawFrame(g, W, H, ev, project, t); report(t);
           if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
           requestAnimationFrame(tick);
         };
@@ -1064,6 +1119,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     }
     await frame(); await frame();
   } finally {
+    sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
@@ -1071,7 +1127,112 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   }
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd };
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio };
+}
+
+// Wivra · lector del manifiesto de captura (.wivra.json). Solo valida y normaliza: no abre archivos ni toca el timeline.
+// Formato canónico provisional = el que escribe WivraCaptureManifest.swift (PR #50, ChatGPT); contrato en
+// streaming/contracts/wivra-manifest-v2.schema.json (copia en app/tests/fixtures/). v1 = el del PR #48 (un video + a lo sumo un audio).
+// Siempre devuelve una sola forma interna para que el editor tenga un solo camino. — Claude
+
+const ROLES = Object.freeze(['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other']);
+const isName = (s) => typeof s === 'string' && s.length > 0 && s.length <= 255 && !/[\/\\\0\r\n]/.test(s) && s !== '.' && s !== '..';
+const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
+const nul = (v) => v === undefined || v === null;
+
+function parseManifest(input) {
+  const errors = [], warnings = [];
+  let m = input;
+  if (typeof input === 'string') { try { m = JSON.parse(input); } catch { return { ok: false, errors: ['El manifiesto no es JSON válido.'], warnings }; } }
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return { ok: false, errors: ['El manifiesto debe ser un objeto.'], warnings };
+  const v = m.schemaVersion;
+  if (v !== 1 && v !== 2) return { ok: false, errors: [`schemaVersion ${JSON.stringify(v)} no soportada (solo 1 y 2).`], warnings };
+  if (typeof m.captureID !== 'string' || !m.captureID) errors.push('Falta captureID.');
+  if (!isName(m.originalVideoFile)) errors.push('originalVideoFile debe ser un nombre de archivo simple.');
+  if (!nul(m.muxedVideoFile) && !isName(m.muxedVideoFile)) errors.push('muxedVideoFile debe ser un nombre de archivo simple.');
+  if (typeof m.createdAtISO8601 !== 'string' || !m.createdAtISO8601) errors.push('Falta createdAtISO8601.');
+
+  let tracks = [], muxedFrom = [];
+  if (v === 1) {
+    // v1: se sintetiza SOLO la pista que corresponde a originalAudioFile; el MOV combinado ya la contiene.
+    if (!nul(m.originalAudioFile)) {
+      if (!isName(m.originalAudioFile)) errors.push('originalAudioFile debe ser un nombre de archivo simple.');
+      if (!nul(m.audioStartOffsetSeconds) && !isNum(m.audioStartOffsetSeconds)) errors.push('audioStartOffsetSeconds debe ser un número.');
+      tracks.push({ id: 'audio-1', role: 'voice_primary', file: m.originalAudioFile, source: String(m.audioSource || 'unknown'), channelIndex: null, sampleRateHz: null, channelCount: null,
+        inputName: m.selectedInputName ?? null, offsetSeconds: isNum(m.audioStartOffsetSeconds) ? m.audioStartOffsetSeconds : 0, offsetKnown: isNum(m.audioStartOffsetSeconds) });
+      if (m.muxedVideoFile) muxedFrom = ['audio-1'];
+    }
+  } else {
+    if (typeof m.audioSource !== 'string' || !m.audioSource) errors.push('Falta audioSource.');
+    if (typeof m.cameraSource !== 'string' || !m.cameraSource) errors.push('Falta cameraSource.');
+    if (!Array.isArray(m.tracks)) errors.push('v2 requiere el arreglo tracks.');
+    if (!Array.isArray(m.muxedFromTrackIDs)) errors.push('v2 requiere el arreglo muxedFromTrackIDs.');
+    const seen = new Set();
+    (Array.isArray(m.tracks) ? m.tracks : []).forEach((t, i) => {
+      const w = `tracks[${i}]`;
+      if (!t || typeof t !== 'object') { errors.push(`${w} no es un objeto.`); return; }
+      if (typeof t.id !== 'string' || !t.id) errors.push(`${w}.id falta.`); else if (seen.has(t.id)) errors.push(`${w}.id repetido: ${t.id}.`); else seen.add(t.id);
+      if (t.kind !== 'audio') errors.push(`${w}.kind debe ser "audio".`);
+      if (!ROLES.includes(t.role)) errors.push(`${w}.role inválido (${JSON.stringify(t.role)}).`);
+      if (typeof t.source !== 'string' || !t.source) errors.push(`${w}.source falta.`);
+      if (!isName(t.file)) errors.push(`${w}.file debe ser un nombre de archivo simple.`);
+      if (!nul(t.channelIndex) && !(Number.isInteger(t.channelIndex) && t.channelIndex >= 0)) errors.push(`${w}.channelIndex inválido.`);
+      if (!nul(t.sampleRateHz) && !(isNum(t.sampleRateHz) && t.sampleRateHz > 0)) errors.push(`${w}.sampleRateHz inválido.`);
+      if (!nul(t.channelCount) && !(Number.isInteger(t.channelCount) && t.channelCount >= 1)) errors.push(`${w}.channelCount inválido.`);
+      if (!nul(t.startOffsetSeconds) && !isNum(t.startOffsetSeconds)) errors.push(`${w}.startOffsetSeconds debe ser un número o null.`);
+      if (isNum(t.channelIndex) && isNum(t.channelCount) && t.channelIndex >= t.channelCount) errors.push(`${w}.channelIndex (${t.channelIndex}) fuera de channelCount (${t.channelCount}).`);
+      tracks.push({ id: t.id, role: t.role, file: t.file, source: t.source, channelIndex: t.channelIndex ?? null, sampleRateHz: t.sampleRateHz ?? null, channelCount: t.channelCount ?? null,
+        inputName: t.inputName ?? null, offsetSeconds: isNum(t.startOffsetSeconds) ? t.startOffsetSeconds : 0, offsetKnown: isNum(t.startOffsetSeconds) });
+    });
+    muxedFrom = Array.isArray(m.muxedFromTrackIDs) ? m.muxedFromTrackIDs : [];
+    const ids = new Set(tracks.map((t) => t.id));
+    muxedFrom.forEach((id) => { if (typeof id !== 'string' || !ids.has(id)) errors.push(`muxedFromTrackIDs hace referencia a una pista que no existe: ${JSON.stringify(id)}.`); });
+    if (new Set(muxedFrom).size !== muxedFrom.length) errors.push('muxedFromTrackIDs tiene ids repetidos.');
+    if (muxedFrom.length && !m.muxedVideoFile) errors.push('muxedFromTrackIDs indica pistas mezcladas pero no hay muxedVideoFile.');
+    // Mismo archivo en dos pistas solo tiene sentido con canales distintos.
+    const byFile = new Map(); for (const t of tracks) { if (!byFile.has(t.file)) byFile.set(t.file, []); byFile.get(t.file).push(t); }
+    for (const [f, ts] of byFile) if (ts.length > 1 && new Set(ts.map((t) => t.channelIndex)).size < ts.length) warnings.push(`Varias pistas usan ${f} sin canales distintos: el audio se duplicaría.`);
+    const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs']);
+    for (const k of Object.keys(m)) if (!known.has(k)) warnings.push(`Campo desconocido ignorado: ${k}.`);
+  }
+  if (errors.length) return { ok: false, errors, warnings };
+  return { ok: true, errors: [], warnings, manifest: { schemaVersion: 2, sourceVersion: v, captureID: m.captureID, cameraSource: String(m.cameraSource || 'unknown'), audioSource: String(m.audioSource || 'unknown'),
+    selectedInputName: m.selectedInputName ?? null, videoFile: m.originalVideoFile, muxedVideoFile: m.muxedVideoFile ?? null, createdAt: m.createdAtISO8601, tracks, muxedFromTrackIDs: muxedFrom } };
+}
+
+// Qué debe importar el editor sin duplicar audio. `useMuxed`: usar el MOV combinado como video (ya trae sus pistas) o el original.
+// - Con el MOV combinado, las pistas de muxedFromTrackIDs NO se importan aparte (ya suenan dentro del video).
+// - Con el original, se importan todas las pistas (el video HEVC original no trae ese audio).
+function importPlan(manifest, { useMuxed = false } = {}) {
+  if (!manifest || manifest.schemaVersion !== 2 || !Array.isArray(manifest.tracks)) throw new Error('importPlan necesita un manifiesto ya normalizado por parseManifest.');
+  const muxed = useMuxed && manifest.muxedVideoFile;
+  const inMux = new Set(muxed ? manifest.muxedFromTrackIDs : []);
+  return { videoFile: muxed ? manifest.muxedVideoFile : manifest.videoFile, audioTracks: manifest.tracks.filter((t) => !inMux.has(t.id)), embeddedTrackIDs: [...inMux] };
+}
+
+// Convierte el plan de importación en operaciones del editor (sin tocar archivos ni el navegador).
+// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } } } — el navegador llena `assets` tras abrir cada archivo.
+// Desfase: offsetSeconds > 0 = el audio empezó DESPUÉS del video; < 0 = empezó antes (se recorta el inicio del audio, no se mueve a tiempo negativo).
+// Devuelve { ops, warnings, skipped }: `skipped` lista lo que no se pudo importar (archivo ausente, sin duración, pista que cae fuera del video).
+function planImportOps(plan, ctx) {
+  if (!plan || !Array.isArray(plan.audioTracks)) throw new Error('planImportOps necesita el resultado de importPlan.');
+  const videoStart = Number.isFinite(ctx?.videoStart) ? ctx.videoStart : 0, assets = ctx?.assets || {};
+  const ops = [], warnings = [], skipped = [];
+  const v = assets[plan.videoFile];
+  if (!v) skipped.push({ file: plan.videoFile, reason: 'video no abierto' }); else ops.push({ op: 'add_clip', asset_id: v.id, start: videoStart });
+  for (const t of plan.audioTracks) {
+    const a = assets[t.file];
+    if (!a) { skipped.push({ file: t.file, id: t.id, reason: 'archivo de audio no abierto' }); continue; }
+    if (!(a.duration > 0)) { skipped.push({ file: t.file, id: t.id, reason: 'no se pudo medir la duración' }); continue; }
+    if (t.channelIndex != null && (t.channelCount ?? 0) > 1) warnings.push(`${t.id}: canal ${t.channelIndex} de ${t.channelCount}; el editor aún reproduce el archivo completo (separar canales no está implementado).`);
+    if (!t.offsetKnown) warnings.push(`${t.id}: desfase desconocido; se coloca al inicio del video. Ajústalo a mano.`);
+    const off = t.offsetKnown ? t.offsetSeconds : 0;
+    const at = videoStart + off;                       // dónde cae el inicio del audio en el timeline
+    const tin = at < 0 ? Math.min(-at, a.duration) : 0, start = Math.max(0, at);   // si cae antes de 0, se recorta ese tramo del audio
+    if (tin >= a.duration) { skipped.push({ file: t.file, id: t.id, reason: 'el desfase deja la pista sin contenido' }); continue; }
+    ops.push({ op: 'add_audio_clip', asset_id: a.id, start: Math.round(start * 1000) / 1000, in: Math.round(tin * 1000) / 1000, out: a.duration, role: t.role });
+  }
+  return { ops, warnings, skipped };
 }
 
 // Wivra · conexión directa con una IA (sin copiar y pegar). Un solo contrato "OpenAI compatible"
@@ -1246,7 +1407,7 @@ function render() {
   renderTimeline();
   if ($('sVids').classList.contains('on')) renderVids();
 }
-function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; } }
+function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncAudioPreview(); } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
   if (session.project.clips.every(c => c.id !== selId)) selId = null;
@@ -1263,6 +1424,84 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
   });
 }
+function probeAudio(file) {     // duración de un archivo de audio (el navegador debe saber decodificarlo)
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), a = new Audio(); a.preload = 'metadata';
+    const fail = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede leer ese audio`)); };
+    a.onerror = fail; a.onloadedmetadata = () => (isFinite(a.duration) && a.duration > 0) ? res({ url, duration: Math.round(a.duration * 100) / 100 }) : fail(); a.src = url;
+  });
+}
+// Audio de las pistas aparte durante la reproducción de la vista previa. Un <audio> por clip; se alinea con la línea de tiempo.
+const apool = {};
+function syncAudioPreview() {
+  const list = session ? (session.project.audioClips || []) : [];
+  for (const c of list) {
+    const m = media[c.asset_id], a0 = apool[c.id];
+    const on = playing && m && !c.muted && tlTime >= c.start && tlTime < c.start + (c.out - c.in);
+    if (!on) { if (a0 && !a0.paused) a0.pause(); continue; }
+    const a = a0 || (apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }));
+    const want = c.in + (tlTime - c.start);
+    try { a.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {}   // iOS ignora el volumen: allí solo funciona silenciar
+    if (a.paused || Math.abs(a.currentTime - want) > 0.3) { try { a.currentTime = want; } catch {} a.play().catch(() => {}); }
+  }
+  for (const id of Object.keys(apool)) if (!list.some(c => c.id === id)) { apool[id].pause(); delete apool[id]; }
+}
+function primeAudioPreview() {   // dentro del toque en Play: iOS solo deja iniciar audio desde un gesto
+  for (const c of (session ? session.project.audioClips || [] : [])) { const m = media[c.asset_id]; if (!m || apool[c.id]) continue; const a = apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }); a.muted = true; a.play().then(() => { a.pause(); a.muted = false; }).catch(() => { a.muted = false; }); }
+}
+// Importa una captura: el .wivra.json elegido junto con sus archivos. Valida el manifiesto, abre lo que el navegador sepa leer y arma UN lote de operaciones (un solo deshacer).
+async function importCapture(files) {
+  if (!files.length || loading) return;
+  loading = true; stopPlayIfAny();
+  try {
+    const mf = files.find(f => /\.json$/i.test(f.name));
+    if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
+    const r = parseManifest(await mf.text());
+    if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
+    const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
+    $('info').textContent = 'Leyendo la captura…';
+    const open = async (name, kind) => {
+      if (assets[name]) return assets[name];
+      const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
+      try {
+        const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; session ||= new Session(createProject({ assets: [] }));
+        session.addAsset({ id, duration: pr.duration, name: f.name }); return (assets[name] = { id, duration: pr.duration, kind });
+      } catch (e) { failed.push(e.message); return null; }
+    };
+    let videoFile = null, usedMuxed = false;
+    for (const [name, isMux] of [[m.videoFile, false], [m.muxedVideoFile, true]]) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
+    if (!videoFile) { say('No pude abrir el video de la captura. ' + failed.join(' · '), 'bad'); return; }
+    if (usedMuxed && m.videoFile) notes.push(`Se usó ${m.muxedVideoFile} (el video original no se pudo abrir en este navegador).`);
+    // Audio: con el video combinado, las pistas que ya trae no se importan dos veces. Si el usuario dio los audios sueltos y se abren todos, se importan aparte y se silencia el audio del video.
+    const embedded = new Set(usedMuxed ? m.muxedFromTrackIDs : []);
+    let tracks = m.tracks.filter(t => !embedded.has(t.id)), muteVideo = false;
+    if (embedded.size) {
+      const emb = m.tracks.filter(t => embedded.has(t.id)); let ok = emb.length > 0;
+      for (const t of emb) if (!byName.has(t.file) || !(await open(t.file, 'audio'))) ok = false;
+      if (ok) { tracks = m.tracks; muteVideo = true; notes.push('Las pistas de audio quedaron separadas y el audio del video se silenció (así no suena doble).'); }
+      else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
+    }
+    for (const t of tracks) await open(t.file, 'audio');
+    const plan = { videoFile, audioTracks: tracks };
+    const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
+    const out = planImportOps(plan, { videoStart: startAt, assets });
+    if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
+    const first = !session.project.clips.length;
+    $('stage').classList.add('on');
+    if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, assets[videoFile].duration))); }
+    const res = run(out.ops);
+    if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    if (first) useAsset(assets[videoFile].id, 0);
+    thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
+    const na = (session.project.audioClips || []).length;
+    $('info').textContent = `${session.project.clips.length} clip(s) · ${na} pista(s) de audio · ${fmt(totalDuration(session.project))} s`;
+    const all = [...notes, ...out.warnings, ...out.skipped.map(x => `no se importó ${x.file}: ${x.reason}`), ...failed.filter(x => !/^falta /.test(x))];
+    say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
+  } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
+  finally { loading = false; }
+}
+$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await importCapture(chosen); });
 function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
   const v = $('v'), m = media[id]; if (!m) return;
   if (curAsset !== id) {
@@ -1437,7 +1676,7 @@ wrap().addEventListener('scroll', () => {
 }, { passive: true });
 function renderTimeline() {
   const p = session?.project, inner = $('tlinner'), L = padL();
-  $('vtrack').replaceChildren(); $('atrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
+  $('vtrack').replaceChildren(); $('atrack').replaceChildren(); $('utrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
   if (!p) { labels(); return; }
   const tot = totalDuration(p);
   inner.style.width = (L * 2 + tot * pps) + 'px';
@@ -1462,6 +1701,14 @@ function renderTimeline() {
     const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', c.muted ? 'Activar audio de este clip' : 'Silenciar audio de este clip'); ab.appendChild(sp);
     $('atrack').appendChild(ab);
   }
+  // Pistas de audio aparte (micrófono de una captura, etc.): una barra por clip, con su parlante.
+  for (const c of (p.audioClips || [])) {
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel' : ''); ab.dataset.id = c.id;
+    ab.style.left = (L + c.start * pps) + 'px'; ab.style.width = Math.max(30, (c.out - c.in) * pps) + 'px';
+    const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', c.muted ? 'Activar esta pista de audio' : 'Silenciar esta pista de audio'); ab.appendChild(sp);
+    const nm = (media[c.asset_id] || {}).name || 'Audio'; const t = document.createElement('span'); t.className = 'ulb'; t.textContent = nm; ab.appendChild(t);
+    $('utrack').appendChild(ab);
+  }
   for (const t of p.texts) {
     const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
   }
@@ -1469,7 +1716,7 @@ function renderTimeline() {
 }
 $('tlinner').addEventListener('click', (e) => {
   const sp = e.target.closest('.spk');
-  if (sp) { const c = session.project.clips.find(k => k.id === sp.dataset.id); if (!c) return; const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else previewAudio(session.project.clips.find(k => k.id === c.id)); return; }
+  if (sp) { const find = (id) => session.project.clips.find(k => k.id === id) || (session.project.audioClips || []).find(k => k.id === id); const c = find(sp.dataset.id); if (!c) return; const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else { if (session.project.clips.some(k => k.id === c.id)) previewAudio(find(c.id)); else syncAudioPreview(); } return; }
   const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
   selId = selId === b.dataset.id ? null : b.dataset.id; render();
 });
@@ -1541,7 +1788,7 @@ $('expGo').onclick = async () => {
     };
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
-    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
     $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
@@ -1614,12 +1861,12 @@ function describeOp(o) {
     default: return JSON.stringify(o);
   }
 }
-function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
+function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncAudioPreview(); }
 $('play').onclick = () => {
   if (playing) return stopPlay();
   const p = session.project; if (!p.clips.length) return;
   if (tlTime >= totalDuration(p) - 0.05) tlTime = 0;
-  playing = true; $('play').innerHTML = PAUSE; let cur = null;
+  playing = true; $('play').innerHTML = PAUSE; let cur = null; primeAudioPreview();
   const frame = () => {
     if (!playing) return;
     const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
@@ -1632,6 +1879,7 @@ $('play').onclick = () => {
     if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    syncAudioPreview();
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
     wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
   };

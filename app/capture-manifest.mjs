@@ -77,3 +77,28 @@ export function importPlan(manifest, { useMuxed = false } = {}) {
   const inMux = new Set(muxed ? manifest.muxedFromTrackIDs : []);
   return { videoFile: muxed ? manifest.muxedVideoFile : manifest.videoFile, audioTracks: manifest.tracks.filter((t) => !inMux.has(t.id)), embeddedTrackIDs: [...inMux] };
 }
+
+// Convierte el plan de importación en operaciones del editor (sin tocar archivos ni el navegador).
+// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } } } — el navegador llena `assets` tras abrir cada archivo.
+// Desfase: offsetSeconds > 0 = el audio empezó DESPUÉS del video; < 0 = empezó antes (se recorta el inicio del audio, no se mueve a tiempo negativo).
+// Devuelve { ops, warnings, skipped }: `skipped` lista lo que no se pudo importar (archivo ausente, sin duración, pista que cae fuera del video).
+export function planImportOps(plan, ctx) {
+  if (!plan || !Array.isArray(plan.audioTracks)) throw new Error('planImportOps necesita el resultado de importPlan.');
+  const videoStart = Number.isFinite(ctx?.videoStart) ? ctx.videoStart : 0, assets = ctx?.assets || {};
+  const ops = [], warnings = [], skipped = [];
+  const v = assets[plan.videoFile];
+  if (!v) skipped.push({ file: plan.videoFile, reason: 'video no abierto' }); else ops.push({ op: 'add_clip', asset_id: v.id, start: videoStart });
+  for (const t of plan.audioTracks) {
+    const a = assets[t.file];
+    if (!a) { skipped.push({ file: t.file, id: t.id, reason: 'archivo de audio no abierto' }); continue; }
+    if (!(a.duration > 0)) { skipped.push({ file: t.file, id: t.id, reason: 'no se pudo medir la duración' }); continue; }
+    if (t.channelIndex != null && (t.channelCount ?? 0) > 1) warnings.push(`${t.id}: canal ${t.channelIndex} de ${t.channelCount}; el editor aún reproduce el archivo completo (separar canales no está implementado).`);
+    if (!t.offsetKnown) warnings.push(`${t.id}: desfase desconocido; se coloca al inicio del video. Ajústalo a mano.`);
+    const off = t.offsetKnown ? t.offsetSeconds : 0;
+    const at = videoStart + off;                       // dónde cae el inicio del audio en el timeline
+    const tin = at < 0 ? Math.min(-at, a.duration) : 0, start = Math.max(0, at);   // si cae antes de 0, se recorta ese tramo del audio
+    if (tin >= a.duration) { skipped.push({ file: t.file, id: t.id, reason: 'el desfase deja la pista sin contenido' }); continue; }
+    ops.push({ op: 'add_audio_clip', asset_id: a.id, start: Math.round(start * 1000) / 1000, in: Math.round(tin * 1000) / 1000, out: a.duration, role: t.role });
+  }
+  return { ops, warnings, skipped };
+}

@@ -51,3 +51,43 @@ test('rechaza muxedFromTrackIDs inconsistente y avisa de audio duplicado o campo
 test('versión desconocida, JSON roto y entradas no objeto', () => {
   assert.equal(parseManifest({ ...v1, schemaVersion: 9 }).ok, false); assert.equal(parseManifest('{no json').ok, false); assert.equal(parseManifest(null).ok, false); assert.equal(parseManifest([]).ok, false);
 });
+
+import { planImportOps } from '../capture-manifest.mjs';
+import { createProject } from '../../core/project.mjs';
+import { Session } from '../../core/session.mjs';
+
+test('planImportOps: video + pistas con desfase positivo, negativo y desconocido se vuelven operaciones válidas', () => {
+  const m = parseManifest(byName('usb-stereo-two-transmitters-hypothetical')).manifest;   // host: -0.01, guest: desfase propio
+  m.tracks[1].offsetSeconds = 0.5; m.tracks[1].offsetKnown = true;
+  const plan = importPlan(m, { useMuxed: false });
+  const assets = { [plan.videoFile]: { id: 'a1', duration: 20 }, [m.tracks[0].file]: { id: 'a2', duration: 20 } };
+  const r = planImportOps(plan, { videoStart: 3, assets });
+  assert.equal(r.ops[0].op, 'add_clip'); assert.equal(r.ops[0].start, 3);
+  const a = r.ops.filter((o) => o.op === 'add_audio_clip'); assert.equal(a.length, 2);
+  assert.deepEqual([a[0].start, a[0].in, a[0].role], [2.99, 0, 'voice_primary']);   // -0.01 s: empieza un pelo antes del video
+  assert.deepEqual([a[1].start, a[1].in, a[1].role], [3.5, 0, 'voice_guest']);
+  const s = new Session(createProject({ assets: Object.values(assets).map((x, i) => ({ id: x.id, duration: x.duration, name: 'f' + i })) }));
+  assert.ok(s.apply(r.ops).ok); assert.equal(s.project.clips.length, 1); assert.equal(s.project.audioClips.length, 2);
+});
+test('planImportOps: desfase negativo grande recorta el inicio del audio; al inicio del timeline no usa tiempo negativo', () => {
+  const m = parseManifest(byName('single-hfp-sidecar')).manifest; m.tracks[0].offsetSeconds = -1.25; m.tracks[0].offsetKnown = true;
+  const plan = importPlan(m, { useMuxed: false });
+  const r = planImportOps(plan, { videoStart: 0, assets: { [plan.videoFile]: { id: 'a1', duration: 10 }, [m.tracks[0].file]: { id: 'a2', duration: 10 } } });
+  const a = r.ops.find((o) => o.op === 'add_audio_clip'); assert.deepEqual([a.start, a.in, a.out], [0, 1.25, 10]);
+});
+test('planImportOps: avisa desfase desconocido y omite lo que no se abrió, sin inventar operaciones', () => {
+  const m = parseManifest(byName('single-hfp-sidecar')).manifest; m.tracks[0].offsetKnown = false;
+  const plan = importPlan(m, { useMuxed: false });
+  const r = planImportOps(plan, { videoStart: 0, assets: { [plan.videoFile]: { id: 'a1', duration: 10 }, [m.tracks[0].file]: { id: 'a2', duration: 10 } } });
+  assert.ok(r.warnings.some((w) => /desfase desconocido/.test(w)));
+  const r2 = planImportOps(plan, { videoStart: 0, assets: { [plan.videoFile]: { id: 'a1', duration: 10 } } });
+  assert.equal(r2.ops.length, 1); assert.equal(r2.skipped[0].reason, 'archivo de audio no abierto');
+  const r3 = planImportOps(plan, { videoStart: 0, assets: { [m.tracks[0].file]: { id: 'a2', duration: 0 } } });
+  assert.equal(r3.ops.length, 0); assert.equal(r3.skipped.length, 2);
+  assert.throws(() => planImportOps({}, {}));
+});
+test('planImportOps con el MOV combinado no agrega pistas de audio (ya suenan dentro del video)', () => {
+  const m = parseManifest(byName('single-hfp-sidecar')).manifest; const plan = importPlan(m, { useMuxed: true });
+  const r = planImportOps(plan, { videoStart: 0, assets: { [plan.videoFile]: { id: 'a1', duration: 10 } } });
+  assert.deepEqual(r.ops.map((o) => o.op), ['add_clip']);
+});

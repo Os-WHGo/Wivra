@@ -6,7 +6,10 @@ const MAX_TEXT = 120;
 const err = (code, message) => ({ ok: false, code, message });
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
-const findClip = (p, id) => p.clips.find((c) => c.id === id);
+// Los clips de audio (pistas aparte, p. ej. el micrófono de una captura) viven en p.audioClips y comparten operaciones con los de video.
+const findClip = (p, id) => p.clips.find((c) => c.id === id) || (p.audioClips || []).find((c) => c.id === id);
+const listOf = (p, id) => (p.clips.some((c) => c.id === id) ? p.clips : p.audioClips);
+const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
@@ -15,6 +18,23 @@ const handlers = {
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     const id = `c${p.nextId++}`;
     p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
+    return { ok: true, id };
+  },
+  // Pista de audio aparte (no cambia la duración del video). start puede ser el tiempo del video + el desfase medido; in/out recortan el medio.
+  add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    const o = out === undefined ? a.duration : out;
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);
+    if (!AUDIO_ROLES.includes(role)) return err('bad_audio', `role debe ser uno de ${AUDIO_ROLES.join(', ')}`);
+    if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
+    if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    const id = `u${p.nextId++}`;
+    const c = { id, asset_id, in: tin, out: Math.min(o, a.duration), start, role };
+    if (volume !== undefined) c.volume = volume;
+    if (muted !== undefined) c.muted = muted;
+    (p.audioClips ||= []).push(c);
     return { ok: true, id };
   },
   trim_clip(p, { clip_id, in: tin, out }) {
@@ -31,12 +51,14 @@ const handlers = {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
-    const id = `c${p.nextId++}`;
+    const audio = !p.clips.includes(c);
+    const id = `${audio ? 'u' : 'c'}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
+    if (c.role !== undefined) right.role = c.role;
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     c.out = at;
-    p.clips.push(right);
+    listOf(p, c.id).push(right);
     return { ok: true, id };
   },
   move_clip(p, { clip_id, start }) {
@@ -58,9 +80,10 @@ const handlers = {
     return { ok: true };
   },
   delete_clip(p, { clip_id }) {
-    const i = p.clips.findIndex((c) => c.id === clip_id);
+    const l = p.clips.some((c) => c.id === clip_id) ? p.clips : (p.audioClips || []);
+    const i = l.findIndex((c) => c.id === clip_id);
     if (i < 0) return err('unknown_clip', `No existe el clip ${clip_id}`);
-    p.clips.splice(i, 1);
+    l.splice(i, 1);
     return { ok: true };
   },
   add_text(p, { text, start, duration }) {

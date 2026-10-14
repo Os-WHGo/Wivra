@@ -38,6 +38,14 @@ export const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 // Ganancia del audio original de un clip: silenciado = 0; si no, su volumen (por defecto 1), limitado a 0–2.
 export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
 
+// Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
+export function audioStartAt(c, t) {
+  const len = c.out - c.in, into = t - c.start;
+  if (c.muted || into < -0.02 || into >= len - 0.03) return null;
+  const k = Math.max(0, into);
+  return { offset: c.in + k, dur: len - k };
+}
+
 export const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -98,6 +106,28 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
 
+  // Pistas de audio aparte (p. ej. el micrófono de una captura): se decodifican antes y se lanzan según el tiempo del timeline.
+  const aClips = (project.audioClips || []).filter((c) => !c.muted && clipGain(c) > 0), buffers = new Map(), skippedAudio = [];
+  if (ac && dest) {
+    for (const c of aClips) {
+      if (buffers.has(c.asset_id) || skippedAudio.includes(c.asset_id)) continue;
+      const m = media[c.asset_id];
+      try { if (!m) throw new Error('sin medio'); buffers.set(c.asset_id, await ac.decodeAudioData(await (await fetch(m.url)).arrayBuffer())); }
+      catch { skippedAudio.push(c.asset_id); }
+    }
+  } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  const started = new Set(), sources = [];
+  const audioTick = (t) => {
+    if (!ac || !dest) return;
+    for (const c of aClips) {
+      if (started.has(c.id) || !buffers.has(c.asset_id)) continue;
+      const a = audioStartAt(c, t); if (!a) continue;
+      started.add(c.id);
+      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
+      src.connect(gn); gn.connect(dest); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+    }
+  };
+
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -112,6 +142,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (seg.type === 'gap') {
         const s = performance.now();
         while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
+          audioTick(seg.start + (performance.now() - s) / 1000);
           drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
         continue;
@@ -124,7 +155,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       await new Promise((res) => {
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
-          drawFrame(g, W, H, ev, project, t); report(t);
+          audioTick(t); drawFrame(g, W, H, ev, project, t); report(t);
           if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
           requestAnimationFrame(tick);
         };
@@ -134,6 +165,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     await frame(); await frame();
   } finally {
+    sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
@@ -141,5 +173,5 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   }
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd };
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio };
 }

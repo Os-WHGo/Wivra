@@ -57,3 +57,11 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Operación `set_clip_audio {clip_id, muted?, volume?}` (volumen 0–2, 1 = original). Se valida, es atómica y se deshace como todo lo demás; al cortar un clip, las dos mitades conservan su audio. La IA también puede proponerla.
 - Botón **Audio**: silencia o cambia el volumen del clip elegido. La exportación aplica la ganancia por clip (WebAudio).
 - **Probado:** pruebas unitarias del núcleo y navegador simulado (hoja Audio, silenciar, volumen, deshacer ×2, sin errores). **No validado:** que el audio exportado salga con el volumen correcto en un iPhone real. En la vista previa de Safari/iPhone el volumen no cambia (solo silenciar), es una limitación de Safari (sin verificar con fuente).
+
+
+## Importar una captura (`.wivra.json`) · estado 14-10-2026
+- Botón **Captura**: se eligen juntos el `.wivra.json`, el video y los audios. El manifiesto se valida (v1 y v2) antes de tocar nada.
+- Se abre el video original; si el navegador no puede, se usa el video combinado (MOV) si fue elegido. Con el video combinado, las pistas que ya trae **no se importan dos veces**; si se dan también sueltas y se abren todas, quedan como pistas aparte y el audio del video se silencia.
+- Cada pista de audio entra como **clip de audio** (`audioClips`, ids `u1`, `u2`…) con su desfase (`startOffsetSeconds`; si cae antes del inicio se recorta ese tramo). Todo en **un solo lote** (un solo deshacer).
+- Las pistas de audio se ven en su propia fila con parlante, suenan en la vista previa y se **mezclan en la exportación** (verificado con análisis de frecuencias en Chromium simulado: arranca y termina en el tiempo esperado).
+- **No hecho / no verificado:** separar canales de un mismo archivo (se reproduce el archivo completo y se avisa), volumen en la vista previa de iPhone (iOS ignora `volume`; solo silenciar), decodificar CAF/HEVC en Safari, prueba en iPhone real, audio por encima de 1 en la vista previa (solo en la exportación).
