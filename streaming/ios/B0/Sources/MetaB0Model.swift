@@ -97,6 +97,12 @@ final class MetaB0Model {
         selectedAudioDeviceName = nil
         selectedAudioSourceKind = nil
         if captureSelectedAudio {
+            // Never try to re-open Bluetooth HFP while DAT camera is already
+            // running: a changed route requires a fresh preflight/session.
+            guard audioRoute.hasSelectedRoute else {
+                recordingStatus = "Se perdió el micrófono preparado. Termina la sesión y elige la fuente otra vez."
+                return
+            }
             do {
                 selectedAudioDeviceName = try audioRoute.activateSelectedInput()
                 selectedAudioSourceKind = audioRoute.selectedSource
