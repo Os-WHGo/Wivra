@@ -1,29 +1,19 @@
-# Manifiesto de captura `.wivra.json`: v1 real y v2 propuesto (varias pistas)
+# Manifiesto de captura `.wivra.json`: lector del editor (v1 + v2 canónico)
 
-> Respuesta de Claude al pedido del issue #49 y a la propuesta de Meta AI (FINDING-AUDIO-DJI-MULTITRACK, Drive).
-> Estado: **DOCUMENTADO + lector con pruebas unitarias** (`app/capture-manifest.mjs`). **No** conectado a la interfaz, **no** probado en teléfono, ningún archivo real lo usa todavía. — Claude
+> Estado: **lector con pruebas unitarias** (`app/capture-manifest.mjs`). **No** conectado a la interfaz del editor, **no** probado en teléfono, ningún archivo real de gafas/DJI lo ha usado todavía. — Claude
+> Actualizado 14-10-2026: **reconciliado** con el formato que escribe el Swift de ChatGPT (PR #50). Mi borrador anterior (`voice-host`, `sampleRate`, `offsetSeconds`…) quedó **descartado**; no lo escribe nadie.
 
-## v1 (verificado leyendo `WivraCaptureManifest.swift` del PR #48)
-Campos: `schemaVersion`, `captureID`, `cameraSource`, `audioSource`, `selectedInputName`, `originalVideoFile`, `originalAudioFile`, `muxedVideoFile`, `audioStartOffsetSeconds`, `createdAtISO8601`. Un video y como mucho un audio (HFP).
+## Formato canónico provisional
+El de `WivraCaptureManifest.swift` (PR #50), descrito por su esquema `streaming/contracts/wivra-manifest-v2.schema.json` y sus ejemplos **sintéticos** `manifest-v2-fixtures.json` (copias en `app/tests/fixtures/`, tomadas del commit 640b701 de la rama de ChatGPT; si cambian allá, hay que recopiarlas). Campos de pista: `id`, `kind:"audio"`, `role` ∈ `voice_primary | voice_guest | music | scratch | ambience | other`, `source`, `file`, `channelIndex`, `sampleRateHz`, `channelCount`, `inputName`, `startOffsetSeconds`; más `muxedFromTrackIDs` a nivel raíz.
 
-## v2 (propuesta de Meta AI, concretada por Claude; decide el propietario)
-```json
-{ "schemaVersion": 2, "captureID": "…", "cameraSource": "meta-dat-hevc", "originalVideoFile": "a.hevc", "muxedVideoFile": "a.mov",
-  "createdAtISO8601": "…",
-  "tracks": [
-    { "id": "t1", "role": "voice-host",  "file": "host.wav",  "source": "dji-mic", "sampleRate": 48000, "channels": 1, "offsetSeconds": 0.10, "offsetEstimated": true },
-    { "id": "t2", "role": "voice-guest", "file": "guest.wav", "source": "dji-mic", "sampleRate": 48000 },
-    { "id": "t3", "role": "scratch",     "file": "a.caf",     "source": "ios-bluetooth-hfp", "sampleRate": 8000 } ] }
-```
-Roles: `voice-host`, `voice-guest`, `music`, `ambient`, `scratch`, `other`.
+## Qué hace el lector
+- `parseManifest(json)` acepta **v1** (PR #48) y **v2** y devuelve siempre una forma interna única (`tracks` con `offsetSeconds` y `offsetKnown`). Errores y avisos en español.
+- Rechaza: versión desconocida, rutas con carpetas/`..`/vacías/saltos de línea, ids de pista repetidos, `kind` ≠ audio, rol fuera de lista, números inválidos, `channelIndex` ≥ `channelCount`, `muxedFromTrackIDs` que apunta a una pista inexistente o repetida, o sin `muxedVideoFile`.
+- **Avisa** (no rechaza): campos nuevos desconocidos (para no romperse cuando el esquema crezca) y varias pistas del mismo archivo sin canales distintos (audio duplicado). Es la **única** diferencia con el esquema JSON estricto (`additionalProperties:false`); en una prueba cruzada con un validador JSON Schema estándar (Ajv) coincidieron en las otras 14 mutaciones probadas × 3 ejemplos.
+- v1 → se sintetiza **solo** la pista de `originalAudioFile` (rol `voice_primary`, id `audio-1`) y se marca que el MOV combinado ya la trae.
+- `importPlan(manifest, {useMuxed})`: con el MOV combinado **no** se importan aparte las pistas de `muxedFromTrackIDs` (ya suenan dentro del video); con el video original se importan todas. Evita duplicar audio.
 
-## Qué hace el lector (`parseManifest`)
-- Acepta v1 y v2 y **siempre entrega la forma v2** (v1 → una pista `scratch`, desfase marcado como estimado).
-- Rechaza: versión desconocida, rutas con carpetas o `..`, ids de pista repetidos, roles fuera de lista, frecuencia de muestreo o canales absurdos, JSON roto. Devuelve la lista de errores.
-- **No** abre archivos: comprobar que existen y su formato (¿el editor del teléfono lee CAF?) queda para la importación real.
-
-## Lo que sigue (no hecho)
-1. ChatGPT decide si el PR #48 pasa a escribir v2 (hoy escribe v1). Mientras tanto el editor lee ambos.
-2. Importación: crear un solo objeto de captura con sus pistas (volumen/silencio por pista; ver issue #47).
-3. Auto-ducking (bajar música cuando hay voz): idea de Meta AI, **sin implementar**.
-4. Dudas abiertas: lectura de CAF/WAV en Safari, desfase real (drift), receptor DJI con iPhone **sin probar** (Meta AI lo marca como propuesta que requiere hardware).
+## Lo que NO hace / sigue pendiente
+- No abre archivos: no comprueba que existan, ni que Safari lea **CAF/WAV**, ni el offset real (es **estimado**), ni el drift.
+- No separa canales de un WAV estéreo (`channelIndex`) ni crea pistas en el timeline: eso es el motor multipista (siguiente paso).
+- Todo lo de DJI/USB sigue siendo hipótesis hasta una grabación real con hardware.

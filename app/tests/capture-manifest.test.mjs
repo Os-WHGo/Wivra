@@ -1,28 +1,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseManifest } from '../capture-manifest.mjs';
+import { readFileSync } from 'node:fs';
+import { parseManifest, importPlan } from '../capture-manifest.mjs';
 
+const fx = JSON.parse(readFileSync(new URL('./fixtures/manifest-v2-fixtures.json', import.meta.url), 'utf8'));
+const byName = (n) => structuredClone(fx.cases.find((c) => c.name === n).manifest);
 const v1 = { schemaVersion: 1, captureID: 'abc', cameraSource: 'meta-dat-hevc', audioSource: 'ios-bluetooth-hfp', selectedInputName: 'Ray-Ban', originalVideoFile: 'a.hevc', originalAudioFile: 'a.caf', muxedVideoFile: 'a.mov', audioStartOffsetSeconds: 0.12, createdAtISO8601: '2026-10-13T00:00:00Z' };
-const v2 = { schemaVersion: 2, captureID: 'x', cameraSource: 'meta-dat-hevc', originalVideoFile: 'a.hevc', tracks: [
-  { id: 't1', role: 'voice-host', file: 'host.wav', source: 'dji-mic', sampleRate: 48000, channels: 1, offsetSeconds: 0.1 },
-  { id: 't2', role: 'voice-guest', file: 'guest.wav', sampleRate: 48000 },
-  { id: 't3', role: 'scratch', file: 'a.caf', sampleRate: 8000 }] };
 
-test('v1 real del PR #48 se normaliza a una pista scratch', () => {
+test('los 3 ejemplos sintéticos del contrato de ChatGPT (PR #50) se aceptan', () => {
+  for (const c of fx.cases) { const r = parseManifest(c.manifest); assert.ok(r.ok, c.name + ': ' + (r.errors || []).join('; ')); }
+});
+test('v2 con dos canales del mismo archivo: pistas distintas, sin aviso de duplicado', () => {
+  const r = parseManifest(byName('usb-stereo-two-transmitters-hypothetical')); assert.ok(r.ok);
+  assert.deepEqual(r.manifest.tracks.map((t) => [t.id, t.role, t.channelIndex, t.sampleRateHz]), [['host', 'voice_primary', 0, 48000], ['guest', 'voice_guest', 1, 48000]]);
+  assert.equal(r.warnings.length, 0); assert.equal(r.manifest.tracks[0].offsetSeconds, -0.01);
+});
+test('v2 sin audio: cero pistas', () => { const r = parseManifest(byName('silent-video-no-audio')); assert.ok(r.ok); assert.equal(r.manifest.tracks.length, 0); });
+test('v1 real del PR #48 se normaliza a una pista voice_primary y el MOV combinado ya la trae', () => {
   const r = parseManifest(v1); assert.ok(r.ok);
-  assert.equal(r.manifest.tracks.length, 1); assert.equal(r.manifest.tracks[0].role, 'scratch'); assert.equal(r.manifest.tracks[0].offsetSeconds, 0.12);
-  assert.equal(r.manifest.sourceVersion, 1); assert.equal(r.manifest.muxedVideoFile, 'a.mov');
+  assert.equal(r.manifest.sourceVersion, 1); assert.deepEqual(r.manifest.tracks.map((t) => [t.role, t.file, t.offsetSeconds, t.offsetKnown]), [['voice_primary', 'a.caf', 0.12, true]]);
+  assert.deepEqual(r.manifest.muxedFromTrackIDs, ['audio-1']);
+  const r2 = parseManifest({ ...v1, originalAudioFile: null, muxedVideoFile: null, audioStartOffsetSeconds: null }); assert.ok(r2.ok); assert.equal(r2.manifest.tracks.length, 0);
 });
-test('v1 sin audio da cero pistas', () => { const r = parseManifest({ ...v1, originalAudioFile: null, audioStartOffsetSeconds: null }); assert.ok(r.ok); assert.equal(r.manifest.tracks.length, 0); });
-test('v2 con 3 pistas es válido y acepta texto JSON', () => { const r = parseManifest(JSON.stringify(v2)); assert.ok(r.ok); assert.deepEqual(r.manifest.tracks.map((t) => t.role), ['voice-host', 'voice-guest', 'scratch']); });
-test('rechaza rutas con carpetas o ..', () => {
-  assert.equal(parseManifest({ ...v1, originalVideoFile: '../x.hevc' }).ok, false);
-  assert.equal(parseManifest({ ...v2, tracks: [{ id: 't', role: 'music', file: 'a/b.wav' }] }).ok, false);
+test('importPlan no duplica audio: con MOV combinado no importa pistas que ya trae; con el original importa todas', () => {
+  const m = parseManifest(byName('single-hfp-sidecar')).manifest;
+  const a = importPlan(m, { useMuxed: true }); assert.equal(a.videoFile, 'walk.synced.mov'); assert.equal(a.audioTracks.length, 0); assert.deepEqual(a.embeddedTrackIDs, ['audio-1']);
+  const b = importPlan(m, { useMuxed: false }); assert.equal(b.videoFile, 'walk.mov'); assert.deepEqual(b.audioTracks.map((t) => t.id), ['audio-1']);
+  const sin = parseManifest(byName('usb-stereo-two-transmitters-hypothetical')).manifest; assert.equal(importPlan(sin, { useMuxed: true }).audioTracks.length, 2);   // no hay MOV combinado
+  assert.throws(() => importPlan({}));
 });
-test('rechaza ids repetidos, rol inválido, sampleRate raro y versión desconocida', () => {
-  assert.equal(parseManifest({ ...v2, tracks: [{ id: 't', role: 'music', file: 'a.wav' }, { id: 't', role: 'music', file: 'b.wav' }] }).ok, false);
-  assert.equal(parseManifest({ ...v2, tracks: [{ id: 't', role: 'dj', file: 'a.wav' }] }).ok, false);
-  assert.equal(parseManifest({ ...v2, tracks: [{ id: 't', role: 'music', file: 'a.wav', sampleRate: 5 }] }).ok, false);
-  assert.equal(parseManifest({ ...v1, schemaVersion: 9 }).ok, false);
-  assert.equal(parseManifest('{no json').ok, false);
+test('rechaza rutas con carpetas, .., vacías o con saltos de línea', () => {
+  for (const f of ['../x.mov', 'a/b.mov', '..', 'a\\b.mov', 'a\nb.mov', '']) { const m = byName('single-hfp-sidecar'); m.originalVideoFile = f; assert.equal(parseManifest(m).ok, false, JSON.stringify(f)); }
+  const m = byName('single-hfp-sidecar'); m.tracks[0].file = '../../etc/passwd'; assert.equal(parseManifest(m).ok, false);
+});
+test('rechaza: rol inválido, kind distinto de audio, ids repetidos, canal fuera de rango, offset no numérico', () => {
+  const mk = (f) => { const m = byName('usb-stereo-two-transmitters-hypothetical'); f(m); return parseManifest(m); };
+  assert.equal(mk((m) => { m.tracks[0].role = 'voice-host'; }).ok, false);
+  assert.equal(mk((m) => { m.tracks[0].kind = 'video'; }).ok, false);
+  assert.equal(mk((m) => { m.tracks[1].id = 'host'; }).ok, false);
+  assert.equal(mk((m) => { m.tracks[1].channelIndex = 2; }).ok, false);
+  assert.equal(mk((m) => { m.tracks[0].startOffsetSeconds = '0.1'; }).ok, false);
+  assert.equal(mk((m) => { m.tracks[0].sampleRateHz = 0; }).ok, false);
+});
+test('rechaza muxedFromTrackIDs inconsistente y avisa de audio duplicado o campos nuevos', () => {
+  const a = byName('single-hfp-sidecar'); a.muxedFromTrackIDs = ['no-existe']; assert.equal(parseManifest(a).ok, false);
+  const b = byName('single-hfp-sidecar'); b.muxedVideoFile = null; assert.equal(parseManifest(b).ok, false);
+  const c = byName('usb-stereo-two-transmitters-hypothetical'); c.tracks[1].channelIndex = 0; const rc = parseManifest(c); assert.ok(rc.ok); assert.ok(rc.warnings.some((w) => /duplic/.test(w)));
+  const d = byName('silent-video-no-audio'); d.futuro = 1; const rd = parseManifest(d); assert.ok(rd.ok); assert.ok(rd.warnings.some((w) => /futuro/.test(w)));
+});
+test('versión desconocida, JSON roto y entradas no objeto', () => {
+  assert.equal(parseManifest({ ...v1, schemaVersion: 9 }).ok, false); assert.equal(parseManifest('{no json').ok, false); assert.equal(parseManifest(null).ok, false); assert.equal(parseManifest([]).ok, false);
 });
