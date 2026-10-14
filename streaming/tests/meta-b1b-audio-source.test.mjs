@@ -3,12 +3,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const read = (name) => readFileSync(new URL('../ios/B0/'+name, import.meta.url), 'utf8');
-test('B1B only uses explicitly selected active Bluetooth HFP input', () => {
+test('B1D only uses explicitly selected active audio input', () => {
   const route = read('Sources/WivraAudioRoute.swift');
   assert.match(route, /AVAudioApplication\.requestRecordPermission\(\)/);
   assert.match(route, /setPreferredInput\(input\)/);
   assert.match(route, /currentRoute\.inputs\.contains/);
-  assert.match(route, /portType == \.bluetoothHFP/);
   assert.match(route, /throw WivraAudioRouteError\.routeRejected/);
 });
 test('B1B records user-consented audio to separate CAF track', () => {
@@ -42,8 +41,9 @@ test('Wivra persists a local manifest for eventual single editor import', () => 
 test('UI keeps RAW preview plus explicit audio select and all export paths', () => {
   const view = read('Sources/WivraMetaB0App.swift');
   assert.match(view, /B0 · Vista previa/);
-  assert.match(view, /Grabar audio desde las Ray-Ban/);
-  assert.match(view, /Buscar micrófonos Bluetooth HFP/);
+  assert.match(view, /Grabar pista de audio independiente/);
+  assert.match(view, /Detectar entradas de audio/);
+  assert.match(view, /Preparar micrófono seleccionado/);
   assert.match(view, /Compartir pista de audio independiente/);
   assert.match(view, /Compartir MOV con audio integrado/);
   assert.match(view, /Compartir manifiesto del proyecto Wivra/);
@@ -62,4 +62,16 @@ test('B1C writes schemaVersion 2 with measured audio properties and only recorde
   assert.match(sidecar, /channelCount: Int/);
   assert.match(model, /audioSampleRateHz: sound\?\.sampleRate/);
   assert.match(model, /audioChannelCount: sound\?\.channelCount/);
+});
+
+test('B1D stores the exact selected source, never a pretend DJI track', () => {
+  const model = read('Sources/MetaB0Model.swift');
+  const manifest = read('Sources/WivraCaptureManifest.swift');
+  const ui = read('Sources/WivraMetaB0App.swift');
+  assert.match(model, /selectedAudioSourceKind = audioRoute.selectedSource/);
+  assert.match(model, /audioSource: selectedAudioSourceKind/);
+  assert.match(manifest, /source: audioSource, file: audioURL.lastPathComponent/);
+  assert.match(ui, /ForEach\(model.audioRoute.ports\)/);
+  assert.match(model, /!audioRoute.hasSelectedRoute/);
+  assert.match(read('Sources/WivraAudioRoute.swift'), /if hasSelectedRoute/);
 });
