@@ -184,3 +184,10 @@ El propietario confirmó que **CG** significa rótulos/gráficos de pantalla lig
 **Una sola aplicación Wivra**, con **Editor** y **LIVE Studio** como modos separados pero conectados mediante una biblioteca de proyectos, assets, plantillas CG 2D y memes común. LIVE tiene **Scene Deck/Media Launcher** de botones rápidos, reacción a clips locales, PiP/collage, alertas y rótulos preparados; Editor usa esos mismos elementos como pistas editables, guardado offline y export. Los CG son simples gráficos de texto/imagen/animación 2D para reportajes y datos, **no CGI/efectos especiales 3D ni IA generativa en directo**, expresamente descartados. Biblioteca de memes local (usuario + assets originales/licenciados) disponible en ambos; búsqueda online opt-in solo con permisos/licencias reales, no todo meme es de libre redistribución. Guardar eventos LIVE para posible re-edición, sin prometer capas recuperables de un video ya aplanado. Los motores de render del editor y LIVE pueden ser distintos para adecuarse a hardware/latencia, **sin duplicar datos ni crear dos apps**.
 
 **Contrato y fases para Claude + ChatGPT:** [WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md](./WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md), sección 7. Esta decisión del propietario prevalece sobre propuestas que sugieren crear editor y LIVE como aplicaciones independientes. Nada se ha construido de esta sección ni fusionado a main.
+
+
+## 17. Biblioteca inteligente y alertas LIVE
+
+La biblioteca común Editor/LIVE debe mostrar Favoritos, Recientes, Más usados y Sugeridos, con contador local de usos reales y plantillas con licencia verificada. El panel Alertas de LIVE permite mensajes manuales y eventos de plataformas autorizadas. La clave RTMP es para transmitir; eventos como seguidores, suscripciones y chat se reciben con conectores y permisos separados. Evaluar Twitch EventSub, YouTube LiveChatMessages y overlays de terceros, sin prometer todavía integración operativa.
+
+Plan y pruebas: [Biblioteca y alertas](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md). No se modifica la aplicación ni main por este documento.
