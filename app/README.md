@@ -52,3 +52,8 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Probado (Chromium con iPhone simulado):** abrir el Director sin video y con 2 videos, pedir un corte a un proveedor simulado y aplicarlo, exportar con audio. Sin errores de consola. 22 pruebas de núcleo y 28 de app.
 - **Pendiente de integrar de verdad:** el "agente local básico" del #40 (`localBasicCommand`) y la IA directa (#43) son caminos separados; falta unificar la conversación para que el Director y la IA compartan el mismo historial y las mismas notas por video.
 - La barra inferior ya tiene 7 botones activos y se desliza hacia el lado en pantallas angostas (el de "Director" queda parcialmente fuera hasta deslizar).
+
+## Audio por clip (nuevo)
+- Operación `set_clip_audio {clip_id, muted?, volume?}` (volumen 0–2, 1 = original). Se valida, es atómica y se deshace como todo lo demás; al cortar un clip, las dos mitades conservan su audio. La IA también puede proponerla.
+- Botón **Audio**: silencia o cambia el volumen del clip elegido. La exportación aplica la ganancia por clip (WebAudio).
+- **Probado:** pruebas unitarias del núcleo y navegador simulado (hoja Audio, silenciar, volumen, deshacer ×2, sin errores). **No validado:** que el audio exportado salga con el volumen correcto en un iPhone real. En la vista previa de Safari/iPhone el volumen no cambia (solo silenciar), es una limitación de Safari (sin verificar con fuente).

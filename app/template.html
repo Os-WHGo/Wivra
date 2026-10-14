@@ -88,7 +88,7 @@
   <button class="tool" id="bAI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>IA</button>
   <button class="tool" id="bDirector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h12M4 18h9M18 14l2 2-5 5h-3v-3z"/></svg>Director</button>
   <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
-  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio<small>pronto</small></button>
+  <button class="tool" id="bAudio" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -99,6 +99,11 @@
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
   <button id="vdone" class="btn">Listo</button></div>
 
+<div class="sheet" id="sAudio"><h2>Audio del clip</h2><p class="m" id="auInfo">Toca un clip en la línea de tiempo para elegirlo.</p>
+  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="auMute"> Silenciar el audio original de este clip</label>
+  <label class="m">Volumen: <b id="auVolTxt">100%</b><input type="range" id="auVol" min="0" max="200" step="5" value="100" style="width:100%"></label>
+  <p class="m" id="auNote">Al exportar se aplica exacto. En la vista previa del iPhone solo se oye silenciado o no; el volumen lo ignora Safari.</p>
+  <button id="auDone" class="btn">Listo</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
@@ -222,13 +227,25 @@ function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').cla
 function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
+function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
+function auSync() {
+  const c = session && session.project.clips.find(x => x.id === selId);
+  $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(c.out - c.in)} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
+  for (const id of ['auMute', 'auVol']) $(id).disabled = !c;
+  $('auMute').checked = !!(c && c.muted); const vol = c && typeof c.volume === 'number' ? c.volume : 1; $('auVol').value = Math.round(vol * 100); $('auVolTxt').textContent = Math.round(vol * 100) + '%';
+}
+$('bAudio').onclick = () => { auSync(); openSheet('sAudio'); }; $('auDone').onclick = closeSheets;
+function auApply(args) { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); auSync(); previewAudio(session.project.clips.find(x => x.id === selId)); }
+$('auMute').onchange = () => auApply({ muted: $('auMute').checked });
+$('auVol').oninput = () => { $('auVolTxt').textContent = $('auVol').value + '%'; };
+$('auVol').onchange = () => auApply({ volume: Number($('auVol').value) / 100 });
 $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
 $('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 
 function render() {
   const p = session?.project, on = !!p;
   if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy; aiSync();
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
@@ -411,7 +428,7 @@ function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if
 const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
 function showFrame() {
   const hit = clipAt(session.project, tlTime);
-  if (hit) useAsset(hit.clip.asset_id, hit.assetTime);
+  if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
 }
 function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
@@ -593,6 +610,7 @@ function describeOp(o) {
     case 'trim_clip': return `Recortar ${o.clip_id}: de ${f(o.in)} a ${f(o.out)} s`;
     case 'move_clip': return `Mover ${o.clip_id} a ${f(o.start)} s`;
     case 'delete_clip': return `Borrar ${o.clip_id}`;
+    case 'set_clip_audio': return `Audio de ${o.clip_id}: ${[o.muted === undefined ? '' : (o.muted ? 'silenciar' : 'con sonido'), o.volume === undefined ? '' : 'volumen ' + Math.round(o.volume * 100) + '%'].filter(Boolean).join(', ')}`;
     case 'add_clip': return `Agregar ${o.asset_id} en ${f(o.start ?? 0)} s`;
     case 'add_text': return `Texto «${o.text}» en ${f(o.start)} s por ${f(o.duration)} s`;
     default: return JSON.stringify(o);
@@ -613,7 +631,7 @@ $('play').onclick = () => {
       tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
     }
     if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
-    if (cur !== hit.clip.id) { cur = hit.clip.id; const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
+    if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');

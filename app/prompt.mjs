@@ -7,6 +7,7 @@ Operaciones permitidas (tiempos en segundos):
 - {"op":"split_clip","clip_id":"c1","at":5}
 - {"op":"move_clip","clip_id":"c1","start":0}
 - {"op":"delete_clip","clip_id":"c1"}
+- {"op":"set_clip_audio","clip_id":"c1","muted":true}  (o "volume": 0.5; 0 a 2, 1 = original)
 - {"op":"add_clip","asset_id":"a1","start":0}
 - {"op":"add_text","text":"Hola","start":0,"duration":3}  (texto máx. 120 caracteres)
 
