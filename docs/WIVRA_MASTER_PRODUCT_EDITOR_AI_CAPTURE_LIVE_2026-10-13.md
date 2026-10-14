@@ -164,3 +164,11 @@ El propietario establece selección de **alcance al aplicar filtros/efectos**: s
 **Especificación operativa y casos de prueba:** [WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md](./WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md), sección 6.
 
 Meta AI publicó estudio nuevo sobre filtros iOS (Core Image y Harbeth MIT); se revisó antes de actualizar. `yangKJ/Harbeth` MIT verificado, pero los tamaños/cantidades de efectos no lo están; `wess/Free-LUTs` citado no se encontró. Claude debe revisar aplicabilidad al editor web y no prometer capacidades según ese estudio sin test real. Sin cambios a `app/` ni a `main`.
+
+
+## 14. Nueva decisión: multicámara LIVE, collage/avatares y tres herramientas distintas
+
+El usuario solicita **dual camera LIVE** con fuente principal desde iPhone trasera o Ray-Ban Meta y, opcionalmente, cámara frontal del iPhone en PiP, ajustable/tappable; alternativa de avatar/ilustración para NO mostrar rostro. Distinguir **cut/transición limitada entre tomas** de **superposición libre V2** y **collage 2/3/4 videos**, con zoom y cambios animados de cuadros, también en editor. El LIVE debe permitir escenas predefinidas y conmutación segura, una fuente de audio seleccionada, RTMP(S) donde cuenta pueda usarlo. iPhone front+back es viable con AVCaptureMultiCamSession en dispositivos/formatos compatibles (Apple sample), pero **Meta DAT + frontal iPhone aún no se ha probado y no está garantizado**. No prometerlo listo, el avatar sin cámara frontal es una alternativa útil. Los originales quedan intactos.
+
+**Especificación con fuentes Apple, límites reales, criterios editor/LIVE y fases**: [WIVRA_LIVE_MULTICAMERA_PIP_COLLAGE_AVATAR_EDITOR_MODES_2026-10-13.md](./WIVRA_LIVE_MULTICAMERA_PIP_COLLAGE_AVATAR_EDITOR_MODES_2026-10-13.md). Claude conserva editor; ChatGPT prueba multicámara y streaming en streaming/; Meta AI investiga restricciones DAT. Nadie fusiona a main sin autorización.
+
