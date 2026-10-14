@@ -96,3 +96,8 @@ El propietario precisó que quiere **un icono de parlante sutil al inicio de cad
 ## Nueva regla de interacción de timeline (capturas adicionales)
 
 La barra de herramientas inferior se contextualiza al seleccionar video (dividir/recortar/velocidad/filtros), audio (dividir/recortar/duplicar/ganancia/silenciar/fundidos/desfase), texto/captions o efecto; la selección afecta solo la pista/segmento correspondiente. Si un overlay V2+ atraviesa una transición V1, emitir sugerencia no bloqueante y reversible: mantener, cortar antes, ocultar y reaparecer al terminar la transición, o fade; sin modificar clips por sorpresa. La opción dividir solo corta, **no** resuelve visibilidad por sí sola. Especificación y pruebas en [WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md](./WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md).
+
+
+## Aclaración sobre packs opcionales, sin suscripción
+
+La decisión inicial de **efectos incorporados/offline** se mantiene, y también queda APROBADO EN PRINCIPIO agregar **packs extra descargables voluntariamente y gratuitos** para transiciones, títulos/CG 2D, sonidos, filtros, LUTs y memes/stickers con derechos verificados. Los recursos adicionales se descargan una vez, quedan disponibles offline en editor y LIVE si son compatibles, y el usuario controla espacio/actualizaciones. **No todos los efectos requieren descarga**: los esenciales se entregan con Wivra. No existe «Pro», crédito, tienda de pago ni catálogo automático masivo. Fuente técnica: [WIVRA_FREE_BUILTIN_AND_OPTIONAL_PACKS_2026-10-13.md](./WIVRA_FREE_BUILTIN_AND_OPTIONAL_PACKS_2026-10-13.md).
