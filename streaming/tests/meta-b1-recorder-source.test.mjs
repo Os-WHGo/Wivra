@@ -26,12 +26,12 @@ test('B1A does not claim saved media before writer completes and file exists',()
  assert.match(model,/case \.saved\(/);
  assert.match(src,/enum WivraRecordingResult/);
 });
-test('B1A video-only mode remains selectable after B1B audio addition, without LIVE',()=>{
+test('B1A video-only mode remains selectable after B1D source selector, without LIVE',()=>{
  const view=read('Sources/WivraMetaB0App.swift');
  assert.match(view,/Grabar HEVC/);
  assert.match(view,/Detener y guardar MOV/);
  assert.match(view,/ShareLink\(item: url\)/);
- assert.match(view,/captureGlassesAudio/);
+ assert.match(view,/captureSelectedAudio/);
  assert.match(view,/REC · solo video/);
  assert.doesNotMatch(view,/Iniciar LIVE|RTMPS funcionando/);
 });
