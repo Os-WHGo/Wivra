@@ -150,3 +150,8 @@ Conector de destinos estándar `LiveDestination { id, displayName, protocol, ing
 ## 11. Referencias técnicas verificadas: UI de pistas y transiciones gratuitas
 
 Nueva especificación de precisión para Claude: [Controles por pista y auditoría de efectos MIT](./WIVRA_AUDIO_TRACK_CONTROLS_AND_FREE_EFFECTS_AUDIT_2026-10-13.md). Incluye parlante pequeño por pista, dividir únicamente segmento seleccionado, deshacer/rehacer, evitar doblar audio separado y la lista de shaders `gl-transitions` individuales con MIT comprobada. Se evaluarán PixiJS Filters y glfx.js, sin incorporarlos todavía ni arriesgar bundle grande. Efectos incluidos y utilizables offline, sin cobros ni dependencias de IA. No se ha añadido código al editor ni a `main`.
+
+
+## 12. NUEVA precisión UX: barra contextual + superposiciones al cruzar transiciones
+
+El propietario compartió dos capturas adicionales de la barra inferior por clip y del panel Volumen, y pide que Wivra **cambie los comandos según pista video, audio, texto o efecto**. También solicita **aviso NO bloqueante si un video superpuesto (V2+) atraviesa un corte/transición entre dos tomas de fondo (V1)** y opciones manuales para mantenerlo, terminarlo, ocultarlo durante el fundido y hacerlo reaparecer, o aplicarle fades. **Solo dividir V2 no lo oculta.** Todo debe funcionar sin IA de nube, ser no destructivo, reversible y verse igual en preview/export. Especificación/algoritmo y pruebas: [WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md](./WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md). Claude es dueño de editor; no se implementó código ni se fusionó a main.
