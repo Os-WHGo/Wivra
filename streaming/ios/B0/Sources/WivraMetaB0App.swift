@@ -196,6 +196,13 @@ struct MetaB0Screen: View {
                             }
                             .accessibilityIdentifier("meta_b1b_share_muxed")
                         }
+                        if let manifestURL = model.lastCaptureManifestURL {
+                            ShareLink(item: manifestURL) {
+                                Label("Compartir manifiesto del proyecto Wivra (JSON)",
+                                      systemImage: "doc.text")
+                            }
+                            .accessibilityIdentifier("meta_b1b_manifest")
+                        }
                         if let offset = model.lastAudioSyncOffsetSeconds {
                             Text(String(format: "Desfase inicial medido: %.3f s", offset))
                                 .font(.caption.monospacedDigit())
