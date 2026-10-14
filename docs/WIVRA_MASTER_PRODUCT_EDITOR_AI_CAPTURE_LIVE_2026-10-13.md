@@ -15,7 +15,7 @@ Decisiones previas preservadas: una sola app, iPhone primero, Android y tablet d
 
 **Captura ChatGPT:** [PR #51](https://github.com/Os-WHGo/Wivra/pull/51) encima de [#50](https://github.com/Os-WHGo/Wivra/pull/50) y [#48](https://github.com/Os-WHGo/Wivra/pull/48): prototipo iOS DAT/HEVC + entrada de audio elegible y validada + CAF + MOV combinado + manifiesto multipista v2. CI Xcode sin firma y Node completado; NO validado en Ray-Ban físicas/iPhone, audio USB de dos canales, sincronía con medición real ni compatibilidad de transmisión. No hay LIVE RTMP/RTMPS operativo todavía.
 
-**Meta AI:** [Drive investigación]([enlace retirado]) con 6 documentos revisados. Investigación no reemplaza pruebas de hardware ni amplía automáticamente el alcance. **Corrección de actualidad:** la [FAQ oficial de Meta](https://developers.meta.com/wearables/faq/) declara que DAT 1.0 estable comenzó a desplegarse 30-sep-2026. Revisar SDK y publicación específica por capacidad, modelo y país; NO seguir etiquetando todo el SDK como Developer Preview por documentos antiguos.
+**Compatibilidad Meta DAT:** consultar la [FAQ oficial de Meta](https://developers.meta.com/wearables/faq/) y comprobar SDK, disponibilidad territorial, modelos, permisos y limitaciones mediante pruebas reales. No considerar la documentación como una validación de hardware.
 
 ## 2. Candidatos de código abierto: auditar y REUTILIZAR antes de reinventar
 
