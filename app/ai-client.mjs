@@ -13,7 +13,7 @@ export const PRESETS = Object.freeze([
   { id: 'custom', name: 'Otro (compatible con OpenAI)', base: '', model: '', keyUrl: '' },
 ]);
 
-const OPS = ['trim_clip', 'split_clip', 'move_clip', 'delete_clip', 'add_clip', 'add_text'];
+const OPS = ['trim_clip', 'split_clip', 'move_clip', 'delete_clip', 'add_clip', 'add_text', 'set_clip_audio'];
 
 // Esquema "plano" (sin oneOf/const) para que lo acepten más proveedores. El validador del editor es el que manda.
 export const EDIT_TOOL = Object.freeze({
@@ -33,7 +33,7 @@ export const EDIT_TOOL = Object.freeze({
               op: { type: 'string', enum: OPS },
               clip_id: { type: 'string' }, asset_id: { type: 'string' },
               in: { type: 'number' }, out: { type: 'number' }, at: { type: 'number' }, start: { type: 'number' },
-              duration: { type: 'number' }, text: { type: 'string', description: 'máx. 120 caracteres' },
+              duration: { type: 'number' }, muted: { type: 'boolean' }, volume: { type: 'number', description: '0 a 2; 1 = original' }, text: { type: 'string', description: 'máx. 120 caracteres' },
             },
           },
         },
@@ -46,6 +46,7 @@ export const SYSTEM = `Eres el asistente de edición de Wivra, un editor de vide
 Controlas el editor SOLO llamando a la herramienta edit_apply con operaciones (tiempos en segundos):
 - trim_clip {clip_id,in,out} (in/out dentro de la duración del medio) · split_clip {clip_id,at} · move_clip {clip_id,start}
 - delete_clip {clip_id} · add_clip {asset_id,start} · add_text {text,start,duration}
+- set_clip_audio {clip_id,muted?,volume?} (silenciar o volumen 0–2 del audio original de ese clip; 1 = original)
 Usa SOLO ids que existan en el proyecto. No inventes momentos, lugares ni contenido: tú no ves el video, solo sus nombres y duraciones.
 Si la petición es imposible o falta información, llama a edit_apply con ops vacío y explícalo en "nota".
 Un lote es atómico: si una operación falla, no se aplica ninguna. Responde en español.`;

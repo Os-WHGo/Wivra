@@ -33,6 +33,8 @@ const handlers = {
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
     const id = `c${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
+    if (c.muted !== undefined) right.muted = c.muted;
+    if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     c.out = at;
     p.clips.push(right);
     return { ok: true, id };
@@ -42,6 +44,17 @@ const handlers = {
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     c.start = start;
+    return { ok: true };
+  },
+  // Audio del propio clip: silenciar y/o volumen (0 a 2; 1 = original). Los cambios se pueden deshacer como cualquier lote.
+  set_clip_audio(p, { clip_id, muted, volume }) {
+    const c = findClip(p, clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    if (muted === undefined && volume === undefined) return err('bad_audio', 'Indica muted y/o volume');
+    if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
+    if (muted !== undefined) c.muted = muted;
+    if (volume !== undefined) c.volume = volume;
     return { ok: true };
   },
   delete_clip(p, { clip_id }) {

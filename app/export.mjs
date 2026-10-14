@@ -35,6 +35,9 @@ export function pickMime(isSupported) {
 }
 export const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 
+// Ganancia del audio original de un clip: silenciado = 0; si no, su volumen (por defecto 1), limitado a 0–2.
+export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
+
 export const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -86,11 +89,11 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
   document.body.appendChild(ev);
 
-  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null;
+  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null;
   const stream = canvas.captureStream(fps);
   try {
     ac = new AC(); await ac.resume().catch(() => {});
-    dest = ac.createMediaStreamDestination(); ac.createMediaElementSource(ev).connect(dest);
+    dest = ac.createMediaStreamDestination(); gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(dest);
     dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
@@ -116,6 +119,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const c = seg.clip, m = media[c.asset_id]; if (!m) throw new Error('Falta el video original de un clip.');
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
+      if (gainNode) gainNode.gain.value = clipGain(c);
       await ev.play();
       await new Promise((res) => {
         const tick = () => {

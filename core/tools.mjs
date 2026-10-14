@@ -8,6 +8,7 @@ const ops = {
     { type: 'object', required: ['op', 'clip_id', 'in', 'out'], properties: { op: { const: 'trim_clip' }, clip_id: { type: 'string' }, in: time, out: time } },
     { type: 'object', required: ['op', 'clip_id', 'at'], properties: { op: { const: 'split_clip' }, clip_id: { type: 'string' }, at: time } },
     { type: 'object', required: ['op', 'clip_id', 'start'], properties: { op: { const: 'move_clip' }, clip_id: { type: 'string' }, start: time } },
+    { type: 'object', required: ['op', 'clip_id'], properties: { op: { const: 'set_clip_audio' }, clip_id: { type: 'string' }, muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '1 = original' } } },
     { type: 'object', required: ['op', 'clip_id'], properties: { op: { const: 'delete_clip' }, clip_id: { type: 'string' } } },
     { type: 'object', required: ['op', 'text', 'start', 'duration'], properties: { op: { const: 'add_text' }, text: { type: 'string', maxLength: 120 }, start: time, duration: { type: 'number', exclusiveMinimum: 0 } } },
   ] },
