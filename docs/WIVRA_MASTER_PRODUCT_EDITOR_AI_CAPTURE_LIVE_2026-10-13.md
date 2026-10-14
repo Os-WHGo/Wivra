@@ -191,3 +191,16 @@ El propietario confirmó que **CG** significa rótulos/gráficos de pantalla lig
 La biblioteca común Editor/LIVE debe mostrar Favoritos, Recientes, Más usados y Sugeridos, con contador local de usos reales y plantillas con licencia verificada. El panel Alertas de LIVE permite mensajes manuales y eventos de plataformas autorizadas. La clave RTMP es para transmitir; eventos como seguidores, suscripciones y chat se reciben con conectores y permisos separados. Evaluar Twitch EventSub, YouTube LiveChatMessages y overlays de terceros, sin prometer todavía integración operativa.
 
 Plan y pruebas: [Biblioteca y alertas](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md). No se modifica la aplicación ni main por este documento.
+
+
+## 18. Auditoría integral de 11 informes de Meta y separación de hardware
+
+[línea retirada]
+
+**Bloqueo del Editor Claude #44:** su lector app/capture-manifest.mjs no sigue aún el manifest v2 que realmente emite PR #50/#51: `role voice-host/voice-guest/ambient` y campos `sampleRate/channels/offsetSeconds` difieren del canónico `voice_primary/voice_guest/ambience`, `sampleRateHz/channelCount/startOffsetSeconds`. Debe reconciliar contratos y testear con fixture real ANTES de prometer importar Ray-Ban/USB; prevenir doble audio MOV mux+sidecar.
+
+**DAT 1.0:** la FAQ oficial de Meta https://developers.meta.com/wearables/faq/ indica rollout iniciado 30 sept 2026. Corregir documentos anteriores que lo describían únicamente como Developer Preview; comprobar realmente reglas territoriales/device/publishing.
+
+**Hardware Meta:** investigación específica en [Issue #53](https://github.com/Os-WHGo/Wivra/issues/53) y [nota de trabajo colocada en la carpeta Drive Wivra de Meta AI]([enlace retirado]). No fabricar ni comprar accesorios, modificar lentes/cargadores, ni dar por comprobadas temperaturas, minutos extra o precios. La captura/LIVE y Editor no dependen del proyecto hardware.
+
+La prioridad de Wivra sigue siendo **UNA aplicación gratuita local-first** con Editor y LIVE Studio, biblioteca compartida, captura Ray-Ban+audio y prueba física de compatibilidad; sin CGI complejo, packs Pro, cloud automático ni monetización de tours. Los PR de esta auditoría siguen draft, `main` intacta.
