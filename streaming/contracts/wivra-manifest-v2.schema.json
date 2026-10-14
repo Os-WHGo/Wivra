@@ -14,7 +14,7 @@
     "originalVideoFile":{"$ref":"#/$defs/fileName"},
     "originalAudioFile":{"anyOf":[{"$ref":"#/$defs/fileName"},{"type":"null"}]},
     "muxedVideoFile":{"anyOf":[{"$ref":"#/$defs/fileName"},{"type":"null"}]},
-    "audioStartOffsetSeconds":{"type":["number","null"]},
+    "audioStartOffsetSeconds":{"type":["number","null"],"description":"Estimated seconds from first accepted video frame to first written audio sample: positive means audio started later; negative means earlier; null means unmeasurable. DAT transport latency is not calibrated."},
     "createdAtISO8601":{"type":"string","minLength":1},
     "tracks":{"type":"array","items":{"$ref":"#/$defs/track"}},
     "muxedFromTrackIDs":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true}
@@ -35,7 +35,7 @@
         "sampleRateHz":{"type":["number","null"],"exclusiveMinimum":0},
         "channelCount":{"type":["integer","null"],"minimum":1},
         "inputName":{"type":["string","null"]},
-        "startOffsetSeconds":{"type":["number","null"]}
+        "startOffsetSeconds":{"type":["number","null"],"description":"Audio beginning relative to first accepted video frame, seconds: positive is audio later, negative is audio earlier; null means unknown. Based on audio host timestamp and video receipt estimate; not device-calibrated."}
       },
       "additionalProperties":false
     }
