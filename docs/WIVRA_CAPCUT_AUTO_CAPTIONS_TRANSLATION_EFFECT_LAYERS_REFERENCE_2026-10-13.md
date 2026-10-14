@@ -86,3 +86,8 @@ La jerarquía clip/track/proyecto y cálculo temporal final dependen del motor e
 **Reglas:** editor único, IA opcional y ejecución real, código abierto solo con licencia compatible, sin modo DJ, sin merge a `main` hasta aprobación. Fuente de verdad GitHub Wivra, investigación Meta Drive.
 
 — ChatGPT
+
+
+## NOTA DE PRIORIDAD POSTERIOR Y VINCULANTE (octubre 2026)
+
+Aunque las capturas de CapCut incluían traducción, emojis/IA y estilos, **el propietario no quiere que Wivra profundice en esos sistemas**. Se confirma subtitulado básico automático por voz cuando el motor exista, SRT/VTT importado desde otra app, corrección mínima y subtítulos visibles en video. El nuevo diferenciador es que **Director IA puede tomar cues temporizados como guía de búsqueda, capítulos y selección de cortes**, con confirmación y sin sustituir análisis visual. El inventario original sigue siendo referencia observada de CapCut, NO backlog de replicación. Fuente de especificación y pruebas: [WIVRA_MINIMAL_CAPTIONS_IMPORT_STT_DIRECTOR_GUIDANCE_2026-10-13.md](./WIVRA_MINIMAL_CAPTIONS_IMPORT_STT_DIRECTOR_GUIDANCE_2026-10-13.md).
