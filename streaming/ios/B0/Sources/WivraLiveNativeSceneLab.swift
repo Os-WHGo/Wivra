@@ -17,7 +17,7 @@ private enum WivraLabScene: String, CaseIterable, Identifiable {
     var caption: String? {
         switch self {
         case .walk: nil
-        case .news: "WIVRA · EN DIRECTO"
+        case .news: "WIVRA · ESCENA DE PRUEBA"
         case .walkTitle: "Hoy recorremos Whistler"
         }
     }
