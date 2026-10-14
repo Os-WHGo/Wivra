@@ -41,3 +41,14 @@ test('audioStartAt: cuándo y desde dónde arranca una pista de audio aparte', (
   assert.equal(audioStartAt({ ...c, muted: true }, 3), null);
   assert.deepEqual(audioStartAt(c, 1.99), { offset: 1, dur: 4 }); // tolerancia de un fotograma antes
 });
+
+import { overlayRect, overlayAt } from '../../app/export.mjs';
+test('overlayRect: tamaño y posición de un video superpuesto en el cuadro', () => {
+  const r = overlayRect({ x: 0.5, y: 0.5, scale: 0.5 }, 1000, 2000, 1920, 1080);   // video horizontal al 50% del ancho, centrado
+  assert.equal(r.w, 500); assert.equal(Math.round(r.h * 100) / 100, 281.25); assert.equal(r.x + r.w / 2, 500); assert.equal(r.y + r.h / 2, 1000);
+  const t = overlayRect({ x: 0.9, y: 0.1, scale: 0.2 }, 1000, 1000, 1000, 1000); assert.deepEqual([t.x, t.y, t.w, t.h], [800, 0, 200, 200]);
+});
+test('overlayAt: cuándo se ve un video superpuesto y desde dónde', () => {
+  const c = { start: 2, in: 1, out: 4 };
+  assert.equal(overlayAt(c, 1.9), null); assert.equal(overlayAt(c, 2), 1); assert.equal(overlayAt(c, 3.5), 2.5); assert.equal(overlayAt(c, 5), null);
+});

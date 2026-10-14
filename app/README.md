@@ -65,3 +65,12 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Cada pista de audio entra como **clip de audio** (`audioClips`, ids `u1`, `u2`…) con su desfase (`startOffsetSeconds`; si cae antes del inicio se recorta ese tramo). Todo en **un solo lote** (un solo deshacer).
 - Las pistas de audio se ven en su propia fila con parlante, suenan en la vista previa y se **mezclan en la exportación** (verificado con análisis de frecuencias en Chromium simulado: arranca y termina en el tiempo esperado).
 - **No hecho / no verificado:** separar canales de un mismo archivo (se reproduce el archivo completo y se avisa), volumen en la vista previa de iPhone (iOS ignora `volume`; solo silenciar), decodificar CAF/HEVC en Safari, prueba en iPhone real, audio por encima de 1 en la vista previa (solo en la exportación).
+
+
+## Pistas, superposición y selección por partes · 14-10-2026 (tarde)
+- Columna fija de nombres de pista a la izquierda de la línea de tiempo y botón **＋ Pista** debajo: agrega un **video encima del video** (hasta 2 pistas encima, en la interfaz) o una **pista de audio**, en el punto donde está la línea blanca.
+- Un video superpuesto tiene tamaño (5–100 % del ancho), posición (centro x/y) y pista; se mueve **arrastrándolo** en la pantalla o con los controles (botón **Superponer**: tamaño, posición, esquinas, pantalla completa, silenciar). Operaciones del núcleo: `add_overlay_clip`, `set_overlay`; mover/recortar/cortar/volumen/borrar sirven igual en estos clips.
+- **Elegir por partes:** tocar el video elige solo el video; tocar la barra verde de abajo elige solo su audio. Con el audio elegido, el botón dice **Quitar audio** (silencia ese tramo; se deshace y se devuelve con el parlante).
+- Al soltar la barra de tiempo después de moverla, la reproducción **continúa** si estaba sonando.
+- La exportación dibuja las capas (pista mayor = más arriba) y mezcla su audio. Verificado en Chromium simulado: el color del video superpuesto aparece en el cuadro exportado mientras dura y desaparece al terminar.
+- **No hecho / no verificado:** pellizcar para cambiar tamaño (solo controles), rotación, recorte/forma (círculo), pantalla verde, transiciones, grabar voz con el micrófono, más de 2 pistas encima en la interfaz, que el video superpuesto dure más que el video principal (se corta al final del principal), prueba en iPhone real, vista previa de varios videos a la vez en iPhone (la prueba corta de 2 videos en lienzo sí funcionó; reproducir 3 `<video>` a la vez en pantalla no está medido).

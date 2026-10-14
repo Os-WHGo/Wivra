@@ -31,13 +31,24 @@
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
   #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
   #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
-  #tlinner { position:relative; height:204px; }
+  #tlinner { position:relative; height:204px; min-height:204px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
-  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #utrack { top:128px; height:30px; } #ttrack { top:164px; height:30px; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #otrack { height:0; } #utrack { height:30px; } #ttrack { height:30px; }
   .ablk { background:#1c3a33; border-color:#2f6b5c; cursor:pointer; }
   .ablk::before { content:''; position:absolute; inset:5px 0 5px 28px; background:repeating-linear-gradient(90deg,#5fd3b0 0 2px,transparent 2px 5px); opacity:.55; -webkit-mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); pointer-events:none; }
   .ablk.off { background:#2a2d34; border-color:#3a4150; } .ablk.off::before { opacity:.12; }
+  #thead { position:absolute; left:0; top:0; width:62px; z-index:3; background:#0d0f14f2; border-right:1px solid var(--line); pointer-events:none; }
+  #thead .lh { position:absolute; left:0; width:100%; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--mut); }
+  #thead #addTrack { pointer-events:auto; position:absolute; left:6px; width:50px; height:28px; border-radius:14px; background:var(--ac); color:#0c1022; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; gap:2px; padding:0; }
+  .oblk { background:#3a2a55; border-color:#7a5cc4; cursor:pointer; } .oblk.off .spk { opacity:.6; }
+  .oblk img { position:absolute; top:0; height:100%; object-fit:cover; opacity:.55; pointer-events:none; }
+  .oblk .ulb { color:#e6dcff; left:52px; } .oblk .spk { z-index:2; left:22px; }
+  #olay { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:6px; }
+  #olay video { position:absolute; display:block; max-width:none; max-height:none; pointer-events:auto; touch-action:none; border:2px solid transparent; border-radius:4px; box-sizing:border-box; }
+  #olay video.sel { border-color:#ffd24a; }
+  input[type=checkbox] { width:auto; flex:0 0 auto; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; } .chips button { flex:0 0 auto; min-width:44px; min-height:40px; padding:6px 10px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:14px; } .chips button.on { background:var(--ac); color:#0c1022; }
   .ulb { position:absolute; left:30px; right:4px; top:0; line-height:30px; font-size:11px; color:#cfeee4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
   .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
   .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
@@ -78,12 +89,13 @@
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
-<div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
+<div class="stage" id="stage"><video id="v" playsinline></video><div id="olay"></div><div id="ov"></div>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
-<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="otrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+  <div id="thead"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
   <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
@@ -94,6 +106,7 @@
   <button class="tool" id="bDirector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h12M4 18h9M18 14l2 2-5 5h-3v-3z"/></svg>Director</button>
   <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
   <button class="tool" id="bAudio" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio</button>
+  <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Superponer</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -109,6 +122,19 @@
   <label class="m">Volumen: <b id="auVolTxt">100%</b><input type="range" id="auVol" min="0" max="200" step="5" value="100" style="width:100%"></label>
   <p class="m" id="auNote">Al exportar se aplica exacto. En la vista previa del iPhone solo se oye silenciado o no; el volumen lo ignora Safari.</p>
   <button id="auDone" class="btn">Listo</button></div>
+<div class="sheet" id="sOver"><h2>Video superpuesto</h2><p class="m" id="ovInfo">Toca un video superpuesto en la línea de tiempo para elegirlo.</p>
+  <label class="m">Tamaño: <b id="ovSizeTxt">40%</b><input type="range" id="ovSize" min="5" max="100" step="1" value="40" style="width:100%"></label>
+  <label class="m">Posición horizontal: <b id="ovXTxt">72%</b><input type="range" id="ovX" min="0" max="100" step="1" value="72" style="width:100%"></label>
+  <label class="m">Posición vertical: <b id="ovYTxt">28%</b><input type="range" id="ovY" min="0" max="100" step="1" value="28" style="width:100%"></label>
+  <div class="chips" id="ovPresets"><button data-p="0.2,0.12">↖</button><button data-p="0.8,0.12">↗</button><button data-p="0.5,0.5">Centro</button><button data-p="0.2,0.88">↙</button><button data-p="0.8,0.88">↘</button><button data-p="full">Pantalla</button></div>
+  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ovMute"> Silenciar el sonido de este video</label>
+  <p class="m">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
+  <button id="ovDone" class="btn">Listo</button></div>
+<div class="sheet" id="sTrack"><h2>Agregar pista</h2><p class="m">Se coloca donde está la línea blanca.</p>
+  <label class="btn" for="ovFile" style="cursor:pointer">Video encima del video</label><input id="ovFile" type="file" accept="video/*" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
+  <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
+  <button id="trkDone" class="btn sec">Cerrar</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
@@ -214,7 +240,7 @@
 // AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
 // — Claude
 function createProject({ assets = [] } = {}) {
-  return { revision: 0, assets: structuredClone(assets), clips: [], audioClips: [], texts: [], nextId: 1 };
+  return { revision: 0, assets: structuredClone(assets), clips: [], overlayClips: [], audioClips: [], texts: [], nextId: 1 };
 }
 const totalDuration = (p) => p.clips.reduce((m, c) => Math.max(m, c.start + (c.out - c.in)), 0);
 const clipLength = (c) => c.out - c.in;
@@ -228,10 +254,19 @@ const err = (code, message) => ({ ok: false, code, message });
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
 // Los clips de audio (pistas aparte, p. ej. el micrófono de una captura) viven en p.audioClips y comparten operaciones con los de video.
-const findClip = (p, id) => p.clips.find((c) => c.id === id) || (p.audioClips || []).find((c) => c.id === id);
-const listOf = (p, id) => (p.clips.some((c) => c.id === id) ? p.clips : p.audioClips);
+// Hay tres grupos: p.clips (video principal), p.overlayClips (videos superpuestos, con x/y/scale) y p.audioClips (pistas de audio).
+const GROUPS = [['clips', 'c'], ['overlayClips', 'o'], ['audioClips', 'u']];
+const findClip = (p, id) => { for (const [g] of GROUPS) { const c = (p[g] || []).find((k) => k.id === id); if (c) return c; } return undefined; };
+const groupOf = (p, c) => GROUPS.find(([g]) => (p[g] || []).includes(c));
+const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
+const overlayProblem = ({ track, x, y, scale }) => {
+  if (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS) return `track debe ser un entero de 1 a ${MAX_TRACKS}`;
+  if (!num(x) || !num(y) || x < 0 || x > 1 || y < 0 || y > 1) return 'x e y deben estar entre 0 y 1';
+  if (!num(scale) || scale < 0.05 || scale > 1) return 'scale debe estar entre 0.05 y 1';
+  return null;
+};
 const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
     const a = findAsset(p, asset_id);
@@ -258,6 +293,33 @@ const handlers = {
     (p.audioClips ||= []).push(c);
     return { ok: true, id };
   },
+  // Video superpuesto sobre el video principal. x,y = centro (0 a 1 del cuadro), scale = ancho (0.05 a 1 del cuadro), track = pista 1..4 (mayor = más arriba).
+  add_overlay_clip(p, { asset_id, start = 0, in: tin = 0, out, track = 1, x = 0.72, y = 0.28, scale = 0.4, volume, muted }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    const o = out === undefined ? a.duration : out;
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);
+    const bad = overlayProblem({ track, x, y, scale }); if (bad) return err('bad_overlay', bad);
+    if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
+    if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    const id = `o${p.nextId++}`;
+    const c = { id, asset_id, in: tin, out: Math.min(o, a.duration), start, track, x, y, scale };
+    if (volume !== undefined) c.volume = volume;
+    if (muted !== undefined) c.muted = muted;
+    (p.overlayClips ||= []).push(c);
+    return { ok: true, id };
+  },
+  // Tamaño y posición de un video superpuesto (y, si se pide, su pista).
+  set_overlay(p, { clip_id, x, y, scale, track }) {
+    const c = (p.overlayClips || []).find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe el video superpuesto ${clip_id}`);
+    if (x === undefined && y === undefined && scale === undefined && track === undefined) return err('bad_overlay', 'Indica x, y, scale y/o track');
+    const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
+    const bad = overlayProblem(n); if (bad) return err('bad_overlay', bad);
+    Object.assign(c, n);
+    return { ok: true };
+  },
   trim_clip(p, { clip_id, in: tin, out }) {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
@@ -272,14 +334,14 @@ const handlers = {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
-    const audio = !p.clips.includes(c);
-    const id = `${audio ? 'u' : 'c'}${p.nextId++}`;
+    const [grp, prefix] = groupOf(p, c);
+    const id = `${prefix}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
-    if (c.role !== undefined) right.role = c.role;
+    for (const k of ['role', 'track', 'x', 'y', 'scale']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     c.out = at;
-    listOf(p, c.id).push(right);
+    p[grp].push(right);
     return { ok: true, id };
   },
   move_clip(p, { clip_id, start }) {
@@ -301,11 +363,11 @@ const handlers = {
     return { ok: true };
   },
   delete_clip(p, { clip_id }) {
-    const l = p.clips.some((c) => c.id === clip_id) ? p.clips : (p.audioClips || []);
-    const i = l.findIndex((c) => c.id === clip_id);
-    if (i < 0) return err('unknown_clip', `No existe el clip ${clip_id}`);
-    l.splice(i, 1);
-    return { ok: true };
+    for (const [g] of GROUPS) {
+      const i = (p[g] || []).findIndex((c) => c.id === clip_id);
+      if (i >= 0) { p[g].splice(i, 1); return { ok: true }; }
+    }
+    return err('unknown_clip', `No existe el clip ${clip_id}`);
   },
   add_text(p, { text, start, duration }) {
     if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
@@ -1000,6 +1062,17 @@ function audioStartAt(c, t) {
   return { offset: c.in + k, dur: len - k };
 }
 
+// Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro; se respeta su forma).
+function overlayRect(c, W, H, vw, vh) {
+  const w = c.scale * W, h = vw > 0 ? w * (vh / vw) : w;
+  return { x: c.x * W - w / 2, y: c.y * H - h / 2, w, h };
+}
+// ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
+function overlayAt(c, t) {
+  const into = t - c.start;
+  return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
+}
+
 const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -1014,11 +1087,16 @@ function wrapLines(text, maxWidth, measure) {
 }
 
 // Dibuja un fotograma: el video centrado ("contain") sobre negro y los textos activos.
-function drawFrame(g, W, H, video, project, t) {
+function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
     const k = Math.min(W / video.videoWidth, H / video.videoHeight), dw = video.videoWidth * k, dh = video.videoHeight * k;
     try { g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch { /* fotograma aún no listo */ }
+  }
+  for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
+    const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
+    const r = overlayRect(o.c, W, H, el.videoWidth, el.videoHeight);
+    try { g.drawImage(el, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ }
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -1070,6 +1148,30 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       catch { skippedAudio.push(c.asset_id); }
     }
   } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
+  const oList = [], skippedOverlay = [];
+  for (const c of (project.overlayClips || [])) {
+    const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
+    const el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url;
+    el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
+    try {
+      await Promise.race([once(el, 'loadedmetadata'), once(el, 'error').then(() => { throw new Error('no se pudo leer'); }), new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), 10000))]);
+      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(dest); } else el.muted = true;
+      oList.push({ el, c });
+    } catch { el.remove(); skippedOverlay.push(c.id); }
+  }
+  oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayTick = (t) => {
+    const draw = [];
+    for (const o of oList) {
+      const want = overlayAt(o.c, t);
+      if (want == null) { if (!o.el.paused) o.el.pause(); continue; }
+      if (o.el.paused) { try { o.el.currentTime = want; } catch { /* aún no */ } o.el.play().catch(() => {}); }
+      else if (Math.abs(o.el.currentTime - want) > 0.35) { try { o.el.currentTime = want; } catch { /* aún no */ } }
+      draw.push(o);
+    }
+    return draw;
+  };
   const started = new Set(), sources = [];
   const audioTick = (t) => {
     if (!ac || !dest) return;
@@ -1096,8 +1198,8 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       if (seg.type === 'gap') {
         const s = performance.now();
         while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
-          audioTick(seg.start + (performance.now() - s) / 1000);
-          drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
+          const tg = seg.start + (performance.now() - s) / 1000; audioTick(tg);
+          drawFrame(g, W, H, null, project, tg, overlayTick(tg)); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
         continue;
       }
@@ -1109,7 +1211,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       await new Promise((res) => {
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
-          audioTick(t); drawFrame(g, W, H, ev, project, t); report(t);
+          audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
           if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
           requestAnimationFrame(tick);
         };
@@ -1123,11 +1225,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
+    oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
   }
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio };
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
 
 // Wivra · lector del manifiesto de captura (.wivra.json). Solo valida y normaliza: no abre archivos ni toca el timeline.
@@ -1362,7 +1465,11 @@ async function askModel({ base, key, model, request, project, history = [], pars
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
-let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
+let tlTime = 0, pps = 40, selId = null, selPart = 'v', playing = false, drag = null, toastTimer = null;
+const GKEYS = ['clips', 'overlayClips', 'audioClips'];
+const anyClip = (id) => { if (!session || !id) return null; for (const g of GKEYS) { const c = (session.project[g] || []).find(k => k.id === id); if (c) return c; } return null; };
+const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 'audio' : 'main');
+const OV_ROW = 34, UI_MAX_OVERLAY = 2;
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
 let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
@@ -1381,13 +1488,13 @@ $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
 function auSync() {
-  const c = session && session.project.clips.find(x => x.id === selId);
+  const c = anyClip(selId);
   $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(c.out - c.in)} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
   for (const id of ['auMute', 'auVol']) $(id).disabled = !c;
   $('auMute').checked = !!(c && c.muted); const vol = c && typeof c.volume === 'number' ? c.volume : 1; $('auVol').value = Math.round(vol * 100); $('auVolTxt').textContent = Math.round(vol * 100) + '%';
 }
 $('bAudio').onclick = () => { auSync(); openSheet('sAudio'); }; $('auDone').onclick = closeSheets;
-function auApply(args) { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); auSync(); previewAudio(session.project.clips.find(x => x.id === selId)); }
+function auApply(args) { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); auSync(); const cc = anyClip(selId); if (cc && kindOf(cc.id) === 'main') previewAudio(cc); else syncMedia(); }
 $('auMute').onchange = () => auApply({ muted: $('auMute').checked });
 $('auVol').oninput = () => { $('auVolTxt').textContent = $('auVol').value + '%'; };
 $('auVol').onchange = () => auApply({ volume: Number($('auVol').value) / 100 });
@@ -1398,6 +1505,8 @@ function render() {
   const p = session?.project, on = !!p;
   if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
   for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio']) $(id).disabled = !on;
+  const selc = anyClip(selId); $('bOver').disabled = !(selc && kindOf(selc.id) === 'overlay');
+  $('del').lastChild.textContent = selc && selPart === 'a' && kindOf(selc.id) !== 'audio' ? 'Quitar audio' : 'Borrar';
   $('observe').disabled = !on || visualBusy; aiSync();
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
@@ -1407,10 +1516,10 @@ function render() {
   renderTimeline();
   if ($('sVids').classList.contains('on')) renderVids();
 }
-function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncAudioPreview(); } }
+function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncMedia(); } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
-  if (session.project.clips.every(c => c.id !== selId)) selId = null;
+  if (!anyClip(selId)) selId = null;
   tlTime = Math.min(tlTime, totalDuration(session.project));
   render(); syncScroll();
   return r;
@@ -1447,8 +1556,99 @@ function syncAudioPreview() {
   for (const id of Object.keys(apool)) if (!list.some(c => c.id === id)) { apool[id].pause(); delete apool[id]; }
 }
 function primeAudioPreview() {   // dentro del toque en Play: iOS solo deja iniciar audio desde un gesto
+  for (const c of (session ? session.project.overlayClips || [] : [])) { const el = ensureOverlayEl(c); if (el && el.paused) { const was = el.muted; el.muted = true; el.play().then(() => { el.pause(); el.muted = was; }).catch(() => { el.muted = was; }); } }
   for (const c of (session ? session.project.audioClips || [] : [])) { const m = media[c.asset_id]; if (!m || apool[c.id]) continue; const a = apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }); a.muted = true; a.play().then(() => { a.pause(); a.muted = false; }).catch(() => { a.muted = false; }); }
 }
+// ---- Videos superpuestos en la vista previa (un <video> por clip dentro de #olay) ----
+const opool = {};
+let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arrastras o mueves un control
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
+function ensureOverlayEl(c) {
+  let el = opool[c.id]; const m = media[c.asset_id]; if (el || !m) return el;
+  el = opool[c.id] = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; el.dataset.id = c.id; el.style.display = 'none'; $('olay').appendChild(el);
+  return el;
+}
+function syncOverlays() {
+  const list = session ? (session.project.overlayClips || []) : [];
+  const sr = $('stage').getBoundingClientRect(), vr = $('v').getBoundingClientRect(), ok = vr.width > 0 && $('stage').classList.contains('on');
+  for (const c0 of list) {
+    const m = media[c0.asset_id], c = (ovDrag && ovDrag.id === c0.id) ? { ...c0, ...ovDrag } : c0;
+    const want = (tlTime >= c.start && tlTime < c.start + (c.out - c.in) - 0.001) ? c.in + (tlTime - c.start) : null;
+    const el0 = opool[c.id];
+    if (want == null || !m || !ok) { if (el0) { el0.style.display = 'none'; if (!el0.paused) el0.pause(); } continue; }
+    const el = ensureOverlayEl(c);
+    const w = c.scale * vr.width, h = w * ((m.w && m.h) ? m.h / m.w : 16 / 9);
+    el.style.display = 'block'; el.style.width = w + 'px'; el.style.height = h + 'px';
+    el.style.left = (vr.left - sr.left + c.x * vr.width - w / 2) + 'px'; el.style.top = (vr.top - sr.top + c.y * vr.height - h / 2) + 'px';
+    el.style.zIndex = String(c.track); el.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
+    if (playing) {
+      if (el.paused) { try { el.currentTime = want; } catch {} el.play().catch(() => {}); }
+      else if (Math.abs(el.currentTime - want) > 0.35) { try { el.currentTime = want; } catch {} }
+    } else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) { try { el.currentTime = want; } catch {} } }
+  }
+  for (const id of Object.keys(opool)) if (!list.some(c => c.id === id)) { opool[id].remove(); delete opool[id]; }
+}
+function syncMedia() { syncAudioPreview(); syncOverlays(); }
+$('olay').addEventListener('pointerdown', (e) => {       // arrastrar un video superpuesto = moverlo
+  const el = e.target.closest('video'); if (!el) return; const c = anyClip(el.dataset.id); if (!c) return;
+  e.preventDefault(); stopPlayIfAny(); selId = c.id; selPart = 'v';
+  const vr = $('v').getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY; ovDrag = { id: c.id, x: c.x, y: c.y, scale: c.scale }; let moved = false;
+  const mv = (ev) => { const dx = (ev.clientX - x0) / vr.width, dy = (ev.clientY - y0) / vr.height; if (Math.abs(dx) + Math.abs(dy) > 0.01) moved = true; ovDrag.x = clamp01(c.x + dx); ovDrag.y = clamp01(c.y + dy); syncOverlays(); };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    const d = ovDrag; ovDrag = null;
+    if (moved) { const r = edit([{ op: 'set_overlay', clip_id: c.id, x: Math.round(d.x * 1000) / 1000, y: Math.round(d.y * 1000) / 1000 }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); } else render();
+    if ($('sOver').classList.contains('on')) ovSync();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+});
+// ---- Controles del video superpuesto ----
+function ovSync() {
+  const c = anyClip(selId), ok = !!c && kindOf(c.id) === 'overlay';
+  $('ovInfo').textContent = ok ? `${(media[c.asset_id] || {}).name || 'Video'} · pista ${c.track} · ${fmt(c.out - c.in)} s` : 'Toca un video superpuesto en la línea de tiempo para elegirlo.';
+  for (const id of ['ovSize', 'ovX', 'ovY', 'ovMute']) $(id).disabled = !ok;
+  document.querySelectorAll('#ovPresets button').forEach(b => { b.disabled = !ok; });
+  if (!ok) return;
+  $('ovSize').value = Math.round(c.scale * 100); $('ovX').value = Math.round(c.x * 100); $('ovY').value = Math.round(c.y * 100); $('ovMute').checked = !!c.muted;
+  $('ovSizeTxt').textContent = $('ovSize').value + '%'; $('ovXTxt').textContent = $('ovX').value + '%'; $('ovYTxt').textContent = $('ovY').value + '%';
+}
+function ovCommit(args) { if (!selId) return; ovDrag = null; const r = edit([{ op: 'set_overlay', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); ovSync(); }
+for (const [id, key, txt] of [['ovSize', 'scale', 'ovSizeTxt'], ['ovX', 'x', 'ovXTxt'], ['ovY', 'y', 'ovYTxt']]) {
+  $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { id: c.id, x: c.x, y: c.y, scale: c.scale, [key]: Number($(id).value) / 100 }; if (key === 'scale') ovDrag.scale = Math.max(0.05, ovDrag.scale); syncOverlays(); });
+  $(id).addEventListener('change', () => ovCommit({ [key]: key === 'scale' ? Math.max(0.05, Number($(id).value) / 100) : Number($(id).value) / 100 }));
+}
+$('ovMute').onchange = () => { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, muted: $('ovMute').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); syncMedia(); };
+$('ovPresets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; if (b.dataset.p === 'full') ovCommit({ x: 0.5, y: 0.5, scale: 1 }); else { const [x, y] = b.dataset.p.split(',').map(Number); ovCommit({ x, y }); } });
+$('bOver').onclick = () => { ovSync(); openSheet('sOver'); }; $('ovDone').onclick = closeSheets; $('trkDone').onclick = closeSheets;
+// ---- Agregar pista (botón ＋ Pista): video encima del video, o audio ----
+function freeOverlayTrack(start, end) {
+  for (let t = 1; t <= UI_MAX_OVERLAY; t++) if (!(session.project.overlayClips || []).some(c => c.track === t && c.start < end && c.start + (c.out - c.in) > start)) return t;
+  return null;
+}
+async function addTrackFile(file, kind) {
+  if (!file) return; closeSheets();
+  if (!session) { say('Primero elige el video principal.', 'bad'); return; }
+  if (loading) return; loading = true; stopPlayIfAny();
+  try {
+    const pr = kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
+    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 };
+    session.addAsset({ id, duration: pr.duration, name: file.name });
+    const start = round2(tlTime); let op;
+    if (kind === 'video') {
+      const track = freeOverlayTrack(start, start + pr.duration);
+      if (!track) { say(`Ya hay ${UI_MAX_OVERLAY} pistas de video encima ocupadas en ese momento. Mueve la línea blanca o borra una.`, 'bad'); return; }
+      op = { op: 'add_overlay_clip', asset_id: id, start, track };
+    } else op = { op: 'add_audio_clip', asset_id: id, start, role: 'other' };
+    const r = run([op]); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+    if (kind === 'video') {
+      const nc = session.project.overlayClips[session.project.overlayClips.length - 1]; selId = nc.id; selPart = 'v'; render();
+      thumbQueue = thumbQueue.then(() => makeThumbs(id)); say('Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
+    } else { const nc = session.project.audioClips[session.project.audioClips.length - 1]; selId = nc.id; selPart = 'a'; render(); say('Pista de audio agregada.', 'ok'); }
+  } catch (e) { say('No pude abrir el archivo: ' + (e && e.message || e), 'bad'); }
+  finally { loading = false; }
+}
+$('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
+$('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
 // Importa una captura: el .wivra.json elegido junto con sus archivos. Valida el manifiesto, abre lo que el navegador sepa leer y arma UN lote de operaciones (un solo deshacer).
 async function importCapture(files) {
   if (!files.length || loading) return;
@@ -1660,15 +1860,22 @@ function showFrame() {
   const hit = clipAt(session.project, tlTime);
   if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+  syncOverlays();
 }
 function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
 function syncScroll() { if (session) wrap().scrollLeft = tlTime * pps; labels(); }
 // Si tocas la barra mientras suena, se pausa: si no, la reproducción y tu dedo pelean por la posición y tiembla.
-const grabTimeline = () => { if (playing) stopPlay(); };
+// Mientras suena, tocar la barra la pausa (si no, la reproducción y tu dedo pelean por la posición y tiembla); al soltarla y dejar de moverla, sigue sonando.
+let resumeAfter = false, resumeT = null, scrolledSinceGrab = false;
+const armResume = () => { clearTimeout(resumeT); if (!resumeAfter) return; resumeT = setTimeout(() => { const go = resumeAfter && scrolledSinceGrab && !playing; resumeAfter = false; if (go) $('play').click(); }, 450); };
+const grabTimeline = () => { clearTimeout(resumeT); if (playing) { resumeAfter = true; scrolledSinceGrab = false; stopPlay(); } };
 wrap().addEventListener('touchstart', grabTimeline, { passive: true });
+wrap().addEventListener('touchend', armResume, { passive: true }); wrap().addEventListener('touchcancel', armResume, { passive: true });
 wrap().addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') grabTimeline(); }, { passive: true });
-wrap().addEventListener('wheel', grabTimeline, { passive: true });
+wrap().addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') armResume(); }, { passive: true });
+wrap().addEventListener('wheel', () => { grabTimeline(); scrolledSinceGrab = true; armResume(); }, { passive: true });
 wrap().addEventListener('scroll', () => {
+  if (resumeAfter) { scrolledSinceGrab = true; armResume(); }
   if (!session || playing) return;
   const t = Math.max(0, Math.min(wrap().scrollLeft / pps, totalDuration(session.project)));
   if (Math.abs(t - tlTime) < 0.004) return;
@@ -1676,15 +1883,33 @@ wrap().addEventListener('scroll', () => {
 }, { passive: true });
 function renderTimeline() {
   const p = session?.project, inner = $('tlinner'), L = padL();
-  $('vtrack').replaceChildren(); $('atrack').replaceChildren(); $('utrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
-  if (!p) { labels(); return; }
+  for (const id of ['vtrack', 'atrack', 'otrack', 'utrack', 'ttrack', 'ruler', 'thead']) $(id).replaceChildren();
+  if (!p) { $('thead').style.display = 'none'; labels(); return; }
+  $('thead').style.display = 'block';
   const tot = totalDuration(p);
   inner.style.width = (L * 2 + tot * pps) + 'px';
+  // Carriles (de arriba abajo) y su columna fija de nombres a la izquierda, con el botón para agregar pistas.
+  const nOv = Math.min(UI_MAX_OVERLAY, Math.max(0, ...(p.overlayClips || []).map(c => c.track)));
+  const lanes = [{ id: 'vtrack', h: 62, label: 'Video' }, { id: 'atrack', h: 30, label: 'Audio' }];
+  if (nOv) lanes.push({ id: 'otrack', h: nOv * OV_ROW, label: 'Encima' });
+  if ((p.audioClips || []).length) lanes.push({ id: 'utrack', h: 30, label: 'Pistas' });
+  lanes.push({ id: 'ttrack', h: 30, label: 'Texto' });
+  $('otrack').style.display = nOv ? 'block' : 'none'; $('utrack').style.display = (p.audioClips || []).length ? 'block' : 'none';
+  let top = 26;
+  for (const ln of lanes) {
+    const el = $(ln.id); el.style.top = top + 'px'; el.style.height = ln.h + 'px';
+    const lh = document.createElement('div'); lh.className = 'lh'; lh.style.top = top + 'px'; lh.style.height = ln.h + 'px'; lh.textContent = ln.label; $('thead').appendChild(lh);
+    top += ln.h + 4;
+  }
+  const add = document.createElement('button'); add.id = 'addTrack'; add.type = 'button'; add.style.top = top + 'px'; add.textContent = '＋ Pista'; add.setAttribute('aria-label', 'Agregar pista de video o de audio');
+  add.onclick = () => { $('trkNote').textContent = 'Se coloca en ' + fmtTime(tlTime) + ' (donde está la línea blanca). Grabar tu voz con el micrófono: todavía no está.'; openSheet('sTrack'); };
+  $('thead').appendChild(add); top += 34; inner.style.height = top + 'px'; $('thead').style.height = top + 'px';
   const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
   for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (L + t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
+  const spkBtn = (c, what) => { const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', (c.muted ? 'Activar ' : 'Silenciar ') + what); return sp; };
   for (const c0 of sortedClips(p)) {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
-    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
+    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
     const mm = media[c.asset_id], step = mm ? mm.step : 1;
     for (const th of (mm ? mm.thumbs : [])) {
@@ -1695,34 +1920,52 @@ function renderTimeline() {
     const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
-    // Pista de audio del clip: se ve debajo del video; el parlante lo silencia o lo activa.
-    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel' : ''); ab.dataset.id = c.id;
-    ab.style.left = b.style.left; ab.style.width = b.style.width;
-    const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', c.muted ? 'Activar audio de este clip' : 'Silenciar audio de este clip'); ab.appendChild(sp);
+    // Pista de audio del clip: se ve debajo del video y se elige POR SEPARADO; el parlante la silencia o la activa.
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId && selPart === 'a' ? ' sel' : ''); ab.dataset.id = c.id;
+    ab.style.left = b.style.left; ab.style.width = b.style.width; ab.appendChild(spkBtn(c, 'audio de este clip'));
     $('atrack').appendChild(ab);
   }
-  // Pistas de audio aparte (micrófono de una captura, etc.): una barra por clip, con su parlante.
+  // Videos superpuestos: una fila por pista (la 1 arriba del todo en pantalla = la de más abajo en el cuadro de capas).
+  for (const c0 of (p.overlayClips || [])) {
+    if (c0.track > nOv) continue;
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((c.track - 1) * OV_ROW) + 'px'; b.style.height = '30px';
+    b.appendChild(spkBtn(c, 'sonido de este video'));
+    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = (media[c.asset_id] || {}).name || 'Video'; b.appendChild(t);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('otrack').appendChild(b);
+  }
+  // Pistas de audio aparte (micrófono de una captura, música…): una barra por clip, con su parlante.
   for (const c of (p.audioClips || [])) {
     const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel' : ''); ab.dataset.id = c.id;
     ab.style.left = (L + c.start * pps) + 'px'; ab.style.width = Math.max(30, (c.out - c.in) * pps) + 'px';
-    const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', c.muted ? 'Activar esta pista de audio' : 'Silenciar esta pista de audio'); ab.appendChild(sp);
+    ab.appendChild(spkBtn(c, 'esta pista de audio'));
     const nm = (media[c.asset_id] || {}).name || 'Audio'; const t = document.createElement('span'); t.className = 'ulb'; t.textContent = nm; ab.appendChild(t);
     $('utrack').appendChild(ab);
   }
   for (const t of p.texts) {
     const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
   }
-  labels();
+  labels(); syncOverlays();
 }
 $('tlinner').addEventListener('click', (e) => {
   const sp = e.target.closest('.spk');
-  if (sp) { const find = (id) => session.project.clips.find(k => k.id === id) || (session.project.audioClips || []).find(k => k.id === id); const c = find(sp.dataset.id); if (!c) return; const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else { if (session.project.clips.some(k => k.id === c.id)) previewAudio(find(c.id)); else syncAudioPreview(); } return; }
+  if (sp) {
+    const c = anyClip(sp.dataset.id); if (!c) return;
+    const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]);
+    if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else { const n = anyClip(c.id); if (kindOf(c.id) === 'main') previewAudio(n); syncMedia(); }
+    return;
+  }
   const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
-  selId = selId === b.dataset.id ? null : b.dataset.id; render();
+  // El video y su audio se eligen por separado: así se puede quitar el sonido de un tramo sin tocar la imagen.
+  const part = b.classList.contains('ablk') ? 'a' : 'v';
+  if (selId === b.dataset.id && selPart === part) selId = null; else { selId = b.dataset.id; selPart = part; }
+  render();
 });
 $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bordes amarillos = recortar
   const h = e.target.closest('.hd'); if (!h) return;
-  const id = h.parentElement.dataset.id, c = session.project.clips.find(k => k.id === id), a = session.project.assets.find(k => k.id === c.asset_id);
+  const id = h.parentElement.dataset.id, c = anyClip(id), a = session.project.assets.find(k => k.id === c.asset_id), kind = kindOf(id);
   const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
   e.preventDefault();
   const mv = (ev) => {
@@ -1735,19 +1978,33 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
     window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
     const d = drag; drag = null;
     if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
-      const r = edit([{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }]);
+      const ops = [{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }];
+      if (kind !== 'main' && d.in !== c.in) ops.push({ op: 'move_clip', clip_id: id, start: round2(Math.max(0, c.start + (d.in - c.in))) });   // fuera del video principal el contenido no se corre al recortar el inicio
+      const r = edit(ops);
       say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
     } else render();
   };
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
 });
 $('split').onclick = () => {
+  const sc = anyClip(selId);
+  if (sc && kindOf(sc.id) !== 'main') {            // pista de audio o video superpuesto elegido: se corta ese clip
+    if (tlTime <= sc.start + 0.1 || tlTime >= sc.start + (sc.out - sc.in) - 0.1) return say('Mueve la línea blanca al interior del clip elegido (no en el borde).', 'bad');
+    const r0 = edit([{ op: 'split_clip', clip_id: sc.id, at: round2(sc.in + (tlTime - sc.start)) }]); syncMedia();
+    return say(r0.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + r0.message, r0.ok ? 'ok' : 'bad');
+  }
   const r = splitAt(session.project, tlTime); if (!r.ok) return say(r.message, 'bad');
   const rr = run(r.ops); say(rr.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + rr.message, rr.ok ? 'ok' : 'bad');
 };
 $('del').onclick = () => {
   if (!selId) return say('Toca un clip para elegirlo.', 'bad');
-  const r = edit([{ op: 'delete_clip', clip_id: selId }]); say(r.ok ? 'Clip borrado; los siguientes se juntaron.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+  const kind = kindOf(selId);
+  if (selPart === 'a' && kind !== 'audio') {       // se eligió solo el audio de un clip: se quita el sonido de ese tramo, el video queda
+    const r1 = edit([{ op: 'set_clip_audio', clip_id: selId, muted: true }]); syncMedia();
+    return say(r1.ok ? 'Audio de este tramo quitado. Toca el parlante para devolverlo.' : 'No se pudo: ' + r1.message, r1.ok ? 'ok' : 'bad');
+  }
+  const r = edit([{ op: 'delete_clip', clip_id: selId }]); syncMedia();
+  say(r.ok ? (kind === 'main' ? 'Clip borrado; los siguientes se juntaron.' : 'Borrado.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
 $('addtxt').onclick = () => {
   const tot = totalDuration(session.project);
@@ -1756,7 +2013,7 @@ $('addtxt').onclick = () => {
 };
 $('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
 $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
-function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
+function run_after() { if (!anyClip(selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
 $('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
 $('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
 
@@ -1788,7 +2045,7 @@ $('expGo').onclick = async () => {
     };
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
-    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
     $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
@@ -1861,7 +2118,7 @@ function describeOp(o) {
     default: return JSON.stringify(o);
   }
 }
-function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncAudioPreview(); }
+function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncMedia(); }
 $('play').onclick = () => {
   if (playing) return stopPlay();
   const p = session.project; if (!p.clips.length) return;
@@ -1879,7 +2136,7 @@ $('play').onclick = () => {
     if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
-    syncAudioPreview();
+    syncMedia();
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
     wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
   };

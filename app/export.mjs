@@ -46,6 +46,17 @@ export function audioStartAt(c, t) {
   return { offset: c.in + k, dur: len - k };
 }
 
+// Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro; se respeta su forma).
+export function overlayRect(c, W, H, vw, vh) {
+  const w = c.scale * W, h = vw > 0 ? w * (vh / vw) : w;
+  return { x: c.x * W - w / 2, y: c.y * H - h / 2, w, h };
+}
+// ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
+export function overlayAt(c, t) {
+  const into = t - c.start;
+  return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
+}
+
 export const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -60,11 +71,16 @@ export function wrapLines(text, maxWidth, measure) {
 }
 
 // Dibuja un fotograma: el video centrado ("contain") sobre negro y los textos activos.
-export function drawFrame(g, W, H, video, project, t) {
+export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
     const k = Math.min(W / video.videoWidth, H / video.videoHeight), dw = video.videoWidth * k, dh = video.videoHeight * k;
     try { g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch { /* fotograma aún no listo */ }
+  }
+  for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
+    const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
+    const r = overlayRect(o.c, W, H, el.videoWidth, el.videoHeight);
+    try { g.drawImage(el, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ }
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -116,6 +132,30 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       catch { skippedAudio.push(c.asset_id); }
     }
   } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
+  const oList = [], skippedOverlay = [];
+  for (const c of (project.overlayClips || [])) {
+    const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
+    const el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url;
+    el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
+    try {
+      await Promise.race([once(el, 'loadedmetadata'), once(el, 'error').then(() => { throw new Error('no se pudo leer'); }), new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), 10000))]);
+      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(dest); } else el.muted = true;
+      oList.push({ el, c });
+    } catch { el.remove(); skippedOverlay.push(c.id); }
+  }
+  oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayTick = (t) => {
+    const draw = [];
+    for (const o of oList) {
+      const want = overlayAt(o.c, t);
+      if (want == null) { if (!o.el.paused) o.el.pause(); continue; }
+      if (o.el.paused) { try { o.el.currentTime = want; } catch { /* aún no */ } o.el.play().catch(() => {}); }
+      else if (Math.abs(o.el.currentTime - want) > 0.35) { try { o.el.currentTime = want; } catch { /* aún no */ } }
+      draw.push(o);
+    }
+    return draw;
+  };
   const started = new Set(), sources = [];
   const audioTick = (t) => {
     if (!ac || !dest) return;
@@ -142,8 +182,8 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (seg.type === 'gap') {
         const s = performance.now();
         while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
-          audioTick(seg.start + (performance.now() - s) / 1000);
-          drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
+          const tg = seg.start + (performance.now() - s) / 1000; audioTick(tg);
+          drawFrame(g, W, H, null, project, tg, overlayTick(tg)); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
         continue;
       }
@@ -155,7 +195,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       await new Promise((res) => {
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
-          audioTick(t); drawFrame(g, W, H, ev, project, t); report(t);
+          audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
           if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
           requestAnimationFrame(tick);
         };
@@ -169,9 +209,10 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
+    oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
   }
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio };
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }

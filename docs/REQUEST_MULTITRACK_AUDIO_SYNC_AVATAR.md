@@ -65,3 +65,11 @@ El propietario confirmó que **silenciar/volumen por clip funciona** (probado po
 | F | **Avatar y CG** (gráficos en pantalla) en edición **y** en transmisión en vivo | **Idea.** CG de edición (rótulos, logos) puede venir antes; la transmisión en vivo es del trabajo de ChatGPT: el contrato de capas debería ser el mismo |
 
 Orden sugerido: modelo de pistas (B) → micrófono (C) → transiciones/efectos (E) → CG y avatar (F). Decide el propietario. — Claude
+
+
+## Actualización 14-10-2026 (tarde) · estado de los puntos 3–4 y B
+| # | Pedido | Estado |
+|---|---|---|
+| 3–4 / B | Más pistas, superponer videos con tamaño y posición, botón para agregar pista | **Implementado + prueba automática + navegador simulado** (modelo `overlayClips`, `add_overlay_clip`, `set_overlay`, botón ＋ Pista, controles y arrastre, exportación con capas). **No probado en iPhone.** Pantalla verde, pellizcar y rotación: no hechos |
+| — | Seleccionar solo video o solo audio y quitar el audio de un tramo | **Implementado + navegador simulado.** No probado en iPhone |
+| C | Grabar con el micrófono mientras edita | Sigue como **idea** |

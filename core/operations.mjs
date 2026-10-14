@@ -7,10 +7,19 @@ const err = (code, message) => ({ ok: false, code, message });
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
 // Los clips de audio (pistas aparte, p. ej. el micrófono de una captura) viven en p.audioClips y comparten operaciones con los de video.
-const findClip = (p, id) => p.clips.find((c) => c.id === id) || (p.audioClips || []).find((c) => c.id === id);
-const listOf = (p, id) => (p.clips.some((c) => c.id === id) ? p.clips : p.audioClips);
+// Hay tres grupos: p.clips (video principal), p.overlayClips (videos superpuestos, con x/y/scale) y p.audioClips (pistas de audio).
+const GROUPS = [['clips', 'c'], ['overlayClips', 'o'], ['audioClips', 'u']];
+const findClip = (p, id) => { for (const [g] of GROUPS) { const c = (p[g] || []).find((k) => k.id === id); if (c) return c; } return undefined; };
+const groupOf = (p, c) => GROUPS.find(([g]) => (p[g] || []).includes(c));
+const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
+const overlayProblem = ({ track, x, y, scale }) => {
+  if (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS) return `track debe ser un entero de 1 a ${MAX_TRACKS}`;
+  if (!num(x) || !num(y) || x < 0 || x > 1 || y < 0 || y > 1) return 'x e y deben estar entre 0 y 1';
+  if (!num(scale) || scale < 0.05 || scale > 1) return 'scale debe estar entre 0.05 y 1';
+  return null;
+};
 const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
     const a = findAsset(p, asset_id);
@@ -37,6 +46,33 @@ const handlers = {
     (p.audioClips ||= []).push(c);
     return { ok: true, id };
   },
+  // Video superpuesto sobre el video principal. x,y = centro (0 a 1 del cuadro), scale = ancho (0.05 a 1 del cuadro), track = pista 1..4 (mayor = más arriba).
+  add_overlay_clip(p, { asset_id, start = 0, in: tin = 0, out, track = 1, x = 0.72, y = 0.28, scale = 0.4, volume, muted }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    const o = out === undefined ? a.duration : out;
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);
+    const bad = overlayProblem({ track, x, y, scale }); if (bad) return err('bad_overlay', bad);
+    if (volume !== undefined && (!num(volume) || volume < 0 || volume > 2)) return err('bad_audio', 'volume debe estar entre 0 y 2 (1 = original)');
+    if (muted !== undefined && typeof muted !== 'boolean') return err('bad_audio', 'muted debe ser verdadero o falso');
+    const id = `o${p.nextId++}`;
+    const c = { id, asset_id, in: tin, out: Math.min(o, a.duration), start, track, x, y, scale };
+    if (volume !== undefined) c.volume = volume;
+    if (muted !== undefined) c.muted = muted;
+    (p.overlayClips ||= []).push(c);
+    return { ok: true, id };
+  },
+  // Tamaño y posición de un video superpuesto (y, si se pide, su pista).
+  set_overlay(p, { clip_id, x, y, scale, track }) {
+    const c = (p.overlayClips || []).find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe el video superpuesto ${clip_id}`);
+    if (x === undefined && y === undefined && scale === undefined && track === undefined) return err('bad_overlay', 'Indica x, y, scale y/o track');
+    const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
+    const bad = overlayProblem(n); if (bad) return err('bad_overlay', bad);
+    Object.assign(c, n);
+    return { ok: true };
+  },
   trim_clip(p, { clip_id, in: tin, out }) {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
@@ -51,14 +87,14 @@ const handlers = {
     const c = findClip(p, clip_id);
     if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
-    const audio = !p.clips.includes(c);
-    const id = `${audio ? 'u' : 'c'}${p.nextId++}`;
+    const [grp, prefix] = groupOf(p, c);
+    const id = `${prefix}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
-    if (c.role !== undefined) right.role = c.role;
+    for (const k of ['role', 'track', 'x', 'y', 'scale']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     c.out = at;
-    listOf(p, c.id).push(right);
+    p[grp].push(right);
     return { ok: true, id };
   },
   move_clip(p, { clip_id, start }) {
@@ -80,11 +116,11 @@ const handlers = {
     return { ok: true };
   },
   delete_clip(p, { clip_id }) {
-    const l = p.clips.some((c) => c.id === clip_id) ? p.clips : (p.audioClips || []);
-    const i = l.findIndex((c) => c.id === clip_id);
-    if (i < 0) return err('unknown_clip', `No existe el clip ${clip_id}`);
-    l.splice(i, 1);
-    return { ok: true };
+    for (const [g] of GROUPS) {
+      const i = (p[g] || []).findIndex((c) => c.id === clip_id);
+      if (i >= 0) { p[g].splice(i, 1); return { ok: true }; }
+    }
+    return err('unknown_clip', `No existe el clip ${clip_id}`);
   },
   add_text(p, { text, start, duration }) {
     if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
