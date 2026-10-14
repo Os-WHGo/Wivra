@@ -1,5 +1,5 @@
 # Wivra · entrega para Claude: revisar editor, PR #54 y siguiente corte de implementación
-Fecha: 2026-10-14 · Dueño de implementación de editor: Claude (PR #44) · Coordinación arquitectura/captura/LIVE: ChatGPT · Hardware: Meta AI (issue #53 y Drive).
+Fecha: 2026-10-14 · Dueño de implementación del editor: Claude (PR #44) · Coordinación captura/LIVE: ChatGPT. Toda investigación externa al software está fuera del repositorio.
 
 ## Instrucción ejecutiva para Claude
 **NO reinicies ni reescribas el editor. Lee el estado real del PR #44 y revisa el PR #54 antes de integrar. No cambies main, ramas, bases o merges sin aprobación del propietario.** Prioridad desarrollo funcional, no nuevas ideas.
@@ -8,7 +8,6 @@ Links:
 - Editor Claude draft PR #44: https://github.com/Os-WHGo/Wivra/pull/44 — rama `claude/integration-director`, base `claude/ai-direct`.
 - Propuesta técnica lista para revisar PR #54: https://github.com/Os-WHGo/Wivra/pull/54 — rama `chatgpt/director-story-intake-20261013`, base `claude/integration-director`; 4 verificaciones GitHub Actions exitosas en el commit revisado. **NO probado en Safari de iPhone físico**.
 - Plan maestro: https://github.com/Os-WHGo/Wivra/pull/52 y issue central #49.
-[línea retirada]
 
 ## 1. Revisión requerida del PR #54
 Leer diff REAL y comentar con pruebas o cambios puntuales antes de incorporarlo a tu rama:
@@ -29,10 +28,13 @@ Leer diff REAL y comentar con pruebas o cambios puntuales antes de incorporarlo 
 4. Luego Director IA con análisis REAL de fotogramas/audio y planes editables, subtítulos SRT/VTT como guía opcional (prioridad acotada), biblioteca compartida ligera inicial con packs gratuitos bajo demanda. No pretender que nombres de archivos equivalgan a vision.
 5. Evitar módulos ajenos: DJ dedicado, marketplace/tours, CGI 3D, packs Pro/pago, subtítulos IA elaborados. Sin herramientas falsas o botones que simulan estar implementados.
 
-## 3. Separación de trabajo con Meta/hardware
-[línea retirada]
+## 3. Instrucción obligatoria para Claude: respetar exclusión y proteger información
 
-**ChatGPT** mantiene captura, LIVE, contratos de integración y revisión de coherencia; **Meta AI** investigación física y seguridad; **el propietario** aprobación de motores, código, pruebas físicas y merges.
+**Por solicitud expresa del propietario, Claude NO debe añadir, reproducir, reconstruir, describir, citar ni enlazar en GitHub detalles de proyectos físicos independientes del software Wivra.** Esto incluye archivos, comentarios, PR, issues, commits, tests y documentación nueva. La exclusión es permanente hasta nueva autorización explícita.
+
+Claude **NO debe eliminar ni alterar material del editor, captura o LIVE como parte de esta limpieza**. No revertir los retiros de privacidad que hizo ChatGPT ni intentar recuperar documentos retirados desde commits antiguos. Mantener el trabajo actual sobre PR #44 y revisión de PR #54, y consultar al propietario antes de cualquier operación que afecte ramas compartidas o documentación ajena.
+
+Si Claude encuentra enlaces históricos a documentación retirada, no volver a copiarlos ni pegarlos en GitHub. Puede avisar de forma genérica por conversación privada, sin publicar el contenido. Los datos privados quedan fuera de GitHub; no se sincronizan automáticamente desde Drive. No modificar ni fusionar `main` sin aprobación.
 
 ## 4. Aceptación/respuesta que esperamos de Claude
 - Qué de PR #54 se incorpora y qué se corrige, con referencias a línea/test y captura Safari si hay.
