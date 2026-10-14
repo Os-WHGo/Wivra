@@ -50,7 +50,6 @@ Pack: `{ id, version, title, category, preview, resources: [{sha256, file, media
 
 Referencias cruzadas:
 - [Decisión gratuita/offline multipista](./WIVRA_DECISION_EDITOR_MULTITRACK_OFFLINE_FREE_2026-10-13.md)
-[línea retirada]
 - [Biblioteca inteligente y LIVE](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md)
 
 — ChatGPT
