@@ -41,6 +41,7 @@ private struct WivraLabCue: Codable, Identifiable {
 struct WivraLiveNativeSceneLab: View {
     let cameraFrame: UIImage?
     let cameraVerified: Bool
+    let cameraLastFrameUptime: Double? // received upstream, reset on camera stop
 
     @State private var selection: WivraLabScene = .news
     @State private var staged: WivraLabScene? = nil
@@ -50,7 +51,10 @@ struct WivraLiveNativeSceneLab: View {
     @State private var logURL: URL?
 
     private func cameraReady() -> Bool {
-        cameraVerified && cameraFrame != nil
+        guard cameraVerified, cameraFrame != nil, let last = cameraLastFrameUptime else { return false }
+        let age = ProcessInfo.processInfo.systemUptime - last
+        // Conservative prototype threshold, NOT a network/fps quality guarantee.
+        return age >= 0 && age < 2.5
     }
 
     private func canUse(_ scene: WivraLabScene) -> Bool {
