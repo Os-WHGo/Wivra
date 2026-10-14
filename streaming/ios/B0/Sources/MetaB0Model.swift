@@ -161,7 +161,9 @@ final class MetaB0Model {
                     videoURL: url, audioURL: lastSeparateAudioURL,
                     mergedURL: lastCombinedVideoURL,
                     audioOffsetSeconds: lastAudioSyncOffsetSeconds,
-                    audioPortName: selectedAudioDeviceName
+                    audioPortName: selectedAudioDeviceName,
+                    audioSampleRateHz: sound?.sampleRate,
+                    audioChannelCount: sound?.channelCount
                 )
             } catch {
                 recordingStatus += " Advertencia: no se guardó el manifiesto de proyecto."
