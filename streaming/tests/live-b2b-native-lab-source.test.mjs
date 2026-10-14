@@ -35,7 +35,10 @@ test('escenas iPhone aparecen mediante sheet sin lanzar capture/stream de forma 
  assert.match(shell,/WivraLiveNativeSceneLab\(/);
  assert.match(shell,/cameraFrame:\s*model\.previewImage/);
  assert.match(shell,/cameraVerified:\s*model\.hasPreview\s*&&\s*!model\.receiveCompressedHEVC/);
- assert.match(native,/cameraVerified\s*&&\s*cameraFrame\s*!=\s*nil/);
+ assert.match(native,/guard cameraVerified, cameraFrame != nil, let last = cameraLastFrameUptime/);
+ assert.match(shell,/cameraLastFrameUptime:\s*model\.lastRawFrameUptime/);
+ assert.match(sdk,/lastRawFrameUptime = ProcessInfo\.processInfo\.systemUptime/);
+ assert.match(sdk,/lastRawFrameUptime = nil/);
  assert.match(native,/guard canUse\(scene\) else/);
  assert.match(native,/program = scene/);
  assert.match(native,/guard let scene = staged else/);
@@ -73,4 +76,12 @@ test('si la cámara se pierde tras preparar una escena, se vuelve a verificar pa
  const takeBody=native.slice(native.indexOf('private func take()'),native.indexOf('private func exportCueSheet()'));
  assert.match(takeBody,/guard canUse\(scene\) else/);
  assert.ok(takeBody.indexOf('guard canUse')<takeBody.indexOf('program = scene'));
+});
+
+test('el panel no declara cámara activa cuando el último frame es viejo',()=>{
+ assert.match(native,/let age = ProcessInfo\.processInfo\.systemUptime - last/);
+ assert.match(native,/age >= 0 && age < 2\.5/);
+ const guarded=native.slice(native.indexOf('private func take()'), native.indexOf('private func exportCueSheet()'));
+ assert.match(guarded,/guard canUse\(scene\) else/);
+ assert.match(sdk,/lastRawFrameUptime: Double\?/);
 });
