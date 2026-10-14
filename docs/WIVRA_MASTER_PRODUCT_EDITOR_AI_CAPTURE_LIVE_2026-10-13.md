@@ -155,3 +155,12 @@ Nueva especificación de precisión para Claude: [Controles por pista y auditor�
 ## 12. NUEVA precisión UX: barra contextual + superposiciones al cruzar transiciones
 
 El propietario compartió dos capturas adicionales de la barra inferior por clip y del panel Volumen, y pide que Wivra **cambie los comandos según pista video, audio, texto o efecto**. También solicita **aviso NO bloqueante si un video superpuesto (V2+) atraviesa un corte/transición entre dos tomas de fondo (V1)** y opciones manuales para mantenerlo, terminarlo, ocultarlo durante el fundido y hacerlo reaparecer, o aplicarle fades. **Solo dividir V2 no lo oculta.** Todo debe funcionar sin IA de nube, ser no destructivo, reversible y verse igual en preview/export. Especificación/algoritmo y pruebas: [WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md](./WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md). Claude es dueño de editor; no se implementó código ni se fusionó a main.
+
+
+## 13. DECISIÓN DE ALCANCE: filtros y transiciones por clip, escena o todas las capas
+
+El propietario establece selección de **alcance al aplicar filtros/efectos**: solo video seleccionado, una pista, toda la escena/composición visible o un rango completo. Para **transiciones**, seleccionar unión, tipo, duración y si afecta solo V1 o la composición de capas de una escena. Alternativa **aplicar un mismo preset a todos los cortes compatibles** bajo confirmación y un undo agrupado. Fundidos limitados estrictamente a intervalo elegido y handles reales; no crear videos transparentes superpuestos por tiempo indefinido al elegir «fundido». La **superposición manual** de dos videos con alpha durante tiempo largo es una opción expresa e independiente. Una capa V2 que cruza la transición muestra aviso no bloqueante y mantiene control del usuario. Preview y export iguales, sin IA de nube, sin costos.
+
+**Especificación operativa y casos de prueba:** [WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md](./WIVRA_CONTEXTUAL_TIMELINE_TOOLBAR_OVERLAY_TRANSITION_CHECKS_2026-10-13.md), sección 6.
+
+Meta AI publicó estudio nuevo sobre filtros iOS (Core Image y Harbeth MIT); se revisó antes de actualizar. `yangKJ/Harbeth` MIT verificado, pero los tamaños/cantidades de efectos no lo están; `wess/Free-LUTs` citado no se encontró. Claude debe revisar aplicabilidad al editor web y no prometer capacidades según ese estudio sin test real. Sin cambios a `app/` ni a `main`.
