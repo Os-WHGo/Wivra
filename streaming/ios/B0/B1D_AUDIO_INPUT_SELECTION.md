@@ -34,7 +34,7 @@ Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiose
 
 — ChatGPT
 
-## Decisión cerrada: una entrada para grabación/LIVE, pistas externas solo en el editor (13-oct-2026)
+## Decisión: una entrada seleccionada, audio externo en editor y doble micrófono USB opcional (13-oct-2026)
 
 **Instrucción explícita más reciente del propietario:** **descartar la opción DJ**. No habrá modo DJ, selector «External Mixer» especializado, mixer de conciertos ni automatismos ligados a festivales. Un dispositivo de audio USB compatible sigue siendo una **fuente genérica**, sin UI por marca o tipo de evento.
 
@@ -52,5 +52,28 @@ Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiose
 - Wivra conserva edición **manual disponible** e IA opcional para ayudar a alinear y editar; no pedir servicio cloud para importar audio local.
 
 **Regla de alcance:** toda propuesta anterior de Meta AI o nota técnica relativa a DJI mixer, festivales, venta de tours o «mini OBS para cabina DJ» es **investigación histórica**, no backlog aprobado. Requiere una nueva petición explícita del propietario para reabrirse. Solo quedan selección de micrófonos genéricos y pistas externas en editor.
+
+— ChatGPT
+
+## Clarificación del propietario: CONSERVAR posibilidad de dos micrófonos (13-oct-2026)
+
+**No eliminar la capacidad de grabación multipista por simplificar la UI.** El propietario quiere poder usar dos micrófonos cuando el receptor compatible los entrega separados, y **controlar el volumen de cada voz durante LIVE** si resulta viable. El modo DJ especializado sigue descartado.
+
+**Hallazgo de fuente primaria:** DJI confirma que los receptores de **DJI Mic 2** y **DJI Mic Mini** en modo **S (Stereo)** envían audio de los dos transmisores por canales separados. En modo **M (Mono)** el receptor los combina y Wivra no puede reconstruir voces independientes de esa mezcla. Ver https://www.dji.com/mic-2/faq y https://www.dji.com/mic-mini/faq. Las compatibilidades de canal estéreo por adaptador/teléfono/modelo requieren prueba real: la existencia del modo S no prueba que iOS reciba los 2 canales USB.
+
+### Tres operaciones distintas, una interfaz simple
+1. **Selector de entrada único (en B1D):** elegir receptor/micrófono conectado, verificar `currentRoute`; **una ruta física activa** no significa necesariamente una sola voz. Un receptor puede transportar dos canales dentro de esa ruta.
+2. **Grabación (objetivo adicional):** cuando `AVAudioEngine` **mida** dos canales separados en una entrada compatible, preservar los dos en el audio original y representar `channelIndex: 0` y `1` en `.wivra.json` como **pistas lógicas editables**. Esta parte del manifiesto ya tiene un prototipo en PR #51, pero **no se han probado micrófonos físicos ni la edición de esos canales**. No adivinar transmisores por marca ni asignar roles «host/guest» sin identificarlos.
+3. **LIVE (a implementar por ChatGPT, NO operativo):** si se dispone de **dos canales PCM independientes**, opcionalmente mostrar **Volumen micrófono 1** y **Volumen micrófono 2** (más mute por canal). Aplicar ganancia por canal, **mezclar ambas voces al centro** en una salida codificada de transmisión. Esto es mezcla de voces básica, **NO modo DJ ni mixer de festivales**. Si el receptor entrega mono, ofrecer un solo control de volumen y no fingir separación.
+
+### Editor (responsable Claude)
+- Soportar tanto **canales separados de una grabación** como **archivos de audio externos de otros dispositivos** añadidos después. Los archivos externos se sincronizan manualmente y se guardan como pistas propias.
+- Mover, recortar, mute/volumen y exportar cada pista; para canales L/R importados de una grabación estéreo, mantener la fuente original no destructiva y controlar ganancias independientemente.
+- Respetar `muxedFromTrackIDs` para evitar sonido duplicado y preservar por defecto audio original.
+- No convertir una grabación mono de dos micrófonos ya mezclados en dos pistas falsas; indicar «voz mezclada».
+
+**Prioridad y fases:** selector de fuentes + una pista (en prototipo) → validar recepción de 2 canales por USB con hardware → pistas editables en editor → ganancias independientes y mezcla de 2 voces en LIVE cuando exista transmisión real. El usuario puede grabar y editar con un micrófono sin pasar por estas etapas avanzadas.
+
+**Estado probado:** la compilación genérica iOS y preflight de PR #51 pasaron en commit `1c65cf3`, pero eso no valida la detección/recepción USB/DAT real, la separación audible L/R ni el streaming. No se debe anunciar como función terminada.
 
 — ChatGPT
