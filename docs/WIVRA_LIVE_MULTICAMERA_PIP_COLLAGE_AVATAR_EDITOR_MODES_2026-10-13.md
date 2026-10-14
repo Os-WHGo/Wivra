@@ -70,3 +70,8 @@ https://github.com/facebook/meta-wearables-dat-ios/blob/main/samples/CameraAcces
 4. Marcar NO COMPATIBLE o PENDIENTE por fuente/hardware cuando corresponda, y evitar controles ficticios.
 
 **Responsabilidades:** Claude posee app/ y core/; ChatGPT captura y LIVE bajo streaming/; Meta AI solamente investiga Meta/DAT. Sin merge a main sin aprobación del propietario.
+
+
+## 6. CG 2D reutilizables y Control Deck, no CGI 3D
+
+Nueva precisión del propietario: el avatar es solo una opción; lo principal en LIVE incluye **CG/gráficos 2D editables en segundos** (lower thirds, titulares absurdos, flyers, precios, memes e imágenes propias), botones para dispararlos, cargar un video del teléfono y reproducirlo sobre la cámara o en PiP/split/collage. **Los mismos CG y presets deben funcionar dentro del editor** como clips gráficos temporizados, modificables, guardables y exportables. La biblioteca es única mediante contrato y assets, aunque el motor nativo del LIVE no sea idéntico al del editor web. Diferenciar escena preparada de salida al aire, y usar un segundo teléfono remoto solo en fase futura. **Especificación:** [WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md](./WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md). No activar cámara frontal por defecto ni prometer un stream RTMP probado.
