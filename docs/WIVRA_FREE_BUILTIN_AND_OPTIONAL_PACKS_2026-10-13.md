@@ -73,3 +73,8 @@ Referencias cruzadas:
 **UX de catálogo:** `Incluido` | `Gratis · Descargar` | `Descargado` | `Disponible en línea`, con medida real de bytes, licencia, preview, Compatibilidad Editor/LIVE, versión y espacio; NUNCA `Plus`, `Pro`, `Comprar` o `Desbloquear`. Un pack puede contener uno o múltiples recursos y la app debe permitir eliminarlo si no rompe proyectos activos.
 
 — Corrección explícita solicitada por el propietario.
+
+
+## Objetivo de contenido inicial ampliado: ~300 opciones; «Mis diseños»
+
+El propietario planteó que la biblioteca **incluida** pueda llegar aproximadamente a **300 opciones útiles**, principalmente **presets livianos** que comparten motor de render y no 300 archivos pesados; es objetivo progresivo, NO cifra validada/ya entregada, y depende de calidad/licencias/rendimiento real. Los miles adicionales son **capacidad de catálogo paginado** desde servidor propio/proveedor autorizado, NO garantía de miles de activos legalmente disponibles. Añadir **Mis diseños**: importar desde Fotos/Archivos/otras apps mediante archivos exportados, crear plantilla Wivra 2D editable y reutilizable en Editor/LIVE, compartir manualmente mediante bundle de datos validado; sin nube automática ni publicación pública por defecto. Diseñar iPhone primero, export 9:16 móvil y 16:9 TV, también 1:1 y 4:5, con zona segura y ajuste explícito. Detalle y prueba en [WIVRA_MOBILE_FIRST_LIBRARY_300_AND_USER_DESIGN_IMPORT_2026-10-13.md](./WIVRA_MOBILE_FIRST_LIBRARY_300_AND_USER_DESIGN_IMPORT_2026-10-13.md).
