@@ -52,6 +52,10 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                   let format = CMSampleBufferGetFormatDescription(buffer),
                   CMFormatDescriptionGetMediaType(format) == kCMMediaType_Video
             else { return }
+            // Video receipt time is an ESTIMATE, not the camera exposure/PTS
+            // clock. Sample PTS from the remote device is not presumed to be
+            // in the iPhone host clock domain.
+            let receivedAtUptime = CACurrentMediaTime()
             if writer == nil {
                 // Never save a file that begins on an undecodable P-frame.
                 guard Self.isHEVCKeyframe(buffer) else { return }
@@ -72,7 +76,6 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                     }
                     assetWriter.startSession(atSourceTime: .zero)
                     writer = assetWriter
-                    videoStartUptime = CACurrentMediaTime()
                     videoInput = input
                     fileURL = url
                 } catch {
@@ -123,6 +126,9 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                 flags[kCMSampleAttachmentKey_DependsOnOthers] = !sync
             }
             if input.append(adjusted) {
+                // Anchor the FIRST successfully appended keyframe, never a
+                // discarded frame or the time AVAssetWriter was constructed.
+                if appendedCount == 0 { videoStartUptime = receivedAtUptime }
                 previousDTS = dts
                 appendedCount += 1
             } else {
