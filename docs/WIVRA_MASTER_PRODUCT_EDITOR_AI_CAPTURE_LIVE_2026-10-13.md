@@ -128,3 +128,20 @@ Conector de destinos estándar `LiveDestination { id, displayName, protocol, ing
 **Fuente de verdad:** código GitHub `Os-WHGo/Wivra`; investigación Meta AI en Drive. Comprobada carpeta Drive antes de redactar (6 docs, sin cambios desde 2026-10-14T03:43Z). Toda recomendación sobre repos de terceros debe revalidar hash/licencia antes de copiar. Conservamos nombres del producto Wivra y consentimiento del usuario.
 
 — ChatGPT
+
+
+## 10. NUEVA DECISIÓN del propietario: gratuito, offline-first, pistas reales y efectos integrados
+
+**Esta decisión posterior sustituye cualquier prioridad anterior que sugiriese invertir pronto en IA generativa, catálogos masivos de efectos, plantillas de pago, descargas necesarias por efecto o mini editor de clips sin pista adicional.**
+
+**Documento de alcance obligatorio y tests de aceptación:** [WIVRA_DECISION_EDITOR_MULTITRACK_OFFLINE_FREE_2026-10-13.md](./WIVRA_DECISION_EDITOR_MULTITRACK_OFFLINE_FREE_2026-10-13.md).
+
+- **Editor completo y gratuito:** cualquier cantidad razonable de pistas V1/V2/V3 y A1/A2/A3, botón `+` en video **y audio**, superposición simultánea, forma de onda real, zoom de timeline, recorte, desplazamiento de tiempos, snap, selección contextual, export renderizado y persistencia. El número real de pistas depende de recursos del dispositivo, no de un paywall.
+- **Voiceover durante edición:** reproducir video en timeline y grabar otra voz desde micrófono elegido, crear pista de audio sincronizable y editable; medir latencia y aceptar corrección manual.
+- **Plantillas rítmicas + AutoCut musical:** detectar beats/onsets con DSP local cuando posible y ajustar cortes a música importada legalmente, con plantillas livianas de duración/transiciones. Borrador editado y reversible; sin necesidad de IA generativa ni conexión.
+- **Efectos integrados sin descargas ni pagos:** unos pocos efectos/transiciones de calidad renderizados de forma nativa/algorítmica y presets pequeños en paquete inicial; descargas gratuitas opcionales únicamente cuando se aprueben y no bloqueen edición offline. Sin cientos de GB ni catálogos propietarios CapCut.
+- **IA esencial:** director/asistente que comprenda videos cuando tenga acceso real a fotogramas/audio y sugiera o ejecute cortes/montajes mediante operaciones validadas. No priorizar efectos IA generativos, avatares ni creación sintética. Subtítulos pueden introducirse manualmente/localmente; STT y traducción remotos son opcionales sujetos a consentimiento/costo.
+- **Offline-first:** las funciones básicas listadas deben funcionar con archivos locales en modo avión, *una vez que la app y sus recursos están disponibles*, dentro de las limitaciones reales de almacenamiento/códecs/iOS. LIVE, URL remotas e IA nube requieren red. El usuario no quiere costes ni cargos ocultos; verificar costes de servidores opcionales.
+
+**Responsabilidad inmediata Claude:** usar estos criterios para benchmark de OpenReel/OpenCut/actual editor, con pruebas iPhone, y proponer motor con soporte de pistas/export antes de construir miles de menús. **ChatGPT** no debe reescribir `app/`/timeline de Claude. Ningún cambio a main hasta autorización.
+
