@@ -19,7 +19,7 @@ const data = () => ({
     {id:'walk',layout:'single',layers:[{id:'main',kind:'camera',inputId:'rayban-dat',rect:full}]},
     {id:'reaction',layout:'pip',layers:[
       {id:'base',kind:'camera',inputId:'rayban-dat',rect:full},
-      {id:'mini',kind:'video',assetId:'intro-video',rect:tiny}
+      {id:'mini',kind:'video',assetId:'intro-video',rect:{...tiny}}
     ]},
     {id:'news',layout:'single',layers:[{id:'cg',kind:'cg',text:'Última hora',rect:full}]},
     {id:'remote',layout:'single',layers:[{id:'remote',kind:'video',assetId:'optional-video',rect:full}]}
@@ -159,7 +159,7 @@ test('no se aceptan elementos de CGI ejecutable ni nombres de archivo o URL como
 
 test('no se agregan entradas inexistentes de cámaras Meta+frontal al cambiar el layout',()=>{
   const spec=data();
-  spec.scenes[0].layers.push({id:'selfie',kind:'camera',inputId:'iphone-front',rect:tiny});
+  spec.scenes[0].layers.push({id:'selfie',kind:'camera',inputId:'iphone-front',rect:{...tiny}});
   spec.scenes[0].layout='pip';
   const s=createStudioState(spec);
   const check=preflightScene(s,'walk',cameras);
