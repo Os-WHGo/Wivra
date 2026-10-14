@@ -33,3 +33,24 @@ Consultado antes de desarrollar: [Drive Meta AI Specialist](https://drive.google
 Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiosession/availableinputs y https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferredinput(_:)
 
 — ChatGPT
+
+## Decisión cerrada: una entrada para grabación/LIVE, pistas externas solo en el editor (13-oct-2026)
+
+**Instrucción explícita más reciente del propietario:** **descartar la opción DJ**. No habrá modo DJ, selector «External Mixer» especializado, mixer de conciertos ni automatismos ligados a festivales. Un dispositivo de audio USB compatible sigue siendo una **fuente genérica**, sin UI por marca o tipo de evento.
+
+### Contrato simple de producto
+1. **Grabar:** usuario selecciona **una entrada de audio activa** detectada por iOS y verifica su ruta. La cámara se elige independientemente. La grabación conserva audio original separado y puede producir video con audio integrado.
+2. **Transmitir (objetivo, NO implementado):** el motor LIVE utilizará **esa misma entrada seleccionada** como audio de la transmisión. El selector no significa que el streaming o la transmisión RTMP estén probados; habrá que conectar el capturador a un codificador y probar dispositivo real, permisos, interrupciones y sync.
+3. **Editar (trabajo de Claude, NO integrado end-to-end):** el editor acepta **archivos de audio externos grabados antes o después del video**, aunque provengan de otro dispositivo. Importarlos como pistas independientes, posicionarlos por tiempo, recortarlos, ajustar volumen, silenciar y exportar la mezcla. Sincronización inicial **manual** moviendo la pista con ayuda de una palmada o referencia audible; sincronía asistida/automática solo si se demuestra y se prioriza.
+4. **Dos micrófonos durante una sola grabación** NO es requisito para que el editor sea multipista. Si una entrada USB entrega dos canales realmente diferenciados, el manifiesto v2 puede referirlos por canal; no agregar conexiones simultáneas HFP+USB ni fabricar archivos extra como requisito del MVP.
+
+### Para Claude (PR #44, issue #47)
+- Hacer que «Agregar pista» admita un **archivo de audio local externo** como medio independiente, sin exigir que venga de `.wivra.json`.
+- Permitir ajustar el inicio/desfase de la pista en segundos con arrastre y/o entrada numérica, reproducir una vista previa alineada, mute/volumen, deshacer/rehacer, conservar posición al guardar y aplicar la posición durante la exportación.
+- Si el archivo procede del manifiesto v2, usar offset de captura como **estimación inicial editable**, nunca como sincronía garantizada. Si el audio es externo, no inventar offset ni ID de hardware.
+- Mantener audio original, audio añadido y MOV combinado diferenciados para no reproducir dos veces la voz; probar casos con audio solo, video silenciado y exportación.
+- Wivra conserva edición **manual disponible** e IA opcional para ayudar a alinear y editar; no pedir servicio cloud para importar audio local.
+
+**Regla de alcance:** toda propuesta anterior de Meta AI o nota técnica relativa a DJI mixer, festivales, venta de tours o «mini OBS para cabina DJ» es **investigación histórica**, no backlog aprobado. Requiere una nueva petición explícita del propietario para reabrirse. Solo quedan selección de micrófonos genéricos y pistas externas en editor.
+
+— ChatGPT
