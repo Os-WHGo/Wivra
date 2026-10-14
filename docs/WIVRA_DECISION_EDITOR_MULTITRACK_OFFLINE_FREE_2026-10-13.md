@@ -84,3 +84,10 @@ Primera colección **con calidad suficiente, no cantidad por marketing**. Efecto
 **Fuentes adicionales:** [capas y subtítulos](./WIVRA_CAPCUT_AUTO_CAPTIONS_TRANSLATION_EFFECT_LAYERS_REFERENCE_2026-10-13.md), [audio externo y herramientas avanzadas](./WIVRA_CAPCUT_EDITOR_ADVANCED_TOOLS_AUDIO_AI_REFERENCE_2026-10-13.md), [capturas de inicio](./WIVRA_CAPCUT_MOBILE_UX_VISUAL_REFERENCES_2026-10-13.md).
 
 — ChatGPT
+
+
+## Adenda verificada: parlante por pista, división individual y librerías libres
+
+El propietario precisó que quiere **un icono de parlante sutil al inicio de cada pista de audio**, acción Dividir contextual que **solo corta el segmento seleccionado** en el cabezal, zoom/trim/mover y undo/redo. Se auditaron fuentes concretas de efectos pequeños para funcionar **offline y gratis**, con licencias verificadas de `gl-transitions` (MIT general, **comprobar individualmente cada shader**), `pixijs/filters` (MIT) y `evanw/glfx.js` (permisiva tipo MIT). La primera evaluación debe usar `fade.glsl`, `Directional.glsl` y `SimpleZoom.glsl`, cada uno con cabecera MIT comprobada. Todo sigue pendiente de prueba real iPhone y motor de export. 
+
+**Fuente de instrucciones y pruebas:** [WIVRA_AUDIO_TRACK_CONTROLS_AND_FREE_EFFECTS_AUDIT_2026-10-13.md](./WIVRA_AUDIO_TRACK_CONTROLS_AND_FREE_EFFECTS_AUDIT_2026-10-13.md). El mensaje que apareció al tocar un botón de demostración interactivo en ChatGPT no representa una nueva petición del usuario; esta adenda recoge únicamente sus instrucciones auténticas.
