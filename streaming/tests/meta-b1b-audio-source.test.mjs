@@ -48,3 +48,18 @@ test('UI keeps RAW preview plus explicit audio select and all export paths', () 
   assert.match(view, /Compartir MOV con audio integrado/);
   assert.match(view, /Compartir manifiesto del proyecto Wivra/);
 });
+
+test('B1C writes schemaVersion 2 with measured audio properties and only recorded tracks', () => {
+  const manifest = read('Sources/WivraCaptureManifest.swift');
+  const sidecar = read('Sources/WivraAudioSidecar.swift');
+  const model = read('Sources/MetaB0Model.swift');
+  assert.match(manifest, /schemaVersion: 2/);
+  assert.match(manifest, /let tracks: \[WivraCaptureTrack\]/);
+  assert.match(manifest, /muxedFromTrackIDs/);
+  assert.match(manifest, /if let audioURL/);
+  assert.match(manifest, /channelIndex: Int\?/);
+  assert.match(manifest, /sampleRateHz: Double\?/);
+  assert.match(sidecar, /channelCount: Int/);
+  assert.match(model, /audioSampleRateHz: sound\?\.sampleRate/);
+  assert.match(model, /audioChannelCount: sound\?\.channelCount/);
+});
