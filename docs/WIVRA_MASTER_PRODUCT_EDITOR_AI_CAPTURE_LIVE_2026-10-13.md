@@ -145,3 +145,8 @@ Conector de destinos estándar `LiveDestination { id, displayName, protocol, ing
 
 **Responsabilidad inmediata Claude:** usar estos criterios para benchmark de OpenReel/OpenCut/actual editor, con pruebas iPhone, y proponer motor con soporte de pistas/export antes de construir miles de menús. **ChatGPT** no debe reescribir `app/`/timeline de Claude. Ningún cambio a main hasta autorización.
 
+
+
+## 11. Referencias técnicas verificadas: UI de pistas y transiciones gratuitas
+
+Nueva especificación de precisión para Claude: [Controles por pista y auditoría de efectos MIT](./WIVRA_AUDIO_TRACK_CONTROLS_AND_FREE_EFFECTS_AUDIT_2026-10-13.md). Incluye parlante pequeño por pista, dividir únicamente segmento seleccionado, deshacer/rehacer, evitar doblar audio separado y la lista de shaders `gl-transitions` individuales con MIT comprobada. Se evaluarán PixiJS Filters y glfx.js, sin incorporarlos todavía ni arriesgar bundle grande. Efectos incluidos y utilizables offline, sin cobros ni dependencias de IA. No se ha añadido código al editor ni a `main`.
