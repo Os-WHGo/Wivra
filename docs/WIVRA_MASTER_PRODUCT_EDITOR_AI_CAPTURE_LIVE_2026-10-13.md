@@ -172,3 +172,8 @@ El usuario solicita **dual camera LIVE** con fuente principal desde iPhone trase
 
 **Especificación con fuentes Apple, límites reales, criterios editor/LIVE y fases**: [WIVRA_LIVE_MULTICAMERA_PIP_COLLAGE_AVATAR_EDITOR_MODES_2026-10-13.md](./WIVRA_LIVE_MULTICAMERA_PIP_COLLAGE_AVATAR_EDITOR_MODES_2026-10-13.md). Claude conserva editor; ChatGPT prueba multicámara y streaming en streaming/; Meta AI investiga restricciones DAT. Nadie fusiona a main sin autorización.
 
+
+
+## 15. Aclaración CG: gráficas 2D reutilizables en LIVE y editor, no CGI 3D
+
+El propietario confirmó que **CG** significa rótulos/gráficos de pantalla ligeros (lower thirds, reportajes, noticias, precios, flyers, stickers, memes/imágenes del usuario), NO animación 3D ni IA generativa pesada. Wivra tendrá **una sola biblioteca de CG/presets originales, gratis, offline y livianos**, utilizables con botones rápidos en LIVE Studio/Control Deck y como capas temporales editables en el editor, sin reconstruir el gráfico. La lógica/schema/asset IDs se comparte; el render nativo LIVE y render del editor pueden utilizar adaptadores diferentes con pruebas de equivalencia. Incluye escenas reacción POV + video local, PiP, collage, CG preparado/preview/enviar al aire y Live→Editor con cues temporales; segundo teléfono remoto fase posterior. **Especificación y pruebas:** [WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md](./WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md). No incluye CGI 3D, mercado de memes, derechos automáticos de contenido viral ni integración de plataforma no autorizada. Sin implementación ni merge.
