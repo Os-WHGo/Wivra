@@ -36,6 +36,8 @@ final class MetaB0Model {
     var lastSeparateAudioURL: URL?
     var lastCombinedVideoURL: URL?
     var lastAudioSyncOffsetSeconds: Double?
+    var lastCaptureManifestURL: URL?
+    var selectedAudioDeviceName: String?
     let audioRoute = WivraAudioRoute()
     private let audioSidecar = WivraAudioSidecar()
     private let clipRecorder = WivraHEVCRecorder()
@@ -87,9 +89,11 @@ final class MetaB0Model {
         lastSeparateAudioURL = nil
         lastCombinedVideoURL = nil
         lastAudioSyncOffsetSeconds = nil
+        lastCaptureManifestURL = nil
+        selectedAudioDeviceName = nil
         if captureGlassesAudio {
             do {
-                _ = try audioRoute.activateSelectedInput()
+                selectedAudioDeviceName = try audioRoute.activateSelectedInput()
                 try audioSidecar.start(verifiedSelectedRoute: audioRoute.hasSelectedRoute)
             } catch {
                 recordingStatus = "Audio Ray-Ban: " + error.localizedDescription
@@ -146,6 +150,16 @@ final class MetaB0Model {
                     (soundError ?? "sin muestras válidas")
             } else {
                 recordingStatus = "Video sin audio guardado."
+            }
+            do {
+                lastCaptureManifestURL = try WivraCaptureManifest.write(
+                    videoURL: url, audioURL: lastSeparateAudioURL,
+                    mergedURL: lastCombinedVideoURL,
+                    audioOffsetSeconds: lastAudioSyncOffsetSeconds,
+                    audioPortName: selectedAudioDeviceName
+                )
+            } catch {
+                recordingStatus += " Advertencia: no se guardó el manifiesto de proyecto."
             }
         case .noFrames:
             if let sound { lastSeparateAudioURL = sound.url }
