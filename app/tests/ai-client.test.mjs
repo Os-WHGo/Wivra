@@ -81,3 +81,15 @@ test('la conversación previa viaja en orden y el proyecto es el de ahora', () =
   assert.deepEqual(m2.map((x) => x.role), ['system', 'assistant', 'user']); assert.match(m2.at(-1).content, /Apliqué.*\n.*Proyecto actual/s);
   assert.match(m.at(-1).content, /Proyecto actual/); assert.match(m.at(-1).content, /segundo 4/);
 });
+
+test('el Director solo se adjunta a petición explícita y nunca se envía el archivo del video', () => {
+  const goal = {kind:'user_creative_intent_not_verified_media', goal:'Recorrido con intro y regreso', instructions:[{kind:'correction',text:'Primero el desayuno'}], descriptions:[{assetId:'a1',userSays:'Caminata larga',evidence:'unverified_user_report'}]};
+  const plain = JSON.stringify(buildMessages('recorta', project));
+  assert.ok(!plain.includes('Recorrido con intro'));
+  const withGoal = buildRequest({...base,directorContext:goal});
+  const body=JSON.parse(withGoal.init.body);
+  assert.match(body.messages.at(-1).content,/Recorrido con intro/);
+  assert.match(body.messages.at(-1).content,/INTENCION_DEL_DIRECTOR_JSON/);
+  assert.ok(!withGoal.init.body.includes('blob:SECRET'));
+  assert.ok(!withGoal.init.body.includes(base.key));
+});
