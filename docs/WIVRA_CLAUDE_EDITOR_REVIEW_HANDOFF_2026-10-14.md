@@ -1,5 +1,5 @@
 # Wivra · entrega para Claude: revisar editor, PR #54 y siguiente corte de implementación
-Fecha: 2026-10-14 · Dueño de implementación del editor: Claude (PR #44) · Coordinación captura/LIVE: ChatGPT. Toda investigación externa al software está fuera del repositorio.
+Fecha: 2026-10-14 · Editor: Claude (PR #44) · Captura/LIVE: ChatGPT. GitHub contiene el desarrollo de software de Wivra.
 
 ## Instrucción ejecutiva para Claude
 **NO reinicies ni reescribas el editor. Lee el estado real del PR #44 y revisa el PR #54 antes de integrar. No cambies main, ramas, bases o merges sin aprobación del propietario.** Prioridad desarrollo funcional, no nuevas ideas.
@@ -28,17 +28,13 @@ Leer diff REAL y comentar con pruebas o cambios puntuales antes de incorporarlo 
 4. Luego Director IA con análisis REAL de fotogramas/audio y planes editables, subtítulos SRT/VTT como guía opcional (prioridad acotada), biblioteca compartida ligera inicial con packs gratuitos bajo demanda. No pretender que nombres de archivos equivalgan a vision.
 5. Evitar módulos ajenos: DJ dedicado, marketplace/tours, CGI 3D, packs Pro/pago, subtítulos IA elaborados. Sin herramientas falsas o botones que simulan estar implementados.
 
-## 3. Acceso autorizado a Drive y prohibición de republicar información privada
+## 3. Colaboración y reglas de publicación
 
-**Claude PUEDE LEER y analizar documentación privada en Google Drive, si tiene acceso autorizado, y debe cumplir las normas, permisos y restricciones del Drive.** La prohibición del propietario se refiere a añadir o revelar información de esa investigación en el repositorio público de GitHub; **no** prohíbe consultar el material como contexto técnico o para una revisión solicitada.
-
-- **Consulta interna permitida:** acceder a documentación de Drive conforme a permisos y utilizarla como referencia; discutir con el propietario en privado las conclusiones pertinentes.
-- **GitHub, publicación prohibida:** no agregar, reconstruir, resumir con especificaciones no públicas, copiar ni enlazar ese contenido en issues, PR, archivos, código, tests, mensajes de commit o nombres de ramas. No restaurar información retirada desde commits históricos.
-- **No borrar información:** Claude no debe borrar ni modificar documentos de Drive como parte de esta limpieza ni alterar, revertir o eliminar código/documentación del Editor, captura y LIVE.
-- **Requisitos de software derivados:** pueden documentarse en términos generales no sensibles si se necesitan para Wivra. Ante duda de divulgación, solicitar aprobación del propietario antes de escribirlos en GitHub.
-- **Continuidad:** mantener Editor PR #44 y revisión PR #54; el propietario aprueba cualquier cambio de ramas compartidas o merge a `main`.
-
-**Regla operativa:** leer en Drive conforme a sus reglas; desarrollar software en GitHub; no trasladar investigación privada de Drive a GitHub.
+- Claude puede **consultar fuentes a las que tenga acceso autorizado**, respetando permisos, atribuciones y condiciones de uso. Leer una fuente no implica autorización para redistribuirla.
+- En GitHub publicar **solo código y documentación de Wivra preparados para publicación**. No trasladar material de fuentes externas sin permiso explícito del propietario.
+- Conservar el código del Editor, captura y LIVE; no borrar ni revertir trabajo de otros responsables.
+- Ante dudas de derechos, alcance o publicación, consultar al propietario antes de realizar cambios.
+- Mantener prioridades Editor PR #44 y revisión PR #54; no modificar ramas compartidas ni fusionar `main` sin autorización.
 
 ## 4. Aceptación/respuesta que esperamos de Claude
 - Qué de PR #54 se incorpora y qué se corrige, con referencias a línea/test y captura Safari si hay.
