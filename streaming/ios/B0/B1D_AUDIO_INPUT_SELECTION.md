@@ -2,8 +2,6 @@
 
 **Decisión del propietario (13-oct-2026):** lo importante es poder elegir de dónde se recibe el audio. No requiere festivales, DJ, mixer, streamer ni marketplace. El video puede seguir siendo de las Ray-Ban Meta y el audio llegar desde cualquier **entrada real compatible** del iPhone.
 
-Consultado antes de desarrollar: [Drive Meta AI Specialist](https://drive.google.com/drive/folders/14aI0HdfIk0gZv5AkhjCEOVxpTQdl3iK_) con seis documentos; en particular `AUDIT-PR48-HFP-Simultaneidad.md`, `FINDING-AUDIO-DJI-MULTITRACK-DJ.md`, `PROPOSAL-HandsFree-Voz-Gestos.md`, `FLUJO-Capture-vs-Editor-Material-Vendible.md`. Las propuestas de ventas/tours, cloud-sync automático, comandos y gestos NO constituyen instrucciones del propietario.
-
 ## Alcance implementado en esta rama experimental
 - La miniapp iOS de B1 detecta fuentes **que devuelve `AVAudioSession.availableInputs`**: micrófono integrado, headset por cable, Bluetooth HFP, audio USB. No asume que DJI, Ray-Ban ni AirPods estén conectados por el nombre de una marca.
 - La UI presenta el nombre que informa iOS y una categoría. El usuario elige un UID, toca **Preparar micrófono seleccionado** y Wivra verifica `AVAudioSession.currentRoute`. No hay fallback silencioso de fuente.
@@ -18,8 +16,8 @@ Consultado antes de desarrollar: [Drive Meta AI Specialist](https://drive.google
 - **No incluye** selector de cámara del iPhone; el objetivo de esta rama se limita al audio con video DAT. La futura app unificará cámaras y editor.
 - **No se ha instalado ni probado** en iPhone firmado con Ray-Ban, AirPods, DJI u otros micrófonos reales. Compilar Swift y ejecutar test Node no es prueba de hardware.
 - **No se presume** que todos los dispositivos USB/BT aparezcan en `availableInputs` ni que AirPods permitan audio de alta calidad en todas las combinaciones de sistema/mode.
-- Meta AI sugiere un `Task.sleep(500ms)` fijo y activar BLE como micrófono de DJI. No hay evidencia suficiente de que ambos sean requisito universal. Aquí se verifica la ruta real en vez de imponer temporización arbitraria. Mantener observación FPS/latencia y prueba HFP+DAT con gafas físicas.
-- No se implementaron STT «Wivra...», detección de tap, cobro por tours, autoupload a Drive, DJ mix, avatar o nube. Son ideas independientes sujetas a aprobación y verificación.
+- No se imponen retardos fijos ni conexiones BLE como sustituto del audio de `AVAudioSession`. Se verifica la ruta real de iOS y se mantienen pendientes las mediciones de latencia y FPS.
+- Esta etapa no implementa reconocimiento de voz, automatizaciones remotas ni publicación en red.
 
 ## Prueba física mínima pendiente
 1. Con el iPhone y gafas conectadas: modo HEVC, detectar entradas, escoger Ray-Ban HFP, **preparar** (debe confirmar entrada realmente activa), iniciar DAT, grabar 20–30s con voz y palmada; comprobar original MOV, CAF, MOV combinado, manifiesto y sincronía.
@@ -51,7 +49,7 @@ Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiose
 - Mantener audio original, audio añadido y MOV combinado diferenciados para no reproducir dos veces la voz; probar casos con audio solo, video silenciado y exportación.
 - Wivra conserva edición **manual disponible** e IA opcional para ayudar a alinear y editar; no pedir servicio cloud para importar audio local.
 
-**Regla de alcance:** toda propuesta anterior de Meta AI o nota técnica relativa a DJI mixer, festivales, venta de tours o «mini OBS para cabina DJ» es **investigación histórica**, no backlog aprobado. Requiere una nueva petición explícita del propietario para reabrirse. Solo quedan selección de micrófonos genéricos y pistas externas en editor.
+**Regla de alcance:** el selector de captura reconoce entradas reales de iOS; la edición de medios externos corresponde al Editor y la emisión LIVE es una etapa separada. No ampliar el alcance sin aprobación del propietario.
 
 — ChatGPT
 
@@ -77,3 +75,9 @@ Fuente oficial iOS: https://developer.apple.com/documentation/avfaudio/avaudiose
 **Estado probado:** la compilación genérica iOS y preflight de PR #51 pasaron en commit `1c65cf3`, pero eso no valida la detección/recepción USB/DAT real, la separación audible L/R ni el streaming. No se debe anunciar como función terminada.
 
 — ChatGPT
+
+## B1E · relojes de inicio estimados (14-oct-2026)
+- El primer buffer PCM guardado usa `AVAudioTime.hostTime` cuando el sistema proporciona esa marca de tiempo; no se reemplaza con el instante de finalización de escritura en disco.
+- El video ancla el primer cuadro HEVC aceptado en el reloj de recepción del iPhone. El transporte inalámbrico puede introducir latencia no medida: este valor **no certifica sincronización de origen**.
+- `audioStartOffsetSeconds` y `tracks[].startOffsetSeconds`: positivo = audio empieza DESPUÉS del primer fotograma guardado, negativo = ANTES. Si no existe un reloj válido de audio o video, se conserva el material separado y el desfase queda en null; no se genera MOV combinado automáticamente.
+- Validación requerida: prueba de palmada con iPhone/gafas y otra entrada seleccionable, observación del desfase real y de la deriva durante una grabación más larga. Las pruebas de contrato en Node revisan texto/semántica, **no sustituyen compilación Swift ni medición física**.

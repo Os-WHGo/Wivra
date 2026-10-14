@@ -147,8 +147,11 @@ final class MetaB0Model {
             recordingStatus = "Video original guardado (\(frames) cuadros; \(dropped) descartados)."
             if let sound {
                 lastSeparateAudioURL = sound.url
-                if let firstVideoClock {
-                    let offset = sound.firstSampleUptime - firstVideoClock
+                if let firstVideoClock, let firstAudioClock = sound.firstSampleUptime {
+                    // Positive: audio began after video; negative: before.
+                    // Video's receipt clock includes unknown DAT transport delay,
+                    // so this is an estimate until verified by a clap test.
+                    let offset = firstAudioClock - firstVideoClock
                     lastAudioSyncOffsetSeconds = offset
                     do {
                         let combined = try await WivraLocalMux.merge(
@@ -160,7 +163,7 @@ final class MetaB0Model {
                         recordingStatus = "Originales guardados. No se pudo combinar: " + error.localizedDescription
                     }
                 } else {
-                    recordingStatus = "Originales guardados. No hay reloj de inicio de video para sincronizar."
+                    recordingStatus = "Originales guardados por separado. Falta una marca de tiempo válida para sincronizar; no se combinó automáticamente."
                 }
             } else if wantedAudio {
                 recordingStatus = "Solo video guardado. El micrófono seleccionado falló: " +

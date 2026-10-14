@@ -83,3 +83,35 @@ test('B1D two real USB PCM channels are represented as separate logical tracks',
   assert.match(m, /channelIndex: channel/);
   assert.match(m, /role: "other"/);
 });
+
+test('B1E captures first saved PCM sample hostTime and keeps unknown sync unknown', () => {
+  const sidecar = read('Sources/WivraAudioSidecar.swift');
+  const video = read('Sources/WivraHEVCRecorder.swift');
+  const model = read('Sources/MetaB0Model.swift');
+  const mux = read('Sources/WivraLocalMux.swift');
+  assert.match(sidecar, /input\.installTap\(onBus: 0, bufferSize: 1024, format: format\) \{ buffer, time in/);
+  assert.match(sidecar, /time\.isHostTimeValid/);
+  assert.match(sidecar, /AVAudioTime\.seconds\(forHostTime: time\.hostTime\)/);
+  assert.match(sidecar, /if !firstBufferWritten/);
+  assert.doesNotMatch(sidecar, /startTime = CACurrentMediaTime\(\)/);
+  assert.match(video, /let receivedAtUptime = CACurrentMediaTime\(\)/);
+  assert.match(video, /if input\.append\(adjusted\) \{[\s\S]*?if appendedCount == 0 \{ videoStartUptime = receivedAtUptime \}/);
+  assert.match(model, /if let firstVideoClock, let firstAudioClock = sound\.firstSampleUptime/);
+  assert.match(model, /let offset = firstAudioClock - firstVideoClock/);
+  assert.match(model, /no se combinó automáticamente/);
+  assert.match(mux, /let trimSeconds = max\(0, -safeOffset\)/);
+  assert.match(mux, /let insertSeconds = max\(0, safeOffset\)/);
+});
+
+test('B1E signed timing convention is consistent with schema and offset arithmetic', () => {
+  const spec = JSON.parse(readFileSync(new URL('../contracts/wivra-manifest-v2.schema.json', import.meta.url), 'utf8'));
+  const top = spec.properties.audioStartOffsetSeconds.description;
+  const track = spec.$defs.track.properties.startOffsetSeconds.description;
+  assert.match(top, /positive.*later/i);
+  assert.match(top, /negative.*earlier/i);
+  assert.match(track, /positive.*later/i);
+  assert.match(track, /negative.*earlier/i);
+  const offset = (audio, video) => audio - video;
+  assert.equal(offset(105.25, 105.00), 0.25, 'audio delayed');
+  assert.ok(Math.abs(offset(104.75, 105.00) + 0.25) < 1e-9, 'audio early');
+});

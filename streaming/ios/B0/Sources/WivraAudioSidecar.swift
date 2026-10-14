@@ -1,12 +1,12 @@
 // Wivra B1B: local, separately editable audio sidecar from a verified input.
 // Prototype: file writes in audio callback need load tests for dropouts.
 import AVFoundation
-import QuartzCore
 import Foundation
 
 struct WivraAudioResult: Sendable {
     let url: URL
-    let firstSampleUptime: Double
+    // Monotonic host-time anchor of the first written PCM buffer, if iOS supplied it.
+    let firstSampleUptime: Double?
     let frames: Int64
     let sampleRate: Double
     let channelCount: Int
@@ -29,6 +29,7 @@ private final class WivraAudioFileSink: @unchecked Sendable {
     private let lock = NSLock()
     private var file: AVAudioFile?
     private var startTime: Double?
+    private var firstBufferWritten = false
     private var count: Int64 = 0
     let sampleRate: Double
     let channelCount: Int
@@ -38,16 +39,23 @@ private final class WivraAudioFileSink: @unchecked Sendable {
         self.sampleRate = sampleRate
         self.channelCount = channelCount
     }
-    func append(_ buffer: AVAudioPCMBuffer) {
+    func append(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime) {
         lock.lock()
         defer { lock.unlock() }
         guard let file, buffer.frameLength > 0 else { return }
         do {
             try file.write(from: buffer)
-            if startTime == nil { startTime = CACurrentMediaTime() }
+            if !firstBufferWritten {
+                // Audio tap hostTime marks the buffer, not when disk IO completed.
+                // If the FIRST saved buffer lacks hostTime, do not use a later
+                // buffer's timestamp: that would misalign the beginning of CAF.
+                startTime = time.isHostTimeValid
+                    ? AVAudioTime.seconds(forHostTime: time.hostTime) : nil
+                firstBufferWritten = true
+            }
             count += Int64(buffer.frameLength)
         } catch {
-            // B1B test must detect no audio; never claim samples were written.
+            // A failed write has not become the first saved buffer.
         }
     }
     func close() -> (Double?, Int64) {
@@ -84,8 +92,8 @@ final class WivraAudioSidecar {
         let fileSink = WivraAudioFileSink(file: audioFile, sampleRate: format.sampleRate,
                                             channelCount: Int(format.channelCount))
         // Install the tap only after explicit microphone consent and route check.
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            fileSink.append(buffer)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
+            fileSink.append(buffer, at: time)
         }
         do {
             try audioEngine.start()
@@ -112,7 +120,7 @@ final class WivraAudioSidecar {
         engine = nil
         sink = nil
         self.destination = nil
-        guard count > 0, let first,
+        guard count > 0,
               let size = try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber,
               size.int64Value > 0 else {
             try? FileManager.default.removeItem(at: destination)
