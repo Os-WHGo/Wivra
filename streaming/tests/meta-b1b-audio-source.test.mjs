@@ -75,3 +75,11 @@ test('B1D stores the exact selected source, never a pretend DJI track', () => {
   assert.match(model, /!audioRoute.hasSelectedRoute/);
   assert.match(read('Sources/WivraAudioRoute.swift'), /if hasSelectedRoute/);
 });
+
+test('B1D two real USB PCM channels are represented as separate logical tracks', () => {
+  const m = read('Sources/WivraCaptureManifest.swift');
+  assert.match(m, /audioSource == "ios-usb-audio" && audioChannelCount == 2/);
+  assert.match(m, /tracks = \(0\.\.<2\)\.map/);
+  assert.match(m, /channelIndex: channel/);
+  assert.match(m, /role: "other"/);
+});
