@@ -1,0 +1,60 @@
+{
+  "_note": "SYNTHETIC CONTRACT EXAMPLES ONLY. No DJI/Ray-Ban hardware recording proven by this file.",
+  "cases": [
+    {
+      "name": "single-hfp-sidecar",
+      "manifest": {
+        "schemaVersion": 2,
+        "captureID": "example-hfp-01",
+        "cameraSource": "meta-dat-hevc",
+        "audioSource": "ios-bluetooth-hfp",
+        "selectedInputName": "Bluetooth microphone (example)",
+        "originalVideoFile": "walk.mov",
+        "originalAudioFile": "walk.caf",
+        "muxedVideoFile": "walk.synced.mov",
+        "audioStartOffsetSeconds": 0.12,
+        "createdAtISO8601": "2026-10-13T17:00:00Z",
+        "tracks": [
+          { "id": "audio-1", "kind": "audio", "role": "voice_primary",
+            "source": "ios-bluetooth-hfp", "file": "walk.caf",
+            "channelIndex": null, "sampleRateHz": 8000, "channelCount": 1,
+            "inputName": "Bluetooth microphone (example)", "startOffsetSeconds": 0.12 }
+        ],
+        "muxedFromTrackIDs": ["audio-1"]
+      }
+    },
+    {
+      "name": "usb-stereo-two-transmitters-hypothetical",
+      "manifest": {
+        "schemaVersion": 2,
+        "captureID": "example-dji-02",
+        "cameraSource": "meta-dat-hevc",
+        "audioSource": "usb-dji-receiver",
+        "selectedInputName": "USB audio receiver (example)",
+        "originalVideoFile": "interview.mov",
+        "originalAudioFile": "interview.wav",
+        "createdAtISO8601": "2026-10-13T17:01:00Z",
+        "tracks": [
+          { "id": "host", "kind": "audio", "role": "voice_primary", "source": "usb-dji-receiver",
+            "file": "interview.wav", "channelIndex": 0, "sampleRateHz": 48000, "channelCount": 2, "startOffsetSeconds": -0.01 },
+          { "id": "guest", "kind": "audio", "role": "voice_guest", "source": "usb-dji-receiver",
+            "file": "interview.wav", "channelIndex": 1, "sampleRateHz": 48000, "channelCount": 2, "startOffsetSeconds": -0.01 }
+        ],
+        "muxedFromTrackIDs": []
+      }
+    },
+    {
+      "name": "silent-video-no-audio",
+      "manifest": {
+        "schemaVersion": 2,
+        "captureID": "example-silent-03",
+        "cameraSource": "meta-dat-hevc",
+        "audioSource": "none",
+        "originalVideoFile": "silent.mov",
+        "createdAtISO8601": "2026-10-13T17:02:00Z",
+        "tracks": [],
+        "muxedFromTrackIDs": []
+      }
+    }
+  ]
+}
