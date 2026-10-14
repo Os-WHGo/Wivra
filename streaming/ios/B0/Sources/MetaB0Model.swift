@@ -31,13 +31,14 @@ final class MetaB0Model {
     var recordingArmed = false
     var recordingFinishing = false
     var lastRecordedURL: URL?
-    var recordingStatus = "B1B experimental: audio Ray-Ban seleccionado, pista independiente y MOV integrado."
-    var captureGlassesAudio = true
+    var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
+    var captureSelectedAudio = true
     var lastSeparateAudioURL: URL?
     var lastCombinedVideoURL: URL?
     var lastAudioSyncOffsetSeconds: Double?
     var lastCaptureManifestURL: URL?
     var selectedAudioDeviceName: String?
+    var selectedAudioSourceKind: String?
     let audioRoute = WivraAudioRoute()
     private let audioSidecar = WivraAudioSidecar()
     private let clipRecorder = WivraHEVCRecorder()
@@ -63,7 +64,7 @@ final class MetaB0Model {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.recordingArmed,
-                      self.captureGlassesAudio, !self.audioRoute.hasSelectedRoute else { return }
+                      self.captureSelectedAudio, !self.audioRoute.hasSelectedRoute else { return }
                 self.recordingStatus = "Se perdió el micrófono seleccionado; cerrando la grabación."
                 await self.finishRecording()
             }
@@ -77,7 +78,10 @@ final class MetaB0Model {
     }
 
     var isRegistered: Bool { registrationState == .registered }
-    var canStartSession: Bool { isRegistered && sessionState == .idle }
+    var canStartSession: Bool {
+        isRegistered && sessionState == .idle &&
+            (!receiveCompressedHEVC || !captureSelectedAudio || audioRoute.hasSelectedRoute)
+    }
     var canStartPreview: Bool { sessionState == .started && camera == nil }
     var hasPreview: Bool { camera != nil && streamState != .stopped }
     var canRecord: Bool { receiveCompressedHEVC && camera != nil && framesReceived > 0 && !recordingFinishing }
@@ -91,9 +95,11 @@ final class MetaB0Model {
         lastAudioSyncOffsetSeconds = nil
         lastCaptureManifestURL = nil
         selectedAudioDeviceName = nil
-        if captureGlassesAudio {
+        selectedAudioSourceKind = nil
+        if captureSelectedAudio {
             do {
                 selectedAudioDeviceName = try audioRoute.activateSelectedInput()
+                selectedAudioSourceKind = audioRoute.selectedSource
                 try audioSidecar.start(verifiedSelectedRoute: audioRoute.hasSelectedRoute)
                 // Starting AVAudioEngine may itself change the iOS route.
                 if !audioRoute.hasSelectedRoute {
@@ -101,7 +107,7 @@ final class MetaB0Model {
                     throw WivraAudioRouteError.routeRejected
                 }
             } catch {
-                recordingStatus = "Audio Ray-Ban: " + error.localizedDescription
+                recordingStatus = "Entrada seleccionada: " + error.localizedDescription
                 return
             }
         }
@@ -111,8 +117,8 @@ final class MetaB0Model {
             return
         }
         recordingArmed = true
-        recordingStatus = captureGlassesAudio
-            ? "Grabando video HEVC y micrófono HFP en archivo separado."
+        recordingStatus = captureSelectedAudio
+            ? "Grabando video HEVC y entrada de audio seleccionada en archivo separado."
             : "Grabando solo video HEVC, sin audio."
     }
 
@@ -121,7 +127,7 @@ final class MetaB0Model {
         recordingArmed = false
         recordingFinishing = true
         let firstVideoClock = clipRecorder.firstVideoSampleUptime()
-        let wantedAudio = captureGlassesAudio
+        let wantedAudio = captureSelectedAudio
         var sound: WivraAudioResult?
         var soundError: String?
         if wantedAudio {
@@ -162,6 +168,7 @@ final class MetaB0Model {
                     mergedURL: lastCombinedVideoURL,
                     audioOffsetSeconds: lastAudioSyncOffsetSeconds,
                     audioPortName: selectedAudioDeviceName,
+                    audioSource: selectedAudioSourceKind ?? "unknown",
                     audioSampleRateHz: sound?.sampleRate,
                     audioChannelCount: sound?.channelCount
                 )
@@ -202,7 +209,10 @@ final class MetaB0Model {
     }
 
     func startSession() {
-        guard canStartSession else { return }
+        guard canStartSession else {
+            errorMessage = "Prepara la entrada de audio antes de iniciar la sesión de cámara."
+            return
+        }
         do {
             let newSession = try wearables.createSession(deviceSelector: selector)
             deviceSession = newSession
@@ -235,6 +245,10 @@ final class MetaB0Model {
 
     func requestPreview() async {
         guard canStartPreview else { return }
+        if receiveCompressedHEVC && captureSelectedAudio && !audioRoute.hasSelectedRoute {
+            errorMessage = "La entrada seleccionada no está activa. Finaliza la sesión y prepárala nuevamente."
+            return
+        }
         do {
             if try await wearables.checkPermissionStatus(.camera) == .granted {
                 beginPreview()
