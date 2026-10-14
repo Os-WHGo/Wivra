@@ -272,7 +272,8 @@ struct MetaB0Screen: View {
             NavigationStack {
                 WivraLiveNativeSceneLab(
                     cameraFrame: model.previewImage,
-                    cameraVerified: model.hasPreview && !model.receiveCompressedHEVC
+                    cameraVerified: model.hasPreview && !model.receiveCompressedHEVC,
+                    cameraLastFrameUptime: model.lastRawFrameUptime
                 )
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
