@@ -35,3 +35,17 @@ test('sin video principal, el audio que queda alarga la línea de tiempo y la ex
   assert.equal(totalDuration(s.project), 0); assert.equal(timelineEnd(s.project), 10);
   const ep = exportPlan(s.project); assert.equal(ep.total, 10); assert.deepEqual(ep.segments.map((x) => x.type), ['gap']);
 });
+
+import { fxAt } from '../../app/export.mjs';
+test('set_clip_fx: valida, deshace, y el corte reparte entrada/salida; fxAt da alpha/desplazamiento/escala', () => {
+  const s = mk(); assert.ok(s.apply([{ op: 'set_clip_fx', clip_id: 'c1', intro: 'fade', outro: 'zoom', dur: 1 }]).ok);
+  assert.deepEqual([s.project.clips[0].fxIn, s.project.clips[0].fxOut, s.project.clips[0].fxDur], ['fade', 'zoom', 1]);
+  for (const op of [{ intro: 'spin' }, { dur: 9 }, {}, { clip_id: 'zz', intro: 'fade' }]) assert.equal(s.apply([{ op: 'set_clip_fx', clip_id: 'c1', ...op }]).ok, false, JSON.stringify(op));
+  assert.ok(s.apply([{ op: 'split_clip', clip_id: 'c1', at: 5 }]).ok);
+  const [a, b] = s.project.clips; assert.deepEqual([a.fxIn, a.fxOut, b.fxIn, b.fxOut], ['fade', undefined, undefined, 'zoom']);
+  s.undo(); s.undo(); assert.equal(s.project.clips[0].fxIn, undefined);
+  const c = { start: 0, in: 0, out: 10, fxIn: 'fade', fxOut: 'slide', fxDur: 1 };
+  assert.equal(fxAt(c, 0).alpha, 0); assert.equal(fxAt(c, 0.5).alpha, 0.5); assert.equal(fxAt(c, 5).alpha, 1);
+  assert.equal(fxAt(c, 10).dx, 1); assert.equal(fxAt({ ...c, fxIn: 'zoom', fxOut: undefined }, 0).scale, 0.6);
+  assert.deepEqual(fxAt({ start: 0, in: 0, out: 4 }, 1), { alpha: 1, dx: 0, scale: 1 });
+});

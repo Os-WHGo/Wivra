@@ -82,3 +82,10 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Borrar un tramo**: borra de verdad, no solo silencia. En el video principal pregunta si quieres borrar todo o **solo la imagen y conservar el sonido** (queda negro con el audio en su sitio; se reproduce y se exporta).
 - **Tamaño del superpuesto con los dedos**: pellizco sobre el video o círculo amarillo en su esquina.
 - Estado: **implementado + pruebas automáticas (núcleo 44, app 41) + navegador simulado Chromium**. **No probado en iPhone.**
+
+## Agregar, efectos, mover con pulsación larga, audio quitado · 14-10-2026 (tarde-noche)
+- Botón **Agregar** en la barra de abajo: elige un video (va como capa encima, con tamaño y posición) o un audio (pista aparte), donde está la línea blanca.
+- **Efectos** (botón de la barra): al aparecer / al desaparecer = Fundido, Deslizar o Zoom, con duración de 0,1 a 3 s, para video principal y capas. Operación `set_clip_fx`; al cortar, la entrada queda en la primera parte y la salida en la última. Misma fórmula (`fxAt`) en la vista previa y en la exportación.
+- **Mover**: mantén el dedo ~0,3 s sobre cualquier bloque (audio, capa, video) y arrástralo; si ya está elegido, se arrastra directo.
+- **Quitar audio** de un tramo ahora silencia también la vista previa (antes solo se marcaba) y el tramo queda vacío con borde de puntos; «Poner audio» lo devuelve. Se quitaron los iconos de parlante dentro de los bloques; quedan los de la columna izquierda (por pista).
+- Estado: **implementado + pruebas automáticas (núcleo 45, app 41) + Chromium simulado**. **No probado en iPhone.** Transiciones entre dos clips (cruce) y «separar audio» aún no.

@@ -75,6 +75,20 @@ export function overlayAt(c, t) {
   return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
 }
 
+// Efectos de entrada/salida de un clip de video: devuelve cuánto se ve (alpha), cuánto está desplazado (dx, en anchos del cuadro) y su escala en el instante t.
+const ease = (p) => { const q = Math.max(0, Math.min(1, p)); return q * q * (3 - 2 * q); };
+export function fxAt(c, t) {
+  const o = { alpha: 1, dx: 0, scale: 1 }; if (!c || (!c.fxIn && !c.fxOut)) return o;
+  const len = c.out - c.in, rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
+  const apply = (kind, p, sign) => {
+    if (!kind || kind === 'none' || p >= 1) return; const e = ease(p);
+    if (kind === 'fade') o.alpha *= e; else if (kind === 'slide') o.dx += sign * (e - 1); else if (kind === 'zoom') { o.alpha *= e; o.scale *= 0.6 + 0.4 * e; }
+  };
+  apply(c.fxIn, rel / d, 1); apply(c.fxOut, (len - rel) / d, -1);
+  return o;
+}
+const withFx = (r, fx, W) => { const w = r.w * fx.scale, h = r.h * fx.scale; return { x: r.x + (r.w - w) / 2 + fx.dx * W, y: r.y + (r.h - h) / 2, w, h }; };
+
 export const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
 // Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
@@ -92,13 +106,14 @@ export function wrapLines(text, maxWidth, measure) {
 export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
-    const r = fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format));
-    try { g.drawImage(video, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ }
+    const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
+    const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
+    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(video, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
-    const r = overlayRect(o.c, W, H, el.videoWidth, el.videoHeight);
-    try { g.drawImage(el, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ }
+    const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
+    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(el, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';

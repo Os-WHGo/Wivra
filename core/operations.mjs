@@ -15,6 +15,7 @@ const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 // Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
+export const FX = ['none', 'fade', 'slide', 'zoom'];
 export const FORMATS = ['original', '9:16', '1:1', '4:5', '16:9'];
 export const FITS = ['cover', 'contain'];
 const overlayProblem = ({ track, x, y, scale }) => {
@@ -76,6 +77,17 @@ const handlers = {
     Object.assign(c, n);
     return { ok: true };
   },
+  set_clip_fx(p, { clip_id, intro, outro, dur }) {      // efecto al aparecer / desaparecer (video principal o superpuesto)
+    const c = [...(p.clips || []), ...(p.overlayClips || [])].find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip de video ${clip_id}`);
+    if (intro === undefined && outro === undefined && dur === undefined) return err('bad_fx', 'Indica intro, outro y/o dur');
+    for (const [k, v] of [['intro', intro], ['outro', outro]]) if (v !== undefined && !FX.includes(v)) return err('bad_fx', `${k} debe ser uno de ${FX.join(', ')}`);
+    if (dur !== undefined && !(num(dur) && dur >= 0.1 && dur <= 3)) return err('bad_fx', 'dur debe estar entre 0.1 y 3 s');
+    if (intro !== undefined) { if (intro === 'none') delete c.fxIn; else c.fxIn = intro; }
+    if (outro !== undefined) { if (outro === 'none') delete c.fxOut; else c.fxOut = outro; }
+    if (dur !== undefined) c.fxDur = dur;
+    return { ok: true };
+  },
   set_format(p, { aspect, fit }) {
     if (aspect === undefined && fit === undefined) return err('bad_format', 'Indica aspect y/o fit');
     if (aspect !== undefined && !FORMATS.includes(aspect)) return err('bad_format', `aspect debe ser uno de ${FORMATS.join(', ')}`);
@@ -103,6 +115,8 @@ const handlers = {
     for (const k of ['role', 'track', 'x', 'y', 'scale']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
+    if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera
+    if (c.fxDur !== undefined) right.fxDur = c.fxDur;
     c.out = at;
     p[grp].push(right);
     return { ok: true, id };
