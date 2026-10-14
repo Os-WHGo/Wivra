@@ -18,6 +18,7 @@ final class MetaB0Model {
     var sessionState: DeviceSessionState = .idle
     var streamState: StreamState = .stopped
     var previewImage: UIImage?
+    var lastRawFrameUptime: Double? // last real DAT RAW frame, not HEVC metadata
     var showCameraPermissionConfirm = false
     var errorMessage: String?
     var framesReceived = 0
@@ -367,6 +368,7 @@ final class MetaB0Model {
         if !receiveCompressedHEVC && image == nil { return }
         if let image {
             previewImage = image
+            lastRawFrameUptime = ProcessInfo.processInfo.systemUptime
             frameWidth = Int(image.size.width * image.scale)
             frameHeight = Int(image.size.height * image.scale)
         } else {
@@ -425,6 +427,7 @@ final class MetaB0Model {
         streamTokens.clear()
         camera = nil
         previewImage = nil
+        lastRawFrameUptime = nil
         firstFrameTime = nil
         lastCountTime = nil
         framesThisSecond = 0
