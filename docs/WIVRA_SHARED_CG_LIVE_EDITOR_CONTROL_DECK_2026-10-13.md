@@ -132,3 +132,8 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 4. Pruebas: crear meme/tarjeta una sola vez → lanzar en LIVE (cuando disponible) → reutilizar mismo archivo en Editor → export mismo diseño; retirar LIVE instantáneo; mostrar video reacción PiP; memoria/latencia/offline sin duplicación ni cobro. No avanzar con CGI complejo, VR, generadores de avatar 3D ni IA generativa en directo.
 
 **No merger a main sin aprobación.** No actualizar prioridades hacia hardware refrigerador, monetización tours o catálogo viral externo por recomendaciones de investigación.
+
+
+## 8. Más usados y Alertas
+
+Una sola biblioteca de memes, imágenes, videos y CG debe ofrecer Favoritos, Recientes, Más usados y Sugerencias útiles tanto en Editor como en LIVE. Contar usos efectivos y mantener estadísticas en el teléfono. Las alertas de LIVE se diseñan en Wivra: manuales por un toque o automáticas a partir de eventos autorizados de plataformas. La stream key RTMP no entrega followers ni comentarios; los conectores OAuth/API son independientes. Detalles, seguridad y pruebas: [WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md).
