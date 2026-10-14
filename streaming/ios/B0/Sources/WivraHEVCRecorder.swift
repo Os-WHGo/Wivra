@@ -6,6 +6,7 @@
 import AVFoundation
 import CoreMedia
 import Foundation
+import QuartzCore
 
 enum WivraRecordingResult: Sendable {
     case saved(URL, frames: Int, dropped: Int)
@@ -24,6 +25,10 @@ final class WivraHEVCRecorder: @unchecked Sendable {
     private var finalizing = false
     private var sourceStartTime: CMTime?
     private var previousDTS: CMTime?
+    private var videoStartUptime: Double?
+    func firstVideoSampleUptime() -> Double? {
+        queue.sync { videoStartUptime }
+    }
     private var appendedCount = 0
     private var droppedCount = 0
     private let defaultFrameDuration = CMTime(value: 1, timescale: 24)
@@ -34,6 +39,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
             armed = true
             sourceStartTime = nil
             previousDTS = nil
+            videoStartUptime = nil
             appendedCount = 0
             droppedCount = 0
             return true
@@ -66,6 +72,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                     }
                     assetWriter.startSession(atSourceTime: .zero)
                     writer = assetWriter
+                    videoStartUptime = CACurrentMediaTime()
                     videoInput = input
                     fileURL = url
                 } catch {
@@ -171,6 +178,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
         finalizing = false
         sourceStartTime = nil
         previousDTS = nil
+        videoStartUptime = nil
     }
 
     private static func recordingsDirectory() throws -> URL {
