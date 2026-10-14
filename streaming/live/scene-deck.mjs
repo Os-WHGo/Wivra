@@ -145,8 +145,8 @@ export function observeEncoder(state, status, evidence, atMs) {
     fail('Unknown transport status.');
   if (!['encoder-ack','encoder-stopped','encoder-error'].includes(evidence))
     fail('Transport state requires real encoder acknowledgement.');
-  if (status === 'live' && evidence !== 'encoder-ack')
-    fail('Cannot claim LIVE without encoder acknowledgement.');
+  if ((status === 'live' || status === 'ready') && evidence !== 'encoder-ack')
+    fail('Cannot claim LIVE/READY without encoder acknowledgement.');
   if ((status === 'offline' || status === 'stopped') && evidence !== 'encoder-stopped')
     fail('Encoder stop requires stop confirmation.');
   if (status === 'failed' && evidence !== 'encoder-error')
