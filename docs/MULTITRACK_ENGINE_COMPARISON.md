@@ -27,9 +27,26 @@ Diffusion Studio y MediaBunny (MPL-2.0 en una nota anterior): **NV**, volver a v
 3. **OpenReel solo como referencia** (MIT) para ideas de audio; no se adopta.
 4. **Nativo (F)** sigue abierto como decisión del propietario; si se elige, esta comparación se rehace.
 
+## Resultado de la prueba en un iPhone real (14-10-2026) · **V** (medido por el propietario con `app/probe.html`)
+
+Dispositivo: iPhone con iOS 27, navegador Chrome para iOS (usa el motor WebKit de Apple).
+
+| Medición | Resultado |
+|---|---|
+| WebCodecs (decodificador/codificador de video y audio) | **Existen** |
+| Codificación de video soportada (`isConfigSupported`) | H.264 sí · HEVC sí · VP9 sí · **AV1 no** |
+| Codificación de audio | AAC sí · Opus sí |
+| MediaRecorder | MP4 (H.264+AAC) sí · WebM (VP9+Opus) sí |
+| WebGL2 / WebGPU / OffscreenCanvas | existen |
+| **2 videos a la vez** (uno de 1936×2576, 45 MB, y otro de 474×850), dibujados en un lienzo ~4 s | Los dos avanzaron (3,69 s y 3,94 s de ~4 s) · **60 fotogramas/s** · peor tirón **29 ms** · se grabó el lienzo con las 2 capas (3,66 MB) |
+
+Lectura (recomendación, no decisión): el motor propio **sí aguanta 2 capas de video simultáneas** en este iPhone, incluso con un video grande. Que WebCodecs exista y codifique H.264/HEVC abre la puerta a exportar más rápido que en tiempo real más adelante, pero **eso no se ha probado**: solo se comprobó que la configuración es soportada.
+
+Límites de esta prueba: duró ~4 s; esa grabación no llevaba audio; no mide calentamiento del teléfono en videos largos; no prueba la exportación completa con 2 capas ni con audio mezclado; un solo teléfono.
+
 ## Qué NO está probado
 
-- Dos capas de video simultáneas en iPhone real (lo mide la prueba).
+- Dos capas de video durante varios minutos o en la exportación completa con audio (la prueba corta de 4 s sí pasó).
 - Audio de volumen en iPhone Safari: el volumen del elemento `<video>` lo ignora iOS (fuente no verificada); en la **exportación** el volumen sí funciona (lo confirmó el propietario).
 - Decodificar HEVC/.mov/CAF en Safari para importar capturas.
 
