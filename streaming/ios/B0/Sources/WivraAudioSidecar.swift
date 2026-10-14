@@ -9,6 +9,7 @@ struct WivraAudioResult: Sendable {
     let firstSampleUptime: Double
     let frames: Int64
     let sampleRate: Double
+    let channelCount: Int
 }
 
 enum WivraAudioError: LocalizedError {
@@ -30,10 +31,12 @@ private final class WivraAudioFileSink: @unchecked Sendable {
     private var startTime: Double?
     private var count: Int64 = 0
     let sampleRate: Double
+    let channelCount: Int
 
-    init(file: AVAudioFile, sampleRate: Double) {
+    init(file: AVAudioFile, sampleRate: Double, channelCount: Int) {
         self.file = file
         self.sampleRate = sampleRate
+        self.channelCount = channelCount
     }
     func append(_ buffer: AVAudioPCMBuffer) {
         lock.lock()
@@ -78,7 +81,8 @@ final class WivraAudioSidecar {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let fileURL = folder.appendingPathComponent("Wivra_Audio_" + UUID().uuidString + ".caf")
         let audioFile = try AVAudioFile(forWriting: fileURL, settings: format.settings)
-        let fileSink = WivraAudioFileSink(file: audioFile, sampleRate: format.sampleRate)
+        let fileSink = WivraAudioFileSink(file: audioFile, sampleRate: format.sampleRate,
+                                            channelCount: Int(format.channelCount))
         // Install the tap only after explicit microphone consent and route check.
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
             fileSink.append(buffer)
@@ -115,6 +119,7 @@ final class WivraAudioSidecar {
             throw WivraAudioError.noFrames
         }
         return WivraAudioResult(url: destination, firstSampleUptime: first,
-                                frames: count, sampleRate: fileSink.sampleRate)
+                                frames: count, sampleRate: fileSink.sampleRate,
+                                channelCount: fileSink.channelCount)
     }
 }
