@@ -95,6 +95,11 @@ final class MetaB0Model {
             do {
                 selectedAudioDeviceName = try audioRoute.activateSelectedInput()
                 try audioSidecar.start(verifiedSelectedRoute: audioRoute.hasSelectedRoute)
+                // Starting AVAudioEngine may itself change the iOS route.
+                if !audioRoute.hasSelectedRoute {
+                    _ = try? audioSidecar.finish()
+                    throw WivraAudioRouteError.routeRejected
+                }
             } catch {
                 recordingStatus = "Audio Ray-Ban: " + error.localizedDescription
                 return
