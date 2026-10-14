@@ -137,3 +137,8 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 ## 8. Más usados y Alertas
 
 Una sola biblioteca de memes, imágenes, videos y CG debe ofrecer Favoritos, Recientes, Más usados y Sugerencias útiles tanto en Editor como en LIVE. Contar usos efectivos y mantener estadísticas en el teléfono. Las alertas de LIVE se diseñan en Wivra: manuales por un toque o automáticas a partir de eventos autorizados de plataformas. La stream key RTMP no entrega followers ni comentarios; los conectores OAuth/API son independientes. Detalles, seguridad y pruebas: [WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md](./WIVRA_SHARED_ASSET_FAVORITES_SUGGESTIONS_LIVE_ALERTS_2026-10-13.md).
+
+
+## 9. Importación y reutilización de diseños propios
+
+Nueva preferencia: junto al catálogo base aproximado de 300 presets/recursos livianos y packs gratis opcionales, ofrecer `Mis diseños` accesible desde LIVE y Editor. Se importarán gráficos/archivos con permisos del usuario (PNG transparente/JPEG/video), se podrán personalizar composiciones Wivra (texto/tamaño/color/animaciones 2D) y guardar como plantillas compartidas; los PNG planos no se transforman automáticamente en documentos multicapa. Intercambio por archivo de plantilla/pack versionado, NO ejecución de HTML/JS remotos ni subida automática. Vista móvil 9:16 y salida horizontal 16:9 para TV, con safe areas, anclas y crop. Especificación: [WIVRA_MOBILE_FIRST_LIBRARY_300_AND_USER_DESIGN_IMPORT_2026-10-13.md](./WIVRA_MOBILE_FIRST_LIBRARY_300_AND_USER_DESIGN_IMPORT_2026-10-13.md).
