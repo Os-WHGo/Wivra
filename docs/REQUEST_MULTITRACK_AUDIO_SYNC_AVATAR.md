@@ -48,3 +48,20 @@
 
 - Que el contrato de fuentes de cámara (#41) pueda entregar a la vez **dos videos con hora** (punto 5) y una fuente para el avatar (punto 6).
 - Licencias de cualquier pieza propuesta (chroma key, seguimiento de cara, sincronización): anotar y verificar.
+
+---
+
+## Actualización 13-10-2026 (noche) · pedidos nuevos del propietario, tras probar el audio por clip en su iPhone
+
+El propietario confirmó que **silenciar/volumen por clip funciona** (probado por él; la exportación con el audio silenciado también). Pidió, además:
+
+| # | Pedido | Estado |
+|---|---|---|
+| A | Ver la **pista de audio debajo del video** (como otros editores) con un **parlante** al lado para silenciar/activar | **Implementado y probado en navegador simulado** (pista verde bajo cada clip; tocar 🔊/🔇). Pendiente: probar en iPhone. La forma de onda real no está: hoy son barras decorativas |
+| B | Debajo de las pistas, botón para **agregar otra pista** (video, audio o un segundo audio) | **Idea.** Requiere `track` en el modelo (ver tabla de arriba, punto 3) |
+| C | **Grabar con el micrófono mientras edita** (locución) | **Idea.** `getUserMedia` + MediaRecorder; permiso de micrófono; crea una pista de audio nueva. Safari: sin verificar |
+| D | La **IA controla y edita**; el editor manual es una opción visible con todo (Director incluido) | Ya es la dirección actual (IA propone, validador aplica; edición manual completa). Falta unificar Director + chat |
+| E | **Efectos y transiciones** | **Idea.** Transición = modelo de capas/solapes entre clips + exportación; se hace después de las pistas |
+| F | **Avatar y CG** (gráficos en pantalla) en edición **y** en transmisión en vivo | **Idea.** CG de edición (rótulos, logos) puede venir antes; la transmisión en vivo es del trabajo de ChatGPT: el contrato de capas debería ser el mismo |
+
+Orden sugerido: modelo de pistas (B) → micrófono (C) → transiciones/efectos (E) → CG y avatar (F). Decide el propietario. — Claude
