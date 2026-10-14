@@ -45,7 +45,7 @@ struct MetaB0Screen: View {
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
-                Text("Vista previa B0 y grabación HEVC B1A experimental. Todavía no graba audio ni transmite LIVE.")
+                Text("B0 vista previa. B1B experimental: video HEVC + micrófono Bluetooth confirmado. Sin LIVE.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -133,6 +133,34 @@ struct MetaB0Screen: View {
 
                 if model.receiveCompressedHEVC {
                     VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Grabar audio desde las Ray-Ban", isOn: $model.captureGlassesAudio)
+                            .disabled(model.recordingArmed || model.recordingFinishing)
+                            .accessibilityIdentifier("meta_b1b_audio_enabled")
+                        if model.captureGlassesAudio {
+                            Button("Buscar micrófonos Bluetooth HFP") {
+                                Task { await model.audioRoute.discover() }
+                            }
+                            .disabled(model.recordingArmed || model.recordingFinishing)
+                            Picker("Micrófono seleccionado", selection: Binding(
+                                get: { model.audioRoute.selectedUID },
+                                set: { model.audioRoute.selectedUID = $0 }
+                            )) {
+                                Text("Elegir micrófono").tag("")
+                                ForEach(model.audioRoute.ports) { port in
+                                    Text(port.name).tag(port.id)
+                                }
+                            }
+                            .disabled(model.recordingArmed || model.recordingFinishing)
+                            Text(model.audioRoute.status)
+                                .font(.footnote)
+                            Text("El micrófono debe aparecer realmente conectado. Wivra no usará el del teléfono sin autorización.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Label("Destino: pista CAF independiente + MOV con audio",
+                                  systemImage: "waveform")
+                                .font(.caption)
+                        }
+
                         HStack {
                             Button(model.recordingArmed ? "Detener y guardar MOV" : "Grabar HEVC") {
                                 if model.recordingArmed {
@@ -145,7 +173,8 @@ struct MetaB0Screen: View {
                             .buttonStyle(.borderedProminent)
                             .accessibilityIdentifier("meta_b1_record")
                             if model.recordingArmed {
-                                Label("REC · video sin sonido", systemImage: "record.circle.fill")
+                                Label(model.captureGlassesAudio ? "REC · video + audio" : "REC · solo video",
+                                      systemImage: "record.circle.fill")
                                     .foregroundStyle(.red)
                             }
                         }
@@ -153,6 +182,24 @@ struct MetaB0Screen: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("meta_b1_recording_status")
+                        if let audioURL = model.lastSeparateAudioURL {
+                            ShareLink(item: audioURL) {
+                                Label("Compartir pista de audio independiente (CAF)",
+                                      systemImage: "waveform")
+                            }
+                            .accessibilityIdentifier("meta_b1b_share_audio")
+                        }
+                        if let combinedURL = model.lastCombinedVideoURL {
+                            ShareLink(item: combinedURL) {
+                                Label("Compartir MOV con audio integrado",
+                                      systemImage: "square.and.arrow.up")
+                            }
+                            .accessibilityIdentifier("meta_b1b_share_muxed")
+                        }
+                        if let offset = model.lastAudioSyncOffsetSeconds {
+                            Text(String(format: "Desfase inicial medido: %.3f s", offset))
+                                .font(.caption.monospacedDigit())
+                        }
                         if let url = model.lastRecordedURL {
                             ShareLink(item: url) {
                                 Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
@@ -182,7 +229,7 @@ struct MetaB0Screen: View {
                         .foregroundStyle(.red)
                 }
 
-                Text("Mantén Wivra en primer plano. B1A guarda solo video, sin audio, y no garantiza grabaciones largas. No uses el modo experimental en situaciones donde perder una toma sea importante. Respeta los avisos térmicos de Meta.")
+                Text("Mantén Wivra en primer plano. B1B es experimental: comprueba pista original, audio CAF y video integrado con auriculares. La sincronía y duración real todavía requieren gafas físicas. Respeta alertas térmicas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
