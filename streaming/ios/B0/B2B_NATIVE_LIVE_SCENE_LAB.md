@@ -5,7 +5,7 @@ ESTADO: Código SwiftUI de PREVIEW/PROGRAMA LOCAL, sin RTMP, encoder ni composic
 ## Código desarrollado
 - streaming/ios/B0/Sources/WivraLiveNativeSceneLab.swift: sheet accesible desde MetaB0Screen por botón B2B Abrir laboratorio LIVE.
 - Tres presets: news (CG prueba sin cámara), walk (DAT RAW cámara), walk-title (DAT RAW + CG original).
-- La fuente de cámara solo se muestra si model.hasPreview, !model.receiveCompressedHEVC y model.previewImage != nil. Permisos/cámara los maneja exclusivamente B0.
+- La fuente de cámara solo se muestra si model.hasPreview, !model.receiveCompressedHEVC, model.previewImage != nil Y el último fotograma RAW llegó hace menos de 2,5 segundos según uptime monotónico (umbral prototipo). Permisos/cámara los maneja exclusivamente B0. El timestamp se limpia al detener B0.
 - Botones PREPARAR y PASAR A PROGRAMA: validan cámara al preparar y antes del cambio real. El deck de atajos solo prepara, no provoca publicación.
 - Registro de cambios scene-preview / scene-take con uptime en ms y export voluntario de JSON wivra-live-edit-log-v1 con mediaRecorded:false y encoderValidated:false.
 - streaming/live/b2b-native-lab-fixtures.json contiene 3 escenas del esquema JS B2; streaming/tests/live-b2b-native-lab-source.test.mjs comprueba IDs y puertas de cámara.
@@ -15,7 +15,7 @@ ESTADO: Código SwiftUI de PREVIEW/PROGRAMA LOCAL, sin RTMP, encoder ni composic
 - RAW permite UIImage para mostrar preview. Grabación .hvc1 actual NO tiene decoder visual en este panel; NO hay RAW + HEVC simultáneo asumido.
 - Sin reproducción real de memes/clip insertado, sin audio mix, sin codificación H.264/AAC, sin RTMP(S), sin multistream y sin biblioteca descargable implementada.
 - El cue sheet no está unido todavía a un proyecto editado ni a reloj PTS de media; es registro de controles de ensayo.
-- Si previewImage queda retenida aunque el stream se detenga, requiere vigilancia de frescura del frame. El gating actual depende de estado RAW de B0 y presencia de UIImage.
+- Ya se añadió lastRawFrameUptime en MetaB0Model y fail-closed por antigüedad >2,5 s antes de PREPARAR/TAKE; aún faltan ensayos reales ante stalling para escoger umbral, y vigilar la UI en intervalos regulares cuando no hay actualizaciones.
 
 ## Prueba de aceptación
 1. Compilar por XcodeGen y Xcode iOS Simulator/ dispositivo ARM64 sin firma; no dar por válido hasta obtener build real de la rama.
@@ -27,6 +27,6 @@ ESTADO: Código SwiftUI de PREVIEW/PROGRAMA LOCAL, sin RTMP, encoder ni composic
 7. Comparar fps y batería con lab abierto y cerrado; revisar VoiceOver, safe areas y UI en iPhone pequeño.
 
 ## B2C siguiente
-Conectar un adaptador de frame timing real y watchdog; AssetManager local y bibliotecas compartidas; compositor Metal/AVFoundation con CG 2D y layouts PiP; mezcla de audio; encoder/publisher RTMP(S) verificado y opcional grabación. Hardware/streaming se validan en dispositivo real antes de anunciarse.
+Vincular PTS real y watchdog medido en hardware para reemplazar umbral provisional; AssetManager local y bibliotecas compartidas; compositor Metal/AVFoundation con CG 2D y layouts PiP; mezcla de audio; encoder/publisher RTMP(S) verificado y opcional grabación. Hardware/streaming se validan en dispositivo real antes de anunciarse.
 
 Roles: ChatGPT captura/LIVE, Claude Editor, Meta AI hardware solo Google Drive. No merge en main sin aprobación.
