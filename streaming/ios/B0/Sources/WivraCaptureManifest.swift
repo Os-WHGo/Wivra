@@ -94,13 +94,14 @@ struct WivraCaptureManifest: Codable {
     // Do not invent DJI tracks or a second HFP backup on the USB route.
     static func write(videoURL: URL, audioURL: URL?,
                       mergedURL: URL?, audioOffsetSeconds: Double?,
-                      audioPortName: String?, audioSampleRateHz: Double? = nil,
+                      audioPortName: String?, audioSource: String = "ios-bluetooth-hfp",
+                      audioSampleRateHz: Double? = nil,
                       audioChannelCount: Int? = nil) throws -> URL {
         let tracks: [WivraCaptureTrack]
         if let audioURL {
             tracks = [WivraCaptureTrack(
                 id: "audio-1", kind: "audio", role: "voice_primary",
-                source: "ios-bluetooth-hfp", file: audioURL.lastPathComponent,
+                source: audioSource, file: audioURL.lastPathComponent,
                 channelIndex: nil, sampleRateHz: audioSampleRateHz,
                 channelCount: audioChannelCount, inputName: audioPortName,
                 startOffsetSeconds: audioOffsetSeconds
