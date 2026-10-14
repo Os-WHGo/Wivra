@@ -1383,6 +1383,11 @@ function showFrame() {
 }
 function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
 function syncScroll() { if (session) wrap().scrollLeft = tlTime * pps; labels(); }
+// Si tocas la barra mientras suena, se pausa: si no, la reproducción y tu dedo pelean por la posición y tiembla.
+const grabTimeline = () => { if (playing) stopPlay(); };
+wrap().addEventListener('touchstart', grabTimeline, { passive: true });
+wrap().addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') grabTimeline(); }, { passive: true });
+wrap().addEventListener('wheel', grabTimeline, { passive: true });
 wrap().addEventListener('scroll', () => {
   if (!session || playing) return;
   const t = Math.max(0, Math.min(wrap().scrollLeft / pps, totalDuration(session.project)));
