@@ -81,3 +81,49 @@ Acciones ofrecidas como operaciones de editor normales, previsualizables y rever
 **Referencias internas:** [Plan maestro](./WIVRA_MASTER_PRODUCT_EDITOR_AI_CAPTURE_LIVE_2026-10-13.md) · [Decisión editor offline](./WIVRA_DECISION_EDITOR_MULTITRACK_OFFLINE_FREE_2026-10-13.md) · [Controles audio](./WIVRA_AUDIO_TRACK_CONTROLS_AND_FREE_EFFECTS_AUDIT_2026-10-13.md). Las capturas de CapCut permanecen en la conversación, NO se han transferido a GitHub.
 
 — ChatGPT
+
+
+## 6. NUEVA DECISIÓN: alcance de filtros/transiciones y fundidos con superposición acotada
+
+**Aclaración expresa del propietario (octubre de 2026):** al seleccionar una pista/clip, ofrecer aplicación de filtro/efecto a la pieza seleccionada **o a todas las capas visibles**, y permitir aplicar transiciones individualmente o a todos los cortes compatibles. Los fundidos entre videos deben limitarse al intervalo de transición definido; **dos videos superpuestos libremente/translúcidos durante más tiempo son otro modo y requieren intención explícita**. El editor debe ofrecer controles para elegir tipo y duración de transición, sin extender accidentalmente clips ni aplicar efectos sobre material ajeno.
+
+### 6.1 Alcance visible en un panel, sin confundir clip, escena y composición
+Opciones de alcance:
+
+| Selección | Interpretación real | Efecto en composición |
+|---|---|---|
+| `selected_clip` (predeterminada cuando selecciono clip) | Solo video V1/V2/etc. elegido, intervalo del clip | Efecto previo a componer capas, no altera V2+ ni los vecinos |
+| `selected_track` | Todos los segmentos de esa pista en intervalo solicitado | Configuración/preset sobre una pista, sin afectar el resto |
+| `scene_composite` | Todas las capas VISIBLES que conforman una escena/intervalo definido entre cortes en video base o rango seleccionado | Aplicar efecto a imagen final compuesta de la escena; mantiene relaciones entre capas |
+| `time_range_composite` | Todas las capas visibles entre `t0,t1`, sin reconfigurar clips individualmente | Nodo global **post-composición**, con orden de render claro; sin multiplicar el efecto sobre cada fuente |
+| `all_compatible_cuts` | Para transiciones: replicar el preset sobre cortes compatibles de la pista/escenas seleccionadas | Solo lugares técnicamente válidos, preview de cuántas uniones serán afectadas y undo agrupado |
+
+**No aplicar cualquier transición "a todas las capas" como si cada pista tuviera el mismo corte.** Para un corte de escena completa con V1+V2+, proporcionar `transitionScope = base_track` (solo transición entre tomas V1, overlays persisten) o `transitionScope = scene_composite` (transición entre **dos composiciones** a izquierda y derecha, con decisión explícita de qué overlays entran en cada una). Las capas que cruzan el corte pueden permanecer estables mientras se mezclan escenas, o entrar en la transición si el usuario lo elige. Mostrar previsualización para evitar parpadeos, duplicación aparente o cambios inesperados de transparencia.
+
+### 6.2 Selección de transiciones y límites
+- Al tocar **la unión real entre dos clips** (o elegir dos clips contiguos): menú `Tipo de transición`, `Duración`, `Alcance`, `Reproducir preview`, `Aplicar a todos los cortes compatibles` (acción separada, con confirmación de número).
+- Predeterminado: `cut` (sin mezcla) cuando no haya transición; al elegir `crossfade` o similar se genera un **intervalo finito** `[start,end)`. Duración configurable por usuario, con valor inicial breve por decidir en UI y **capada por la disponibilidad real de fotogramas** a ambos lados (`handles`, velocidad del clip, y estructura de timeline). No ampliar solapamiento fuera de ventana ni mover otras pistas silenciosamente. Si falta margen de material o no cabe, reducir con aviso explícito o deshabilitar alternativa, jamás congelar frame/hacer loop de forma oculta.
+- Un crossfade significa que ambas tomas se muestrean/mezclan SOLO durante la ventana elegida, `alphaA = 1 - progress`, `alphaB = progress` (según pipeline gamma/color/alpha correcto); fuera de la ventana, solo A o B. En un punto de corte sin handles disponibles, no puede fingirse una disolución usando fotogramas ajenos; ofrecer reducir duración o corte limpio.
+- Video base V1 no debe extenderse inexplicablemente, crear saltos o dejar negros. El cálculo de tiempo de proyecto/salida y deslizamiento de clips debe ser explícito al usuario si el motor precisa consumir tiempo. **Preferir transición que preserve duración global** mediante manejo claro de handles, siempre que sea posible.
+- Los filtros/efectos temporales se pueden asignar a cada clip o a la composición global; el usuario define duración e intensidad; efecto de escena puede guardarse como layer/adjustment track sobre las capas sin afectar archivos originales.
+
+### 6.3 Superposición explícita vs fundido entre clips
+- **Modo Transición (predeterminado):** dos tomas se combinan ópticamente durante ventana limitada, sin crear por defecto una pista V2 persistente para la toma entrante. UI muestra tramo de unión (p.ej. símbolo entre clips) y su duración.
+- **Modo Superposición (opt-in):** usuario coloca V2 sobre V1 deliberadamente, indica inicio/fin, tamaño/transformación y opacidad/curvas/alpha independientes. Aquí pueden verse ambas tomas simultáneamente durante minutos si el usuario lo quiere; no confundir con crossfade automático.
+- Si un V2 ya existente atraviesa la transición V1: conservar las opciones anteriores **Mantener / Terminar antes / Ocultar y reaparecer / Fade V2**, con aviso no bloqueante. La elección de `scene_composite` debe solicitar una vista previa y evitar que un overlay persistente entre por duplicado en las dos composiciones.
+- Si usuario aplica un filtro "a todas las capas" y existe una superposición, renderizar **una sola vez sobre salida combinada** cuando se eligió `time_range_composite` o `scene_composite`, respetando máscaras, alpha y orden de efectos.
+
+### 6.4 Casos de aceptación (motor + UX de Claude)
+1. `V1:A 0–10s → B 10–20s`, `V2:P 8–13s`. Aplicar filtro a A solo: V2 sin color alterado. Aplicar a escena [8,13): V1+V2 muestran filtro uniforme, preview = export.
+2. Elegir transición crossfade en corte V1 a t=10 con duración 0.4s y handles adecuados: solo se ve mezcla A+B en ventana de 0.4s; nunca se duplica V1 como overlay indefinido. Usar deslizamiento y otro preset, verificar duración, audio, composición y export.
+3. Falta de fotogramas de margen: motor no introduce fotogramas congelados/negros ocultamente; UI ofrece duración válida o corte limpio, explicación clara y undo.
+4. Elegir `scene_composite` con V2 que cruza t=10: poder mantener V2 continuo o incluirlo en cambio de escena; no oscurecerlo dos veces ni duplicarlo. Aviso de intersección no bloqueante. Undo/redo restaura capa y transición.
+5. Elegir `all_compatible_cuts`: muestra cantidad de uniones y rangos compatibles; aplica solo válidos, indica omitidos y deshace todos los cambios como una sola acción. Edición manual posterior por unión sigue permitida.
+6. Crear manualmente dos videos superpuestos V1+V2 por 5s con opacidad V2 35%: **no es una transición** ni tiene límite artificial de 0.5s. Mantener V2 sólo durante ese intervalo y reflejar opacidad real en export.
+7. Todo trabaja offline para clips/filtros/transiciones incluidos, se guarda y recupera proyecto, conserva originales y puede editarse sin IA. Probar realmente en iPhone y con clips HEVC/MOV, no dar por validado por una pantalla de ejemplo.
+
+### 6.5 Investigación Meta AI llegada al repositorio de conocimiento
+Antes de este cambio se revisó la carpeta de Meta AI y el nuevo documento [RESEARCH-Editor-Efectos-OpenSource-Liviano]([enlace retirado]), que propone Core Image, Harbeth MIT, shader GLSL y packs opcionales. **Hallazgos que sí pudieron verificarse mediante GitHub:** `yangKJ/Harbeth` existe y tiene licencia MIT. **Cifras no verificadas:** 300 efectos locales listos, 1000+ transiciones, estimaciones en MB/4K FPS, facilidad de portar GLSL→Metal y peso total de la app. La fuente `wess/Free-LUTs` citada **no se localizó** bajo ese nombre (404 en GitHub), por lo que NO incluir ningún LUT de ese supuesto repo. iOS Core Image/Harbeth no son automáticamente plug-ins del actual editor web de Claude y su integración debe esperar selección de motor y prueba de export. No adoptar estimaciones o recomendaciones como requisitos.
+
+**Prioridad:** primero funcionalidad real del motor multipista y export en iPhone, después controles de efectos y transiciones con alcance, siempre gratis, ligeros y offline. Claude conserva propiedad de `app/`/`core/`, ChatGPT no implementa el editor en su rama. Ningún merge a `main` sin aprobación.
+
