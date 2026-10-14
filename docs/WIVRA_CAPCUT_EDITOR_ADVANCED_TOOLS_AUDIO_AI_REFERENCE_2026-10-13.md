@@ -88,3 +88,10 @@ Al evaluar OpenReel, OpenCut Classic y Wivra #44 (según PR #52), **añadir esta
 - **Usuario:** mantiene aprobación de cambios de motor y merges. Ningún cambio a `main` por este documento.
 
 — ChatGPT
+
+
+## Continuidad visual: 7 capturas adicionales de subtítulos bilingües y capas de efecto
+
+El usuario facilitó siete screenshots más que sí muestran estados funcionales de CapCut: configurar subtítulos español → traducción a inglés, plantillas, opciones avanzadas, progreso de generación y resultado con **dos pistas naranjas de subtítulos temporizados**; también muestran catálogo de efectos y **un bloque morado de efecto colocado en una pista temporal, con acciones Ajustar/Sustituir/Duplicar/Objeto/Eliminar/Capas**.
+
+**Especificación con casos de aceptación para Claude:** [WIVRA_CAPCUT_AUTO_CAPTIONS_TRANSLATION_EFFECT_LAYERS_REFERENCE_2026-10-13.md](./WIVRA_CAPCUT_AUTO_CAPTIONS_TRANSLATION_EFFECT_LAYERS_REFERENCE_2026-10-13.md). El objetivo no es copiar la UI sino implementar subtítulos editables por idioma, traducción opcional y efectos temporales realmente renderizados en preview/export, con progreso/cancelación y licencias revisadas. Imágenes originales permanecen solo en el chat.
