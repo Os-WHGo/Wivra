@@ -31,10 +31,14 @@
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
   #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
   #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
-  #tlinner { position:relative; height:134px; }
+  #tlinner { position:relative; height:168px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
-  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #ttrack { top:94px; height:30px; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #ttrack { top:128px; height:30px; }
+  .ablk { background:#1c3a33; border-color:#2f6b5c; cursor:pointer; }
+  .ablk::before { content:''; position:absolute; inset:5px 0 5px 28px; background:repeating-linear-gradient(90deg,#5fd3b0 0 2px,transparent 2px 5px); opacity:.55; -webkit-mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); pointer-events:none; }
+  .ablk.off { background:#2a2d34; border-color:#3a4150; } .ablk.off::before { opacity:.12; }
+  .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
   .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
   .blk.sel { border-color:var(--sel); } .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
   .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
@@ -78,7 +82,7 @@
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
-<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
   <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
@@ -1433,7 +1437,7 @@ wrap().addEventListener('scroll', () => {
 }, { passive: true });
 function renderTimeline() {
   const p = session?.project, inner = $('tlinner'), L = padL();
-  $('vtrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
+  $('vtrack').replaceChildren(); $('atrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
   if (!p) { labels(); return; }
   const tot = totalDuration(p);
   inner.style.width = (L * 2 + tot * pps) + 'px';
@@ -1452,6 +1456,11 @@ function renderTimeline() {
     const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
+    // Pista de audio del clip: se ve debajo del video; el parlante lo silencia o lo activa.
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel' : ''); ab.dataset.id = c.id;
+    ab.style.left = b.style.left; ab.style.width = b.style.width;
+    const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', c.muted ? 'Activar audio de este clip' : 'Silenciar audio de este clip'); ab.appendChild(sp);
+    $('atrack').appendChild(ab);
   }
   for (const t of p.texts) {
     const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
@@ -1459,6 +1468,8 @@ function renderTimeline() {
   labels();
 }
 $('tlinner').addEventListener('click', (e) => {
+  const sp = e.target.closest('.spk');
+  if (sp) { const c = session.project.clips.find(k => k.id === sp.dataset.id); if (!c) return; const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else previewAudio(session.project.clips.find(k => k.id === c.id)); return; }
   const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
   selId = selId === b.dataset.id ? null : b.dataset.id; render();
 });
