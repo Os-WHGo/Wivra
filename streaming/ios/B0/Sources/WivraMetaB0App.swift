@@ -10,6 +10,7 @@ struct WivraMetaB0App: App {
     @State private var captureTab: WivraCaptureTab = .meta
     @State private var pendingCaptureTab: WivraCaptureTab?
     @State private var iPhoneCamera = WivraIPhoneCamera()
+    @State private var showingCaptureLibrary = false
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
     // to the destination until the current camera has released AVFoundation
@@ -62,6 +63,23 @@ struct WivraMetaB0App: App {
                 WivraIPhoneCameraScreen(camera: iPhoneCamera)
                     .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
                     .tag(WivraCaptureTab.iPhone)
+            }
+            .safeAreaInset(edge: .top) {
+                HStack {
+                    Spacer()
+                    Button {
+                        showingCaptureLibrary = true
+                    } label: {
+                        Label("Mis capturas", systemImage: "folder")
+                    }
+                    .disabled(!model.isReleasedForCameraHandoff ||
+                              !iPhoneCamera.isReleasedForCameraHandoff ||
+                              pendingCaptureTab != nil)
+                    .padding(.horizontal)
+                }
+            }
+            .sheet(isPresented: $showingCaptureLibrary) {
+                WivraNativeCaptureLibraryScreen()
             }
             .overlay(alignment: .top) {
                 if pendingCaptureTab != nil {
