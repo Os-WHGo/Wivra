@@ -22,6 +22,12 @@ final class MetaB0Model {
     var lastCapturedPhotoURL: URL?
     var photoCaptureInFlight = false
     var photoCaptureStatus = "Fotografías JPEG guardadas localmente; no se suben automáticamente."
+    var chosenPhotoLook: WivraPhotoLook = .original
+    var photoLookStrength = 0.7
+    var photoLookBusy = false
+    var lastEditedPhotoURL: URL?
+    var editedPhotoImage: UIImage?
+    var photoLookStatus = "La foto original se conserva; los filtros crean una copia."
     var showCameraPermissionConfirm = false
     var errorMessage: String?
     var framesReceived = 0
@@ -90,8 +96,10 @@ final class MetaB0Model {
     var hasPreview: Bool { camera != nil && streamState != .stopped }
     var canRecord: Bool { receiveCompressedHEVC && camera != nil && framesReceived > 0 && !recordingFinishing }
     var canCapturePhoto: Bool {
-        !receiveCompressedHEVC && camera != nil && streamState == .streaming &&
-        previewImage != nil && !photoCaptureInFlight && !recordingArmed
+        // The DAT still-photo API belongs to the active stream, even when our
+        // HEVC writer is armed. Real HEVC+photo coexistence needs device tests.
+        camera != nil && streamState == .streaming && framesReceived > 0 &&
+        !photoCaptureInFlight && !recordingFinishing
     }
     var isCompressedMode: Bool { camera != nil && receiveCompressedHEVC }
 
@@ -120,9 +128,41 @@ final class MetaB0Model {
             try bytes.write(to: url, options: .atomic)
             lastCapturedPhotoURL = url
             capturedPhotoImage = image
+            lastEditedPhotoURL = nil
+            editedPhotoImage = nil
             photoCaptureStatus = "Fotografía JPEG guardada en Wivra; puedes compartirla o guardarla desde el menú."
         } catch {
             photoCaptureStatus = "No se pudo guardar la fotografía: " + error.localizedDescription
+        }
+    }
+
+    func exportPhotoLookCopy() {
+        guard let originalURL = lastCapturedPhotoURL, !photoLookBusy else { return }
+        photoLookBusy = true
+        photoLookStatus = "Procesando copia local…"
+        let look = chosenPhotoLook
+        let strength = photoLookStrength
+        Task { [weak self] in
+            do {
+                let result = try await Task.detached(priority: .userInitiated) { () throws -> Data in
+                    let bytes = try Data(contentsOf: originalURL)
+                    return try WivraPhotoLooks.renderJPEG(bytes, look: look, strength: strength)
+                }.value
+                guard let self else { return }
+                let url = originalURL.deletingPathExtension()
+                    .appendingPathExtension("\(look.rawValue)_\(UUID().uuidString).jpg")
+                try result.write(to: url, options: .atomic)
+                guard let rendered = UIImage(data: result) else {
+                    throw WivraPhotoLookError.renderFailed
+                }
+                self.lastEditedPhotoURL = url
+                self.editedPhotoImage = rendered
+                self.photoLookStatus = "Copia con filtro guardada. Foto original intacta."
+                self.photoLookBusy = false
+            } catch {
+                self?.photoLookStatus = "No se pudo exportar el filtro: " + error.localizedDescription
+                self?.photoLookBusy = false
+            }
         }
     }
 
