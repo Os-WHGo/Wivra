@@ -107,3 +107,9 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Agregar video** se mete en el corte más cercano a la línea blanca (inicio, entre clips o final) y corre lo que sigue; no se corta ningún clip.
 - Botón **Capa**: **Forma** (Normal, Redondeado, Círculo, Corazón, Estrella, Rombo, Triángulo, Hexágono), **Zoom y mover el video dentro de la forma**, y **Traer adelante / Mandar atrás**. Núcleo: `set_overlay` con `shape`, `zoom`, `px`, `py`. Misma geometría en vista previa (clip-path SVG) y exportación (Path2D; comprobado un fotograma con corazón).
 - Estado: implementado + pruebas automáticas (núcleo 47, app 41) + Chromium simulado. **No probado en iPhone** (clip-path con url() en Safari/iOS: **NV**). Las formas aún no se pueden dibujar a mano ni importar como vector.
+
+## Biblioteca de formas, marco y transparencia · 14-10-2026 (noche)
+- Botón **Capa**: 16 formas con dibujo (Normal, Redondeado, Cuadrado, Cuadrado suave, Círculo, Óvalo, Corazón, Estrella, Rombo, Triángulo, Hexágono, Nube, Mancha, Salpicadura, Flor, Globo, Rasgado), **marco** (grosor y 6 colores), **transparencia** (10–100 %), zoom y mover el video dentro de la forma, y el preajuste **Pantallita en la esquina** (cuadrado redondeado con marco blanco, 32 % de ancho, abajo a la derecha).
+- Núcleo: `set_overlay` con `shape`, `frame` (0–0,1), `frameColor` (#rrggbb), `opacity` (0,1–1). Todo se conserva al cortar y se deshace.
+- La hoja de Capa es más baja para que se vea la pantalla mientras eliges.
+- Estado: implementado + pruebas automáticas (núcleo 48, app 41) + Chromium simulado (vista previa y fotograma exportado con nube/marco/transparencia). **No probado en iPhone.** Formas dibujadas a mano o importadas como vector: no hechas. «iPhone Dual» (cámara frontal y trasera a la vez): **no verificado**; lo que sí se puede es importar las dos tomas y poner una como pantallita.

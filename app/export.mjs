@@ -65,18 +65,33 @@ export function audioStartAt(c, t) {
 }
 
 // Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
-const starPath = () => { const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.2 : 0.5; pts.push(`${i ? 'L' : 'M'}${(0.5 + r * Math.cos(a)).toFixed(4)} ${(0.5 + r * Math.sin(a)).toFixed(4)}`); } return pts.join(' ') + ' Z'; };
+const f4 = (n) => (Math.round(n * 1e4) / 1e4).toString();
+const polar = (n, rf) => { let d = ''; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 - Math.PI / 2, r = rf(a); d += `${i ? 'L' : 'M'}${f4(0.5 + r * Math.cos(a))} ${f4(0.5 + r * Math.sin(a))} `; } return d + 'Z'; };
+const starPath = () => polar(10, (() => { let i = -1; return () => (++i % 2 ? 0.2 : 0.5); })());
+// Borde rasgado: un cuadrado con los lados en dientes de sierra irregulares (determinista).
+const tornPath = () => { const pts = [], N = 14, j = (i) => 0.012 + 0.03 * Math.abs(Math.sin(i * 12.9898) * 0.5 + Math.sin(i * 7.233 + 1.3) * 0.5); let k = 0;
+  for (let i = 0; i <= N; i++) pts.push([i / N, j(k++)]); for (let i = 1; i <= N; i++) pts.push([1 - j(k++), i / N]); for (let i = 1; i <= N; i++) pts.push([1 - i / N, 1 - j(k++)]); for (let i = 1; i < N; i++) pts.push([j(k++), 1 - i / N]);
+  return pts.map((q, i) => `${i ? 'L' : 'M'}${f4(q[0])} ${f4(q[1])}`).join(' ') + ' Z'; };
 export const SHAPE_PATHS = {
   rounded: 'M0.12 0 H0.88 Q1 0 1 0.12 V0.88 Q1 1 0.88 1 H0.12 Q0 1 0 0.88 V0.12 Q0 0 0.12 0 Z',
+  square: 'M0 0 H1 V1 H0 Z',
+  squircle: 'M0.2 0 H0.8 C0.95 0 1 0.05 1 0.2 V0.8 C1 0.95 0.95 1 0.8 1 H0.2 C0.05 1 0 0.95 0 0.8 V0.2 C0 0.05 0.05 0 0.2 0 Z',
   circle: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
+  oval: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
   heart: 'M0.5 0.95 C0.1 0.65 0 0.45 0 0.28 C0 0.12 0.12 0.02 0.27 0.02 C0.38 0.02 0.46 0.08 0.5 0.18 C0.54 0.08 0.62 0.02 0.73 0.02 C0.88 0.02 1 0.12 1 0.28 C1 0.45 0.9 0.65 0.5 0.95 Z',
   star: starPath(),
   diamond: 'M0.5 0 L1 0.5 L0.5 1 L0 0.5 Z',
   triangle: 'M0.5 0.02 L1 0.95 L0 0.95 Z',
   hexagon: 'M0.25 0.04 L0.75 0.04 L1 0.5 L0.75 0.96 L0.25 0.96 L0 0.5 Z',
+  cloud: 'M0.24 0.82 C0.06 0.82 0 0.6 0.14 0.5 C0.06 0.32 0.26 0.2 0.38 0.3 C0.44 0.1 0.72 0.08 0.78 0.28 C0.96 0.24 1 0.5 0.88 0.58 C1 0.72 0.88 0.86 0.74 0.8 C0.66 0.92 0.46 0.92 0.4 0.82 C0.34 0.88 0.28 0.86 0.24 0.82 Z',
+  blob: polar(72, (a) => 0.4 + 0.07 * Math.sin(3 * a + 1) + 0.045 * Math.sin(5 * a + 2) + 0.025 * Math.sin(7 * a)),
+  splat: polar(96, (a) => 0.3 + 0.12 * Math.abs(Math.sin(4.5 * a + 0.5)) ** 0.6 + 0.08 * Math.max(0, Math.sin(11 * a + 1)) + 0.04 * Math.sin(2 * a)),
+  flower: polar(120, (a) => 0.37 + 0.11 * Math.cos(6 * a)),
+  bubble: 'M0.1 0.05 H0.9 Q0.98 0.05 0.98 0.13 V0.62 Q0.98 0.7 0.9 0.7 H0.55 L0.3 0.95 L0.35 0.7 H0.1 Q0.02 0.7 0.02 0.62 V0.13 Q0.02 0.05 0.1 0.05 Z',
+  torn: tornPath(),
 };
-export const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', circle: 'Círculo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono' };
-const SQUARE_SHAPES = ['circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon'];
+export const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', square: 'Cuadrado', squircle: 'Cuadrado suave', circle: 'Círculo', oval: 'Óvalo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono', cloud: 'Nube', blob: 'Mancha', splat: 'Salpicadura', flower: 'Flor', bubble: 'Globo', torn: 'Rasgado' };
+const SQUARE_SHAPES = ['square', 'squircle', 'circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon', 'cloud', 'blob', 'splat', 'flower', 'bubble', 'torn'];
 // Alto/ancho del cuadro de un superpuesto: con forma cuadrada es 1; si no, la forma del video.
 export const overlayAr = (c, vw, vh) => (SQUARE_SHAPES.includes(c.shape) ? 1 : (vw > 0 && vh > 0 ? vh / vw : 16 / 9));
 // Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro).
@@ -89,13 +104,17 @@ export function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
   const k = Math.max(bw / vw, bh / vh), w0 = vw * k, h0 = vh * k, x0 = (bw - w0) * px, y0 = (bh - h0) * py;
   return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
 }
-// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma.
+// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
 export function drawOverlay(g, el, c, r) {
   const vw = el.videoWidth, vh = el.videoHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
   try { g.drawImage(el, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
+    g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
+    const p2 = new Path2D(); p2.addPath(new Path2D(d || 'M0 0H1V1H0Z'), new DOMMatrix([r.w, 0, 0, r.h, 0, 0])); g.stroke(p2);
+  }
   g.restore();
 }
 // ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
@@ -142,7 +161,7 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
-    g.save(); g.globalAlpha = fx.alpha; drawOverlay(g, el, o.c, r); g.restore();
+    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';

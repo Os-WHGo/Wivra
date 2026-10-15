@@ -68,10 +68,19 @@ test('formas del superpuesto: validación, valores por defecto se borran, el cor
   const s = mk(); assert.ok(s.apply([{ op: 'add_overlay_clip', asset_id: 'v', start: 0, track: 1 }]).ok); const id = s.project.overlayClips[0].id;
   assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, shape: 'heart', zoom: 2, px: 0.2, py: 0.7 }]).ok);
   const c = s.project.overlayClips[0]; assert.deepEqual([c.shape, c.zoom, c.px, c.py], ['heart', 2, 0.2, 0.7]);
-  for (const op of [{ shape: 'blob' }, { zoom: 0.5 }, { zoom: 9 }, { px: 2 }, { py: -1 }]) assert.equal(s.apply([{ op: 'set_overlay', clip_id: id, ...op }]).ok, false, JSON.stringify(op));
+  for (const op of [{ shape: 'nube2' }, { zoom: 0.5 }, { zoom: 9 }, { px: 2 }, { py: -1 }]) assert.equal(s.apply([{ op: 'set_overlay', clip_id: id, ...op }]).ok, false, JSON.stringify(op));
   assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 5 }]).ok); assert.equal(s.project.overlayClips[1].shape, 'heart');
   assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, shape: 'none', zoom: 1, px: 0.5, py: 0.5 }]).ok); assert.deepEqual([s.project.overlayClips[0].shape, s.project.overlayClips[0].zoom, s.project.overlayClips[0].px], [undefined, undefined, undefined]);
   assert.equal(overlayAr({ shape: 'circle' }, 1000, 2000), 1); assert.equal(overlayAr({}, 1000, 2000), 2); assert.equal(overlayRect({ scale: 0.5, x: 0.5, y: 0.5, shape: 'star' }, 1000, 1000, 100, 200).h, 500);
   const cr = contentRect(100, 100, 200, 100, 1); assert.deepEqual([cr.w, cr.h, cr.x], [200, 100, -50]);          // 2:1 en cuadro cuadrado: rellena y recorta a los lados
   assert.deepEqual(contentRect(100, 100, 200, 100, 2), { x: -150, y: -50, w: 400, h: 200 });                      // zoom 2 desde el centro
+});
+
+test('marco y transparencia del superpuesto: valida, borra los valores por defecto y el corte los conserva', () => {
+  const s = mk(); s.apply([{ op: 'add_overlay_clip', asset_id: 'v', start: 0, track: 1 }]); const id = s.project.overlayClips[0].id;
+  assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, frame: 0.03, frameColor: '#FF00AA', opacity: 0.6, shape: 'splat' }]).ok);
+  const c = s.project.overlayClips[0]; assert.deepEqual([c.frame, c.frameColor, c.opacity, c.shape], [0.03, '#ff00aa', 0.6, 'splat']);
+  for (const op of [{ frame: 0.5 }, { frameColor: 'red' }, { opacity: 0 }, { opacity: 2 }]) assert.equal(s.apply([{ op: 'set_overlay', clip_id: id, ...op }]).ok, false, JSON.stringify(op));
+  assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 5 }]).ok); assert.deepEqual([s.project.overlayClips[1].frame, s.project.overlayClips[1].opacity], [0.03, 0.6]);
+  assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, frame: 0, opacity: 1 }]).ok); assert.deepEqual([s.project.overlayClips[0].frame, s.project.overlayClips[0].opacity], [undefined, undefined]);
 });
