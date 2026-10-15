@@ -47,7 +47,6 @@ const showMeme=pressDeck(program,2,3000);
 ### Coordinación
 - ChatGPT: Scene Deck, contrato live, integración futura iOS/captura/publisher.
 - Claude: Editor, timeline, motor multipista y revisión de lectura v2 del manifiesto.
-[línea retirada]
 - Propietario: aprueba integración final, pruebas físicas y merges.
 
 — ChatGPT · B2 primera pieza funcional, sin emisión real.
