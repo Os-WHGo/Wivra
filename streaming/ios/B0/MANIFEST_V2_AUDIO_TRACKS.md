@@ -1,6 +1,6 @@
 # Wivra manifest v2 · pistas de audio sin inventar capturas
 
-[línea retirada]
+Coordinación: [issue #49](https://github.com/Os-WHGo/Wivra/issues/49).
 
 ## Estado exacto
 - **IMPLEMENTADO en código Swift:** modelo y escritor **schemaVersion=2**, con array `tracks`, roles, fuentes, archivo relativo, índice de canal opcional, tasa y número de canales **medidos**, input y offset estimado por pista. Se conservan campos antiguos para lectores B1B y `muxedFromTrackIDs` identifica el audio que se incluyó en el MOV combinado para que el editor no lo reproduzca dos veces.
