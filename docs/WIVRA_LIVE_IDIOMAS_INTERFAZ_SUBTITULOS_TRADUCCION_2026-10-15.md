@@ -41,7 +41,7 @@
 
 ## 4. Motores y costes
 
-- Ruta local opcional: `Whisper` open model + runtime apto para plataforma (por ejemplo `whisper.cpp`), con límites medidos de RAM, batería, modelos descargados y calidad por idioma.
+- Ruta local opcional: `Whisper` open model + runtime apto para plataforma (por ejemplo `whisper.cpp`), con límites medidos de memoria, CPU, consumo de procesamiento, modelos descargados y calidad por idioma.
 - Ruta OpenAI API opcional: solo con autorización para enviar audio, presupuesto/límite de uso, disponibilidad de modelos y reglas de datos verificadas. No equivale a ChatGPT Plus ni se asume gratis. `audio/translations` de Whisper está orientado a inglés, **no** a 20 idiomas; para destinos arbitrarios transcribir en idioma origen y traducir segmentos de texto con otro motor.
 - UI nunca mostrará «subtítulos listos» si faltan `ASR`, `timecodes`, validación/preview o exportación. Registrar funciones no disponibles en modo offline.
 - Pruebas de accesibilidad nativa, corrector regional y textos extensos; combinar idiomas no debe romper timeline, títulos ni overlays.
