@@ -1,11 +1,11 @@
 es || en || pt || fr || de || ja || zh
-‹ Inicio || ‹ Home || ‹ Início || ‹ Accueil || ‹ Start || ‹ ホーム || ‹ 首页
+‹ Inicio || ‹ Home || ‹ Início || ‹ Accueil || ‹ Startseite || ‹ ホーム || ‹ 首页
 Video || Video || Vídeo || Vidéo || Video || 動画 || 视频
-Captura || Capture || Captura || Capture || Aufnahme || キャプチャ || 采集
+Captura || Capture || Captura || Capture || Aufnahme || 撮影 || 拍摄
 Exportar || Export || Exportar || Exporter || Exportieren || 書き出し || 导出
 Ningún video elegido. || No video selected. || Nenhum vídeo escolhido. || Aucune vidéo choisie. || Kein Video ausgewählt. || 動画が選ばれていません。 || 尚未选择视频。
 Todo || All || Tudo || Tout || Alles || すべて || 全部
-Forma || Shape || Forma || Forme || Form || 形 || 形状
+Forma || Shape || Forma || Forme || Form || 形状 || 形状
 Empieza con un video || Start with a video || Comece com um vídeo || Commence avec une vidéo || Beginne mit einem Video || 動画から始めましょう || 从一个视频开始
 Elige uno o varios. Se quedan en tu teléfono; nada se sube. || Pick one or more. They stay on your phone; nothing is uploaded. || Escolha um ou mais. Ficam no seu telefone; nada é enviado. || Choisis-en une ou plusieurs. Elles restent sur ton téléphone ; rien n'est envoyé. || Wähle eines oder mehrere. Sie bleiben auf deinem Telefon; nichts wird hochgeladen. || 1つ以上選んでください。電話の中にだけ保存され、アップロードされません。 || 选择一个或多个。它们只保存在你的手机上，不会上传。
 Elegir videos || Choose videos || Escolher vídeos || Choisir des vidéos || Videos wählen || 動画を選ぶ || 选择视频
@@ -16,7 +16,7 @@ Borrar || Delete || Apagar || Supprimer || Löschen || 削除 || 删除
 Texto || Text || Texto || Texte || Text || テキスト || 文字
 IA || AI || IA || IA || KI || AI || AI
 Director || Director || Diretor || Réalisateur || Regisseur || ディレクター || 导演
-Observar || Observe || Observar || Observer || Beobachten || 観察 || 观察
+Observar || Inspect || Examinar || Examiner || Prüfen || 確認 || 查看
 Audio || Audio || Áudio || Audio || Audio || オーディオ || 音频
 Formato || Format || Formato || Format || Format || フォーマット || 格式
 Capa || Layer || Camada || Calque || Ebene || レイヤー || 图层
@@ -38,7 +38,7 @@ Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba est
 Bajar el contenido desde arriba: || Push content down from the top: || Descer o conteúdo a partir do topo: || Décaler le contenu depuis le haut : || Inhalt von oben nach unten schieben: || 上からコンテンツを下げる: || 内容从顶部下移：
 Modo B: pantalla sin «cover» (recarga la página) || Mode B: screen without “cover” (reloads the page) || Modo B: tela sem «cover» (recarrega a página) || Mode B : écran sans « cover » (recharge la page) || Modus B: Bildschirm ohne „cover“ (lädt die Seite neu) || モードB: 「cover」なしの画面（ページを再読み込み） || 模式B：不使用“cover”的屏幕（会重新加载页面）
 Reiniciar || Reset || Redefinir || Réinitialiser || Zurücksetzen || リセット || 重置
-✓ Listo || ✓ Done || ✓ Pronto || ✓ Terminé || ✓ Fertig || ✓ 完了 || ✓ 完成
+✓ Listo || ✓ Done || ✓ Concluído || ✓ Terminé || ✓ Fertig || ✓ 完了 || ✓ 完成
 Más efectos y filtros || More effects and filters || Mais efeitos e filtros || Plus d'effets et de filtres || Mehr Effekte und Filter || エフェクトとフィルターをもっと見る || 更多特效和滤镜
 Gratis. Se descargan al teléfono y los puedes usar sin conexión. || Free. They download to your phone and work offline. || Grátis. Baixam para o telefone e funcionam sem conexão. || Gratuit. Ils se téléchargent sur ton téléphone et fonctionnent hors ligne. || Kostenlos. Sie werden aufs Telefon geladen und funktionieren offline. || 無料。電話にダウンロードされ、オフラインで使えます。 || 免费。下载到手机后可离线使用。
 Solo este clip || This clip only || Só este clipe || Ce clip seulement || Nur dieser Clip || このクリップのみ || 仅此片段
@@ -47,18 +47,18 @@ Todos los clips || All clips || Todos os clipes || Tous les clips || Alle Clips 
 Se guarda solo mientras editas. Elige qué hacer. || It saves by itself while you edit. Choose what to do. || Salva sozinho enquanto você edita. Escolha o que fazer. || Il s'enregistre tout seul pendant que tu édites. Choisis quoi faire. || Wird beim Bearbeiten automatisch gespeichert. Wähle, was du tun willst. || 編集中は自動で保存されます。どうするか選んでください。 || 编辑时会自动保存。请选择要做什么。
 Nombre del proyecto || Project name || Nome do projeto || Nom du projet || Projektname || プロジェクト名 || 项目名称
 Guardar y salir || Save and exit || Salvar e sair || Enregistrer et quitter || Speichern und beenden || 保存して閉じる || 保存并退出
-Seguir editando || Keep editing || Continuar editando || Continuer à éditer || Weiter bearbeiten || 編集を続ける || 继续编辑
+Seguir editando || Keep editing || Continuar editando || Continuer le montage || Weiter bearbeiten || 編集を続ける || 继续编辑
 Descartar cambios de esta sesión || Discard changes from this session || Descartar alterações desta sessão || Annuler les modifications de cette session || Änderungen dieser Sitzung verwerfen || このセッションの変更を破棄 || 放弃本次编辑的更改
 Descartar este proyecto nuevo || Discard this new project || Descartar este projeto novo || Abandonner ce nouveau projet || Dieses neue Projekt verwerfen || この新規プロジェクトを破棄 || 放弃这个新项目
 Borrar el proyecto || Delete the project || Apagar o projeto || Supprimer le projet || Projekt löschen || プロジェクトを削除 || 删除项目
 Tus videos, en orden || Your videos, in order || Seus vídeos, em ordem || Tes vidéos, dans l'ordre || Deine Videos in Reihenfolge || 動画の順番 || 视频顺序
 Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden. || Drag the ≡ (or use ▲ ▼) to change the order. The video is built in that order. || Arraste o ≡ (ou use ▲ ▼) para mudar a ordem. O vídeo é montado nessa ordem. || Fais glisser le ≡ (ou utilise ▲ ▼) pour changer l'ordre. La vidéo est assemblée dans cet ordre. || Ziehe das ≡ (oder nutze ▲ ▼), um die Reihenfolge zu ändern. Das Video wird in dieser Reihenfolge zusammengesetzt. || ≡ をドラッグ（または ▲ ▼）で順番を変えます。動画はこの順番で作られます。 || 拖动 ≡（或使用 ▲ ▼）来调整顺序。视频将按此顺序合成。
 Agregar más videos || Add more videos || Adicionar mais vídeos || Ajouter d'autres vidéos || Weitere Videos hinzufügen || 動画を追加 || 添加更多视频
-Listo || Done || Pronto || Terminé || Fertig || 完了 || 完成
+Listo || Done || Concluído || Terminé || Fertig || 完了 || 完成
 Faltan archivos || Missing files || Faltam arquivos || Fichiers manquants || Dateien fehlen || ファイルが足りません || 缺少文件
 Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar. || Your project was saved, but the phone did not keep these videos or audio files. Pick them again (same name) and everything goes back in place. || Seu projeto foi salvo, mas o telefone não guardou estes vídeos ou áudios. Escolha-os de novo (com o mesmo nome) e tudo volta ao lugar. || Ton projet est enregistré, mais le téléphone n'a pas gardé ces vidéos ou audios. Choisis-les à nouveau (même nom) et tout revient en place. || Dein Projekt wurde gespeichert, aber das Telefon hat diese Videos oder Audios nicht behalten. Wähle sie erneut (gleicher Name) und alles ist wieder an seinem Platz. || プロジェクトは保存されましたが、これらの動画や音声は電話に保存されませんでした。同じ名前でもう一度選ぶと元に戻ります。 || 项目已保存，但手机没有保存这些视频或音频。请用相同的文件名重新选择，一切就会恢复原位。
 Elegir archivos || Choose files || Escolher arquivos || Choisir des fichiers || Dateien wählen || ファイルを選ぶ || 选择文件
-Seguir sin ellos || Continue without them || Continuar sem eles || Continuer sans eux || Ohne sie fortfahren || なしで続ける || 不带它们继续
+Seguir sin ellos || Continue without these files || Continuar sem esses arquivos || Continuer sans ces fichiers || Ohne diese Dateien fortfahren || ファイルなしで続行 || 不使用这些文件继续
 Audio del clip || Clip audio || Áudio do clipe || Audio du clip || Clip-Audio || クリップの音声 || 片段音频
 Toca un clip en la línea de tiempo para elegirlo. || Tap a clip on the timeline to select it. || Toque em um clipe na linha do tempo para escolhê-lo. || Touche un clip sur la timeline pour le sélectionner. || Tippe auf einen Clip in der Zeitleiste, um ihn zu wählen. || タイムラインのクリップをタップして選びます。 || 点按时间线上的片段来选择。
 Silenciar el audio original de este clip || Mute this clip's original audio || Silenciar o áudio original deste clipe || Couper le son d'origine de ce clip || Originalton dieses Clips stummschalten || このクリップの元の音声をミュート || 将此片段的原声静音
@@ -68,16 +68,16 @@ Formato del video || Video format || Formato do vídeo || Format de la vidéo ||
 La forma del cuadro del resultado. Lo que sobra se recorta solo, centrado. || The shape of the final frame. Whatever doesn't fit is cropped automatically, centered. || A forma do quadro final. O que sobra é cortado sozinho, centralizado. || La forme du cadre final. Ce qui dépasse est recadré automatiquement, au centre. || Die Form des fertigen Bildes. Was überschüssig ist, wird automatisch mittig abgeschnitten. || 完成した映像のフレームの形です。はみ出した部分は中央を基準に自動でカットされます。 || 成片画面的形状。多出的部分会自动居中裁剪。
 Original || Original || Original || Original || Original || オリジナル || 原始
 9:16 Reels || 9:16 Reels || 9:16 Reels || 9:16 Reels || 9:16 Reels || 9:16 リール || 9:16 Reels
-Rellenar (recorta) || Fill (crops) || Preencher (corta) || Remplir (recadre) || Füllen (schneidet zu) || 全体に拡大（切り取り） || 填充（裁剪）
-Entero (barras) || Whole (bars) || Inteiro (barras) || Entier (barres) || Ganz (Balken) || 全体表示（黒帯） || 完整（黑边）
+Rellenar (recorta) || Fill (crop) || Preencher (corta as bordas) || Remplir (recadrer) || Ausfüllen (zuschneiden) || 画面いっぱい（トリミング） || 填满（裁切）
+Entero (barras) || Fit (bars) || Ajustar (com barras) || Ajuster (bandes) || Einpassen (Balken) || 全体表示（余白あり） || 适应（留边）
 Elige un video en la línea de tiempo. || Pick a video on the timeline. || Escolha um vídeo na linha do tempo. || Choisis une vidéo sur la timeline. || Wähle ein Video in der Zeitleiste. || タイムラインで動画を選んでください。 || 请在时间线上选择一个视频。
-Al aparecer || When it appears || Ao aparecer || À l'apparition || Beim Erscheinen || 登場時 || 出现时
-Al desaparecer || When it disappears || Ao desaparecer || À la disparition || Beim Verschwinden || 退場時 || 消失时
+Al aparecer || Entrance || Entrada || Apparition || Beim Einblenden || 表示時 || 出现时
+Al desaparecer || Exit || Saída || Disparition || Beim Ausblenden || 終了時 || 消失时
 Ninguno || None || Nenhum || Aucun || Keiner || なし || 无
-Fundido || Fade || Fade || Fondu || Überblendung || フェード || 淡入淡出
-Deslizar || Slide || Deslizar || Glisser || Schieben || スライド || 滑动
+Fundido || Fade || Esmaecer || Fondu || Verblassen || フェード || 淡入淡出
+Deslizar || Slide || Deslizar || Glissement || Schieben || スライド || 滑动
 Zoom || Zoom || Zoom || Zoom || Zoom || ズーム || 缩放
 Duración: || Duration: || Duração: || Durée : || Dauer: || 長さ: || 时长：
 Ver más || See more || Ver mais || Voir plus || Mehr anzeigen || もっと見る || 查看更多
 Ver menos || See less || Ver menos || Voir moins || Weniger anzeigen || 少なく表示 || 收起
-Más efectos || More effects || Mais efeitos || Plus d'effets || Mehr Effekte || エフェクトをもっと || 更多特效
+Más efectos || More effects || Mais efeitos || Plus d'effets || Mehr Effekte || その他のエフェクト || 更多特效
