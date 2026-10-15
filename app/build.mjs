@@ -4,5 +4,8 @@ const strip = (s) => s.replace(/^import .*$/gm, '').replace(/^export (?=async fu
 const core = ['../core/project.mjs', '../core/filters.mjs', '../core/operations.mjs', '../core/session.mjs', '../core/tools.mjs', '../core/creative-director.mjs', '../core/shoot-checklist.mjs', '../core/in-app-agent.mjs', './prompt.mjs', './vision.mjs', './timeline.mjs', './export.mjs', './capture-manifest.mjs', './persist.mjs', './gif.mjs', './filters-gl.mjs', './ai-client.mjs']
   .map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
-writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => core));
+// Append Director helpers without replacing the Editor's core module list.
+// This keeps additions such as capture and project persistence merge-friendly.
+const directorIntake = strip(readFileSync(new URL('../core/director-intake.mjs', import.meta.url), 'utf8'));
+writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => core + '\n' + directorIntake));
 console.log('listo: app/dist/agentcut.html');
