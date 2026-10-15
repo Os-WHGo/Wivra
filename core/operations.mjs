@@ -12,8 +12,8 @@ const findAsset = (p, id) => p.assets.find((a) => a.id === id);
 const GROUPS = [['clips', 'c'], ['overlayClips', 'o'], ['audioClips', 'u']];
 const findClip = (p, id) => { for (const [g] of GROUPS) { const c = (p[g] || []).find((k) => k.id === id); if (c) return c; } return undefined; };
 const groupOf = (p, c) => GROUPS.find(([g]) => (p[g] || []).includes(c));
-const MAX_TRACKS = 4;
-const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
+export const MAX_TRACKS = 4;
+export const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 // Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
 export const SHAPE_IDS = ['none', 'rounded', 'square', 'squircle', 'circle', 'oval', 'heart', 'star', 'diamond', 'triangle', 'hexagon', 'cloud', 'blob', 'splat', 'flower', 'bubble', 'torn'];

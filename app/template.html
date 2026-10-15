@@ -1425,6 +1425,13 @@ function describeOp(o) {
     case 'set_clip_audio': return `Audio de ${o.clip_id}: ${[o.muted === undefined ? '' : (o.muted ? 'silenciar' : 'con sonido'), o.volume === undefined ? '' : 'volumen ' + Math.round(o.volume * 100) + '%'].filter(Boolean).join(', ')}`;
     case 'add_clip': return `Agregar ${o.asset_id} en ${f(o.start ?? 0)} s`;
     case 'add_text': return `Texto «${o.text}» en ${f(o.start)} s por ${f(o.duration)} s`;
+    case 'add_audio_clip': return `Pista de audio ${o.asset_id} en ${f(o.start ?? 0)} s`;
+    case 'add_overlay_clip': return `Capa ${o.asset_id} encima, desde ${f(o.start ?? 0)} s`;
+    case 'set_overlay': return `Ajustar capa ${o.clip_id}: ${Object.keys(o).filter(k => k !== 'op' && k !== 'clip_id').join(', ')}`;
+    case 'set_audio_clip': return `Pista de audio ${o.clip_id}: ${[o.track !== undefined ? 'fila ' + o.track : '', o.role ? 'papel ' + o.role : ''].filter(Boolean).join(', ')}`;
+    case 'set_clip_fx': return `Efecto de ${o.clip_id}: ${[o.intro ? 'entrada ' + o.intro : '', o.outro ? 'salida ' + o.outro : '', o.dur ? o.dur + ' s' : ''].filter(Boolean).join(', ')}`;
+    case 'set_clip_filter': return (o.reset || o.look === 'none') ? `Quitar filtro de ${o.clip_id}` : `Filtro de ${o.clip_id}: ${o.look ? (LOOK_PRESETS[o.look]?.name || o.look) : 'ajustes de color'}`;
+    case 'set_format': return `Formato: ${[o.aspect ? 'cuadro ' + o.aspect : '', o.fit ? (o.fit === 'cover' ? 'rellenar' : 'barras negras') : ''].filter(Boolean).join(', ')}`;
     default: return JSON.stringify(o);
   }
 }

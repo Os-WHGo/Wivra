@@ -207,3 +207,9 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Las vistas previas usan una **imagen de ejemplo genérica** (no el video), así no se recalculan al mover el video.
 - «Ver más» (botón pequeño) abre la versión grande: cuadrícula de 4 columnas, el video se achica y la línea de tiempo se oculta; «Ver menos» vuelve.
 - Probado solo en Chromium simulado 430×727, NO en iPhone.
+
+### IA unificada con el motor (Claude)
+- `core/op-schemas.mjs` es la **tabla única** de operaciones. De ahí salen el esquema del chat directo (plano), las herramientas (`core/tools.mjs`) y el prompt. La IA ahora ve las **14 operaciones** (antes 7): capas, audio aparte, efectos, filtros y formato.
+- El resumen que recibe la IA incluye capas, audio, formato y filtros (nunca direcciones ni el video).
+- Un test falla si el motor tiene una operación sin esquema (o al revés). La tarjeta de aprobación describe cada operación en español.
+- Sigue siendo una PROPUESTA: el validador decide y la persona aprueba. Probado en Chromium simulado, no en iPhone.

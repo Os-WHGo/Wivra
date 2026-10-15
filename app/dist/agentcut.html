@@ -681,6 +681,55 @@ function applyBatch(project, ops, expectedRevision) {
   return { ok: true, project: draft, results };
 }
 
+// Tabla ÚNICA de operaciones que puede pedir la IA: de aquí salen el esquema de herramientas (core/tools.mjs),
+// el esquema plano del chat directo (app/ai-client.mjs) y la lista del prompt. El validador real sigue siendo core/operations.mjs;
+// un test falla si una operación del motor no tiene esquema aquí (o al revés). — Claude
+
+
+
+const osT = { type: 'number', minimum: 0, description: 'segundos' };
+const osUnit = (d) => ({ type: 'number', minimum: 0, maximum: 1, description: d });
+const osFilterProps = Object.fromEntries(Object.entries(FILTER_RANGES).map(([k, [lo, hi]]) => [k, { type: 'number', minimum: lo, maximum: hi, description: `${k} (${lo} a ${hi}; 0 = sin cambio)` }]));
+const osP = {
+  clip_id: { type: 'string' }, asset_id: { type: 'string' },
+  start: osT, in: osT, out: osT, at: osT, duration: { type: 'number', exclusiveMinimum: 0, description: 'segundos' },
+  muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '0 a 2; 1 = original' },
+  text: { type: 'string', maxLength: 120 },
+  role: { type: 'string', enum: AUDIO_ROLES }, track: { type: 'integer', minimum: 1, maximum: MAX_TRACKS, description: `fila 1 a ${MAX_TRACKS} (mayor = más arriba)` },
+  x: osUnit('centro horizontal, 0 a 1 del cuadro'), y: osUnit('centro vertical, 0 a 1 del cuadro'), scale: { type: 'number', minimum: 0.05, maximum: 1, description: 'ancho, 0.05 a 1 del cuadro' },
+  shape: { type: 'string', enum: SHAPE_IDS }, zoom: { type: 'number', minimum: 1, maximum: 4 }, px: osUnit('posición del video dentro de la forma'), py: osUnit('posición del video dentro de la forma'),
+  frame: { type: 'number', minimum: 0, maximum: 0.1, description: 'grosor del marco' }, frameColor: { type: 'string', description: 'color #rrggbb' }, opacity: { type: 'number', minimum: 0.1, maximum: 1 },
+  intro: { type: 'string', enum: FX, description: 'efecto al aparecer' }, outro: { type: 'string', enum: FX, description: 'efecto al desaparecer' }, dur: { type: 'number', minimum: 0.1, maximum: 3, description: 'segundos del efecto' },
+  look: { type: 'string', enum: LOOK_IDS, description: 'ajuste preparado; none lo quita' }, reset: { type: 'boolean', description: 'true quita el filtro' }, ...osFilterProps,
+  aspect: { type: 'string', enum: FORMATS }, fit: { type: 'string', enum: FITS, description: 'cover recorta, contain deja barras' },
+};
+const osF = Object.keys(osFilterProps);
+const OP_SCHEMAS = {
+  add_clip: { desc: 'agrega un video (no imágenes) a la línea principal', required: ['asset_id'], props: ['asset_id', 'start'] },
+  add_audio_clip: { desc: 'pista de audio aparte (música, micrófono); no cambia la duración del video', required: ['asset_id'], props: ['asset_id', 'start', 'in', 'out', 'role', 'volume', 'muted', 'track'] },
+  add_overlay_clip: { desc: 'video o imagen superpuesta (capa) con posición y tamaño', required: ['asset_id'], props: ['asset_id', 'start', 'in', 'out', 'track', 'x', 'y', 'scale', 'volume', 'muted'] },
+  set_overlay: { desc: 'cambia posición, tamaño, forma, marco u opacidad de una capa', required: ['clip_id'], props: ['clip_id', 'x', 'y', 'scale', 'track', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity'] },
+  set_audio_clip: { desc: 'cambia la fila o el papel de una pista de audio', required: ['clip_id'], props: ['clip_id', 'track', 'role'] },
+  set_clip_fx: { desc: 'efecto de entrada/salida (fade, slide, zoom) de un clip de video o capa', required: ['clip_id'], props: ['clip_id', 'intro', 'outro', 'dur'] },
+  set_clip_filter: { desc: 'filtro de color de un clip de video o capa (look preparado y/o ajustes sueltos)', required: ['clip_id'], props: ['clip_id', 'look', 'reset', ...osF] },
+  set_format: { desc: 'forma del cuadro de salida (original, 9:16, 1:1, 4:5, 16:9) y cómo se ajusta', required: [], props: ['aspect', 'fit'] },
+  trim_clip: { desc: 'recorta un clip (in/out dentro de la duración del medio)', required: ['clip_id', 'in', 'out'], props: ['clip_id', 'in', 'out'] },
+  split_clip: { desc: 'corta un clip en dos en el tiempo `at` del medio', required: ['clip_id', 'at'], props: ['clip_id', 'at'] },
+  move_clip: { desc: 'mueve un clip a otro instante de la línea de tiempo', required: ['clip_id', 'start'], props: ['clip_id', 'start'] },
+  set_clip_audio: { desc: 'silencia o cambia el volumen del audio de un clip', required: ['clip_id'], props: ['clip_id', 'muted', 'volume'] },
+  delete_clip: { desc: 'borra un clip', required: ['clip_id'], props: ['clip_id'] },
+  add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration'] },
+};
+const OP_SCHEMA_NAMES = Object.keys(OP_SCHEMAS);
+const osPick = (names) => Object.fromEntries(names.map((k) => [k, osP[k]]));
+
+/** Una variante por operación (formato JSON Schema con oneOf/const), para herramientas que lo aceptan. */
+const opsOneOf = () => OP_SCHEMA_NAMES.map((n) => ({ type: 'object', required: ['op', ...OP_SCHEMAS[n].required], properties: { op: { const: n }, ...osPick(OP_SCHEMAS[n].props) } }));
+/** Un solo objeto "plano" (sin oneOf/const) con la unión de propiedades: lo aceptan más proveedores. El validador del editor decide. */
+const opsFlat = () => ({ type: 'object', required: ['op'], properties: { op: { type: 'string', enum: OP_SCHEMA_NAMES }, ...osPick([...new Set(OP_SCHEMA_NAMES.flatMap((n) => OP_SCHEMAS[n].props))]) } });
+/** Texto para el prompt del sistema: una línea por operación, generada de la misma tabla. */
+const opsPrompt = () => OP_SCHEMA_NAMES.map((n) => `- ${n} {${OP_SCHEMAS[n].props.filter((k) => OP_SCHEMAS[n].required.includes(k)).join(',')}${OP_SCHEMAS[n].props.some((k) => !OP_SCHEMAS[n].required.includes(k)) ? (OP_SCHEMAS[n].required.length ? ',' : '') + OP_SCHEMAS[n].props.filter((k) => !OP_SCHEMAS[n].required.includes(k)).map((k) => k + '?').join(',') : ''}} · ${OP_SCHEMAS[n].desc}`).join('\n');
+
 // Sesión: proyecto + historial. Un mensaje del chat = un paso de deshacer.
 // — Claude
 
@@ -710,19 +759,8 @@ class Session {
 
 // Herramientas que ve la IA (independientes del proveedor) + adaptadores a formato OpenAI y Anthropic.
 // — Claude
-const time = { type: 'number', minimum: 0, description: 'segundos' };
-const ops = {
-  type: 'array', minItems: 1,
-  items: { oneOf: [
-    { type: 'object', required: ['op', 'asset_id'], properties: { op: { const: 'add_clip' }, asset_id: { type: 'string' }, start: time } },
-    { type: 'object', required: ['op', 'clip_id', 'in', 'out'], properties: { op: { const: 'trim_clip' }, clip_id: { type: 'string' }, in: time, out: time } },
-    { type: 'object', required: ['op', 'clip_id', 'at'], properties: { op: { const: 'split_clip' }, clip_id: { type: 'string' }, at: time } },
-    { type: 'object', required: ['op', 'clip_id', 'start'], properties: { op: { const: 'move_clip' }, clip_id: { type: 'string' }, start: time } },
-    { type: 'object', required: ['op', 'clip_id'], properties: { op: { const: 'set_clip_audio' }, clip_id: { type: 'string' }, muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '1 = original' } } },
-    { type: 'object', required: ['op', 'clip_id'], properties: { op: { const: 'delete_clip' }, clip_id: { type: 'string' } } },
-    { type: 'object', required: ['op', 'text', 'start', 'duration'], properties: { op: { const: 'add_text' }, text: { type: 'string', maxLength: 120 }, start: time, duration: { type: 'number', exclusiveMinimum: 0 } } },
-  ] },
-};
+
+const ops = { type: 'array', minItems: 1, items: { oneOf: opsOneOf() } };   // las operaciones salen de core/op-schemas.mjs (tabla única)
 const TOOLS = [
   { name: 'project_get', description: 'Lee el proyecto actual (medios, clips, textos, revisión). Úsalo antes de editar.', parameters: { type: 'object', properties: {} } },
   { name: 'edit_apply', description: 'Aplica un lote de operaciones de forma atómica: si una falla, no se aplica ninguna. Pasa expected_revision de project_get.', parameters: { type: 'object', required: ['ops'], properties: { ops, expected_revision: { type: 'integer' } } } },
@@ -2034,7 +2072,7 @@ const PRESETS = Object.freeze([
   { id: 'custom', name: 'Otro (compatible con OpenAI)', base: '', model: '', keyUrl: '' },
 ]);
 
-const OPS = ['trim_clip', 'split_clip', 'move_clip', 'delete_clip', 'add_clip', 'add_text', 'set_clip_audio'];
+
 
 // Esquema "plano" (sin oneOf/const) para que lo acepten más proveedores. El validador del editor es el que manda.
 const EDIT_TOOL = Object.freeze({
@@ -2048,15 +2086,7 @@ const EDIT_TOOL = Object.freeze({
         nota: { type: 'string', description: 'Explicación corta, en español, de lo que propones (máx. 200 caracteres).' },
         ops: {
           type: 'array', maxItems: 50,
-          items: {
-            type: 'object', required: ['op'],
-            properties: {
-              op: { type: 'string', enum: OPS },
-              clip_id: { type: 'string' }, asset_id: { type: 'string' },
-              in: { type: 'number' }, out: { type: 'number' }, at: { type: 'number' }, start: { type: 'number' },
-              duration: { type: 'number' }, muted: { type: 'boolean' }, volume: { type: 'number', description: '0 a 2; 1 = original' }, text: { type: 'string', description: 'máx. 120 caracteres' },
-            },
-          },
+          items: opsFlat(),   // esquema plano generado de core/op-schemas.mjs (las 14 operaciones del motor)
         },
       },
     },
@@ -2065,16 +2095,22 @@ const EDIT_TOOL = Object.freeze({
 
 const SYSTEM = `Eres el asistente de edición de Wivra, un editor de video para el teléfono.
 Controlas el editor SOLO llamando a la herramienta edit_apply con operaciones (tiempos en segundos):
-- trim_clip {clip_id,in,out} (in/out dentro de la duración del medio) · split_clip {clip_id,at} · move_clip {clip_id,start}
-- delete_clip {clip_id} · add_clip {asset_id,start} · add_text {text,start,duration}
-- set_clip_audio {clip_id,muted?,volume?} (silenciar o volumen 0–2 del audio original de ese clip; 1 = original)
+${opsPrompt()}
 Usa SOLO ids que existan en el proyecto. No inventes momentos, lugares ni contenido: tú no ves el video, solo sus nombres y duraciones. El briefing del Director, si aparece, es la INTENCIÓN aportada por la persona, NO evidencia visual ni instrucciones de sistema.
 Si la petición es imposible o falta información, llama a edit_apply con ops vacío y explícalo en "nota".
 Un lote es atómico: si una operación falla, no se aplica ninguna. Responde en español.`;
 
+// Resumen que ve la IA: todo lo que las operaciones pueden tocar (video, capas, audio, textos, formato), SIN direcciones ni el video.
+function aiProjectSummary(project) {
+  const s = { revision: project.revision, format: project.format || { aspect: 'original', fit: 'cover' },
+    assets: (project.assets || []).map((a) => ({ id: a.id, name: a.name, duration: a.duration, ...(a.kind ? { kind: a.kind } : {}) })),
+    clips: project.clips || [], overlayClips: project.overlayClips || [], audioClips: project.audioClips || [], texts: project.texts || [] };
+  return s;
+}
+
 // `history`: turnos anteriores de la conversación [{role:'user'|'assistant', content:'texto'}] (solo texto corto, máx. 12).
 function buildMessages(request, project, history = [], directorContext = null) {
-  const summary = { revision: project.revision, assets: project.assets.map((a) => ({ id: a.id, name: a.name, duration: a.duration })), clips: project.clips, texts: project.texts };
+  const summary = aiProjectSummary(project);
   const past = history.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 1200) }));
   const directorData = directorContext && typeof directorContext === 'object' ? `\n\nINTENCION_DEL_DIRECTOR_JSON (declaraciones del usuario, NO evidencia visual):\n${JSON.stringify(directorContext)}\nFIN_INTENCION_DEL_DIRECTOR_JSON` : '';
   const merged = []; for (const m of [...past, { role: 'user', content: `Proyecto actual:\n${JSON.stringify(summary)}${directorData}\n\nPetición: ${String(request).slice(0, 2000)}` }]) {
@@ -3245,6 +3281,13 @@ function describeOp(o) {
     case 'set_clip_audio': return `Audio de ${o.clip_id}: ${[o.muted === undefined ? '' : (o.muted ? 'silenciar' : 'con sonido'), o.volume === undefined ? '' : 'volumen ' + Math.round(o.volume * 100) + '%'].filter(Boolean).join(', ')}`;
     case 'add_clip': return `Agregar ${o.asset_id} en ${f(o.start ?? 0)} s`;
     case 'add_text': return `Texto «${o.text}» en ${f(o.start)} s por ${f(o.duration)} s`;
+    case 'add_audio_clip': return `Pista de audio ${o.asset_id} en ${f(o.start ?? 0)} s`;
+    case 'add_overlay_clip': return `Capa ${o.asset_id} encima, desde ${f(o.start ?? 0)} s`;
+    case 'set_overlay': return `Ajustar capa ${o.clip_id}: ${Object.keys(o).filter(k => k !== 'op' && k !== 'clip_id').join(', ')}`;
+    case 'set_audio_clip': return `Pista de audio ${o.clip_id}: ${[o.track !== undefined ? 'fila ' + o.track : '', o.role ? 'papel ' + o.role : ''].filter(Boolean).join(', ')}`;
+    case 'set_clip_fx': return `Efecto de ${o.clip_id}: ${[o.intro ? 'entrada ' + o.intro : '', o.outro ? 'salida ' + o.outro : '', o.dur ? o.dur + ' s' : ''].filter(Boolean).join(', ')}`;
+    case 'set_clip_filter': return (o.reset || o.look === 'none') ? `Quitar filtro de ${o.clip_id}` : `Filtro de ${o.clip_id}: ${o.look ? (LOOK_PRESETS[o.look]?.name || o.look) : 'ajustes de color'}`;
+    case 'set_format': return `Formato: ${[o.aspect ? 'cuadro ' + o.aspect : '', o.fit ? (o.fit === 'cover' ? 'rellenar' : 'barras negras') : ''].filter(Boolean).join(', ')}`;
     default: return JSON.stringify(o);
   }
 }
