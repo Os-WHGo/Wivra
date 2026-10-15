@@ -95,7 +95,7 @@ No usar objetos genéricos `overrides` sin validación; esquema real deberá val
 
 **Meta AI:** investigación de las capacidades públicas de Meta DAT y opciones de CG/voz, solo cuando sea relevante al software.
 
-[línea retirada]
+**Precaución licencias:** una fuente externa de investigación fue revisada. Sus afirmaciones «memes clásicos gratis de copyright», «Imgflip templates libre uso» y «Pixabay/Mixkit CC0 todos» NO se consideran permisos comprobados. Cada imagen/sonido tiene términos y derechos propios: preferir assets del usuario, diseños originales, medios CC0 con fuente y prueba de licencia; no copiar catálogos de memes comerciales sin autorización.
 
 **Fuente de verdad:** código/contratos GitHub, documentos de Meta AI solo investigación; user decide qué se implementa, sin merge automático a main.
 

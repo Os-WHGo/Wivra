@@ -1,11 +1,6 @@
 # Wivra · Biblioteca base integrada + paquetes gratuitos descargables por elección
 
-**Aclaración del propietario (octubre 2026):** conservar exactamente la estrategia propuesta en informes de Meta AI: una base de efectos/plantillas/recursos gratuitos y pequeños *preinstalados*, y otros **paquetes gratuitos para descargar voluntariamente** cuando se necesiten. El propietario quiere esta arquitectura, NO un catálogo de 300 efectos sin pruebas y NO una tienda Pro o suscripciones. Una sola biblioteca accesible en Editor y LIVE Studio.
-
-**Fuentes Drive revisadas:**
-- RESEARCH-Editor-Efectos-OpenSource-Liviano: [enlace retirado]
-- RESEARCH-Editor-Multiformato-Sonido-Memes-Players: [enlace retirado]
-- RESEARCH-Sonidos-Memes-Bibliotecas: [enlace retirado]
+**Aclaración del propietario (octubre 2026):** conservar la estrategia propuesta: una base de efectos/plantillas/recursos gratuitos y pequeños *preinstalados*, y otros **paquetes gratuitos para descargar voluntariamente** cuando se necesiten. El propietario quiere esta arquitectura, NO un catálogo de 300 efectos sin pruebas y NO una tienda Pro o suscripciones. Una sola biblioteca accesible en Editor y LIVE Studio.
 
 ## Arquitectura aprobada en principio
 

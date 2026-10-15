@@ -62,8 +62,6 @@ El número 300 fue citado por Meta como estimación **no probada** y ahora el pr
 
 **ChatGPT (LIVE/captura, PR #51 / plan #52):** usar asset IDs/CG y layouts de la misma biblioteca con adaptadores al compositor live. Control Deck dispara recurso ya instalado, previsualiza antes de poner «Al aire», mantiene 9:16/16:9 y fallback sin afectar stream. No crear otra aplicación ni un segundo sistema de packs.
 
-[línea retirada]
-
 **Reparto y prioridades:** editor multipista y export verdaderos primero; catálogo amplio se hace progresivo. Una app única, sin Plus/premium, sin compras, sin plugins remotos ejecutables, sin merge a `main` sin permiso.
 
 **Relacionado:** [biblioteca gratuita y packs](./WIVRA_FREE_BUILTIN_AND_OPTIONAL_PACKS_2026-10-13.md) · [CG compartido](./WIVRA_SHARED_CG_LIVE_EDITOR_CONTROL_DECK_2026-10-13.md) · [plan maestro](./WIVRA_MASTER_PRODUCT_EDITOR_AI_CAPTURE_LIVE_2026-10-13.md).

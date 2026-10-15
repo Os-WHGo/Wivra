@@ -79,7 +79,7 @@ El editor debe ser plenamente utilizable SIN IA. Con IA:
 
 UI de Wivra: **Editor / Capturar / LIVE / Biblioteca / Proyectos / Ajustes** como vistas del mismo producto (navegación exacta por diseñar en móvil). Una sola capa de proyectos/media.
 
-- Cámara principal: Ray-Ban Meta vía SDK DAT (iOS primero), cámara del teléfono alternativa, otras fuentes externas mediante adaptadores compatibles posteriormente. No vender hardware inexistente.
+- Cámara principal: Ray-Ban Meta vía SDK DAT (iOS primero), cámara del teléfono alternativa, otras fuentes externas mediante adaptadores compatibles posteriormente.
 - Entrada de audio elegible por usuario: Ray-Ban HFP/iPhone/Bluetooth/USB solo si iOS confirma ruta. Un receptor USB con 2 transmisores puede transportar **2 canales en una entrada**. Si son realmente distintos, guardarlos como pistas lógicas 0/1, editar por separado, opcional ganancia independiente en LIVE. No presumir HFP y USB al mismo tiempo.
 - Guardar originales + audio separado cuando posible + vista previa combinada; manifiesto `.wivra.json` v2. Importar ese grupo al editor sin duplicar pistas. Test iPhone real + gafas obligatorio para prometer sincronía/estabilidad.
 
@@ -125,7 +125,7 @@ Conector de destinos estándar `LiveDestination { id, displayName, protocol, ing
 
 **ChatGPT**, en paralelo: conservar PR #51, documentar perfil del encoder + arquitectura de destino YouTube RTMPS y destino custom, sin afirmar LIVE operativo antes de pruebas end-to-end. No fusionar.
 
-**Fuente de verdad:** código GitHub `Os-WHGo/Wivra`; investigación Meta AI en Drive. Comprobada carpeta Drive antes de redactar (6 docs, sin cambios desde 2026-10-14T03:43Z). Toda recomendación sobre repos de terceros debe revalidar hash/licencia antes de copiar. Conservamos nombres del producto Wivra y consentimiento del usuario.
+**Fuente de verdad:** código GitHub `Os-WHGo/Wivra`. Toda recomendación sobre repos de terceros debe revalidar hash/licencia antes de copiar. Conservamos nombres del producto Wivra y consentimiento del usuario.
 
 — ChatGPT
 
