@@ -173,3 +173,29 @@ test('destination snapshots never store RTMP URL, keys or tokens',()=>{
     id:'yt',provider:'youtube',configured:true,nativeConfirmed:true,platformLiveVerified:false
   }]);
 });
+
+test('per-provider donation priority respects currency, no guessed FX or TTS payment amount',()=>{
+  const p=policy({minContributions:{youtube:{currency:'CAD',amountMinor:500}}});
+  let s=createCommunityQueue(p);
+  s=enq(s,evt('below',{kind:'donation',contribution:{currency:'CAD',amountMinor:499}}),1000);
+  assert.equal(s.reason,'policy');
+  s=enq(s,evt('different-currency',{kind:'donation',contribution:{currency:'USD',amountMinor:2000}}),1001);
+  assert.equal(s.reason,'policy');
+  s=enq(s,evt('above',{kind:'donation',text:'Gracias',
+    contribution:{currency:'CAD',amountMinor:900}}),1002);
+  assert.equal(s.reason,'queued');
+  assert.ok(!s.entries[0].say.includes('CAD 9.00'));
+  assert.throws(()=>policy({minContributions:{youtube:{currency:'CAD',amountMinor:-1}}}),/currency/);
+});
+
+test('native community panel exposes audio intent, safety lock and sample-only sources',()=>{
+  const src=readFileSync(new URL('../ios/B0/Sources/WivraLiveCommunityPanel.swift',import.meta.url),'utf8');
+  const scene=readFileSync(new URL('../ios/B0/Sources/WivraLiveNativeSceneLab.swift',import.meta.url),'utf8');
+  for(const s of ['Bloqueo de lectura por seguridad','Leer comentarios seleccionados',
+    'Retardo mínimo','Monitor privado','Comunidad · LIVE','No hay TTS',
+    'Kick','TikTok','RTMP personalizado']) assert.ok(src.includes(s),'missing '+s);
+  assert.match(scene,/WivraLiveCommunityPanel\(\)/);
+  assert.match(scene,/wivra_live_community_panel/);
+  assert.ok(!src.includes('RTMPStream'));
+  assert.ok(!src.includes('AVSpeechSynthesizer'));
+});
