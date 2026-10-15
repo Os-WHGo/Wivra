@@ -40,9 +40,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .ib { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; } .ib:active { background:var(--bar); } .ib:disabled { opacity:.35; }
   #play { width:54px; height:54px; border-radius:27px; background:var(--fg); color:#12141a; } #play:active { background:#fff; }
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
-  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); height:var(--tlh,auto); max-height:var(--tlmax,46dvh); overflow:hidden; }
+  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); height:var(--tlh,auto); max-height:var(--tlmax,46dvh); overflow:hidden; touch-action:pan-x pan-y; }   /* pan-x pan-y: el navegador no hace zoom a la página con dos dedos aquí; el pellizco lo maneja la línea de tiempo */
   #tlgrip { position:absolute; left:50%; top:0; transform:translateX(-50%); width:84px; height:20px; z-index:6; touch-action:none; display:flex; align-items:center; justify-content:center; cursor:ns-resize; } #tlgrip::before { content:''; width:44px; height:5px; border-radius:3px; background:#8d93a6; opacity:.75; }
-  #tlwrap { height:100%; max-height:var(--tlmax,46dvh); overflow-x:auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
+  #tlwrap { height:100%; max-height:var(--tlmax,46dvh); overflow-x:auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x pan-y; } #tlwrap::-webkit-scrollbar { display:none; }
   #tlinner { position:relative; height:204px; min-height:204px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
@@ -433,7 +433,8 @@ body.dock .back{pointer-events:none;background:transparent}
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
-let tlTime = 0, pps = 40, selId = null, selPart = 'v', playing = false, drag = null, toastTimer = null;
+let tlTime = 0, pps = 40, selId = null, selPart = 'v', playing = false, drag = null, toastTimer = null, tlPinch = null;   // tlPinch: pellizco de dos dedos en curso sobre la línea de tiempo
+const tlAborts = new Set();   // cancelan el gesto de UN dedo en curso (recortar o mover un bloque) si llega un segundo dedo y es un pellizco
 const GKEYS = ['clips', 'overlayClips', 'audioClips'];
 const anyClip = (id) => { if (!session || !id) return null; for (const g of GKEYS) { const c = (session.project[g] || []).find(k => k.id === id); if (c) return c; } return null; };
 const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 'audio' : 'main');
@@ -1120,6 +1121,7 @@ wrap().addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') g
 wrap().addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') armResume(); }, { passive: true });
 wrap().addEventListener('wheel', () => { grabTimeline(); scrolledSinceGrab = true; armResume(); }, { passive: true });
 wrap().addEventListener('scroll', () => {
+  if (tlPinch) return;       // durante un pellizco el tiempo no cambia: solo cambia la escala
   if (resumeAfter) { scrolledSinceGrab = true; armResume(); }
   if (!session || playing) return;
   const t = Math.max(0, Math.min(wrap().scrollLeft / pps, timelineEnd(session.project)));
@@ -1127,6 +1129,7 @@ wrap().addEventListener('scroll', () => {
   tlTime = t; showFrame(); labels();
 }, { passive: true });
 function renderTimeline() {
+  if (tlPinch) { tlPinch.redo = true; if (performance.now() - tlPinch.t > 4000) tlPinchEnd(); return; }      // con dos dedos sobre la línea no se reemplaza nada (si no, el navegador deja de avisar de esos dedos); al soltar se dibuja todo. Si el gesto lleva 4 s sin señales (aviso perdido), se cierra solo
   const p = session?.project, inner = $('tlinner'), L = padL();
   for (const id of ['vtrack', 'atrack', 'otrack', 'utrack', 'ttrack', 'ruler', 'thead']) $(id).replaceChildren();
   if (!p) { $('thead').style.display = 'none'; labels(); return; }
@@ -1223,7 +1226,7 @@ $('tlinner').addEventListener('click', (e) => {
   render();
 });
 $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bordes amarillos = recortar
-  const h = e.target.closest('.hd'); if (!h) return;
+  const h = e.target.closest('.hd'); if (!h || tlPinch) return;
   const id = h.parentElement.dataset.id, c = anyClip(id), a = session.project.assets.find(k => k.id === c.asset_id), kind = kindOf(id);
   const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
   e.preventDefault();
@@ -1234,7 +1237,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
     renderTimeline();
   };
   const up = () => {
-    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tlAborts.delete(abort);
     const d = drag; drag = null;
     if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
       const ops = [{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }];
@@ -1243,6 +1246,8 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
       say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
     } else render();
   };
+  const abort = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tlAborts.delete(abort); drag = null; renderTimeline(); };   // llegó un segundo dedo: era un pellizco, no un recorte
+  tlAborts.add(abort);
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
 });
 $('thead').addEventListener('click', (e) => {         // parlante de una pista completa, o + para agregar otra pista
@@ -1259,7 +1264,7 @@ let suppressClick = false, moveArmed = false;
 $('tlinner').addEventListener('touchmove', (e) => { if (moveArmed) e.preventDefault(); }, { passive: false });
 $('tlinner').addEventListener('click', (e) => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 $('tlinner').addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.hd, .spk')) return;
+  if (tlPinch || e.target.closest('.hd, .spk')) return;
   const b = e.target.closest('.blk'); if (!b || !b.dataset.id || b.classList.contains('txb')) return;
   if (b.classList.contains('ablk') && kindOf(b.dataset.id) === 'main') return;       // el audio propio de un clip va con su video
   const id = b.dataset.id, c = anyClip(id), kind = kindOf(id); if (!c) return;
@@ -1277,7 +1282,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {
   };
   const up = (ev) => {
     window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
-    clearTimeout(timer); moveArmed = false;
+    tlAborts.delete(abort); clearTimeout(timer); moveArmed = false;
     if (!moved) { if (byHold) { suppressClick = true; setTimeout(() => { suppressClick = false; }, 80); render(); } return; }
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 80);
     const dx = (ev.clientX - x0) / pps, dy = ev.clientY - y0, p = session.project; let r;
@@ -1314,6 +1319,8 @@ $('tlinner').addEventListener('pointerdown', (e) => {
     }
     if (!r.ok) { say('No se pudo mover: ' + r.message, 'bad'); render(); } else { syncMedia(); say('Movido.', 'ok'); }
   };
+  const abort = () => { clearTimeout(timer); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); tlAborts.delete(abort); moveArmed = false; b.style.transform = ''; b.classList.remove('moving'); render(); };   // llegó un segundo dedo: era un pellizco, no mover el bloque
+  tlAborts.add(abort);
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 });
 // Borrar: con el video elegido se pregunta si también el audio; con el audio elegido solo se quita el sonido de ese tramo.
@@ -1359,8 +1366,54 @@ $('addtxt').onclick = () => {
 $('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
 $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
 function run_after() { if (!anyClip(selId)) selId = null; tlTime = Math.min(tlTime, timelineEnd(session.project)); render(); syncScroll(); }
-$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
-$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+$('zi').onclick = () => { pps = clampPps(pps * 1.5); render(); syncScroll(); };
+$('zo').onclick = () => { pps = clampPps(pps / 1.5); render(); syncScroll(); };
+/* Pellizco con dos dedos sobre la línea de tiempo = lo mismo que ＋/−: dedos que se separan → expande; que se juntan → achica.
+   Mientras los dedos están abajo solo se estira el dibujo (transform: barato y sin reemplazar nada bajo los dedos); al soltar se aplica la escala real y la línea blanca queda en el mismo instante. */
+const tlScaleEls = () => ['ruler', 'vtrack', 'atrack', 'otrack', 'utrack', 'ttrack'].map($);
+const tlFingers = (e) => [...e.touches].filter((t) => { const el = document.elementFromPoint(t.clientX, t.clientY); return !!el && !!el.closest('#tlbox') && !el.closest('#tlgrip'); });   // dedos que están sobre la línea de tiempo (también sobre ＋/−), no en el asa de altura; se mira dónde están ahora, no el bloque donde empezaron (al recortar el dibujo se rehace y ese bloque ya no existe)
+const tlFinger = (e, id) => [...e.touches].find((t) => t.identifier === id);
+function tlPinchPaint(p) {
+  p.raf = 0; if (tlPinch !== p) return;
+  const k = p.ps / p.pps0; for (const el of tlScaleEls()) el.style.transform = `scaleX(${k})`;
+}
+function tlPinchEnd(e) {
+  const p = tlPinch; if (!p) return;
+  if (e && tlFinger(e, p.id0) && tlFinger(e, p.id1)) return;          // los dos dedos del gesto siguen abajo (se levantó otro dedo): no ha terminado
+  cancelAnimationFrame(p.raf); tlPinch = null;
+  for (const el of tlScaleEls()) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; }
+  suppressClick = true; setTimeout(() => { suppressClick = false; }, 150);
+  clearTimeout(resumeT); resumeAfter = false;                       // si sonaba, queda en pausa: tus manos estaban en la línea
+  const changed = Math.abs(p.ps / p.pps0 - 1) > 0.005;              // un temblor de los dedos no cuenta
+  if (changed) pps = p.ps;
+  if (changed || p.redo) { render(); syncScroll(); }
+}
+// Redes de seguridad: si algún aviso de "soltaste" no llega (el navegador no lo manda a un elemento que ya no está), el gesto no se queda colgado.
+document.addEventListener('touchstart', (e) => { if (tlPinch && !(tlFinger(e, tlPinch.id0) && tlFinger(e, tlPinch.id1))) tlPinchEnd(); }, { capture: true, passive: true });
+document.addEventListener('touchend', tlPinchEnd, { capture: true, passive: true });
+document.addEventListener('touchcancel', tlPinchEnd, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) tlPinchEnd(); });
+$('tlbox').addEventListener('click', (e) => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);        // un pellizco que empezó sobre un botón no lo pulsa al soltar
+$('tlbox').addEventListener('touchstart', (e) => {
+  if (tlPinch) return;                                              // ya hay pellizco (si llega un tercer dedo se ignora)
+  const f = tlFingers(e);
+  if (!session || e.touches.length !== 2 || f.length !== 2) return;
+  const d0 = touchDistance(f[0], f[1]); if (!(d0 > 4)) return;
+  const w = wrap(), ox = w.scrollLeft + w.clientWidth / 2;          // la línea blanca (centro) es el ancla, igual que con ＋/−
+  tlPinch = { id0: f[0].identifier, id1: f[1].identifier, d0, pps0: pps, ps: pps, raf: 0, redo: false, t: performance.now() };
+  for (const abort of [...tlAborts]) abort();                       // un dedo que estaba recortando o moviendo un bloque: era un pellizco
+  for (const el of tlScaleEls()) { el.style.transformOrigin = `${ox}px 0`; el.style.willChange = 'transform'; }
+}, { passive: true });
+$('tlbox').addEventListener('touchmove', (e) => {
+  const p = tlPinch; if (!p) return;
+  const a = tlFinger(e, p.id0), b = tlFinger(e, p.id1);
+  if (!a || !b) return tlPinchEnd(e);
+  p.t = performance.now();
+  if (e.cancelable) e.preventDefault();                             // sin esto el navegador desplazaría la línea (o haría zoom a la página) mientras pellizcas
+  const ps = pinchPps(p.pps0, p.d0, touchDistance(a, b)); if (ps === null) return;
+  p.ps = ps; if (!p.raf) p.raf = requestAnimationFrame(() => tlPinchPaint(p));
+}, { passive: false });
+for (const n of ['gesturestart', 'gesturechange', 'gestureend']) $('tlbox').addEventListener(n, (e) => e.preventDefault());   // Safari: sin zoom de página con el pellizco
 
 /* ---------- Exportar: graba el resultado en el teléfono (tiempo real, con audio) ---------- */
 let expCancel = false, expBusy = false, expUrl = null;
