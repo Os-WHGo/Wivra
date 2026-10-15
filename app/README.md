@@ -31,3 +31,18 @@ Regenerar el archivo: `node app/build.mjs`.
 - **NO probado / por validar en iPhone real:** que Safari grabe el audio de los clips (`createMediaElementSource`), formato MP4 resultante, ".mov" HEVC, y el menú "Guardar o compartir".
 - **Límite conocido:** no hay mezcla de audio por pistas ni música aparte; el audio es el de cada clip.
 - Alternativa futura, más rápida que tiempo real: WebCodecs con Mediabunny (MPL-2.0; sin verificar en Safari/HEVC).
+
+## IA directa (sin copiar y pegar)
+
+`ai-client.mjs` conecta la hoja **IA** con un proveedor compatible con OpenAI (`/chat/completions` + herramienta `edit_apply`). Pegas tu clave, escribes la petición, la IA **propone** operaciones, la app las valida y tú tocas **Aplicar** (un solo deshacer). Copiar y pegar queda como opción sin clave.
+- **Privacidad:** la clave solo vive en la memoria de la página (no se guarda; hay que pegarla en cada sesión). Se envía solo tu petición y un resumen del proyecto (id, nombre, duración, clips, textos). **Nunca el video.**
+- **Proveedores precargados** (direcciones de su documentación): Google Gemini (AI Studio), Groq, OpenRouter, OpenAI (de pago), u otro compatible.
+- **GitHub Models ya no existe:** GitHub lo retiró el 30-07-2026 (docs.github.com/en/github-models). No usarlo.
+- **Nivel:** probado con un proveedor SIMULADO (24 pruebas de app, más un recorrido completo en Chromium: pedir → proponer → aplicar → deshacer; la clave no sale en el cuerpo ni se envía el video).
+- **NO verificado:** que cada proveedor acepte llamadas desde una página web (CORS), que el modelo precargado exista con ese nombre, los límites del plan gratis, ni la calidad de las propuestas. Sin ver el video, la IA solo trabaja con nombres y duraciones.
+
+### IA directa · conversación, reintentos y dictado (nivel: probado con proveedor y micrófono SIMULADOS)
+- **Conversación:** la hoja IA recuerda lo que pidieron y lo que se aplicó o descartó (hasta 12 turnos), así puedes corregir ("mejor en el segundo 3"). El proyecto que ve la IA siempre es el de ahora. "Nueva conversación" la borra. El historial vive solo en la página.
+- **Reintentos:** si el proveedor responde 429/500/502/503/504, se reintenta 2 veces (espera 2 s y 5 s) y avisa en pantalla. Clave inválida (401) o corte de red/CORS NO se reintentan.
+- **Voz:** botón "Dictar" con Web Speech del navegador (si existe) para instrucciones largas; si no existe, se indica usar el micrófono del teclado. El dictado lo hace el navegador y podría usar servidores de Apple/Google (sin verificar); Wivra no guarda audio. **No validado en iPhone real.**
+- **Pruebas:** 28 de app; recorrido en Chromium con 503 + reintento, dictado simulado y dos turnos de conversación.
