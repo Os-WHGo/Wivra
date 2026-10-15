@@ -57,9 +57,11 @@
   #olay { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
   #ovHandle::after { content:''; position:absolute; inset:-14px; }
   #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
+  .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
   .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
   #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
   input[type=checkbox] { width:auto; flex:0 0 auto; }
+  .chips button.shp { display:flex; flex-direction:column; align-items:center; gap:2px; width:74px; padding:6px 2px; font-size:11px; } .chips button.shp svg { width:30px; height:30px; } #ovColors button { width:40px; min-width:40px; height:40px; border-radius:20px; border:2px solid #0006; } #ovColors button.on { border-color:#fff; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; } .chips button { flex:0 0 auto; min-width:44px; min-height:40px; padding:6px 10px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:14px; } .chips button.on { background:var(--ac); color:#0c1022; }
   .ulb { position:absolute; left:30px; right:4px; top:0; line-height:30px; font-size:11px; color:#cfeee4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
   .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
@@ -79,6 +81,7 @@
   #toast { position:fixed; left:50%; transform:translateX(-50%); top:calc(58px + env(safe-area-inset-top)); max-width:92%; background:#232834; border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:14px; white-space:pre-wrap; display:none; z-index:20; } #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
   .back { position:fixed; inset:0; background:#0009; display:none; z-index:30; } .back.on { display:block; }
   .sheet { position:fixed; left:0; right:0; bottom:0; max-width:560px; margin-inline:auto; max-height:82dvh; overflow-y:auto; background:var(--bar); border-radius:18px 18px 0 0; border:1px solid var(--line); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:none; z-index:31; } .sheet.on { display:block; }
+  #sOver { max-height:44dvh; } body:has(#sOver.on) #back { background:transparent; }      /* al elegir forma y tamaño se ve la pantalla */
   .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
   input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
   .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
@@ -159,7 +162,10 @@
   <label class="m">Zoom dentro de la forma: <b id="ovZoomTxt">100%</b><input type="range" id="ovZoom" min="100" max="300" step="5" value="100" style="width:100%"></label>
   <label class="m">Mover el video dentro de la forma ↔ <b id="ovPxTxt">50%</b><input type="range" id="ovPx" min="0" max="100" step="1" value="50" style="width:100%"></label>
   <label class="m">Mover el video dentro de la forma ↕ <b id="ovPyTxt">50%</b><input type="range" id="ovPy" min="0" max="100" step="1" value="50" style="width:100%"></label>
-  <div class="chips" id="ovOrder"><button data-o="front">Traer adelante</button><button data-o="back">Mandar atrás</button></div>
+  <label class="m">Marco: <b id="ovFrameTxt">0%</b><input type="range" id="ovFrame" min="0" max="10" step="0.5" value="0" style="width:100%"></label>
+  <div class="chips" id="ovColors"><button data-c="#ffffff" style="background:#fff"></button><button data-c="#000000" style="background:#000"></button><button data-c="#ffd24a" style="background:#ffd24a"></button><button data-c="#ff4d6d" style="background:#ff4d6d"></button><button data-c="#4dd2ff" style="background:#4dd2ff"></button><button data-c="#5fd4a0" style="background:#5fd4a0"></button></div>
+  <label class="m">Transparencia: <b id="ovOpacTxt">100%</b> visible<input type="range" id="ovOpac" min="10" max="100" step="5" value="100" style="width:100%"></label>
+  <div class="chips" id="ovOrder"><button data-o="front">Traer adelante</button><button data-o="back">Mandar atrás</button><button data-o="screen">Pantallita en la esquina</button></div>
   <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ovMute"> Silenciar el sonido de este video</label>
   <p class="m">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
   <button id="ovDone" class="btn">Listo</button></div>
@@ -298,11 +304,14 @@ const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 // Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
-const SHAPE_IDS = ['none', 'rounded', 'circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon'];
+const SHAPE_IDS = ['none', 'rounded', 'square', 'squircle', 'circle', 'oval', 'heart', 'star', 'diamond', 'triangle', 'hexagon', 'cloud', 'blob', 'splat', 'flower', 'bubble', 'torn'];
 const FX = ['none', 'fade', 'slide', 'zoom'];
 const FORMATS = ['original', '9:16', '1:1', '4:5', '16:9'];
 const FITS = ['cover', 'contain'];
-const overlayProblem = ({ track, x, y, scale, shape, zoom, px, py }) => {
+const overlayProblem = ({ track, x, y, scale, shape, zoom, px, py, frame, frameColor, opacity }) => {
+  if (frame !== undefined && !(num(frame) && frame >= 0 && frame <= 0.1)) return 'frame debe estar entre 0 y 0.1';
+  if (frameColor !== undefined && !(typeof frameColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(frameColor))) return 'frameColor debe ser un color #rrggbb';
+  if (opacity !== undefined && !(num(opacity) && opacity >= 0.1 && opacity <= 1)) return 'opacity debe estar entre 0.1 y 1';
   if (shape !== undefined && !SHAPE_IDS.includes(shape)) return `shape debe ser uno de ${SHAPE_IDS.join(', ')}`;
   if (zoom !== undefined && !(num(zoom) && zoom >= 1 && zoom <= 4)) return 'zoom debe estar entre 1 y 4';
   for (const [k, v] of [['px', px], ['py', py]]) if (v !== undefined && !(num(v) && v >= 0 && v <= 1)) return `${k} debe estar entre 0 y 1`;
@@ -357,17 +366,20 @@ const handlers = {
     return { ok: true, id };
   },
   // Tamaño y posición de un video superpuesto (y, si se pide, su pista).
-  set_overlay(p, { clip_id, x, y, scale, track, shape, zoom, px, py }) {
+  set_overlay(p, { clip_id, x, y, scale, track, shape, zoom, px, py, frame, frameColor, opacity }) {
     const c = (p.overlayClips || []).find((k) => k.id === clip_id);
     if (!c) return err('unknown_clip', `No existe el video superpuesto ${clip_id}`);
-    if ([x, y, scale, track, shape, zoom, px, py].every((v) => v === undefined)) return err('bad_overlay', 'Indica x, y, scale, track, shape, zoom, px y/o py');
+    if ([x, y, scale, track, shape, zoom, px, py, frame, frameColor, opacity].every((v) => v === undefined)) return err('bad_overlay', 'Indica x, y, scale, track, shape, zoom, px, py, frame, frameColor y/o opacity');
     const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
-    const bad = overlayProblem({ ...n, shape, zoom, px, py }); if (bad) return err('bad_overlay', bad);
+    const bad = overlayProblem({ ...n, shape, zoom, px, py, frame, frameColor, opacity }); if (bad) return err('bad_overlay', bad);
     Object.assign(c, n);
     if (shape !== undefined) { if (shape === 'none') delete c.shape; else c.shape = shape; }     // forma de recorte (corazón, estrella…)
     if (zoom !== undefined) { if (zoom === 1) delete c.zoom; else c.zoom = zoom; }               // zoom del video dentro de la forma
     if (px !== undefined) { if (px === 0.5) delete c.px; else c.px = px; }
     if (py !== undefined) { if (py === 0.5) delete c.py; else c.py = py; }
+    if (frame !== undefined) { if (frame === 0) delete c.frame; else c.frame = frame; }                   // marco (borde) alrededor de la forma
+    if (frameColor !== undefined) c.frameColor = frameColor.toLowerCase();
+    if (opacity !== undefined) { if (opacity === 1) delete c.opacity; else c.opacity = opacity; }        // semitransparente
     return { ok: true };
   },
   set_audio_clip(p, { clip_id, track, role }) {      // pasar una pista de audio a otra fila, o cambiar su papel (voz 1, voz 2, música…)
@@ -415,7 +427,7 @@ const handlers = {
     const [grp, prefix] = groupOf(p, c);
     const id = `${prefix}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
-    for (const k of ['role', 'track', 'x', 'y', 'scale', 'shape', 'zoom', 'px', 'py']) if (c[k] !== undefined) right[k] = c[k];
+    for (const k of ['role', 'track', 'x', 'y', 'scale', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera
@@ -1161,18 +1173,33 @@ function audioStartAt(c, t) {
 }
 
 // Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
-const starPath = () => { const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.2 : 0.5; pts.push(`${i ? 'L' : 'M'}${(0.5 + r * Math.cos(a)).toFixed(4)} ${(0.5 + r * Math.sin(a)).toFixed(4)}`); } return pts.join(' ') + ' Z'; };
+const f4 = (n) => (Math.round(n * 1e4) / 1e4).toString();
+const polar = (n, rf) => { let d = ''; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 - Math.PI / 2, r = rf(a); d += `${i ? 'L' : 'M'}${f4(0.5 + r * Math.cos(a))} ${f4(0.5 + r * Math.sin(a))} `; } return d + 'Z'; };
+const starPath = () => polar(10, (() => { let i = -1; return () => (++i % 2 ? 0.2 : 0.5); })());
+// Borde rasgado: un cuadrado con los lados en dientes de sierra irregulares (determinista).
+const tornPath = () => { const pts = [], N = 14, j = (i) => 0.012 + 0.03 * Math.abs(Math.sin(i * 12.9898) * 0.5 + Math.sin(i * 7.233 + 1.3) * 0.5); let k = 0;
+  for (let i = 0; i <= N; i++) pts.push([i / N, j(k++)]); for (let i = 1; i <= N; i++) pts.push([1 - j(k++), i / N]); for (let i = 1; i <= N; i++) pts.push([1 - i / N, 1 - j(k++)]); for (let i = 1; i < N; i++) pts.push([j(k++), 1 - i / N]);
+  return pts.map((q, i) => `${i ? 'L' : 'M'}${f4(q[0])} ${f4(q[1])}`).join(' ') + ' Z'; };
 const SHAPE_PATHS = {
   rounded: 'M0.12 0 H0.88 Q1 0 1 0.12 V0.88 Q1 1 0.88 1 H0.12 Q0 1 0 0.88 V0.12 Q0 0 0.12 0 Z',
+  square: 'M0 0 H1 V1 H0 Z',
+  squircle: 'M0.2 0 H0.8 C0.95 0 1 0.05 1 0.2 V0.8 C1 0.95 0.95 1 0.8 1 H0.2 C0.05 1 0 0.95 0 0.8 V0.2 C0 0.05 0.05 0 0.2 0 Z',
   circle: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
+  oval: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
   heart: 'M0.5 0.95 C0.1 0.65 0 0.45 0 0.28 C0 0.12 0.12 0.02 0.27 0.02 C0.38 0.02 0.46 0.08 0.5 0.18 C0.54 0.08 0.62 0.02 0.73 0.02 C0.88 0.02 1 0.12 1 0.28 C1 0.45 0.9 0.65 0.5 0.95 Z',
   star: starPath(),
   diamond: 'M0.5 0 L1 0.5 L0.5 1 L0 0.5 Z',
   triangle: 'M0.5 0.02 L1 0.95 L0 0.95 Z',
   hexagon: 'M0.25 0.04 L0.75 0.04 L1 0.5 L0.75 0.96 L0.25 0.96 L0 0.5 Z',
+  cloud: 'M0.24 0.82 C0.06 0.82 0 0.6 0.14 0.5 C0.06 0.32 0.26 0.2 0.38 0.3 C0.44 0.1 0.72 0.08 0.78 0.28 C0.96 0.24 1 0.5 0.88 0.58 C1 0.72 0.88 0.86 0.74 0.8 C0.66 0.92 0.46 0.92 0.4 0.82 C0.34 0.88 0.28 0.86 0.24 0.82 Z',
+  blob: polar(72, (a) => 0.4 + 0.07 * Math.sin(3 * a + 1) + 0.045 * Math.sin(5 * a + 2) + 0.025 * Math.sin(7 * a)),
+  splat: polar(96, (a) => 0.3 + 0.12 * Math.abs(Math.sin(4.5 * a + 0.5)) ** 0.6 + 0.08 * Math.max(0, Math.sin(11 * a + 1)) + 0.04 * Math.sin(2 * a)),
+  flower: polar(120, (a) => 0.37 + 0.11 * Math.cos(6 * a)),
+  bubble: 'M0.1 0.05 H0.9 Q0.98 0.05 0.98 0.13 V0.62 Q0.98 0.7 0.9 0.7 H0.55 L0.3 0.95 L0.35 0.7 H0.1 Q0.02 0.7 0.02 0.62 V0.13 Q0.02 0.05 0.1 0.05 Z',
+  torn: tornPath(),
 };
-const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', circle: 'Círculo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono' };
-const SQUARE_SHAPES = ['circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon'];
+const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', square: 'Cuadrado', squircle: 'Cuadrado suave', circle: 'Círculo', oval: 'Óvalo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono', cloud: 'Nube', blob: 'Mancha', splat: 'Salpicadura', flower: 'Flor', bubble: 'Globo', torn: 'Rasgado' };
+const SQUARE_SHAPES = ['square', 'squircle', 'circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon', 'cloud', 'blob', 'splat', 'flower', 'bubble', 'torn'];
 // Alto/ancho del cuadro de un superpuesto: con forma cuadrada es 1; si no, la forma del video.
 const overlayAr = (c, vw, vh) => (SQUARE_SHAPES.includes(c.shape) ? 1 : (vw > 0 && vh > 0 ? vh / vw : 16 / 9));
 // Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro).
@@ -1185,13 +1212,17 @@ function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
   const k = Math.max(bw / vw, bh / vh), w0 = vw * k, h0 = vh * k, x0 = (bw - w0) * px, y0 = (bh - h0) * py;
   return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
 }
-// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma.
+// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
 function drawOverlay(g, el, c, r) {
   const vw = el.videoWidth, vh = el.videoHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
   try { g.drawImage(el, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
+    g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
+    const p2 = new Path2D(); p2.addPath(new Path2D(d || 'M0 0H1V1H0Z'), new DOMMatrix([r.w, 0, 0, r.h, 0, 0])); g.stroke(p2);
+  }
   g.restore();
 }
 // ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
@@ -1238,7 +1269,7 @@ function drawFrame(g, W, H, video, project, t, overlays = []) {
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
-    g.save(); g.globalAlpha = fx.alpha; drawOverlay(g, el, o.c, r); g.restore();
+    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -1725,9 +1756,10 @@ function syncOverlays() {
     const el = ensureOverlayEl(c);
     const fx = fxAt(c, tlTime), w = c.scale * vr.width * fx.scale, h = w * overlayAr(c, m.w, m.h), wr = el.parentElement;
     wr.style.display = 'block'; wr.style.width = w + 'px'; wr.style.height = h + 'px';
-    wr.style.opacity = String(fx.alpha); wr.style.left = (vr.left - sr.left + c.x * vr.width - w / 2 + fx.dx * vr.width) + 'px'; wr.style.top = (vr.top - sr.top + c.y * vr.height - h / 2) + 'px';
+    wr.style.opacity = String(fx.alpha * (typeof c.opacity === 'number' ? c.opacity : 1)); wr.style.left = (vr.left - sr.left + c.x * vr.width - w / 2 + fx.dx * vr.width) + 'px'; wr.style.top = (vr.top - sr.top + c.y * vr.height - h / 2) + 'px';
     const cp = SHAPE_PATHS[c.shape] ? `url(#shp-${c.shape})` : ''; wr.style.clipPath = cp; wr.style.webkitClipPath = cp; wr.style.borderRadius = c.shape === 'rounded' ? '12%' : '4px';
     el.style.objectPosition = `${(c.px ?? 0.5) * 100}% ${(c.py ?? 0.5) * 100}%`; el.style.transform = (c.zoom || 1) !== 1 ? `scale(${c.zoom})` : '';
+    let fs = wr.querySelector('svg.ofr'); if (c.frame > 0) { if (!fs) { fs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); fs.setAttribute('class', 'ofr'); fs.setAttribute('viewBox', '0 0 1 1'); fs.setAttribute('preserveAspectRatio', 'none'); fs.innerHTML = '<path fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'; wr.appendChild(fs); } const fp = fs.firstChild; fp.setAttribute('d', SHAPE_PATHS[c.shape] || 'M0 0H1V1H0Z'); fp.setAttribute('stroke', c.frameColor || '#ffffff'); fp.setAttribute('stroke-width', String(2 * c.frame * w)); } else if (fs) fs.remove();
     wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
     if (c.id === selId) { const hh = $('ovHandle'); hh.style.display = 'block'; hh.style.left = Math.max(0, Math.min(vr.width - 16, c.x * vr.width + w / 2 - 8)) + 'px'; hh.style.top = Math.max(0, Math.min(vr.height - 16, c.y * vr.height + h / 2 - 8)) + 'px'; handleShown = true; }
     if (playing) {
@@ -1805,13 +1837,15 @@ $('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').
 $('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 $('fmtFit').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled || !session) return; const r = edit([{ op: 'set_format', fit: b.dataset.f }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 // ---- Controles del video superpuesto ----
-$('ovShapes').innerHTML = Object.entries(SHAPE_NAMES).map(([k, n]) => `<button data-s="${k}">${n}</button>`).join('');
+$('ovShapes').innerHTML = Object.entries(SHAPE_NAMES).map(([k, n]) => `<button data-s="${k}" class="shp"><svg viewBox="-0.04 -0.04 1.08 1.08" aria-hidden="true"><path d="${SHAPE_PATHS[k] || 'M0 0H1V1H0Z'}" fill="currentColor" stroke="none"/></svg><span>${n}</span></button>`).join('');
 $('ovShapes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) ovCommit({ shape: b.dataset.s }); });
-for (const [id, key, txt, f] of [['ovZoom', 'zoom', 'ovZoomTxt', (v) => v / 100], ['ovPx', 'px', 'ovPxTxt', (v) => v / 100], ['ovPy', 'py', 'ovPyTxt', (v) => v / 100]]) {
-  $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { id: c.id, x: c.x, y: c.y, scale: c.scale, zoom: c.zoom, px: c.px, py: c.py, [key]: f(Number($(id).value)) }; syncOverlays(); });
+for (const [id, key, txt, f] of [['ovZoom', 'zoom', 'ovZoomTxt', (v) => v / 100], ['ovPx', 'px', 'ovPxTxt', (v) => v / 100], ['ovPy', 'py', 'ovPyTxt', (v) => v / 100], ['ovFrame', 'frame', 'ovFrameTxt', (v) => v / 100], ['ovOpac', 'opacity', 'ovOpacTxt', (v) => v / 100]]) {
+  $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { ...c, [key]: key === 'frame' && !f(Number($(id).value)) ? 0 : f(Number($(id).value)) }; syncOverlays(); });
   $(id).addEventListener('change', () => ovCommit({ [key]: f(Number($(id).value)) }));
 }
-$('ovOrder').addEventListener('click', (e) => {       // adelante / atrás: cambia de pista con la capa vecina que coincida en el tiempo
+$('ovColors').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) ovCommit({ frameColor: b.dataset.c, ...((anyClip(selId) || {}).frame ? {} : { frame: 0.02 }) }); });
+$('ovOrder').addEventListener('click', (e) => {
+  if (e.target.closest('button') && e.target.closest('button').dataset.o === 'screen') { const cc = anyClip(selId); if (cc && kindOf(cc.id) === 'overlay') ovCommit({ shape: 'rounded', frame: 0.02, frameColor: '#ffffff', scale: 0.32, x: 0.8, y: 0.8 }); return; }       // adelante / atrás: cambia de pista con la capa vecina que coincida en el tiempo
   const b = e.target.closest('button'), c = anyClip(selId); if (!b || b.disabled || !c || kindOf(c.id) !== 'overlay') return;
   const d = b.dataset.o === 'front' ? 1 : -1, nt = c.track + d; if (nt < 1 || nt > UI_MAX_OVERLAY) return say(d > 0 ? 'Ya está lo más adelante posible.' : 'Ya está lo más atrás posible.', 'bad');
   const other = session.project.overlayClips.find(k => k.id !== c.id && k.track === nt && k.start < c.start + (c.out - c.in) && k.start + (k.out - k.in) > c.start);
@@ -1821,10 +1855,12 @@ $('ovOrder').addEventListener('click', (e) => {       // adelante / atrás: camb
 function ovSync() {
   const c = anyClip(selId), ok = !!c && kindOf(c.id) === 'overlay';
   $('ovInfo').textContent = ok ? `${(media[c.asset_id] || {}).name || 'Video'} · pista ${c.track} · ${fmt(c.out - c.in)} s` : 'Toca un video superpuesto en la línea de tiempo para elegirlo.';
-  for (const id of ['ovSize', 'ovX', 'ovY', 'ovMute', 'ovZoom', 'ovPx', 'ovPy']) $(id).disabled = !ok;
+  for (const id of ['ovSize', 'ovX', 'ovY', 'ovMute', 'ovZoom', 'ovPx', 'ovPy', 'ovFrame', 'ovOpac']) $(id).disabled = !ok;
+  document.querySelectorAll('#ovColors button').forEach(b => { b.disabled = !ok; });
   document.querySelectorAll('#ovShapes button, #ovOrder button').forEach(b => { b.disabled = !ok; if (ok && b.dataset.s) b.classList.toggle('on', (c.shape || 'none') === b.dataset.s); });
   document.querySelectorAll('#ovPresets button').forEach(b => { b.disabled = !ok; });
   if (!ok) return;
+  $('ovFrame').value = (c.frame || 0) * 100; $('ovFrameTxt').textContent = $('ovFrame').value + '%'; $('ovOpac').value = Math.round((c.opacity ?? 1) * 100); $('ovOpacTxt').textContent = $('ovOpac').value + '%'; document.querySelectorAll('#ovColors button').forEach(b => b.classList.toggle('on', b.dataset.c === (c.frameColor || '#ffffff')));
   $('ovZoom').value = Math.round((c.zoom || 1) * 100); $('ovZoomTxt').textContent = $('ovZoom').value + '%'; $('ovPx').value = Math.round((c.px ?? 0.5) * 100); $('ovPxTxt').textContent = $('ovPx').value + '%'; $('ovPy').value = Math.round((c.py ?? 0.5) * 100); $('ovPyTxt').textContent = $('ovPy').value + '%';
   $('ovSize').value = Math.round(c.scale * 100); $('ovX').value = Math.round(c.x * 100); $('ovY').value = Math.round(c.y * 100); $('ovMute').checked = !!c.muted;
   $('ovSizeTxt').textContent = $('ovSize').value + '%'; $('ovXTxt').textContent = $('ovX').value + '%'; $('ovYTxt').textContent = $('ovY').value + '%';
