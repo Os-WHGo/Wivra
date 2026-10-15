@@ -59,6 +59,7 @@
   #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
   .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
   .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
+  #olay canvas, #olay img { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border:0; -webkit-user-drag:none; }
   #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
   input[type=checkbox] { width:auto; flex:0 0 auto; }
   .chips button.shp { display:flex; flex-direction:column; align-items:center; gap:2px; width:74px; padding:6px 2px; font-size:11px; } .chips button.shp svg { width:30px; height:30px; } #ovColors button { width:40px; min-width:40px; height:40px; border-radius:20px; border:2px solid #0006; } #ovColors button.on { border-color:#fff; }
@@ -201,7 +202,7 @@
   <p class="m">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
   <button id="ovDone" class="btn">Listo</button></div>
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
-  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
@@ -319,7 +320,7 @@ const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 
 let nOvShown = 0;
 const OV_ROW = 34, UI_MAX_OVERLAY = 3, AU_ROW = 32, UI_MAX_AUDIO = 3;
 const mediaFiles = {};   // id -> File/Blob original (para guardarlo en el teléfono)
-function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : 'video' }); }
+function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : kind === 'image' ? 'image' : 'video' }); }
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
 let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
@@ -384,6 +385,24 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
   });
 }
+function probeImage(file) {     // logo, foto o GIF: no tiene duración propia; se le da una larga y el clip se corta a 5 s al agregarlo
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => res({ url, duration: IMG_LEN, w: im.naturalWidth, h: im.naturalHeight });
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede abrir esa imagen`)); }; im.src = url;
+  });
+}
+const IMG_LEN = 3600, IMG_CLIP = 5;
+async function prepGif(id, file) {   // si es un GIF con varios fotogramas, lo decodifica para animarlo con tiempo exacto (si no, se usa como imagen fija)
+  const m = media[id]; if (!m || m.kind !== 'image') return;
+  try {
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer()); if (String.fromCharCode(...head) !== 'GIF8') return;
+    const g = decodeGif(await file.arrayBuffer());
+    if (g.frames.length < 2) return;
+    if (g.w * g.h * g.frames.length * 4 > 400e6) { say('Ese GIF es muy pesado para animarlo aquí; se usará como imagen fija.', 'bad'); return; }
+    m.gif = g; m.makeEl = () => gifCanvasEl(g);
+  } catch (e) { say('No pude animar ese GIF (' + e.message + '); se usará como imagen fija.', 'bad'); }
+}
 function probeAudio(file) {     // duración de un archivo de audio (el navegador debe saber decodificarlo)
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), a = new Audio(); a.preload = 'metadata';
@@ -417,7 +436,8 @@ let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arr
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 function ensureOverlayEl(c) {
   let el = opool[c.id]; const m = media[c.asset_id]; if (el || !m) return el;
-  el = opool[c.id] = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
+  if (m.kind === 'image') { if (m.gif) el = m.makeEl(); else { el = imageEl(new Image()); el.src = m.url; el.draggable = false; } } else { el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; }
+  opool[c.id] = el; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
   return el;
 }
 function syncOverlays() {
@@ -560,19 +580,20 @@ async function addTrackFile(file, kind) {
   if (!session) { say('Primero elige el video principal.', 'bad'); return; }
   if (loading) return; loading = true; stopPlayIfAny();
   try {
-    const pr = kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
-    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind);
-    session.addAsset({ id, duration: pr.duration, name: file.name });
+    if (kind === 'video' && /^image\//.test(file.type || '')) kind = 'image';
+    const pr = kind === 'image' ? await probeImage(file) : kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
+    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind); if (kind === 'image') await prepGif(id, file);
+    session.addAsset({ id, duration: pr.duration, name: file.name, ...(kind === 'image' ? { kind: 'image' } : {}) });
     const start = round2(tlTime); let op;
-    if (kind === 'video') {
-      const track = freeOverlayTrack(start, start + pr.duration);
+    if (kind === 'video' || kind === 'image') {
+      const len = kind === 'image' ? IMG_CLIP : pr.duration, track = freeOverlayTrack(start, start + len);
       if (!track) { say(`Ya hay ${UI_MAX_OVERLAY} pistas de video encima ocupadas en ese momento. Mueve la línea blanca o borra una.`, 'bad'); return; }
-      op = { op: 'add_overlay_clip', asset_id: id, start, track };
+      op = { op: 'add_overlay_clip', asset_id: id, start, track, ...(kind === 'image' ? { out: IMG_CLIP, x: 0.8, y: 0.15, scale: 0.28 } : {}) };
     } else { let tr = 1; const au = session.project.audioClips || []; while (tr < UI_MAX_AUDIO && au.some(c => (c.track || 1) === tr && c.start < start + pr.duration && c.start + (c.out - c.in) > start)) tr++; op = { op: 'add_audio_clip', asset_id: id, start, role: 'other', ...(tr > 1 ? { track: tr } : {}) }; }
     const r = run([op]); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
-    if (kind === 'video') {
+    if (kind === 'video' || kind === 'image') {
       const nc = session.project.overlayClips[session.project.overlayClips.length - 1]; selId = nc.id; selPart = 'v'; render();
-      thumbQueue = thumbQueue.then(() => makeThumbs(id)); say('Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
+      if (kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id)); say(kind === 'image' ? 'Imagen agregada encima (5 s). Arrástrala, cámbiale el tamaño o alarga su bloque.' : 'Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
     } else { const nc = session.project.audioClips[session.project.audioClips.length - 1]; selId = nc.id; selPart = 'a'; render(); say('Pista de audio agregada.', 'ok'); }
   } catch (e) { say('No pude abrir el archivo: ' + (e && e.message || e), 'bad'); }
   finally { loading = false; }
@@ -881,7 +902,7 @@ function renderTimeline() {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
-    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = (media[c.asset_id] || {}).name || 'Video'; b.appendChild(t);
+    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('otrack').appendChild(b);
   }
@@ -1420,7 +1441,7 @@ async function pzRestore(pid) {
     for (const a of sn.assets) {
       const b = saved.blobs[a.id]; if (!b) continue;
       media[a.id] = { url: URL.createObjectURL(b), name: a.name, duration: a.duration, w: a.w, h: a.h, thumbs: [], step: 1, size: a.size, type: a.type, kind: a.kind };
-      mediaFiles[a.id] = b; pzStored.add(a.id);
+      mediaFiles[a.id] = b; pzStored.add(a.id); if (a.kind === 'image') await prepGif(a.id, b);
     }
     pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
@@ -1479,9 +1500,9 @@ $('relink').addEventListener('change', async () => {
   const { matches } = matchFiles(pzMissing, files), bad = [];
   for (const { asset, file } of matches) {
     try {
-      const pr = asset.kind === 'audio' ? await probeAudio(file) : await probe(file);
-      if (Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
-      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind);
+      const pr = asset.kind === 'audio' ? await probeAudio(file) : asset.kind === 'image' ? await probeImage(file) : await probe(file);
+      if (asset.kind !== 'image' && Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
+      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind); if (asset.kind === 'image') await prepGif(asset.id, file);
       pzMissing = pzMissing.filter(m => m.id !== asset.id);
       if (media[asset.id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(asset.id));
     } catch (e) { bad.push(e.message); }

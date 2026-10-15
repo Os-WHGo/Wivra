@@ -129,3 +129,12 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Varios proyectos guardados (IndexedDB v2: `pj`, `pb`, `pi`); el proyecto único de la versión anterior se migra solo como «Proyecto anterior». Rutas: `#new`, `#new-director`, `#p=<id>` (un refresco vuelve al mismo proyecto; cambiar de pantalla recarga la página limpia).
 - Botón **‹ Inicio** en el editor → «Guardar y salir», «Seguir editando», «Descartar cambios de esta sesión» (el proyecto vuelve a como estaba al abrirlo; en un proyecto nuevo lo borra) y «Borrar el proyecto». También guarda al pasar la pestaña a segundo plano.
 - Verificado en Chromium simulado (no iPhone). NO verificado en iPhone: gesto «atrás» de Safari con las rutas `#`, guardado al cerrar la pestaña desde el selector de apps.
+
+## Fotos, logos y GIF como capas
+
+- El «+» de la fila de Capas acepta ahora imágenes: **PNG con transparencia** (logos), fotos (JPG/HEIC si el navegador los abre), WebP y **GIF animado**. Entran como capa de 5 s (se alarga o acorta con los bordes del bloque) arriba a la derecha, con todo lo de una capa: mover, pellizcar, forma, marco, transparencia, efectos de entrada/salida.
+- Las imágenes solo pueden ser capas (no video principal ni audio): `add_clip`/`add_audio_clip` las rechazan con `image_not_allowed`. El medio lleva `kind:'image'` y una duración virtual de 3600 s.
+- El GIF se decodifica con un lector propio (`app/gif.mjs`, sin dependencias) y se dibuja el fotograma exacto de cada instante, igual en la vista previa y al exportar; comprobado bit a bit contra ffmpeg. Un GIF de más de ~400 MB descomprimido se usa como imagen fija.
+- Se guardan y reabren con el proyecto (el GIF se vuelve a decodificar al abrir).
+- Verificado en Chromium simulado (PNG con alpha y GIF exportados y medidos). NO verificado en iPhone: formatos HEIC/WebP, GIF muy grandes, video con transparencia (WebM con alfa no existe en Safari; HEVC con alfa .mov sin probar).
+- Aún no: foto como clip del video principal (pase de diapositivas) y biblioteca de material; filtros de color y transiciones deportivas.

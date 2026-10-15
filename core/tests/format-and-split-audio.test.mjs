@@ -84,3 +84,12 @@ test('marco y transparencia del superpuesto: valida, borra los valores por defec
   assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 5 }]).ok); assert.deepEqual([s.project.overlayClips[1].frame, s.project.overlayClips[1].opacity], [0.03, 0.6]);
   assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, frame: 0, opacity: 1 }]).ok); assert.deepEqual([s.project.overlayClips[0].frame, s.project.overlayClips[0].opacity], [undefined, undefined]);
 });
+
+test('imágenes (logo/foto/GIF) solo van como capa: add_clip y add_audio_clip las rechazan', () => {
+  const s = new Session(createProject({ assets: [] }));
+  s.addAsset({ id: 'a1', duration: 10, name: 'v.mp4' }); s.addAsset({ id: 'a2', duration: 3600, name: 'logo.png', kind: 'image' });
+  const bad = s.apply([{ op: 'add_clip', asset_id: 'a2', start: 0 }], 0); assert.equal(bad.ok, false); assert.equal(bad.code, 'image_not_allowed');
+  const bad2 = s.apply([{ op: 'add_audio_clip', asset_id: 'a2', start: 0 }], 0); assert.equal(bad2.ok, false); assert.equal(bad2.code, 'image_not_allowed');
+  const ok = s.apply([{ op: 'add_clip', asset_id: 'a1', start: 0 }, { op: 'add_overlay_clip', asset_id: 'a2', start: 1, out: 5 }], 0);
+  assert.ok(ok.ok, JSON.stringify(ok)); assert.equal(s.project.overlayClips[0].out - s.project.overlayClips[0].in, 5);
+});

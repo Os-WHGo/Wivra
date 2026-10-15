@@ -35,6 +35,7 @@ const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) solo se pueden poner como capa encima del video.');
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     const id = `c${p.nextId++}`;
     p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
@@ -44,6 +45,7 @@ const handlers = {
   add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted, track }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) solo se pueden poner como capa encima del video.');
     const o = out === undefined ? a.duration : out;
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);

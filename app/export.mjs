@@ -105,8 +105,13 @@ export function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
   return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
 }
 // Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
+// Una imagen (logo, foto, GIF) se usa como capa con la misma interfaz mínima que un <video>: el resto del código no distingue.
+export function imageEl(img) {
+  Object.defineProperties(img, { paused: { value: true }, currentTime: { get: () => 0, set: () => {} }, videoWidth: { get: () => img.naturalWidth }, videoHeight: { get: () => img.naturalHeight } });
+  img.pause = () => {}; img.play = () => Promise.resolve(); return img;
+}
 export function drawOverlay(g, el, c, r) {
-  const vw = el.videoWidth, vh = el.videoHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
+  const vw = el.videoWidth || el.naturalWidth, vh = el.videoHeight || el.naturalHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
@@ -184,7 +189,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
-  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find(Boolean) || {};
+  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
   const { w: W, h: H } = formatSize(project.format, first.w, first.h);
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d');
@@ -217,6 +222,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
     const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
+    if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
+      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
+      try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
+      continue;
+    }
     const el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url;
     el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
     try {

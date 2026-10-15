@@ -59,6 +59,7 @@
   #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
   .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
   .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
+  #olay canvas, #olay img { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border:0; -webkit-user-drag:none; }
   #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
   input[type=checkbox] { width:auto; flex:0 0 auto; }
   .chips button.shp { display:flex; flex-direction:column; align-items:center; gap:2px; width:74px; padding:6px 2px; font-size:11px; } .chips button.shp svg { width:30px; height:30px; } #ovColors button { width:40px; min-width:40px; height:40px; border-radius:20px; border:2px solid #0006; } #ovColors button.on { border-color:#fff; }
@@ -201,7 +202,7 @@
   <p class="m">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
   <button id="ovDone" class="btn">Listo</button></div>
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
-  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
@@ -355,6 +356,7 @@ const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) solo se pueden poner como capa encima del video.');
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     const id = `c${p.nextId++}`;
     p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
@@ -364,6 +366,7 @@ const handlers = {
   add_audio_clip(p, { asset_id, start = 0, in: tin = 0, out, role = 'other', volume, muted, track }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) solo se pueden poner como capa encima del video.');
     const o = out === undefined ? a.duration : out;
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     if (!num(tin) || !num(o) || tin < 0 || o > a.duration + 1e-6 || o <= tin) return err('out_of_range', `El medio dura ${a.duration} s; pediste ${tin}–${o}`);
@@ -1244,8 +1247,13 @@ function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
   return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
 }
 // Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
+// Una imagen (logo, foto, GIF) se usa como capa con la misma interfaz mínima que un <video>: el resto del código no distingue.
+function imageEl(img) {
+  Object.defineProperties(img, { paused: { value: true }, currentTime: { get: () => 0, set: () => {} }, videoWidth: { get: () => img.naturalWidth }, videoHeight: { get: () => img.naturalHeight } });
+  img.pause = () => {}; img.play = () => Promise.resolve(); return img;
+}
 function drawOverlay(g, el, c, r) {
-  const vw = el.videoWidth, vh = el.videoHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
+  const vw = el.videoWidth || el.naturalWidth, vh = el.videoHeight || el.naturalHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
@@ -1323,7 +1331,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
-  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find(Boolean) || {};
+  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
   const { w: W, h: H } = formatSize(project.format, first.w, first.h);
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d');
@@ -1356,6 +1364,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
     const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
+    if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
+      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
+      try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
+      continue;
+    }
     const el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url;
     el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
     try {
@@ -1707,6 +1721,80 @@ async function pzRename(db, pid, name) {
   const tx = db.transaction('pi', 'readwrite'); tx.objectStore('pi').put({ ...m, name: String(name || '').slice(0, 60) || m.name }, pid); await pzDone(tx);
 }
 
+// Wivra · GIF animado: lector propio (sin dependencias) para poder dibujar el fotograma exacto de cada instante, en la vista previa y al exportar.
+// Los navegadores no dejan elegir el fotograma de un <img> GIF, y Safari/Chrome lo congelan al copiarlo a un canvas. — Claude
+// decodeGif(bytes) → { w, h, frames:[{ delay (s), rgba:Uint8ClampedArray(w*h*4) }] } (cada fotograma ya compuesto). Lanza Error si no es un GIF válido.
+function decodeGif(buf) {
+  const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf); let p = 0;
+  const u16 = () => { const v = b[p] | (b[p + 1] << 8); p += 2; return v; };
+  if (b.length < 13 || String.fromCharCode(...b.subarray(0, 4)) !== 'GIF8') throw new Error('No es un GIF');
+  p = 6; const W = u16(), H = u16(), pk = b[p++]; p += 2;
+  if (!W || !H || W * H > 4096 * 4096) throw new Error('GIF con tamaño imposible');
+  let gct = null; if (pk & 0x80) { const n = 3 * (2 << (pk & 7)); gct = b.subarray(p, p + n); p += n; }
+  const cv = new Uint8ClampedArray(W * H * 4), frames = []; let gce = null, prev = null;
+  const skipSub = () => { while (p < b.length && b[p]) p += b[p] + 1; p++; };
+  while (p < b.length) {
+    const t = b[p++];
+    if (t === 0x3b) break;
+    if (t === 0x21) { const l = b[p++]; if (l === 0xf9 && b[p] >= 4) { const f = b[p + 1]; gce = { disp: (f >> 2) & 7, tr: f & 1 ? b[p + 4] : -1, delay: (b[p + 2] | (b[p + 3] << 8)) / 100 }; } skipSub(); continue; }
+    if (t !== 0x2c) throw new Error('GIF dañado');
+    const fx = u16(), fy = u16(), fw = u16(), fh = u16(), fp = b[p++];
+    if (fx + fw > W || fy + fh > H) throw new Error('GIF dañado (fotograma fuera del cuadro)');
+    let pal = gct; if (fp & 0x80) { const n = 3 * (2 << (fp & 7)); pal = b.subarray(p, p + n); p += n; }
+    if (!pal) throw new Error('GIF sin paleta');
+    const mcs = b[p++]; if (mcs < 1 || mcs > 11) throw new Error('GIF dañado (LZW)');
+    const data = []; while (p < b.length && b[p]) { for (let i = 1; i <= b[p]; i++) data.push(b[p + i]); p += b[p] + 1; } p++;
+    // LZW
+    const clear = 1 << mcs, eoi = clear + 1, out = new Uint8Array(fw * fh); let size = mcs + 1, next = eoi + 1, op = 0, old = -1, acc = 0, nb = 0, di = 0;
+    const pre = new Int32Array(4096), suf = new Uint8Array(4096), stk = new Uint8Array(4097);
+    for (let i = 0; i < clear; i++) suf[i] = i;
+    while (op < out.length) {
+      while (nb < size && di < data.length) { acc |= data[di++] << nb; nb += 8; }
+      if (nb < size) break;
+      const code = acc & ((1 << size) - 1); acc >>>= size; nb -= size;
+      if (code === clear) { size = mcs + 1; next = eoi + 1; old = -1; continue; }
+      if (code === eoi) break;
+      let sp = 0, c = code;
+      if (old === -1) { out[op++] = suf[code]; old = code; continue; }
+      if (code >= next) { if (code > next) throw new Error('GIF dañado (LZW)'); stk[sp++] = 0; c = old; }   // se corrige abajo
+      while (c >= clear) { stk[sp++] = suf[c]; c = pre[c]; }
+      const first = suf[c]; stk[sp++] = first; if (code >= next) stk[0] = first;
+      while (sp > 0 && op < out.length) out[op++] = stk[--sp];
+      if (next < 4096) { pre[next] = old; suf[next] = first; next++; if (next === (1 << size) && size < 12) size++; }
+      old = code;
+    }
+    const g = gce || { disp: 0, tr: -1, delay: 0.1 }; gce = null;
+    if (g.disp === 3) prev = cv.slice();
+    const rows = []; if (fp & 0x40) { for (const [s, st] of [[0, 8], [4, 8], [2, 4], [1, 2]]) for (let y = s; y < fh; y += st) rows.push(y); } else for (let y = 0; y < fh; y++) rows.push(y);
+    for (let i = 0; i < fh; i++) for (let x = 0; x < fw; x++) {
+      const ci = out[i * fw + x]; if (ci === g.tr) continue; const o = ((fy + rows[i]) * W + fx + x) * 4;
+      cv[o] = pal[ci * 3]; cv[o + 1] = pal[ci * 3 + 1]; cv[o + 2] = pal[ci * 3 + 2]; cv[o + 3] = 255;
+    }
+    frames.push({ delay: g.delay > 0.01 ? g.delay : 0.1, rgba: cv.slice() });
+    if (g.disp === 2) { for (let y = fy; y < fy + fh; y++) cv.fill(0, (y * W + fx) * 4, (y * W + fx + fw) * 4); }
+    else if (g.disp === 3 && prev) cv.set(prev);
+    if (frames.length > 2000) throw new Error('GIF demasiado largo');
+  }
+  if (!frames.length) throw new Error('GIF sin fotogramas');
+  return { w: W, h: H, frames };
+}
+/** Índice del fotograma que se ve en el instante t (el GIF se repite). */
+function gifFrameAt(gif, t) {
+  const total = gif.frames.reduce((n, f) => n + f.delay, 0); if (!(total > 0) || !(t >= 0)) return 0;
+  let r = t % total; for (let i = 0; i < gif.frames.length; i++) { if (r < gif.frames[i].delay) return i; r -= gif.frames[i].delay; }
+  return gif.frames.length - 1;
+}
+/** Elemento <canvas> que se comporta como un video: `currentTime = t` dibuja el fotograma de ese instante. Solo en el navegador. */
+function gifCanvasEl(gif) {
+  const cv = document.createElement('canvas'); cv.width = gif.w; cv.height = gif.h; const g = cv.getContext('2d');
+  const bmp = gif.frames.map((f) => { const c = document.createElement('canvas'); c.width = gif.w; c.height = gif.h; c.getContext('2d').putImageData(new ImageData(f.rgba, gif.w, gif.h), 0, 0); return c; });
+  let cur = -1, ct = 0;
+  const show = (t) => { const i = gifFrameAt(gif, t); if (i === cur) return; cur = i; g.clearRect(0, 0, gif.w, gif.h); g.drawImage(bmp[i], 0, 0); };
+  show(0);
+  Object.defineProperties(cv, { paused: { value: true }, currentTime: { get: () => ct, set: (t) => { ct = t; show(t); } }, videoWidth: { get: () => gif.w }, videoHeight: { get: () => gif.h } });
+  cv.pause = () => {}; cv.play = () => Promise.resolve(); return cv;
+}
+
 // Wivra · conexión directa con una IA (sin copiar y pegar). Un solo contrato "OpenAI compatible"
 // que sirve para varios proveedores: tú pones dirección, modelo y tu propia clave.
 // - La clave vive solo en la memoria de la página (no se guarda, no va al repositorio ni al proyecto).
@@ -1841,7 +1929,7 @@ const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 
 let nOvShown = 0;
 const OV_ROW = 34, UI_MAX_OVERLAY = 3, AU_ROW = 32, UI_MAX_AUDIO = 3;
 const mediaFiles = {};   // id -> File/Blob original (para guardarlo en el teléfono)
-function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : 'video' }); }
+function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : kind === 'image' ? 'image' : 'video' }); }
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
 let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
@@ -1906,6 +1994,24 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
   });
 }
+function probeImage(file) {     // logo, foto o GIF: no tiene duración propia; se le da una larga y el clip se corta a 5 s al agregarlo
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => res({ url, duration: IMG_LEN, w: im.naturalWidth, h: im.naturalHeight });
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede abrir esa imagen`)); }; im.src = url;
+  });
+}
+const IMG_LEN = 3600, IMG_CLIP = 5;
+async function prepGif(id, file) {   // si es un GIF con varios fotogramas, lo decodifica para animarlo con tiempo exacto (si no, se usa como imagen fija)
+  const m = media[id]; if (!m || m.kind !== 'image') return;
+  try {
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer()); if (String.fromCharCode(...head) !== 'GIF8') return;
+    const g = decodeGif(await file.arrayBuffer());
+    if (g.frames.length < 2) return;
+    if (g.w * g.h * g.frames.length * 4 > 400e6) { say('Ese GIF es muy pesado para animarlo aquí; se usará como imagen fija.', 'bad'); return; }
+    m.gif = g; m.makeEl = () => gifCanvasEl(g);
+  } catch (e) { say('No pude animar ese GIF (' + e.message + '); se usará como imagen fija.', 'bad'); }
+}
 function probeAudio(file) {     // duración de un archivo de audio (el navegador debe saber decodificarlo)
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), a = new Audio(); a.preload = 'metadata';
@@ -1939,7 +2045,8 @@ let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arr
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 function ensureOverlayEl(c) {
   let el = opool[c.id]; const m = media[c.asset_id]; if (el || !m) return el;
-  el = opool[c.id] = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
+  if (m.kind === 'image') { if (m.gif) el = m.makeEl(); else { el = imageEl(new Image()); el.src = m.url; el.draggable = false; } } else { el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; }
+  opool[c.id] = el; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
   return el;
 }
 function syncOverlays() {
@@ -2082,19 +2189,20 @@ async function addTrackFile(file, kind) {
   if (!session) { say('Primero elige el video principal.', 'bad'); return; }
   if (loading) return; loading = true; stopPlayIfAny();
   try {
-    const pr = kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
-    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind);
-    session.addAsset({ id, duration: pr.duration, name: file.name });
+    if (kind === 'video' && /^image\//.test(file.type || '')) kind = 'image';
+    const pr = kind === 'image' ? await probeImage(file) : kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
+    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind); if (kind === 'image') await prepGif(id, file);
+    session.addAsset({ id, duration: pr.duration, name: file.name, ...(kind === 'image' ? { kind: 'image' } : {}) });
     const start = round2(tlTime); let op;
-    if (kind === 'video') {
-      const track = freeOverlayTrack(start, start + pr.duration);
+    if (kind === 'video' || kind === 'image') {
+      const len = kind === 'image' ? IMG_CLIP : pr.duration, track = freeOverlayTrack(start, start + len);
       if (!track) { say(`Ya hay ${UI_MAX_OVERLAY} pistas de video encima ocupadas en ese momento. Mueve la línea blanca o borra una.`, 'bad'); return; }
-      op = { op: 'add_overlay_clip', asset_id: id, start, track };
+      op = { op: 'add_overlay_clip', asset_id: id, start, track, ...(kind === 'image' ? { out: IMG_CLIP, x: 0.8, y: 0.15, scale: 0.28 } : {}) };
     } else { let tr = 1; const au = session.project.audioClips || []; while (tr < UI_MAX_AUDIO && au.some(c => (c.track || 1) === tr && c.start < start + pr.duration && c.start + (c.out - c.in) > start)) tr++; op = { op: 'add_audio_clip', asset_id: id, start, role: 'other', ...(tr > 1 ? { track: tr } : {}) }; }
     const r = run([op]); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
-    if (kind === 'video') {
+    if (kind === 'video' || kind === 'image') {
       const nc = session.project.overlayClips[session.project.overlayClips.length - 1]; selId = nc.id; selPart = 'v'; render();
-      thumbQueue = thumbQueue.then(() => makeThumbs(id)); say('Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
+      if (kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id)); say(kind === 'image' ? 'Imagen agregada encima (5 s). Arrástrala, cámbiale el tamaño o alarga su bloque.' : 'Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
     } else { const nc = session.project.audioClips[session.project.audioClips.length - 1]; selId = nc.id; selPart = 'a'; render(); say('Pista de audio agregada.', 'ok'); }
   } catch (e) { say('No pude abrir el archivo: ' + (e && e.message || e), 'bad'); }
   finally { loading = false; }
@@ -2403,7 +2511,7 @@ function renderTimeline() {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
-    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = (media[c.asset_id] || {}).name || 'Video'; b.appendChild(t);
+    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('otrack').appendChild(b);
   }
@@ -2942,7 +3050,7 @@ async function pzRestore(pid) {
     for (const a of sn.assets) {
       const b = saved.blobs[a.id]; if (!b) continue;
       media[a.id] = { url: URL.createObjectURL(b), name: a.name, duration: a.duration, w: a.w, h: a.h, thumbs: [], step: 1, size: a.size, type: a.type, kind: a.kind };
-      mediaFiles[a.id] = b; pzStored.add(a.id);
+      mediaFiles[a.id] = b; pzStored.add(a.id); if (a.kind === 'image') await prepGif(a.id, b);
     }
     pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
@@ -3001,9 +3109,9 @@ $('relink').addEventListener('change', async () => {
   const { matches } = matchFiles(pzMissing, files), bad = [];
   for (const { asset, file } of matches) {
     try {
-      const pr = asset.kind === 'audio' ? await probeAudio(file) : await probe(file);
-      if (Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
-      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind);
+      const pr = asset.kind === 'audio' ? await probeAudio(file) : asset.kind === 'image' ? await probeImage(file) : await probe(file);
+      if (asset.kind !== 'image' && Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
+      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind); if (asset.kind === 'image') await prepGif(asset.id, file);
       pzMissing = pzMissing.filter(m => m.id !== asset.id);
       if (media[asset.id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(asset.id));
     } catch (e) { bad.push(e.message); }
