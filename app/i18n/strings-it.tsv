@@ -223,14 +223,14 @@ La IA aún no está conectada; puedes usar este briefing en ChatGPT o Claude. ||
 Observar el video || Esamina il video
 Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada. || Guarda 8 piccoli fotogrammi sul tuo telefono e propone dei tagli. Non riconosce luoghi, persone né voce. Non carica nulla.
 Inspeccionar fotogramas || Ispeziona i fotogrammi
-Recorte por números del primer clip || Accorcia la prima clip con i tempi
+Recorte por números del primer clip || Accorcia la prima clip in base ai tempi indicati
 Recortar || Accorcia
 Exportar video || Esporta video
 Empezar a exportar || Inizia l'esportazione
 Guardar o compartir || Salva o condividi
 Descargar archivo || Scarica file
 Volver al inicio || Torna alla home
-Importar una captura: el archivo .wivra.json junto con su video y sus audios || Importa una cattura: il file .wivra.json insieme al suo video e ai suoi audio
+Importar una captura: el archivo .wivra.json junto con su video y sus audios || Importa una ripresa: il file .wivra.json con i relativi video e audio
 Qué mover || Cosa spostare
 Mueve y cambia el tamaño de todo el recuadro || Sposta e ridimensiona tutto il riquadro
 Mueve y agranda el video por dentro de la forma || Sposta e ingrandisci il video dentro la forma
@@ -250,7 +250,7 @@ Opcional || Opzionale
 Ej.: humor seco, voz en off, subtítulos, tres cortes rápidos... || Es.: umorismo asciutto, voce fuori campo, sottotitoli, tre tagli rapidi...
 Ej.: aquí caminé por Granville y grabé el teatro Vogue. || Es.: qui ho camminato per Granville e ho ripreso il teatro Vogue.
 Ej.: el parque, una cafetería o el barrio || Es.: il parco, un caffè o il quartiere
-Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver" || Es.: Ritaglia clip 1 da 2 a 7 e metti il testo "Vancouver"
+Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver" || Es.: Accorcia la clip 1 dal secondo 2 al 7 e aggiungi il testo "Vancouver"
 No, mejor que el comienzo use la segunda toma... || No, meglio che l'inizio usi la seconda ripresa...
 Aquí aparecerá tu briefing. || Qui apparirà il tuo briefing.
 Inicio (s) || Inizio (s)
@@ -265,12 +265,12 @@ Leyendo {} video… || Lettura di {} video…
 Clip de {} s. Si borras solo el video, el sonido de este tramo se queda y la imagen queda en negro. || Clip di {} s. Se elimini solo il video, l'audio di questo tratto resta e l'immagine diventa nera.
 Ahora es una capa: arrástralo en la pantalla o pellizca para el tamaño. || Ora è un livello: trascinalo sullo schermo o pizzica per la dimensione.
 Aplicado. Puedes deshacerlo con la flecha. || Applicato. Puoi annullarlo con la freccia.
-Captura importada. || Cattura importata.
+Captura importada. || Ripresa importata.
 Copiado. Pégalo en ChatGPT o Claude y copia su respuesta. || Copiato. Incollalo in ChatGPT o Claude e copia la sua risposta.
 Deshecho. || Annullato.
 Rehecho. || Ripristinato.
 Edición realizada dentro de Wivra. || Modifica eseguita dentro Wivra.
-Elige también el archivo .wivra.json de la captura, junto con su video y sus audios. || Scegli anche il file .wivra.json della cattura, insieme al suo video e ai suoi audio.
+Elige también el archivo .wivra.json de la captura, junto con su video y sus audios. || Seleziona anche il file .wivra.json della ripresa, insieme ai relativi video e audio.
 Esa capa ya está ocupada en ese momento. || Quel livello è già occupato in quel momento.
 Esa capa ya está ocupada en ese momento. Suéltalo en otra fila. || Quel livello è già occupato in quel momento. Rilascialo su un'altra riga.
 Ese GIF es muy pesado para animarlo aquí; se usará como imagen fija. || Quella GIF è troppo pesante per animarla qui; verrà usata come immagine fissa.
@@ -303,7 +303,7 @@ No se pudo mover: || Non è stato possibile spostare:
 No se pudo exportar: || Non è stato possibile esportare:
 No pude abrir: || Non sono riuscito ad aprire:
 No pude abrir el archivo: || Non sono riuscito ad aprire il file:
-Leyendo la captura… || Lettura della cattura…
+Leyendo la captura… || Caricamento della ripresa…
 Capas: arrastra un video aquí (abajo = capa) || Livelli: trascina qui un video (sotto = livello)
 No hay paquetes todavía. || Non ci sono ancora pacchetti.
 No se pudo cargar el catálogo (¿sin conexión?). Se muestran los paquetes ya descargados. || Impossibile caricare il catalogo (offline?). Vengono mostrati i pacchetti già scaricati.
@@ -326,6 +326,6 @@ Video cargado. Desliza la línea de tiempo para moverte. || Video caricato. Scor
 Video agregado encima. Arrástralo en la pantalla o usa los controles. || Video aggiunto sopra. Trascinalo sullo schermo o usa i controlli.
 No pude abrir el video de la captura. || Impossibile aprire il video registrato.
 No se pudo reabrir el proyecto guardado: || Non è stato possibile riaprire il progetto salvato:
-No se pudo importar la captura: || Non è stato possibile importare la cattura:
+No se pudo importar la captura: || Impossibile importare la ripresa:
 No se pudo reconectar: || Non è stato possibile riconnettere:
 El proyecto guardado no se pudo abrir: || Impossibile aprire il progetto salvato:
