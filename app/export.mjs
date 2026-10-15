@@ -64,10 +64,39 @@ export function audioStartAt(c, t) {
   return { offset: c.in + k, dur: len - k };
 }
 
-// Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro; se respeta su forma).
+// Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
+const starPath = () => { const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.2 : 0.5; pts.push(`${i ? 'L' : 'M'}${(0.5 + r * Math.cos(a)).toFixed(4)} ${(0.5 + r * Math.sin(a)).toFixed(4)}`); } return pts.join(' ') + ' Z'; };
+export const SHAPE_PATHS = {
+  rounded: 'M0.12 0 H0.88 Q1 0 1 0.12 V0.88 Q1 1 0.88 1 H0.12 Q0 1 0 0.88 V0.12 Q0 0 0.12 0 Z',
+  circle: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
+  heart: 'M0.5 0.95 C0.1 0.65 0 0.45 0 0.28 C0 0.12 0.12 0.02 0.27 0.02 C0.38 0.02 0.46 0.08 0.5 0.18 C0.54 0.08 0.62 0.02 0.73 0.02 C0.88 0.02 1 0.12 1 0.28 C1 0.45 0.9 0.65 0.5 0.95 Z',
+  star: starPath(),
+  diamond: 'M0.5 0 L1 0.5 L0.5 1 L0 0.5 Z',
+  triangle: 'M0.5 0.02 L1 0.95 L0 0.95 Z',
+  hexagon: 'M0.25 0.04 L0.75 0.04 L1 0.5 L0.75 0.96 L0.25 0.96 L0 0.5 Z',
+};
+export const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', circle: 'Círculo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono' };
+const SQUARE_SHAPES = ['circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon'];
+// Alto/ancho del cuadro de un superpuesto: con forma cuadrada es 1; si no, la forma del video.
+export const overlayAr = (c, vw, vh) => (SQUARE_SHAPES.includes(c.shape) ? 1 : (vw > 0 && vh > 0 ? vh / vw : 16 / 9));
+// Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro).
 export function overlayRect(c, W, H, vw, vh) {
-  const w = c.scale * W, h = vw > 0 ? w * (vh / vw) : w;
+  const w = c.scale * W, h = w * overlayAr(c, vw, vh);
   return { x: c.x * W - w / 2, y: c.y * H - h / 2, w, h };
+}
+// Dónde va el video (vw×vh) dentro de su cuadro bw×bh: rellena el cuadro (recorta lo que sobra), se mueve con px/py (0..1, 0.5 = centro) y se amplía con zoom desde el centro.
+export function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
+  const k = Math.max(bw / vw, bh / vh), w0 = vw * k, h0 = vh * k, x0 = (bw - w0) * px, y0 = (bh - h0) * py;
+  return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
+}
+// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma.
+export function drawOverlay(g, el, c, r) {
+  const vw = el.videoWidth, vh = el.videoHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
+  g.save();
+  g.translate(r.x, r.y);
+  if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
+  try { g.drawImage(el, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  g.restore();
 }
 // ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
 export function overlayAt(c, t) {
@@ -113,7 +142,7 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
-    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(el, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
+    g.save(); g.globalAlpha = fx.alpha; drawOverlay(g, el, o.c, r); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';

@@ -15,10 +15,14 @@ const MAX_TRACKS = 4;
 const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 // Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
+export const SHAPE_IDS = ['none', 'rounded', 'circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon'];
 export const FX = ['none', 'fade', 'slide', 'zoom'];
 export const FORMATS = ['original', '9:16', '1:1', '4:5', '16:9'];
 export const FITS = ['cover', 'contain'];
-const overlayProblem = ({ track, x, y, scale }) => {
+const overlayProblem = ({ track, x, y, scale, shape, zoom, px, py }) => {
+  if (shape !== undefined && !SHAPE_IDS.includes(shape)) return `shape debe ser uno de ${SHAPE_IDS.join(', ')}`;
+  if (zoom !== undefined && !(num(zoom) && zoom >= 1 && zoom <= 4)) return 'zoom debe estar entre 1 y 4';
+  for (const [k, v] of [['px', px], ['py', py]]) if (v !== undefined && !(num(v) && v >= 0 && v <= 1)) return `${k} debe estar entre 0 y 1`;
   if (!Number.isInteger(track) || track < 1 || track > MAX_TRACKS) return `track debe ser un entero de 1 a ${MAX_TRACKS}`;
   if (!num(x) || !num(y) || x < 0 || x > 1 || y < 0 || y > 1) return 'x e y deben estar entre 0 y 1';
   if (!num(scale) || scale < 0.05 || scale > 1) return 'scale debe estar entre 0.05 y 1';
@@ -70,13 +74,17 @@ const handlers = {
     return { ok: true, id };
   },
   // Tamaño y posición de un video superpuesto (y, si se pide, su pista).
-  set_overlay(p, { clip_id, x, y, scale, track }) {
+  set_overlay(p, { clip_id, x, y, scale, track, shape, zoom, px, py }) {
     const c = (p.overlayClips || []).find((k) => k.id === clip_id);
     if (!c) return err('unknown_clip', `No existe el video superpuesto ${clip_id}`);
-    if (x === undefined && y === undefined && scale === undefined && track === undefined) return err('bad_overlay', 'Indica x, y, scale y/o track');
+    if ([x, y, scale, track, shape, zoom, px, py].every((v) => v === undefined)) return err('bad_overlay', 'Indica x, y, scale, track, shape, zoom, px y/o py');
     const n = { track: track ?? c.track, x: x ?? c.x, y: y ?? c.y, scale: scale ?? c.scale };
-    const bad = overlayProblem(n); if (bad) return err('bad_overlay', bad);
+    const bad = overlayProblem({ ...n, shape, zoom, px, py }); if (bad) return err('bad_overlay', bad);
     Object.assign(c, n);
+    if (shape !== undefined) { if (shape === 'none') delete c.shape; else c.shape = shape; }     // forma de recorte (corazón, estrella…)
+    if (zoom !== undefined) { if (zoom === 1) delete c.zoom; else c.zoom = zoom; }               // zoom del video dentro de la forma
+    if (px !== undefined) { if (px === 0.5) delete c.px; else c.px = px; }
+    if (py !== undefined) { if (py === 0.5) delete c.py; else c.py = py; }
     return { ok: true };
   },
   set_audio_clip(p, { clip_id, track, role }) {      // pasar una pista de audio a otra fila, o cambiar su papel (voz 1, voz 2, música…)
@@ -124,7 +132,7 @@ const handlers = {
     const [grp, prefix] = groupOf(p, c);
     const id = `${prefix}${p.nextId++}`;
     const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
-    for (const k of ['role', 'track', 'x', 'y', 'scale']) if (c[k] !== undefined) right[k] = c[k];
+    for (const k of ['role', 'track', 'x', 'y', 'scale', 'shape', 'zoom', 'px', 'py']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera

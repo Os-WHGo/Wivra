@@ -60,3 +60,18 @@ test('audio en varias filas: add_audio_clip con track, set_audio_clip valida y s
   s.undo(); assert.equal(s.project.audioClips[0].track, 2);
   assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 4 }]).ok); assert.equal(s.project.audioClips[1].track, 2);
 });
+
+import { SHAPE_IDS } from '../operations.mjs';
+import { SHAPE_PATHS, overlayAr, overlayRect, contentRect } from '../../app/export.mjs';
+test('formas del superpuesto: validación, valores por defecto se borran, el corte las conserva, y la lista del núcleo coincide con la de la app', () => {
+  assert.deepEqual(SHAPE_IDS.filter((x) => x !== 'none').sort(), Object.keys(SHAPE_PATHS).sort());
+  const s = mk(); assert.ok(s.apply([{ op: 'add_overlay_clip', asset_id: 'v', start: 0, track: 1 }]).ok); const id = s.project.overlayClips[0].id;
+  assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, shape: 'heart', zoom: 2, px: 0.2, py: 0.7 }]).ok);
+  const c = s.project.overlayClips[0]; assert.deepEqual([c.shape, c.zoom, c.px, c.py], ['heart', 2, 0.2, 0.7]);
+  for (const op of [{ shape: 'blob' }, { zoom: 0.5 }, { zoom: 9 }, { px: 2 }, { py: -1 }]) assert.equal(s.apply([{ op: 'set_overlay', clip_id: id, ...op }]).ok, false, JSON.stringify(op));
+  assert.ok(s.apply([{ op: 'split_clip', clip_id: id, at: 5 }]).ok); assert.equal(s.project.overlayClips[1].shape, 'heart');
+  assert.ok(s.apply([{ op: 'set_overlay', clip_id: id, shape: 'none', zoom: 1, px: 0.5, py: 0.5 }]).ok); assert.deepEqual([s.project.overlayClips[0].shape, s.project.overlayClips[0].zoom, s.project.overlayClips[0].px], [undefined, undefined, undefined]);
+  assert.equal(overlayAr({ shape: 'circle' }, 1000, 2000), 1); assert.equal(overlayAr({}, 1000, 2000), 2); assert.equal(overlayRect({ scale: 0.5, x: 0.5, y: 0.5, shape: 'star' }, 1000, 1000, 100, 200).h, 500);
+  const cr = contentRect(100, 100, 200, 100, 1); assert.deepEqual([cr.w, cr.h, cr.x], [200, 100, -50]);          // 2:1 en cuadro cuadrado: rellena y recorta a los lados
+  assert.deepEqual(contentRect(100, 100, 200, 100, 2), { x: -150, y: -50, w: 400, h: 200 });                      // zoom 2 desde el centro
+});

@@ -101,3 +101,9 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Encima de la fila de Video hay siempre una fila de capas (la más alta de la lista va arriba en pantalla). Mantén pulsado un clip del video principal y suéltalo en esa fila: pasa a ser una capa. Arrastra una capa hacia abajo, al video principal: vuelve a ser parte del video (si el lugar está ocupado, queda al final). Un solo deshacer.
 - «Agregar» ya solo tiene **Video** (se suma al final) y **Audio**; las capas se hacen arrastrando (o con el + de la fila de Video). El botón «Superponer» se llama ahora «Capa» (tamaño, posición, silenciar).
 - Estado: implementado + Chromium simulado. **No probado en iPhone.**
+
+## Capas debajo del video, insertar en el corte, formas · 14-10-2026 (noche)
+- **Orden de filas:** Video (donde están los cortes), su audio, y debajo **Capas** (la de arriba va más adelante). Arrastrar un clip principal a las filas de Capas lo convierte en capa; arrastrar una capa hacia arriba lo devuelve al video principal.
+- **Agregar video** se mete en el corte más cercano a la línea blanca (inicio, entre clips o final) y corre lo que sigue; no se corta ningún clip.
+- Botón **Capa**: **Forma** (Normal, Redondeado, Círculo, Corazón, Estrella, Rombo, Triángulo, Hexágono), **Zoom y mover el video dentro de la forma**, y **Traer adelante / Mandar atrás**. Núcleo: `set_overlay` con `shape`, `zoom`, `px`, `py`. Misma geometría en vista previa (clip-path SVG) y exportación (Path2D; comprobado un fotograma con corazón).
+- Estado: implementado + pruebas automáticas (núcleo 47, app 41) + Chromium simulado. **No probado en iPhone** (clip-path con url() en Safari/iOS: **NV**). Las formas aún no se pueden dibujar a mano ni importar como vector.
