@@ -195,3 +195,9 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Ajustar pantalla** (botón «Pantalla» en la barra de herramientas y en el inicio): sube/baja el contenido desde arriba (por si la barra del navegador tapa el encabezado), «Modo B» quita `viewport-fit=cover` y muestra datos (tamaños, zona segura) para diagnosticar. Se guarda en el teléfono. NO verificado en iPhone: es una ayuda manual porque no pude reproducir el desajuste de Chrome iOS aquí.
 
 — Claude
+
+### Cerrar paneles
+
+- Todos los paneles (menos las preguntas «¿Salir del proyecto?» y «Faltan archivos») tienen una **✕** arriba a la derecha y una **rayita** arriba que se arrastra hacia abajo (más de ~70 px) para cerrarlos. Cerrar no deshace nada: los cambios ya aplicados se quedan. Verificado en Chromium simulado con ratón; NO con el dedo en iPhone.
+
+— Claude

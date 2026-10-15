@@ -123,6 +123,8 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .btn.bad { background:#3a1f26; color:var(--bad); }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
 /* paneles con vista previa: pegados abajo, sin tapar el video; «Ver más» los agranda y el video se achica */
+.shx{position:absolute;top:8px;right:10px;width:36px;height:36px;border-radius:18px;background:#2a2f3d;color:#fff;border:1px solid var(--line);font-size:16px;line-height:1;padding:0;z-index:2;cursor:pointer}
+.shgrip{height:20px;margin:-8px -16px 2px;display:flex;justify-content:center;align-items:center;touch-action:none;cursor:grab}.shgrip::before{content:'';width:40px;height:5px;border-radius:3px;background:#8d93a6;opacity:.7}
 .dockbar{display:flex;gap:10px;margin-top:8px}.dockbar .btn{flex:1;margin:0}
 .sheet.dock:not(.exp) .more{display:none !important}
 .sheet.dock{max-height:60dvh;padding-top:10px}.sheet.dock h2{font-size:15px;margin:0 0 6px}
@@ -470,6 +472,19 @@ document.addEventListener('click', async (e) => { if (!e.target.closest('[data-g
 $('galScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
 $('galDone').onclick = closeSheets;
 fltLooksRender();
+// Cerrar cualquier panel: botón ✕ y bajarlo con el dedo (rayita de arriba)
+(function sheetClose() {
+  document.querySelectorAll('.sheet').forEach((sh) => {
+    if (['sExit', 'sMiss'].includes(sh.id)) return;      // preguntas que se responden con sus botones
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'shx'; x.setAttribute('aria-label', 'Cerrar'); x.textContent = '✕'; x.onclick = () => { closeSheets(); sh.classList.remove('on'); };
+    const g = document.createElement('div'); g.className = 'shgrip'; sh.prepend(g); sh.prepend(x);
+    let y0 = 0, dy = 0, on = false;
+    g.addEventListener('pointerdown', (e) => { on = true; y0 = e.clientY; dy = 0; sh.style.transition = 'none'; try { g.setPointerCapture(e.pointerId); } catch {} });
+    g.addEventListener('pointermove', (e) => { if (!on) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = 'translateY(' + dy + 'px)'; });
+    const end = () => { if (!on) return; on = false; sh.style.transition = 'transform .15s'; if (dy > 70) { sh.style.transform = ''; sh.style.transition = ''; closeSheets(); sh.classList.remove('on'); } else { sh.style.transform = ''; } };
+    g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  });
+})();
 const DOCKS = ['sFilt', 'sFx', 'sOver'];
 function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
 function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
