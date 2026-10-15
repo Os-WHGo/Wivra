@@ -1,13 +1,13 @@
 es || en || pt || fr || de || ja || zh
 Sin filtro || No filter || Sem filtro || Sans filtre || Kein Filter || フィルターなし || 无滤镜
-Cámara antigua || Old camera || Câmera antiga || Vieil appareil || Alte Kamera || 古いカメラ || 老相机
-Rollo de película || Film roll || Rolo de filme || Pellicule || Filmrolle || フィルムロール || 胶卷
+Cámara antigua || Vintage camera || Câmera retrô || Appareil photo rétro || Retro-Kamera || レトロカメラ || 复古相机
+Rollo de película || Film look || Visual de filme || Aspect pellicule || Filmlook || フィルム風 || 胶片质感
 Grano fino || Fine grain || Grão fino || Grain fin || Feines Korn || 細かい粒子 || 细颗粒
 Blanco y negro || Black and white || Preto e branco || Noir et blanc || Schwarzweiß || モノクロ || 黑白
 Noir || Noir || Noir || Noir || Noir || ノワール || 黑色电影
-Sepia || Sepia || Sépia || Sépia || Sepia || セピア || 怀旧褐
+Sepia || Sepia || Sépia || Sépia || Sepia || セピア || 棕褐色调
 Cálido || Warm || Quente || Chaud || Warm || 暖かい || 暖色
-Frío || Cool || Frio || Froid || Kühl || 冷たい || 冷色
+Frío || Cool || Frio || Froid || Kühl || 寒色 || 冷色
 Intenso || Vivid || Intenso || Intense || Intensiv || 鮮やか || 浓郁
 Mate || Matte || Fosco || Mat || Matt || マット || 哑光
 Deportivo || Sporty || Esportivo || Sportif || Sportlich || スポーティ || 运动
@@ -40,7 +40,7 @@ Abajo der. || Bottom right || Inf. dir. || Bas droite || Unten rechts || 右下 
 Normal || Normal || Normal || Normal || Normal || 標準 || 正常
 Redondeado || Rounded || Arredondado || Arrondi || Abgerundet || 角丸 || 圆角
 Cuadrado || Square || Quadrado || Carré || Quadrat || 正方形 || 方形
-Cuadrado suave || Soft square || Quadrado suave || Carré doux || Weiches Quadrat || やわらかい四角 || 柔和方形
+Cuadrado suave || Soft square || Quadrado suave || Carré aux coins adoucis || Weiches Quadrat || やわらかい四角形 || 柔和方形
 Círculo || Circle || Círculo || Cercle || Kreis || 円 || 圆形
 Óvalo || Oval || Oval || Ovale || Oval || 楕円 || 椭圆
 Corazón || Heart || Coração || Cœur || Herz || ハート || 心形
@@ -62,19 +62,19 @@ Transparencia: || Transparency: || Transparência: || Transparence : || Transpar
 visible || visible || visível || visible || sichtbar || 表示 || 可见
 Traer adelante || Bring forward || Trazer para frente || Mettre devant || Nach vorne || 前面へ || 置于前面
 Mandar atrás || Send back || Enviar para trás || Mettre derrière || Nach hinten || 背面へ || 置于后面
-Pantallita en la esquina || Small window in the corner || Janelinha no canto || Petite fenêtre dans le coin || Kleines Fenster in der Ecke || 隅の小さな画面 || 角落小窗口
+Pantallita en la esquina || Picture-in-picture (corner) || Janela flutuante no canto || Incrustation dans un coin || Bild-in-Bild in der Ecke || 画面の隅に小窓 || 角落画中画
 Silenciar el sonido de este video || Mute this video's sound || Silenciar o som deste vídeo || Couper le son de cette vidéo || Ton dieses Videos stummschalten || この動画の音をミュート || 将此视频静音
 También puedes arrastrar el video superpuesto sobre la pantalla para moverlo. || You can also drag the overlay video on the screen to move it. || Você também pode arrastar o vídeo sobreposto na tela para movê-lo. || Tu peux aussi faire glisser la vidéo superposée sur l'écran pour la déplacer. || Du kannst das überlagerte Video auch auf dem Bildschirm ziehen, um es zu verschieben. || 画面上で重ねた動画をドラッグして動かすこともできます。 || 你也可以在屏幕上拖动叠加视频来移动它。
 El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca. || The video goes into the cut nearest the white line (at the start it goes first; at the end, last). The audio goes on its own track where the white line is. || O vídeo entra no corte mais próximo da linha branca (no início, vai para o começo; no fim, para o final). O áudio vai em uma faixa separada onde está a linha branca. || La vidéo s'insère à la coupe la plus proche de la ligne blanche (au début, elle va au début ; à la fin, à la fin). L'audio va sur une piste séparée à l'endroit de la ligne blanche. || Das Video wird am nächsten Schnitt zur weißen Linie eingefügt (am Anfang vorn, am Ende hinten). Der Ton kommt auf eine eigene Spur an der Stelle der weißen Linie. || 動画は白い線に一番近いカットに入ります（先頭なら先頭、末尾なら末尾）。音声は白い線の位置の別トラックに入ります。 || 视频会插入离白线最近的剪切点（在开头就放开头，在结尾就放结尾）。音频会放在白线位置的单独音轨上。
 Audio (música, voz) || Audio (music, voice) || Áudio (música, voz) || Audio (musique, voix) || Audio (Musik, Stimme) || 音声（音楽・声） || 音频（音乐、人声）
-Grabar tu voz con el micrófono: todavía no está. || Recording your voice with the microphone: not available yet. || Gravar sua voz com o microfone: ainda não está disponível. || Enregistrer ta voix avec le micro : pas encore disponible. || Deine Stimme mit dem Mikrofon aufnehmen: noch nicht verfügbar. || マイクで声を録音: まだ使えません。 || 用麦克风录音：暂未提供。
+Grabar tu voz con el micrófono: todavía no está. || Voice recording through the microphone isn't available yet. || A gravação de voz pelo microfone ainda não está disponível. || L'enregistrement de ta voix au micro n'est pas encore disponible. || Sprachaufnahme per Mikrofon ist noch nicht verfügbar. || マイクからの音声録音はまだ利用できません。 || 暂不支持通过麦克风录制旁白。
 Capas (un video encima de otro): || Layers (one video on top of another): || Camadas (um vídeo sobre outro): || Calques (une vidéo sur une autre) : || Ebenen (ein Video über dem anderen): || レイヤー（動画の上に動画）: || 图层（视频叠在视频上）：
 mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás. || press and hold a clip and drag it to the “Layers” row, below the audio. To make it part of the video again, drag it up. With the Layer button you choose the shape and whether it goes in front or behind. || mantenha pressionado um clipe e arraste-o para a linha «Camadas», abaixo do áudio. Para voltar a ser parte do vídeo, arraste-o para cima. No botão Camada você escolhe a forma e se vai na frente ou atrás. || maintiens un clip appuyé et fais-le glisser vers la ligne « Calques », sous l'audio. Pour qu'il redevienne une partie de la vidéo, fais-le glisser vers le haut. Avec le bouton Calque, tu choisis la forme et s'il passe devant ou derrière. || halte einen Clip gedrückt und ziehe ihn in die Zeile „Ebenen“ unter dem Audio. Um ihn wieder zum Teil des Videos zu machen, ziehe ihn nach oben. Mit der Schaltfläche Ebene wählst du die Form und ob er davor oder dahinter liegt. || クリップを長押しして、音声の下の「レイヤー」行にドラッグします。動画の一部に戻すには上にドラッグします。レイヤーボタンで形と前面／背面を選べます。 || 长按一个片段，把它拖到音频下方的“图层”行。想让它变回视频的一部分，就向上拖动。在“图层”按钮里可以选择形状以及放在前面还是后面。
 Cerrar || Close || Fechar || Fermer || Schließen || 閉じる || 关闭
 Texto en pantalla || On-screen text || Texto na tela || Texte à l'écran || Text auf dem Bildschirm || 画面上のテキスト || 屏幕文字
 Aparece 3 s desde donde está la línea blanca. || Appears for 3 s from where the white line is. || Aparece por 3 s a partir de onde está a linha branca. || Apparaît pendant 3 s à partir de la ligne blanche. || Erscheint 3 s lang ab der weißen Linie. || 白い線の位置から3秒間表示されます。 || 从白线位置开始显示 3 秒。
-Poner texto aquí || Put text here || Pôr texto aqui || Mettre le texte ici || Text hier einfügen || ここにテキストを入れる || 在此添加文字
-Con tu IA || With your AI || Com a sua IA || Avec ton IA || Mit deiner KI || あなたのAIと || 使用你的 AI
+Poner texto aquí || Add text here || Adicione texto aqui || Saisir du texte ici || Text hier eingeben || ここに文字を入力 || 在此输入文字
+Con tu IA || With your AI || Com a sua IA || Avec ton IA || Mit deiner KI || AIを使う || 使用 AI
 ¿Qué quieres que haga? || What do you want me to do? || O que você quer que eu faça? || Que veux-tu que je fasse ? || Was soll ich tun? || 何をしましょうか？ || 你想让我做什么？
 🎤 Dictar || 🎤 Dictate || 🎤 Ditar || 🎤 Dicter || 🎤 Diktieren || 🎤 音声入力 || 🎤 语音输入
 Nueva conversación || New conversation || Nova conversa || Nouvelle conversation || Neue Unterhaltung || 新しい会話 || 新对话
@@ -85,14 +85,14 @@ Proveedor || Provider || Provedor || Fournisseur || Anbieter || プロバイダ�
 Otro (compatible con OpenAI) || Other (OpenAI-compatible) || Outro (compatível com OpenAI) || Autre (compatible OpenAI) || Andere (OpenAI-kompatibel) || その他（OpenAI互換） || 其他（兼容 OpenAI）
 OpenAI (de pago) || OpenAI (paid) || OpenAI (pago) || OpenAI (payant) || OpenAI (kostenpflichtig) || OpenAI（有料） || OpenAI（付费）
 Modelo (puedes cambiarlo) || Model (you can change it) || Modelo (você pode mudar) || Modèle (tu peux le changer) || Modell (du kannst es ändern) || モデル（変更できます） || 模型（可更改）
-Dirección (compatible con OpenAI) || Address (OpenAI-compatible) || Endereço (compatível com OpenAI) || Adresse (compatible OpenAI) || Adresse (OpenAI-kompatibel) || アドレス（OpenAI互換） || 地址（兼容 OpenAI）
-Tu clave || Your key || Sua chave || Ta clé || Dein Schlüssel || あなたのキー || 你的密钥
+Dirección (compatible con OpenAI) || API URL (OpenAI-compatible) || URL da API (compatível com OpenAI) || URL de l'API (compatible OpenAI) || API-URL (OpenAI-kompatibel) || API URL（OpenAI互換） || API 地址（兼容 OpenAI）
+Tu clave || Your API key || Sua chave de API || Ta clé API || Dein API-Schlüssel || APIキー || 你的 API 密钥
 (crear una) || (create one) || (criar uma) || (en créer une) || (einen erstellen) || （作成する） || （创建一个）
 Se envía solo tu petición y un resumen del proyecto (nombres, duraciones, cortes). || Only your request and a summary of the project (names, durations, cuts) are sent. || Só é enviado seu pedido e um resumo do projeto (nomes, durações, cortes). || Seuls ta demande et un résumé du projet (noms, durées, coupes) sont envoyés. || Es werden nur deine Anfrage und eine Zusammenfassung des Projekts (Namen, Längen, Schnitte) gesendet. || 送信されるのは、あなたの依頼とプロジェクトの要約（名前・長さ・カット）だけです。 || 只会发送你的请求和项目摘要（名称、时长、剪切点）。
 Nunca el video. || Never the video. || Nunca o vídeo. || Jamais la vidéo. || Niemals das Video. || 動画は送信されません。 || 绝不会发送视频。
 Pedirle a la IA || Ask the AI || Pedir à IA || Demander à l'IA || KI fragen || AIに頼む || 询问 AI
 Aplicar || Apply || Aplicar || Appliquer || Anwenden || 適用 || 应用
-Descartar || Discard || Descartar || Abandonner || Verwerfen || 破棄 || 放弃
+Descartar || Discard || Descartar || Rejeter || Verwerfen || 破棄 || 放弃
 Sin clave: copiar y pegar con ChatGPT o Claude || No key: copy and paste with ChatGPT or Claude || Sem chave: copiar e colar com ChatGPT ou Claude || Sans clé : copier-coller avec ChatGPT ou Claude || Ohne Schlüssel: Kopieren und Einfügen mit ChatGPT oder Claude || キーなし：ChatGPTやClaudeにコピー＆ペースト || 没有密钥：用 ChatGPT 或 Claude 复制粘贴
 1. Copiar el mensaje para mi IA || 1. Copy the message for my AI || 1. Copiar a mensagem para minha IA || 1. Copier le message pour mon IA || 1. Nachricht für meine KI kopieren || 1. AI用のメッセージをコピー || 1. 复制给我的 AI 的消息
 2. Pega aquí la respuesta de la IA || 2. Paste the AI's reply here || 2. Cole aqui a resposta da IA || 2. Colle ici la réponse de l'IA || 2. Füge hier die Antwort der KI ein || 2. AIの返答をここに貼り付け || 2. 在此粘贴 AI 的回复
