@@ -212,3 +212,32 @@ Falta elegir proveedor y modelo. || Choose a provider and a model first. || Falt
 Falta pegar tu clave. || Paste your API key first. || Falta colar sua chave. || Il faut coller ta clé. || Füge zuerst deinen Schlüssel ein. || キーを貼り付けてください。 || 请先粘贴你的密钥。
 Escribe qué quieres que haga la IA. || Write what you want the AI to do. || Escreva o que você quer que a IA faça. || Écris ce que tu veux que l'IA fasse. || Schreibe, was die KI tun soll. || AIにしてほしいことを入力してください。 || 请写下你想让 AI 做什么。
 Este navegador no puede hacer la llamada. || This browser can't make the request. || Este navegador não consegue fazer a chamada. || Ce navigateur ne peut pas effectuer l'appel. || Dieser Browser kann die Anfrage nicht senden. || このブラウザーでは通信できません。 || 此浏览器无法发起该请求。
+{1}, {2} || {1}, {2} || {1}, {2} || {1}, {2} || {1}, {2} || {1}、{2} || {1}，{2}
+Cortar {1} en {2} s || Split {1} at {2} s || Cortar {1} em {2} s || Couper {1} à {2} s || {1} bei {2} s teilen || {1} を {2}秒で分割 || 在 {2} 秒处分割 {1}
+Recortar {1}: de {2} a {3} s || Trim {1}: from {2} to {3} s || Recortar {1}: de {2} a {3} s || Raccourcir {1} : de {2} à {3} s || {1} kürzen: von {2} bis {3} s || {1} をトリム: {2}〜{3}秒 || 修剪 {1}：从 {2} 到 {3} 秒
+Mover {1} a {2} s || Move {1} to {2} s || Mover {1} para {2} s || Déplacer {1} à {2} s || {1} auf {2} s verschieben || {1} を {2}秒へ移動 || 把 {1} 移到 {2} 秒
+Borrar {1} || Delete {1} || Apagar {1} || Supprimer {1} || {1} löschen || {1} を削除 || 删除 {1}
+Audio de {1}: {2} || Audio for {1}: {2} || Áudio de {1}: {2} || Audio de {1} : {2} || Audio von {1}: {2} || {1} の音声: {2} || {1} 的音频：{2}
+silenciar || mute || silenciar || couper le son || stummschalten || ミュート || 静音
+con sonido || sound on || com som || avec le son || mit Ton || 音あり || 有声音
+volumen {1}% || volume {1}% || volume {1}% || volume {1} % || Lautstärke {1}% || 音量 {1}% || 音量 {1}%
+Agregar {1} en {2} s || Add {1} at {2} s || Adicionar {1} em {2} s || Ajouter {1} à {2} s || {1} bei {2} s hinzufügen || {1} を {2}秒に追加 || 在 {2} 秒处添加 {1}
+Texto «{1}» en {2} s por {3} s || Text “{1}” at {2} s for {3} s || Texto “{1}” em {2} s por {3} s || Texte « {1} » à {2} s pendant {3} s || Text „{1}“ bei {2} s für {3} s || テキスト「{1}」を {2}秒から {3}秒間 || 文字“{1}”，从 {2} 秒开始，持续 {3} 秒
+Pista de audio {1} en {2} s || Audio track {1} at {2} s || Faixa de áudio {1} em {2} s || Piste audio {1} à {2} s || Audiospur {1} bei {2} s || {2}秒に音声トラック {1} || 音轨 {1}，位于 {2} 秒
+Capa {1} encima, desde {2} s || Layer {1} on top, from {2} s || Camada {1} por cima, a partir de {2} s || Calque {1} au-dessus, à partir de {2} s || Ebene {1} darüber, ab {2} s || レイヤー {1} を上に重ねる（{2}秒から） || 图层 {1} 叠在上方，从 {2} 秒开始
+Ajustar capa {1}: {2} || Adjust layer {1}: {2} || Ajustar camada {1}: {2} || Ajuster le calque {1} : {2} || Ebene {1} anpassen: {2} || レイヤー {1} を調整: {2} || 调整图层 {1}：{2}
+Pista de audio {1}: {2} || Audio track {1}: {2} || Faixa de áudio {1}: {2} || Piste audio {1} : {2} || Audiospur {1}: {2} || 音声トラック {1}: {2} || 音轨 {1}：{2}
+fila {1} || row {1} || linha {1} || ligne {1} || Zeile {1} || 行 {1} || 第 {1} 行
+papel {1} || role {1} || função {1} || rôle {1} || Rolle {1} || 役割 {1} || 角色 {1}
+Efecto de {1}: {2} || Effect for {1}: {2} || Efeito de {1}: {2} || Effet de {1} : {2} || Effekt für {1}: {2} || {1} のエフェクト: {2} || {1} 的特效：{2}
+entrada {1} || intro {1} || entrada {1} || entrée {1} || Einblendung {1} || 開始 {1} || 进入 {1}
+salida {1} || outro {1} || saída {1} || sortie {1} || Ausblendung {1} || 終了 {1} || 退出 {1}
+{1} s || {1} s || {1} s || {1} s || {1} s || {1}秒 || {1}秒
+Quitar filtro de {1} || Remove filter from {1} || Remover filtro de {1} || Retirer le filtre de {1} || Filter von {1} entfernen || {1} のフィルターを外す || 移除 {1} 的滤镜
+Filtro de {1}: {2} || Filter for {1}: {2} || Filtro de {1}: {2} || Filtre de {1} : {2} || Filter für {1}: {2} || {1} のフィルター: {2} || {1} 的滤镜：{2}
+ajustes de color || color adjustments || ajustes de cor || réglages de couleur || Farbanpassungen || 色の調整 || 色彩调整
+Formato: {1} || Format: {1} || Formato: {1} || Format : {1} || Format: {1} || フォーマット: {1} || 格式：{1}
+cuadro {1} || aspect {1} || proporção {1} || cadre {1} || Seitenverhältnis {1} || アスペクト比 {1} || 画面比例 {1}
+rellenar || fill || preencher || remplir || ausfüllen || 画面いっぱい || 填满
+barras negras || black bars || barras pretas || bandes noires || schwarze Balken || 黒い帯 || 黑边
+Operaciones locales básicas, sin modelo de IA || Basic local operations, no AI model || Operações locais básicas, sem modelo de IA || Opérations locales de base, sans modèle d'IA || Einfache lokale Vorgänge, ohne KI-Modell || 簡易ローカル操作（AIモデルなし） || 基础本地操作，不使用 AI 模型

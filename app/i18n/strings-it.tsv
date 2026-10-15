@@ -392,3 +392,32 @@ Falta elegir proveedor y modelo. || Scegli prima un provider e un modello.
 Falta pegar tu clave. || Incolla prima la tua chiave.
 Escribe qué quieres que haga la IA. || Scrivi cosa vuoi che faccia l'IA.
 Este navegador no puede hacer la llamada. || Questo browser non può effettuare la chiamata.
+{1}, {2} || {1}, {2}
+Cortar {1} en {2} s || Dividi {1} a {2} s
+Recortar {1}: de {2} a {3} s || Accorcia {1}: da {2} a {3} s
+Mover {1} a {2} s || Sposta {1} a {2} s
+Borrar {1} || Elimina {1}
+Audio de {1}: {2} || Audio di {1}: {2}
+silenciar || silenzia
+con sonido || con audio
+volumen {1}% || volume {1}%
+Agregar {1} en {2} s || Aggiungi {1} a {2} s
+Texto «{1}» en {2} s por {3} s || Testo «{1}» a {2} s per {3} s
+Pista de audio {1} en {2} s || Traccia audio {1} a {2} s
+Capa {1} encima, desde {2} s || Livello {1} sopra, da {2} s
+Ajustar capa {1}: {2} || Regola livello {1}: {2}
+Pista de audio {1}: {2} || Traccia audio {1}: {2}
+fila {1} || riga {1}
+papel {1} || ruolo {1}
+Efecto de {1}: {2} || Effetto di {1}: {2}
+entrada {1} || ingresso {1}
+salida {1} || uscita {1}
+{1} s || {1} s
+Quitar filtro de {1} || Rimuovi filtro da {1}
+Filtro de {1}: {2} || Filtro di {1}: {2}
+ajustes de color || regolazioni del colore
+Formato: {1} || Formato: {1}
+cuadro {1} || proporzioni {1}
+rellenar || riempi
+barras negras || bande nere
+Operaciones locales básicas, sin modelo de IA || Operazioni locali di base, senza modello di IA
