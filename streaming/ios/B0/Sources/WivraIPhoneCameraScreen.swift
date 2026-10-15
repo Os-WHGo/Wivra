@@ -208,6 +208,14 @@ struct WivraIPhoneCameraScreen: View {
                     }
                     .accessibilityIdentifier("iphone_share_movie")
                 }
+                if let manifest = camera.lastCaptureManifestURL {
+                    ShareLink(item: manifest) {
+                        Label("Compartir manifiesto de captura", systemImage: "doc.text")
+                    }
+                    .accessibilityIdentifier("iphone_share_capture_manifest")
+                    Text("Conserva juntos el MOV y su .wivra.json. El editor aún no importa automáticamente estas capturas.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
 
                 Text("Foto nocturna: exposición real limitada por lente y formato, solo en Pro y sin MOV. Pendiente de ensayo en iPhone físico, igual que fotos durante video, micrófonos y rendimiento. Sin grabación en segundo plano.")
                     .font(.caption).foregroundStyle(.secondary)

@@ -60,6 +60,7 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     private(set) var status = "Cámara detenida. Las capturas se quedan en el iPhone."
     private(set) var lastPhotoURL: URL?
     private(set) var lastMovieURL: URL?
+    private(set) var lastCaptureManifestURL: URL?
     private(set) var lastFilteredURL: URL?
     private(set) var lastPhotoImage: UIImage?
 
@@ -333,6 +334,7 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         do {
             let url = try nextMediaURL(ext: "mov")
             lastMovieURL = nil
+            lastCaptureManifestURL = nil
             movieOutput.startRecording(to: url, recordingDelegate: self)
             isRecording = true
             status = includesAudio ? "REC · MOV con entrada de audio del sistema" : "REC · MOV sin audio"
@@ -357,16 +359,31 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     }
 
     private func finishVideo(url: URL, error: String?) {
-        isFinishing = false
-        isRecording = false
+        // Preserve the original MOV even when metadata fails. Do not release
+        // the source for Ray-Ban handoff before the atomic JSON write finishes.
         if let error {
             status = "Error al finalizar video: " + error
         } else if (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0 > 0 {
             lastMovieURL = url
-            status = "MOV guardado en Wivra. La foto simultánea requiere prueba física."
+            do {
+                // MOV may contain embedded system audio; tracks [] means no
+                // *independent* CAF/WAV was captured. Do not invent a sidecar.
+                lastCaptureManifestURL = try WivraCaptureManifest.write(
+                    videoURL: url, tracks: [], mergedURL: nil,
+                    cameraSource: "iphone-avfoundation"
+                )
+                status = includesAudio
+                    ? "MOV y manifiesto guardados. El audio, si existe, está dentro del MOV."
+                    : "MOV sin micrófono y manifiesto guardados."
+            } catch {
+                lastCaptureManifestURL = nil
+                status = "MOV guardado, pero falló el manifiesto: " + error.localizedDescription
+            }
         } else {
             status = "No se guardó MOV válido."
         }
+        isFinishing = false
+        isRecording = false
         if closeAfterVideo {
             closeAfterVideo = false
             stop()

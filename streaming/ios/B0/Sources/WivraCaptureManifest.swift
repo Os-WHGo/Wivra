@@ -47,7 +47,8 @@ struct WivraCaptureManifest: Codable {
 
     // Canonical v2 writer for future USB/DJI/mixer capture adapters.
     static func write(videoURL: URL, tracks: [WivraCaptureTrack],
-                      mergedURL: URL?, muxedFromTrackIDs: [String] = []) throws -> URL {
+                      mergedURL: URL?, muxedFromTrackIDs: [String] = [],
+                      cameraSource: String = "meta-dat-hevc") throws -> URL {
         var ids = Set<String>()
         var recordedChannels = Set<String>()
         for track in tracks {
@@ -74,7 +75,7 @@ struct WivraCaptureManifest: Codable {
         let legacy = tracks.first
         let record = WivraCaptureManifest(
             schemaVersion: 2, captureID: UUID().uuidString,
-            cameraSource: "meta-dat-hevc",
+            cameraSource: cameraSource,
             audioSource: legacy?.source ?? "none",
             selectedInputName: legacy?.inputName,
             originalVideoFile: videoURL.lastPathComponent,
