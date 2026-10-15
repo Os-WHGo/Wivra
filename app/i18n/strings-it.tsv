@@ -44,7 +44,7 @@ Gratis. Se descargan al teléfono y los puedes usar sin conexión. || Gratis. Si
 Solo este clip || Solo questa clip
 Todos los clips || Tutte le clip
 ¿Salir del proyecto? || Uscire dal progetto?
-Se guarda solo mientras editas. Elige qué hacer. || Si salva da solo mentre modifichi. Scegli cosa fare.
+Se guarda solo mientras editas. Elige qué hacer. || Il progetto viene salvato automaticamente mentre lavori. Scegli cosa fare.
 Nombre del proyecto || Nome del progetto
 Guardar y salir || Salva ed esci
 Seguir editando || Continua a modificare
@@ -104,7 +104,7 @@ Viñeta: || Vignettatura:
 Grano: || Grana:
 Quitar filtro || Rimuovi filtro
 ¿Qué borrar? || Cosa eliminare?
-Video y audio (los siguientes se juntan) || Video e audio (i successivi si uniscono)
+Video y audio (los siguientes se juntan) || Video e audio (le clip successive chiudono lo spazio)
 Solo el video: el audio se queda || Solo il video: l'audio resta
 Cancelar || Annulla
 Video superpuesto || Video sovrapposto
@@ -322,9 +322,9 @@ Elige tu idioma || Scegli la tua lingua
 Se puede cambiar después en Ajustes. || Puoi cambiarla in seguito in Impostazioni.
 Calculando… || Calcolo in corso…
 Espacio usado por Wivra: || Spazio usato da Wivra:
-Video cargado. Desliza la línea de tiempo para moverte. || Video caricato. Scorri la timeline per muoverti.
+Video cargado. Desliza la línea de tiempo para moverte. || Video caricato. Scorri la timeline per spostarti.
 Video agregado encima. Arrástralo en la pantalla o usa los controles. || Video aggiunto sopra. Trascinalo sullo schermo o usa i controlli.
-No pude abrir el video de la captura. || Non sono riuscito ad aprire il video della cattura.
+No pude abrir el video de la captura. || Impossibile aprire il video registrato.
 No se pudo reabrir el proyecto guardado: || Non è stato possibile riaprire il progetto salvato:
 No se pudo importar la captura: || Non è stato possibile importare la cattura:
 No se pudo reconectar: || Non è stato possibile riconnettere:
