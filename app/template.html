@@ -193,8 +193,9 @@
   <div class="chips" id="fmtFit"><button data-f="cover">Rellenar (recorta)</button><button data-f="contain">Entero (barras)</button></div>
   <p class="m" id="fmtNote"></p><button id="fmtDone" class="btn">Listo</button></div>
 <div class="sheet" id="sFx"><h2>Efectos</h2><p class="m" id="fxInfo">Elige un video en la línea de tiempo.</p>
-  <p class="m">Al aparecer</p><div class="chips" id="fxIn"><button data-v="none">Ninguno</button><button data-v="fade">Fundido</button><button data-v="slide">Deslizar</button><button data-v="zoom">Zoom</button></div>
-  <p class="m">Al desaparecer</p><div class="chips" id="fxOut"><button data-v="none">Ninguno</button><button data-v="fade">Fundido</button><button data-v="slide">Deslizar</button><button data-v="zoom">Zoom</button></div>
+  <div class="chips" id="fxScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <p class="m">Al aparecer</p><div class="fgrid" id="fxIn"></div>
+  <p class="m">Al desaparecer</p><div class="fgrid" id="fxOut"></div>
   <label class="m">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <button id="fxDone" class="btn">Listo</button></div>
 <div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m" id="fltInfo">Elige un video en la línea de tiempo.</p>
@@ -576,6 +577,20 @@ function fmtSync() {
   $('fmtNote').textContent = f.aspect === 'original' ? 'Original: el cuadro sigue la forma de tu primer video y no se recorta nada.' : (f.fit === 'cover' ? 'Rellenar: el video llena el cuadro y se recorta lo que sobra, centrado.' : 'Entero: se ve todo el video y quedan barras negras.');
 }
 $('bAdd').onclick = () => openSheet('sTrack');
+const FX_NAMES = { none: 'Ninguno', fade: 'Fundido', slide: 'Deslizar', zoom: 'Zoom' };
+(function fxBuild() {
+  for (const id of ['fxIn', 'fxOut']) $(id).innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}"><canvas></canvas><span>${n}</span></button>`).join('');
+})();
+function fxThumbs(c) {      // cada efecto se ve a mitad de camino sobre el cuadro actual (misma fórmula que la exportación: fxAt)
+  const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
+  for (const id of ['fxIn', 'fxOut']) document.querySelectorAll('#' + id + ' button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'), v = b.dataset.v;
+    const o = v === 'none' ? { alpha: 1, dx: 0, scale: 1 } : id === 'fxIn' ? fxAt({ start: 0, in: 0, out: 10, fxIn: v, fxDur: 1 }, 0.5) : fxAt({ start: 0, in: 0, out: 10, fxOut: v, fxDur: 1 }, 9.5);
+    g.fillStyle = '#111'; g.fillRect(0, 0, W, H); g.globalAlpha = o.alpha; const w = W * o.scale, h = H * o.scale;
+    g.drawImage(src, (W - w) / 2 + o.dx * W, (H - h) / 2, w, h);
+  });
+}
+function fxTargets() { return fltScope === 'all' ? [...session.project.clips, ...(session.project.overlayClips || [])] : [anyClip(selId)]; }
 function fxSync() {
   const c = anyClip(selId), ok = !!c && kindOf(c.id) !== 'audio';
   $('fxInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
@@ -583,8 +598,12 @@ function fxSync() {
   document.querySelectorAll('#fxOut button').forEach(b => { b.classList.toggle('on', ok && (c.fxOut || 'none') === b.dataset.v); b.disabled = !ok; });
   $('fxDur').disabled = !ok; $('fxDur').value = ok && c.fxDur ? c.fxDur : 0.5; $('fxDurTxt').textContent = $('fxDur').value;
 }
-function fxCommit(args) { if (!selId) return; const r = edit([{ op: 'set_clip_fx', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fxSync(); syncOverlays(); }
-$('bFx').onclick = () => { fxSync(); openSheet('sFx'); }; $('fxDone').onclick = closeSheets;
+function fxCommit(args) {
+  if (!selId) return; const ops = fxTargets().filter(Boolean).map(k => ({ op: 'set_clip_fx', clip_id: k.id, ...args }));
+  const r = edit(ops); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fxSync(); syncOverlays();
+}
+$('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
+$('fxScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
 $('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ intro: b.dataset.v }); });
 $('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
 $('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDur').value; });
@@ -1492,14 +1511,18 @@ function fltSource(c) {
   if (kindOf(c.id) === 'overlay') { const w = document.querySelector(`#olay .ow[data-id="${c.id}"]`); const e = w && w.querySelector('video,img,canvas:not(.fxl)'); if (e) return e; }
   return $('v');
 }
-function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
-  const W = 96, H = 128, src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d'); let ok = false;
+function fltSrcCanvas(c, W, H) {      // cuadro actual del clip en miniatura (o un degradado si aún no hay cuadro)
+  const src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d'); let ok = false;
   const e = c && fltSource(c);
   try {
     const sw = e && (e.videoWidth || e.naturalWidth || e.width), sh = e && (e.videoHeight || e.naturalHeight || e.height);
     if (sw > 0 && sh > 0 && (e.readyState === undefined || e.readyState >= 2)) { const k = Math.max(W / sw, H / sh); g.drawImage(e, (W - sw * k) / 2, (H - sh * k) / 2, sw * k, sh * k); ok = true; }
   } catch { ok = false; }
   if (!ok) { const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#6aa6d8'); gr.addColorStop(.55, '#c9b28a'); gr.addColorStop(1, '#3b5a2e'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+  return src;
+}
+function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
+  const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
   document.querySelectorAll('#fltLooks button').forEach(b => {
     const cv = b.querySelector('canvas'); const id = b.dataset.look; const out = fxRender(src, id === 'none' ? null : LOOK_PRESETS[id].p, 0);
     cv.width = W; cv.height = H; const x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, W, H); else x.drawImage(src, 0, 0);
@@ -1548,9 +1571,11 @@ $('fltLooks').addEventListener('click', (e) => {
   fltLook = b.dataset.look === 'none' ? null : b.dataset.look; $('fltLevel').value = 100;
   fltApply(c, { look: b.dataset.look });
 });
+function scopeSet(sc) {      // «Solo este clip» / «Todos los clips»: un solo ajuste compartido por Filtros y Efectos
+  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
+}
 $('fltScope').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b) return; fltScope = b.dataset.s;
-  document.querySelectorAll('#fltScope button').forEach(x => x.classList.toggle('on', x === b));
+  const b = e.target.closest('button'); if (!b) return; scopeSet(b.dataset.s);
   const c = fltTarget(); if (fltScope === 'all' && c && c.filter) { const { look, ...pr } = c.filter; fltApply(c, look ? { look } : pr); }   // al pasar a «Todos» se copia el ajuste actual a todos
 });
 $('fltMore').onclick = () => { const s = $('fltSliders'), o = s.style.display === 'none'; s.style.display = o ? '' : 'none'; $('fltMore').textContent = o ? 'Menos opciones' : 'Más opciones'; };

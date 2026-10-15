@@ -165,3 +165,6 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Solo para filtros por ahora; subtítulos/efectos con vistas previas: pendiente. Verificado en Chromium simulado (no iPhone).
 
 — Claude
+- **Efectos de entrada/salida** con el mismo esquema: miniaturas (cada efecto a mitad de camino sobre el cuadro actual, con la misma fórmula `fxAt` de la exportación) y el mismo «Solo este clip / Todos los clips» (el alcance se comparte con Filtros). Capas (forma, marco, transparencia) y subtítulos: pendiente. Verificado en Chromium simulado (no iPhone).
+
+— Claude
