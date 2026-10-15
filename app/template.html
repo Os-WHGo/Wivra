@@ -930,9 +930,13 @@ async function importCapture(files) {
     const embedded = new Set(usedMuxed ? m.muxedFromTrackIDs : []);
     let tracks = m.tracks.filter(t => !embedded.has(t.id)), muteVideo = false;
     if (embedded.size) {
-      const emb = m.tracks.filter(t => embedded.has(t.id)); let ok = emb.length > 0;
-      for (const t of emb) if (!byName.has(t.file) || !(await open(t.file, 'audio'))) ok = false;
+      const emb = m.tracks.filter(t => embedded.has(t.id));
+      // The editor does not currently extract independent L/R channels from CAF.
+      // Never mute an audible MOV merely because its whole stereo file was opened.
+      let ok = emb.length > 0 && emb.every(t => t.channelIndex == null);
+      if (ok) for (const t of emb) if (!byName.has(t.file) || !(await open(t.file, 'audio'))) ok = false;
       if (ok) { tracks = m.tracks; muteVideo = true; notes.push('Las pistas de audio quedaron separadas y el audio del video se silenció (así no suena doble).'); }
+      else if (emb.some(t => t.channelIndex != null)) notes.push('El MOV conserva su sonido: todavía no se extraen canales individuales L/R.');
       else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
     }
     for (const t of tracks) await open(t.file, 'audio');
