@@ -110,9 +110,6 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
   .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
   .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
-  #home .hin { position:relative; } #home .hgear { position:absolute; top:calc(14px + env(safe-area-inset-top) + var(--padTop,0px)); right:14px; width:44px; height:44px; border-radius:22px; background:#2a2f3d; color:var(--fg); font-size:22px; border:1px solid var(--line); padding:0; }
-  .sheet h3 { font-size:14px; margin:16px 0 4px; color:var(--mut); font-weight:600; }
-  #langList button { display:block; width:100%; min-height:52px; margin:8px 0; border-radius:14px; background:#2a2f3b; color:var(--fg); font-size:18px; text-align:left; padding:0 18px; border:2px solid transparent; } #langList button.on { border-color:var(--ac); }
   #home { position:fixed; inset:0; z-index:50; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
   #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top) + var(--padTop,0px)) 16px 40px; }
   #home h1 { margin:6px 0 2px; font-size:30px; letter-spacing:.5px; } #home h2 { margin:26px 0 8px; font-size:17px; } #home .m { color:var(--mut); margin:2px 0 14px; font-size:14px; }
@@ -165,6 +162,26 @@ body.dock .back{pointer-events:none;background:transparent}
 .fgrid.static{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;overflow:visible}
 .galhead{display:flex;align-items:center;gap:8px;margin:16px 0 2px}.galhead b{flex:1;font-size:16px}.galhead small{display:block;color:var(--mut);font-weight:400;font-size:12px}.galhead .btn{width:auto;padding:6px 12px;font-size:13px;margin:0}
 .frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
+
+  /* Wivra AI chat-first: provider/keys hidden until explicitly opened. */
+  .ai-chat .ai-intro{margin:0 0 10px}
+  .ai-chat .ai-mode-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-chat .ai-mode-row label{font-size:13px;flex:none}
+  .ai-chat .ai-mode-row select{flex:1;min-width:0;font-size:14px}
+  .ai-chat .ai-log{display:flex;flex-direction:column;gap:8px;min-height:78px;max-height:26dvh;overflow:auto;padding:8px;margin-bottom:8px;background:#11131a;border:1px solid var(--line);border-radius:12px}
+  .ai-chat .ai-log:empty::before{content:"Escribe tu primera instrucción. El modo básico admite títulos y recortes exactos.";display:block;font-size:13px;color:var(--mut);padding:6px}
+  .ai-chat .ai-msg{border-radius:14px;max-width:92%;white-space:pre-wrap;font-size:14px}
+  .ai-chat .ai-msg.ai-user{align-self:flex-end;background:#293453}
+  .ai-chat .ai-msg.ai-assistant{align-self:flex-start;background:var(--bar)}
+  .ai-chat .ai-composer{background:#191c24;border:1px solid var(--line);border-radius:14px;padding:10px}
+  .ai-chat .ai-composer label{display:block;margin:0 0 5px}
+  .ai-chat .ai-composer textarea{margin:0;min-height:64px}
+  .ai-chat .ai-actions{align-items:center;justify-content:flex-end;gap:8px;margin-top:6px}
+  .ai-chat .ai-actions #aiAsk{flex:1;min-width:0}
+  .ai-chat .ai-settings{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .ai-chat .ai-settings summary{cursor:pointer;font-size:14px;color:var(--mut);min-height:40px}
+  .ai-chat .ai-settings #aiDirect{padding-bottom:8px}
+
 </style>
 </head>
 <body>
@@ -206,17 +223,8 @@ body.dock .back{pointer-events:none;background:transparent}
     <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
   </div>
   <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
-  <button id="hSet" class="hgear" type="button" aria-label="Ajustes">⚙</button>
+  <p class="m" style="margin-top:22px"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px;font-size:14px">Ajustar pantalla</button></p>
 </div></div>
-<div class="sheet" id="sSettings" style="z-index:60;max-height:86dvh;overflow-y:auto"><h2>Ajustes</h2>
-  <h3>Idioma de la app</h3><div class="chips" id="setLangs"></div>
-  <h3>Pantalla</h3><p class="m"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px">Ajustar pantalla</button></p>
-  <h3>Datos y espacio</h3><p class="m">Espacio usado por Wivra: <b id="setSpace" data-notr>…</b></p><p class="m"><button id="setClearPacks" type="button" class="btn sec" style="width:auto;padding:8px 14px">Borrar paquetes descargados</button></p>
-  <h3>Transcripción y traducción</h3><p class="m">Próximamente: transcribir tu voz y traducir los subtítulos a otros idiomas.</p>
-  <h3>Privacidad</h3><p class="m">El video no sale de tu teléfono. Solo se envía algo a internet si tú lo pides (por ejemplo, el chat con tu IA), y siempre se avisa.</p>
-  <h3>Acerca de</h3><p class="m">Wivra es una app en construcción (versión de prueba). Efectos y filtros: fórmulas propias. Las traducciones de la interfaz son automáticas y aún pueden tener errores.</p>
-</div>
-<div id="sLang" style="display:none;position:fixed;inset:0;z-index:70;background:var(--bg);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:calc(40px + env(safe-area-inset-top)) 16px 40px"><h1 data-notr>Wivra</h1><h2 data-notr>🌐 Idioma · Language · Langue · Sprache · 言語 · 语言</h2><div id="langList" data-notr></div></div></div>
 <div class="sheet" id="sScreen" style="z-index:60"><h2>Ajustar pantalla</h2>
   <p class="m">Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba esto. Se guarda en este teléfono.</p>
   <div class="frow" style="align-items:center"><span class="m" style="flex:1;margin:0">Bajar el contenido desde arriba: <b id="scrTop">0</b> px</span><button class="btn sec" id="scrTopMinus" type="button">−</button><button class="btn sec" id="scrTopPlus" type="button">+</button></div>
@@ -299,28 +307,44 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
-<div class="sheet" id="sAI"><h2>Con tu IA</h2>
-  <div id="aiLog" aria-live="polite"></div>
-  <label>¿Qué quieres que haga? <button id="aiMic" type="button" class="pill" style="height:30px;padding:0 10px;margin-left:6px;display:none">🎤 Dictar</button> <button id="aiNew" type="button" class="pill" style="height:30px;padding:0 10px;display:none">Nueva conversación</button></label>
-  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
-  <div id="aiDirectorInfo" style="display:none" class="m" role="status">La idea del Director está adjunta como contexto a esta conversación.</div>
-  <button type="button" class="btn sec" id="aiDirectorRemove" style="display:none">Dejar de usar esta idea con IA</button>
-  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
-  <div id="aiDirect">
-    <label>Proveedor</label><select id="aiProv"></select>
-    <label>Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <div id="aiBaseRow" style="display:none"><label>Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
-    <label>Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label><input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Se queda solo en esta página; se borra al cerrarla">
-    <p class="m" style="margin-top:6px">Se envía solo tu petición y un resumen del proyecto (nombres, duraciones, cortes). <b>Nunca el video.</b></p>
-    <button id="aiAsk" class="btn" disabled>Pedirle a la IA</button>
-    <div id="aiProp" style="display:none"><div class="item" id="aiPropText"></div>
-      <div class="row"><button id="aiApply" class="btn">Aplicar</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
-    <div id="aiMsg"></div>
+<div class="sheet ai-chat" id="sAI"><h2>Asistente Wivra</h2>
+  <p class="m ai-intro">Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla.</p>
+  <div class="ai-mode-row"><label for="aiMode">Asistente</label>
+    <select id="aiMode" aria-label="Modo de asistente">
+      <option value="local">Básico · gratis y sin conexión</option>
+      <option value="connected">IA conectada · opcional</option>
+    </select></div>
+  <div id="aiLog" class="ai-log" role="log" aria-label="Conversación de edición" aria-live="polite"></div>
+  <div class="ai-composer">
+    <label for="ask">¿Qué quieres cambiar en el video?</label>
+    <textarea id="ask" rows="2" placeholder='Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"'></textarea>
+    <div class="row ai-actions">
+      <button id="aiMic" type="button" class="pill" style="display:none">🎤 Dictar</button>
+      <button id="aiAsk" type="button" class="btn" disabled>Revisar cambio gratis</button>
+    </div>
   </div>
-  <details style="margin-top:12px"><summary class="m" style="cursor:pointer">Sin clave: copiar y pegar con ChatGPT o Claude</summary>
-    <button id="copy" class="btn" disabled>1. Copiar el mensaje para mi IA</button>
-    <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
-    <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></details></div>
+  <div id="aiDirectorInfo" style="display:none" class="m" role="status">La idea del Director está adjunta a esta conversación.</div>
+  <button type="button" class="btn sec" id="aiDirectorRemove" style="display:none">Desvincular idea</button>
+  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
+  <div id="aiProp" style="display:none"><div class="item" id="aiPropText"></div>
+    <div class="row"><button id="aiApply" class="btn">✓ Aplicar cambios</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
+  <div id="aiMsg" role="status" aria-live="polite"></div>
+  <button id="aiNew" type="button" class="pill" style="display:none;margin-top:8px">↺ Nueva conversación</button>
+  <details id="aiSettings" class="ai-settings"><summary>⚙ Configurar una IA externa (opcional)</summary>
+    <div id="aiDirect">
+      <label for="aiProv">Proveedor</label><select id="aiProv"></select>
+      <label for="aiModel">Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div id="aiBaseRow" style="display:none"><label for="aiBase">Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
+      <label for="aiKey">Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label>
+      <input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Solo en memoria; se borra al cerrar">
+      <p class="m">Este modo puede usar servicios externos y sus límites de uso. Solo se envían instrucciones y un resumen del proyecto, nunca el archivo multimedia.</p>
+    </div>
+  </details>
+  <details class="ai-settings"><summary>Copiar instrucciones a ChatGPT o Claude manualmente</summary>
+    <button id="copy" class="btn" disabled>1. Copiar instrucciones</button>
+    <label for="reply">2. Pegar respuesta</label><textarea id="reply"></textarea>
+    <button id="apply" class="btn sec" disabled>3. Revisar y aplicar al video</button><div id="msg"></div></details>
+</div>
 
 <div class="sheet" id="sDirector">
   <h2>Director creativo (prototipo)</h2>
@@ -1433,18 +1457,23 @@ const aiSay = (t, cls) => { $('aiMsg').className = cls || ''; $('aiMsg').textCon
 for (const pr of PRESETS) { const o = document.createElement('option'); o.value = pr.id; o.textContent = pr.name; $('aiProv').appendChild(o); }
 function aiPreset() { const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0]; $('aiModel').value = pr.model; $('aiBaseRow').style.display = pr.id === 'custom' ? 'block' : 'none'; $('aiKeyLink').style.display = pr.keyUrl ? 'inline' : 'none'; $('aiKeyLink').href = pr.keyUrl || '#'; }
 $('aiProv').onchange = aiPreset; aiPreset();
-function aiSync() { $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || $('aiKey').value.trim().length < 8; }
+function aiSync() {
+  const local = $('aiMode').value === 'local';
+  $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8);
+  $('aiAsk').textContent = local ? 'Revisar cambio gratis' : 'Pedir propuesta a IA';
+}
+$('aiMode').addEventListener('change', aiSync);
 for (const id of ['ask', 'aiKey', 'aiModel']) $(id).addEventListener('input', aiSync);
 function aiClear() { aiPending = null; $('aiProp').style.display = 'none'; }
 $('aiDiscard').onclick = () => { aiClear(); aiHistory.push({ role: 'user', content: '(Descarté tu propuesta; no se aplicó nada.)' }); aiSay('Propuesta descartada. No cambió nada.'); };
 let aiHistory = [];
-function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item'; d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
+function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item ai-msg ' + (who === 'tú' ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
 $('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren(); $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
   const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
   try {
-    const r = await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, directorContext: aiDirectorContext, parseText: parseReply,
+    const r = $('aiMode').value === 'local' ? (() => { const local = localBasicCommand(request, session.project); return { ops: local.operations, nota: local.description }; })() : await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, directorContext: aiDirectorContext, parseText: parseReply,
       onStatus: ({ attempt }) => aiSay(`El proveedor está saturado. Reintentando (${attempt}/2)…`) });
     aiLogAdd('tú', request); aiHistory.push({ role: 'user', content: request });
     if (!r.ops.length) { const t = r.nota ? 'No propongo cambios: ' + r.nota : 'No propongo cambios.'; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); $('ask').value = ''; return aiSay('La IA no propone cambios.', 'bad'); }
@@ -1958,7 +1987,7 @@ async function pzRenderHome() {
     const c = document.createElement('div'); c.className = 'pcard'; c.dataset.id = m.id; c.setAttribute('role', 'button'); c.tabIndex = 0;
     const t = document.createElement('div'); t.className = 'pt';
     const nm = document.createElement('b'); nm.textContent = m.name;
-    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString(i18nCur, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
     t.append(nm, sub);
     const ren = document.createElement('button'); ren.className = 'pa'; ren.textContent = 'Nombre'; ren.type = 'button';
     const del = document.createElement('button'); del.className = 'pa bad'; del.textContent = 'Borrar'; del.type = 'button';
@@ -1970,51 +1999,6 @@ async function pzRenderHome() {
   }
   window.__pzHome = list.length;
 }
-// ---- Idiomas (el español es el original; ver app/i18n.mjs y app/i18n/*.tsv) ----
-let i18nCur = 'es', i18nTr = (x) => x, i18nBusy = false; const i18nTexts = new WeakMap(), i18nAttrs = new WeakMap();
-const I18N_ATTRS = ['placeholder', 'title', 'aria-label'];
-function i18nNode(n) {
-  const p = n.parentElement; if (!p || p.closest('script,style,textarea,[data-notr]')) return;
-  const cur = n.nodeValue, rec = i18nTexts.get(n), base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
-  if (t !== cur) { i18nBusy = true; n.nodeValue = t; i18nBusy = false; }
-  i18nTexts.set(n, { o: base, t });
-}
-function i18nAttr(e, a) {
-  if (e.closest('[data-notr]')) return; const cur = e.getAttribute(a); if (cur == null) return;
-  let m = i18nAttrs.get(e); if (!m) i18nAttrs.set(e, m = {}); const rec = m[a], base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
-  if (t !== cur) { i18nBusy = true; e.setAttribute(a, t); i18nBusy = false; } m[a] = { o: base, t };
-}
-function i18nWalk(root) {
-  if (root.nodeType === 3) return i18nNode(root); if (root.nodeType !== 1) return;
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) i18nNode(n);
-  for (const e of [root, ...root.querySelectorAll('[placeholder],[title],[aria-label]')]) for (const a of I18N_ATTRS) if (e.hasAttribute && e.hasAttribute(a)) i18nAttr(e, a);
-}
-function i18nApply(lang) {
-  i18nCur = lang; i18nTr = lang === 'es' ? (x) => x : i18nCompile(I18N_DATA[lang]); document.documentElement.lang = lang;
-  try { localStorage.setItem('wivra.lang', lang); } catch {}
-  i18nWalk(document.body); document.querySelectorAll('#setLangs button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
-}
-const i18nSaved = () => { try { const l = localStorage.getItem('wivra.lang'); return I18N_LANGS.some(x => x[0] === l) ? l : null; } catch { return null; } };
-new MutationObserver((recs) => {
-  if (i18nBusy || i18nCur === 'es') return;
-  for (const r of recs) {
-    if (r.type === 'characterData') i18nNode(r.target);
-    else if (r.type === 'attributes') i18nAttr(r.target, r.attributeName);
-    else r.addedNodes.forEach(i18nWalk);
-  }
-}).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
-(function i18nSetup() {
-  const mk = (box, onPick, cur) => { box.innerHTML = ''; for (const [id, name] of I18N_LANGS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.l = id; b.dataset.notr = '1'; b.textContent = name; b.classList.toggle('on', id === cur); b.onclick = () => onPick(id); box.appendChild(b); } };
-  const saved = i18nSaved();
-  mk($('setLangs'), (id) => i18nApply(id), saved || 'es');
-  if (saved) i18nApply(saved);
-  else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; }, det); $('sLang').style.display = 'block'; }
-  $('hSet').onclick = async () => {
-    $('sSettings').classList.add('on'); $('setSpace').textContent = '…';
-    try { const e = await navigator.storage.estimate(); $('setSpace').textContent = (e.usage / 1048576 < 10 ? (e.usage / 1048576).toFixed(1) : Math.round(e.usage / 1048576)) + ' MB'; } catch { $('setSpace').textContent = '—'; }
-  };
-  $('setClearPacks').onclick = () => { pkInstalled = {}; pkSave(); try { fltLooksRender(); } catch {} say(i18nTr('Paquetes borrados.')); };
-})();
 $('hEditor').onclick = () => { location.hash = '#new'; };
 $('hDirector').onclick = () => { location.hash = '#new-director'; };
 $('bHome').onclick = () => { if (!session) { location.hash = ''; return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
