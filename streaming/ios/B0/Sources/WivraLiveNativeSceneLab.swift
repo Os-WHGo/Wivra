@@ -49,6 +49,7 @@ struct WivraLiveNativeSceneLab: View {
     @State private var cues: [WivraLabCue] = []
     @State private var message = "Prepara una escena para verla, luego pásala a Programa."
     @State private var logURL: URL?
+    @State private var showCommunityPanel = false
 
     private func cameraReady() -> Bool {
         guard cameraVerified, cameraFrame != nil, let last = cameraLastFrameUptime else { return false }
@@ -192,6 +193,9 @@ struct WivraLiveNativeSceneLab: View {
                     }
                 }
 
+                Button("Comunidad, alertas y audio") { showCommunityPanel = true }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("wivra_live_community_panel")
                 Label(cameraReady() ? "Cámara RAW recibida por DAT: disponible" :
                       "Cámara RAW no disponible: solo puedes usar escenas CG",
                       systemImage: cameraReady() ? "checkmark.circle" : "video.slash")
@@ -252,5 +256,6 @@ struct WivraLiveNativeSceneLab: View {
         }
         .navigationTitle("Wivra LIVE Lab")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCommunityPanel) { WivraLiveCommunityPanel() }
     }
 }
