@@ -37,8 +37,9 @@
   .ib { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; } .ib:active { background:var(--bar); } .ib:disabled { opacity:.35; }
   #play { width:54px; height:54px; border-radius:27px; background:var(--fg); color:#12141a; } #play:active { background:#fff; }
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
-  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
-  #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
+  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); height:var(--tlh,auto); max-height:var(--tlmax,46dvh); overflow:hidden; }
+  #tlgrip { position:absolute; left:50%; top:0; transform:translateX(-50%); width:84px; height:20px; z-index:6; touch-action:none; display:flex; align-items:center; justify-content:center; cursor:ns-resize; } #tlgrip::before { content:''; width:44px; height:5px; border-radius:3px; background:#8d93a6; opacity:.75; }
+  #tlwrap { height:100%; max-height:var(--tlmax,46dvh); overflow-x:auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
   #tlinner { position:relative; height:204px; min-height:204px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
@@ -147,7 +148,7 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
-<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="otrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+<div id="tlbox"><div id="tlgrip" title="Arrastra para ver más o menos pistas"></div><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="otrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
   <div id="thead"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
@@ -375,6 +376,19 @@ function fmt(n) { return Math.round(n * 100) / 100; }
   const vv = window.visualViewport; if (!vv) return;
   const f = () => { document.documentElement.style.setProperty('--appH', Math.round(vv.height) + 'px'); if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0); };
   vv.addEventListener('resize', f); vv.addEventListener('scroll', f); window.addEventListener('orientationchange', f); f();
+})();
+// Altura de la línea de tiempo ajustable (arrastra la rayita): más pistas a la vista o video más grande; las pistas se deslizan con el dedo si hay muchas
+(function tlResize() {
+  const g = $('tlgrip'), box = $('tlbox'); if (!g) return; const KEY = 'wivra.tlh';
+  const set = (h) => { if (h == null) { box.style.removeProperty('--tlh'); box.style.removeProperty('--tlmax'); document.documentElement.style.removeProperty('--tlh'); return; } box.style.setProperty('--tlh', h + 'px'); box.style.setProperty('--tlmax', h + 'px'); };
+  try { const v = Number(localStorage.getItem(KEY)); if (v >= 90) set(v); } catch {}
+  let y0 = 0, h0 = 0, on = false, last = 0;
+  g.addEventListener('pointerdown', (e) => { on = true; y0 = e.clientY; h0 = box.getBoundingClientRect().height; try { g.setPointerCapture(e.pointerId); } catch {} e.preventDefault(); e.stopPropagation(); });
+  g.addEventListener('pointermove', (e) => { if (!on) return; const vv = (window.visualViewport && window.visualViewport.height) || window.innerHeight; const h = Math.round(Math.max(90, Math.min(vv - 380, h0 - (e.clientY - y0)))); last = h; set(h); });
+  const end = () => { if (!on) return; on = false; if (last) { try { localStorage.setItem(KEY, String(last)); } catch {} } };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  g.addEventListener('dblclick', () => { set(null); try { localStorage.removeItem(KEY); } catch {} });
+  $('tlwrap').addEventListener('scroll', () => { const t = $('thead'); if (t) t.style.transform = 'translateY(' + (-$('tlwrap').scrollTop) + 'px)'; }, { passive: true });
 })();
 const DOCKS = ['sFilt', 'sFx', 'sOver'];
 function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }

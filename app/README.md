@@ -179,3 +179,10 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Verificado en Chromium simulado a 430×727 (no iPhone). NO verificado en iPhone: el ajuste con `visualViewport` (corrige el desplazamiento y el espacio vacío que se veía debajo de la barra de herramientas, pero no pude reproducirlo aquí).
 
 — Claude
+
+### Línea de tiempo ajustable
+
+- La **rayita** arriba de la línea de tiempo se arrastra: hacia arriba muestra más pistas (el video se achica), hacia abajo deja el video más grande. Se recuerda en el teléfono (`localStorage`); doble toque la devuelve al tamaño automático. Si hay más pistas de las que caben, se **deslizan con el dedo** hacia arriba/abajo y las etiquetas (parlantes, +) las siguen. Por defecto la línea de tiempo ocupa como máximo 46 % de la pantalla.
+- Verificado en Chromium simulado con ratón (no iPhone): arrastre, límites, deslizamiento y guardado. NO verificado con dedos en iPhone (puede chocar con el gesto de arrastrar clips; avísame si pasa).
+
+— Claude
