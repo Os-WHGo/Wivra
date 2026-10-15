@@ -7,6 +7,7 @@ import UIKit
 @main
 struct WivraMetaB0App: App {
     @State private var model: MetaB0Model
+    @State private var captureTab: WivraCaptureTab = .meta
 
     init() {
         do {
@@ -19,18 +20,28 @@ struct WivraMetaB0App: App {
 
     var body: some Scene {
         WindowGroup {
-            MetaB0Screen(model: model)
-                .onOpenURL { url in
-                    Task { @MainActor in
-                        await model.handleMetaCallback(url)
-                    }
+            TabView(selection: $captureTab) {
+                MetaB0Screen(model: model)
+                    .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
+                    .tag(WivraCaptureTab.meta)
+                WivraIPhoneCameraScreen()
+                    .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
+                    .tag(WivraCaptureTab.iPhone)
+            }
+            .onChange(of: captureTab) { _, tab in
+                if tab == .iPhone { model.endSession() }
+            }
+            .onOpenURL { url in
+                Task { @MainActor in
+                    await model.handleMetaCallback(url)
                 }
-                .onReceive(NotificationCenter.default.publisher(
-                    for: UIApplication.didEnterBackgroundNotification
-                )) { _ in
-                    // Explicit conservative B0 behavior: stop on background.
-                    model.endSession()
-                }
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.didEnterBackgroundNotification
+            )) { _ in
+                // Neither source claims screen-off or background recording.
+                model.endSession()
+            }
         }
     }
 }

@@ -14,6 +14,8 @@
     <key>ClientToken</key><string>$(CLIENT_TOKEN)</string>
     <key>TeamID</key><string>$(DEVELOPMENT_TEAM)</string>
   </dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Capturar fotografías y videos con la cámara nativa del iPhone para proyectos Wivra.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Grabar audio desde el micrófono Bluetooth seleccionado, guardarlo por separado y sincronizarlo con el video.</string>
   <key>NSBluetoothAlwaysUsageDescription</key>
