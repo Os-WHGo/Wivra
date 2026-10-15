@@ -1,7 +1,7 @@
 es || it
 ‹ Inicio || ‹ Home
 Video || Video
-Captura || Cattura
+Captura || Ripresa
 Exportar || Esporta
 Ningún video elegido. || Nessun video scelto.
 Todo || Tutto
@@ -16,7 +16,7 @@ Borrar || Elimina
 Texto || Testo
 IA || IA
 Director || Director
-Observar || Osserva
+Observar || Esamina
 Audio || Audio
 Formato || Formato
 Capa || Livello
@@ -58,7 +58,7 @@ Listo || Fatto
 Faltan archivos || File mancanti
 Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar. || Il progetto è stato salvato, ma il telefono non ha conservato questi video o audio. Sceglili di nuovo (con lo stesso nome) e tutto torna al suo posto.
 Elegir archivos || Scegli file
-Seguir sin ellos || Continua senza
+Seguir sin ellos || Continua senza questi file
 Audio del clip || Audio della clip
 Toca un clip en la línea de tiempo para elegirlo. || Tocca una clip nella timeline per sceglierla.
 Silenciar el audio original de este clip || Silenzia l'audio originale di questa clip
@@ -69,10 +69,10 @@ La forma del cuadro del resultado. Lo que sobra se recorta solo, centrado. || La
 Original || Originale
 9:16 Reels || 9:16 Reels
 Rellenar (recorta) || Riempi (ritaglia)
-Entero (barras) || Intero (barre)
+Entero (barras) || Adatta (bande)
 Elige un video en la línea de tiempo. || Scegli un video nella timeline.
-Al aparecer || Quando appare
-Al desaparecer || Quando scompare
+Al aparecer || Entrata
+Al desaparecer || Uscita
 Ninguno || Nessuno
 Fundido || Dissolvenza
 Deslizar || Scorrimento
@@ -82,8 +82,8 @@ Ver más || Vedi altro
 Ver menos || Vedi meno
 Más efectos || Altri effetti
 Sin filtro || Nessun filtro
-Cámara antigua || Vecchia fotocamera
-Rollo de película || Rullino fotografico
+Cámara antigua || Fotocamera vintage
+Rollo de película || Effetto pellicola
 Grano fino || Grana fine
 Blanco y negro || Bianco e nero
 Noir || Noir
@@ -144,18 +144,18 @@ Transparencia: || Trasparenza:
 visible || visibile
 Traer adelante || Porta avanti
 Mandar atrás || Manda indietro
-Pantallita en la esquina || Finestrella nell'angolo
+Pantallita en la esquina || Riquadro nell'angolo
 Silenciar el sonido de este video || Silenzia l'audio di questo video
 También puedes arrastrar el video superpuesto sobre la pantalla para moverlo. || Puoi anche trascinare il video sovrapposto sullo schermo per spostarlo.
 El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca. || Il video entra nel taglio più vicino alla linea bianca (se è all'inizio, va all'inizio; alla fine, alla fine). L'audio va su una traccia separata dove si trova la linea bianca.
 Audio (música, voz) || Audio (musica, voce)
-Grabar tu voz con el micrófono: todavía no está. || Registrare la tua voce con il microfono: non è ancora disponibile.
+Grabar tu voz con el micrófono: todavía no está. || La registrazione della voce dal microfono non è ancora disponibile.
 Capas (un video encima de otro): || Livelli (un video sopra un altro):
 mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás. || tieni premuta una clip e trascinala nella riga «Livelli», sotto l'audio. Per farla tornare parte del video, trascinala verso l'alto. Con il pulsante Livello scegli la forma e se va davanti o dietro.
 Cerrar || Chiudi
 Texto en pantalla || Testo sullo schermo
 Aparece 3 s desde donde está la línea blanca. || Appare per 3 s dal punto in cui si trova la linea bianca.
-Poner texto aquí || Metti il testo qui
+Poner texto aquí || Inserisci il testo qui
 Con tu IA || Con la tua IA
 ¿Qué quieres que haga? || Cosa vuoi che faccia?
 🎤 Dictar || 🎤 Detta
@@ -167,8 +167,8 @@ Proveedor || Provider
 Otro (compatible con OpenAI) || Altro (compatibile con OpenAI)
 OpenAI (de pago) || OpenAI (a pagamento)
 Modelo (puedes cambiarlo) || Modello (puoi cambiarlo)
-Dirección (compatible con OpenAI) || Indirizzo (compatibile con OpenAI)
-Tu clave || La tua chiave
+Dirección (compatible con OpenAI) || URL API (compatibile con OpenAI)
+Tu clave || La tua chiave API
 (crear una) || (creane una)
 Se envía solo tu petición y un resumen del proyecto (nombres, duraciones, cortes). || Vengono inviati solo la tua richiesta e un riepilogo del progetto (nomi, durate, tagli).
 Nunca el video. || Mai il video.
@@ -206,8 +206,8 @@ Genera un checklist sencillo y marca cada toma al grabarla. La plantilla es loca
 Lugar o tema que quieres grabar || Luogo o tema che vuoi girare
 Cantidad de tomas || Numero di riprese
 Duración final deseada (s) || Durata finale desiderata (s)
-Crear lista de tomas aquí || Crea qui l'elenco riprese
-Todavía no hay lista de tomas. || Non c'è ancora un elenco di riprese.
+Crear lista de tomas aquí || Crea qui l'elenco delle riprese
+Todavía no hay lista de tomas. || Non c'è ancora un elenco delle riprese.
 «Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma. || «Registra» apre la fotocamera offerta dal tuo telefono. La registrazione resta sul dispositivo. Questo prototipo richiede che Safari o Android restituisca il file per associarlo alla ripresa.
 Edición directa dentro de Wivra (prueba básica) || Modifica diretta dentro Wivra (prova di base)
 No necesitas copiar prompts para esta prueba. Las órdenes muy sencillas se convierten en operaciones reales del editor, con vista previa del cambio y aprobación. Todavía NO es un modelo de IA. || Non serve copiare prompt per questa prova. I comandi molto semplici diventano vere operazioni dell'editor, con anteprima della modifica e approvazione. NON è ancora un modello di IA.
@@ -220,11 +220,11 @@ Esta opción prepara el asistente con tu intención; nada sale a internet hasta 
 Preparar y copiar briefing para mi IA || Prepara e copia il briefing per la mia IA
 Briefing preparado (copia manual si no funciona el portapapeles) || Briefing pronto (copia manualmente se gli appunti non funzionano)
 La IA aún no está conectada; puedes usar este briefing en ChatGPT o Claude. || L'IA non è ancora collegata; puoi usare questo briefing in ChatGPT o Claude.
-Observar el video || Osserva il video
+Observar el video || Esamina il video
 Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada. || Guarda 8 piccoli fotogrammi sul tuo telefono e propone dei tagli. Non riconosce luoghi, persone né voce. Non carica nulla.
 Inspeccionar fotogramas || Ispeziona i fotogrammi
-Recorte por números del primer clip || Ritaglio per numeri della prima clip
-Recortar || Ritaglia
+Recorte por números del primer clip || Accorcia la prima clip con i tempi
+Recortar || Accorcia
 Exportar video || Esporta video
 Empezar a exportar || Inizia l'esportazione
 Guardar o compartir || Salva o condividi
@@ -235,7 +235,7 @@ Qué mover || Cosa spostare
 Mueve y cambia el tamaño de todo el recuadro || Sposta e ridimensiona tutto il riquadro
 Mueve y agranda el video por dentro de la forma || Sposta e ingrandisci il video dentro la forma
 Mueve y cambia el tamaño de la forma sin mover el video || Sposta e ridimensiona la forma senza spostare il video
-Ampliar o reducir la pantalla || Ingrandisci o riduci lo schermo
+Ampliar o reducir la pantalla || Ingrandisci o riduci l'anteprima
 Reproducir || Riproduci
 Deshacer || Annulla
 Rehacer || Ripeti
