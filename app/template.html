@@ -165,6 +165,26 @@ body.dock .back{pointer-events:none;background:transparent}
 .fgrid.static{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;overflow:visible}
 .galhead{display:flex;align-items:center;gap:8px;margin:16px 0 2px}.galhead b{flex:1;font-size:16px}.galhead small{display:block;color:var(--mut);font-weight:400;font-size:12px}.galhead .btn{width:auto;padding:6px 12px;font-size:13px;margin:0}
 .frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
+
+  /* Wivra AI chat-first: provider/keys hidden until explicitly opened. */
+  .ai-chat .ai-intro{margin:0 0 10px}
+  .ai-chat .ai-mode-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-chat .ai-mode-row label{font-size:13px;flex:none}
+  .ai-chat .ai-mode-row select{flex:1;min-width:0;font-size:14px}
+  .ai-chat .ai-log{display:flex;flex-direction:column;gap:8px;min-height:78px;max-height:26dvh;overflow:auto;padding:8px;margin-bottom:8px;background:#11131a;border:1px solid var(--line);border-radius:12px}
+  .ai-chat .ai-log:empty::before{content:"Escribe tu primera instrucción. El modo básico admite títulos y recortes exactos.";display:block;font-size:13px;color:var(--mut);padding:6px}
+  .ai-chat .ai-msg{border-radius:14px;max-width:92%;white-space:pre-wrap;font-size:14px}
+  .ai-chat .ai-msg.ai-user{align-self:flex-end;background:#293453}
+  .ai-chat .ai-msg.ai-assistant{align-self:flex-start;background:var(--bar)}
+  .ai-chat .ai-composer{background:#191c24;border:1px solid var(--line);border-radius:14px;padding:10px}
+  .ai-chat .ai-composer label{display:block;margin:0 0 5px}
+  .ai-chat .ai-composer textarea{margin:0;min-height:64px}
+  .ai-chat .ai-actions{align-items:center;justify-content:flex-end;gap:8px;margin-top:6px}
+  .ai-chat .ai-actions #aiAsk{flex:1;min-width:0}
+  .ai-chat .ai-settings{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .ai-chat .ai-settings summary{cursor:pointer;font-size:14px;color:var(--mut);min-height:40px}
+  .ai-chat .ai-settings #aiDirect{padding-bottom:8px}
+
 </style>
 </head>
 <body>
@@ -299,28 +319,44 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
-<div class="sheet" id="sAI"><h2>Con tu IA</h2>
-  <div id="aiLog" aria-live="polite"></div>
-  <label>¿Qué quieres que haga? <button id="aiMic" type="button" class="pill" style="height:30px;padding:0 10px;margin-left:6px;display:none">🎤 Dictar</button> <button id="aiNew" type="button" class="pill" style="height:30px;padding:0 10px;display:none">Nueva conversación</button></label>
-  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
-  <div id="aiDirectorInfo" style="display:none" class="m" role="status">La idea del Director está adjunta como contexto a esta conversación.</div>
-  <button type="button" class="btn sec" id="aiDirectorRemove" style="display:none">Dejar de usar esta idea con IA</button>
-  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
-  <div id="aiDirect">
-    <label>Proveedor</label><select id="aiProv"></select>
-    <label>Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <div id="aiBaseRow" style="display:none"><label>Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
-    <label>Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label><input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Se queda solo en esta página; se borra al cerrarla">
-    <p class="m" style="margin-top:6px">Se envía solo tu petición y un resumen del proyecto (nombres, duraciones, cortes). <b>Nunca el video.</b></p>
-    <button id="aiAsk" class="btn" disabled>Pedirle a la IA</button>
-    <div id="aiProp" style="display:none"><div class="item" id="aiPropText"></div>
-      <div class="row"><button id="aiApply" class="btn">Aplicar</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
-    <div id="aiMsg"></div>
+<div class="sheet ai-chat" id="sAI"><h2>Asistente Wivra</h2>
+  <p class="m ai-intro">Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla.</p>
+  <div class="ai-mode-row"><label for="aiMode">Asistente</label>
+    <select id="aiMode" aria-label="Modo de asistente">
+      <option value="local">Básico · gratis y sin conexión</option>
+      <option value="connected">IA conectada · opcional</option>
+    </select></div>
+  <div id="aiLog" class="ai-log" role="log" aria-label="Conversación de edición" aria-live="polite"></div>
+  <div class="ai-composer">
+    <label for="ask">¿Qué quieres cambiar en el video?</label>
+    <textarea id="ask" rows="2" placeholder='Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"'></textarea>
+    <div class="row ai-actions">
+      <button id="aiMic" type="button" class="pill" style="display:none">🎤 Dictar</button>
+      <button id="aiAsk" type="button" class="btn" disabled>Revisar cambio gratis</button>
+    </div>
   </div>
-  <details style="margin-top:12px"><summary class="m" style="cursor:pointer">Sin clave: copiar y pegar con ChatGPT o Claude</summary>
-    <button id="copy" class="btn" disabled>1. Copiar el mensaje para mi IA</button>
-    <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
-    <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></details></div>
+  <div id="aiDirectorInfo" style="display:none" class="m" role="status">La idea del Director está adjunta a esta conversación.</div>
+  <button type="button" class="btn sec" id="aiDirectorRemove" style="display:none">Desvincular idea</button>
+  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
+  <div id="aiProp" style="display:none"><div class="item" id="aiPropText"></div>
+    <div class="row"><button id="aiApply" class="btn">✓ Aplicar cambios</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
+  <div id="aiMsg" role="status" aria-live="polite"></div>
+  <button id="aiNew" type="button" class="pill" style="display:none;margin-top:8px">↺ Nueva conversación</button>
+  <details id="aiSettings" class="ai-settings"><summary>⚙ Configurar una IA externa (opcional)</summary>
+    <div id="aiDirect">
+      <label for="aiProv">Proveedor</label><select id="aiProv"></select>
+      <label for="aiModel">Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div id="aiBaseRow" style="display:none"><label for="aiBase">Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
+      <label for="aiKey">Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label>
+      <input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Solo en memoria; se borra al cerrar">
+      <p class="m">Este modo puede usar servicios externos y sus límites de uso. Solo se envían instrucciones y un resumen del proyecto, nunca el archivo multimedia.</p>
+    </div>
+  </details>
+  <details class="ai-settings"><summary>Copiar instrucciones a ChatGPT o Claude manualmente</summary>
+    <button id="copy" class="btn" disabled>1. Copiar instrucciones</button>
+    <label for="reply">2. Pegar respuesta</label><textarea id="reply"></textarea>
+    <button id="apply" class="btn sec" disabled>3. Revisar y aplicar al video</button><div id="msg"></div></details>
+</div>
 
 <div class="sheet" id="sDirector">
   <h2>Director creativo (prototipo)</h2>
@@ -1433,18 +1469,23 @@ const aiSay = (t, cls) => { $('aiMsg').className = cls || ''; $('aiMsg').textCon
 for (const pr of PRESETS) { const o = document.createElement('option'); o.value = pr.id; o.textContent = pr.name; $('aiProv').appendChild(o); }
 function aiPreset() { const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0]; $('aiModel').value = pr.model; $('aiBaseRow').style.display = pr.id === 'custom' ? 'block' : 'none'; $('aiKeyLink').style.display = pr.keyUrl ? 'inline' : 'none'; $('aiKeyLink').href = pr.keyUrl || '#'; }
 $('aiProv').onchange = aiPreset; aiPreset();
-function aiSync() { $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || $('aiKey').value.trim().length < 8; }
+function aiSync() {
+  const local = $('aiMode').value === 'local';
+  $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8);
+  $('aiAsk').textContent = local ? 'Revisar cambio gratis' : 'Pedir propuesta a IA';
+}
+$('aiMode').addEventListener('change', aiSync);
 for (const id of ['ask', 'aiKey', 'aiModel']) $(id).addEventListener('input', aiSync);
 function aiClear() { aiPending = null; $('aiProp').style.display = 'none'; }
 $('aiDiscard').onclick = () => { aiClear(); aiHistory.push({ role: 'user', content: '(Descarté tu propuesta; no se aplicó nada.)' }); aiSay('Propuesta descartada. No cambió nada.'); };
 let aiHistory = [];
-function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item'; d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
+function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item ai-msg ' + (who === 'tú' ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
 $('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren(); $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
   const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
   try {
-    const r = await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, directorContext: aiDirectorContext, parseText: parseReply,
+    const r = $('aiMode').value === 'local' ? (() => { const local = localBasicCommand(request, session.project); return { ops: local.operations, nota: local.description }; })() : await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, directorContext: aiDirectorContext, parseText: parseReply,
       onStatus: ({ attempt }) => aiSay(`El proveedor está saturado. Reintentando (${attempt}/2)…`) });
     aiLogAdd('tú', request); aiHistory.push({ role: 'user', content: request });
     if (!r.ops.length) { const t = r.nota ? 'No propongo cambios: ' + r.nota : 'No propongo cambios.'; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); $('ask').value = ''; return aiSay('La IA no propone cambios.', 'bad'); }
