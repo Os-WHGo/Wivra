@@ -77,6 +77,12 @@ Reglas del bucle del agente / agent-loop rules:
 
 **Sobre "iniciar sesión" / About "sign in":** hasta donde sabemos, las suscripciones de chat (Claude.ai, ChatGPT, Meta AI) no dan acceso a apps de terceros. Las apps usan una **clave de API** que la persona pega, o, si un proveedor lo ofrece, OAuth. La clave se guarda solo en el dispositivo. Hay que verificarlo por proveedor antes de construir la pantalla de conexión.
 
+## Voces y audio gratuitos / Free voice proposal (later stage)
+
+**Propuesta pendiente de aprobación del propietario, no implementada.** La preferencia expresada es disponer de narración, transcripción y subtítulos gratuitos y, cuando sea viable, con software y modelos de código abierto. Prioridad inmediata: **editor web táctil en Safari/Android que importa, corta, agrega texto y exporta un clip**. Las voces se investigarán después; se verificarán licencias de cada componente y límites del navegador. No se exige usar Concat ni una API de voz pagada.
+
+**Revisión de opciones y pruebas pendientes:** [docs/VOICE_OPEN_SOURCE_POLICY.md](docs/VOICE_OPEN_SOURCE_POLICY.md).
+
 ## Plan por etapas / Roadmap
 
 - **M0 — Prototipo web mínimo:** abrir desde el teléfono, importar un video de Fotos, línea de tiempo simple (dividir y recortar), texto y exportar MP4. Probar en iPhone y en Android. La pregunta clave es qué aguanta el navegador del teléfono (decodificar y exportar video, memoria, pantalla bloqueada).
