@@ -37,6 +37,7 @@ struct WivraMetaB0App: App {
 
 struct MetaB0Screen: View {
     @Bindable var model: MetaB0Model
+    @State private var showNativeSceneLab = false
 
     var body: some View {
         ScrollView {
@@ -47,6 +48,15 @@ struct MetaB0Screen: View {
 
                 Text("B0 vista previa. B1D experimental: video HEVC + entrada de audio seleccionada. Sin LIVE.")
                     .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Button("B2B · Abrir laboratorio LIVE (local)") {
+                    showNativeSceneLab = true
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("wivra_live_lab_open")
+                Text("Ensayo de escenas y títulos sobre vista RAW. No transmite ni graba LIVE.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
 
                 Group {
@@ -257,6 +267,20 @@ struct MetaB0Screen: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
+        }
+        .sheet(isPresented: $showNativeSceneLab) {
+            NavigationStack {
+                WivraLiveNativeSceneLab(
+                    cameraFrame: model.previewImage,
+                    cameraVerified: model.hasPreview && !model.receiveCompressedHEVC,
+                    cameraLastFrameUptime: model.lastRawFrameUptime
+                )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Cerrar") { showNativeSceneLab = false }
+                    }
+                }
+            }
         }
         .confirmationDialog(
             "Meta AI debe autorizar la cámara",

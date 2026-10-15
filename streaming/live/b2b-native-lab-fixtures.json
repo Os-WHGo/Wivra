@@ -1,0 +1,87 @@
+{
+  "schema": "wivra-live-scene-deck-v1",
+  "projectId": "native-scene-lab",
+  "canvas": "9:16",
+  "assets": [],
+  "scenes": [
+    {
+      "id": "walk",
+      "layout": "single",
+      "layers": [
+        {
+          "id": "pov",
+          "kind": "camera",
+          "inputId": "rayban-dat",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "news",
+      "layout": "single",
+      "layers": [
+        {
+          "id": "headline",
+          "kind": "cg",
+          "text": "WIVRA · ESCENA DE PRUEBA",
+          "rect": {
+            "x": 0.05,
+            "y": 0.72,
+            "width": 0.9,
+            "height": 0.18
+          }
+        }
+      ]
+    },
+    {
+      "id": "walk-title",
+      "layout": "pip",
+      "layers": [
+        {
+          "id": "pov",
+          "kind": "camera",
+          "inputId": "rayban-dat",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "id": "headline",
+          "kind": "cg",
+          "text": "Hoy recorremos Whistler",
+          "rect": {
+            "x": 0.05,
+            "y": 0.72,
+            "width": 0.9,
+            "height": 0.18
+          }
+        }
+      ]
+    }
+  ],
+  "deck": [
+    {
+      "slot": 1,
+      "action": "take_scene",
+      "targetId": "walk"
+    },
+    {
+      "slot": 2,
+      "action": "take_scene",
+      "targetId": "news"
+    },
+    {
+      "slot": 3,
+      "action": "take_scene",
+      "targetId": "walk-title"
+    }
+  ]
+}
