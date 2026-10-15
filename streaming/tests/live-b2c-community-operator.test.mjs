@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {
   createCommunityPolicy,normalizeCommunityEvent,createCommunityQueue,
   enqueueCommunity,nextCommunityCue,planLiveAudioRoute,eventPriority
@@ -108,7 +109,7 @@ test('announcement max-age and bounded queue guard ear fatigue',()=>{
   s=enq(s,evt('a'),1000);s=enq(s,evt('b'),1001);
   s=enq(s,evt('c',{kind:'subscription'}),1002);
   assert.equal(s.entries.length,2);
-  assert.ok(!s.entries.some(e=>e.id==='a'));
+  assert.ok(!s.entries.some(e=>e.id==='b')); // older tied chat wins against newer at cap
   const r=nextCommunityCue(s,{nowMs:30000,monitorReady:true,safeToSpeak:true});
   assert.equal(r.state.entries.length,0);
 });
