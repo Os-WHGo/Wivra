@@ -16,7 +16,7 @@ Borrar || Delete || Apagar || Supprimer || Löschen || 削除 || 删除
 Texto || Text || Texto || Texte || Text || テキスト || 文字
 IA || AI || IA || IA || KI || AI || AI
 Director || Director || Diretor || Réalisateur || Regisseur || ディレクター || 导演
-Observar || Inspect || Examinar || Examiner || Prüfen || 確認 || 查看
+Observar || Inspect || Examinar || Examiner || Analysieren || 分析 || 分析
 Audio || Audio || Áudio || Audio || Audio || オーディオ || 音频
 Formato || Format || Formato || Format || Format || フォーマット || 格式
 Capa || Layer || Camada || Calque || Ebene || レイヤー || 图层
@@ -72,7 +72,7 @@ Rellenar (recorta) || Fill (crop) || Preencher (corta as bordas) || Remplir (rec
 Entero (barras) || Fit (bars) || Ajustar (com barras) || Ajuster (bandes) || Einpassen (Balken) || 全体表示（余白あり） || 适应（留边）
 Elige un video en la línea de tiempo. || Pick a video on the timeline. || Escolha um vídeo na linha do tempo. || Choisis une vidéo sur la timeline. || Wähle ein Video in der Zeitleiste. || タイムラインで動画を選んでください。 || 请在时间线上选择一个视频。
 Al aparecer || Entrance || Entrada || Apparition || Beim Einblenden || 表示時 || 出现时
-Al desaparecer || Exit || Saída || Disparition || Beim Ausblenden || 終了時 || 消失时
+Al desaparecer || Exit || Saída || Disparition || Beim Ausblenden || 非表示時 || 消失时
 Ninguno || None || Nenhum || Aucun || Keiner || なし || 无
 Fundido || Fade || Esmaecer || Fondu || Verblassen || フェード || 淡入淡出
 Deslizar || Slide || Deslizar || Glisser || Schieben || スライド || 滑动
