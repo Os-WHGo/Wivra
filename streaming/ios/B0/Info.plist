@@ -14,6 +14,8 @@
     <key>ClientToken</key><string>$(CLIENT_TOKEN)</string>
     <key>TeamID</key><string>$(DEVELOPMENT_TEAM)</string>
   </dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Grabar audio desde el micrófono Bluetooth seleccionado, guardarlo por separado y sincronizarlo con el video.</string>
   <key>NSBluetoothAlwaysUsageDescription</key>
   <string>Conectar tus gafas Meta para recibir video en directo en Wivra.</string>
   <key>NSBluetoothPeripheralUsageDescription</key>

@@ -9,6 +9,7 @@ import Observation
 import UIKit
 import QuartzCore
 import CoreMedia
+import AVFoundation
 
 @Observable
 @MainActor
@@ -30,8 +31,17 @@ final class MetaB0Model {
     var recordingArmed = false
     var recordingFinishing = false
     var lastRecordedURL: URL?
-    var recordingStatus = "B1A experimental: solo video HEVC, sin audio."
+    var recordingStatus = "B1B experimental: audio Ray-Ban seleccionado, pista independiente y MOV integrado."
+    var captureGlassesAudio = true
+    var lastSeparateAudioURL: URL?
+    var lastCombinedVideoURL: URL?
+    var lastAudioSyncOffsetSeconds: Double?
+    var lastCaptureManifestURL: URL?
+    var selectedAudioDeviceName: String?
+    let audioRoute = WivraAudioRoute()
+    private let audioSidecar = WivraAudioSidecar()
     private let clipRecorder = WivraHEVCRecorder()
+    private var audioRouteObserver: NSObjectProtocol?
 
     private let wearables: any WearablesInterface
     private let selector: AutoDeviceSelector
@@ -48,6 +58,16 @@ final class MetaB0Model {
         self.wearables = wearables
         self.selector = AutoDeviceSelector(wearables: wearables)
         self.registrationState = wearables.registrationState
+        audioRouteObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.recordingArmed,
+                      self.captureGlassesAudio, !self.audioRoute.hasSelectedRoute else { return }
+                self.recordingStatus = "Se perdió el micrófono seleccionado; cerrando la grabación."
+                await self.finishRecording()
+            }
+        }
         registrationTask = Task { [weak self] in
             guard let self else { return }
             for await state in wearables.registrationStateStream() {
@@ -65,29 +85,95 @@ final class MetaB0Model {
 
     func beginRecording() {
         guard canRecord && !recordingArmed else { return }
+        lastRecordedURL = nil
+        lastSeparateAudioURL = nil
+        lastCombinedVideoURL = nil
+        lastAudioSyncOffsetSeconds = nil
+        lastCaptureManifestURL = nil
+        selectedAudioDeviceName = nil
+        if captureGlassesAudio {
+            do {
+                selectedAudioDeviceName = try audioRoute.activateSelectedInput()
+                try audioSidecar.start(verifiedSelectedRoute: audioRoute.hasSelectedRoute)
+                // Starting AVAudioEngine may itself change the iOS route.
+                if !audioRoute.hasSelectedRoute {
+                    _ = try? audioSidecar.finish()
+                    throw WivraAudioRouteError.routeRejected
+                }
+            } catch {
+                recordingStatus = "Audio Ray-Ban: " + error.localizedDescription
+                return
+            }
+        }
         guard clipRecorder.arm() else {
+            if audioSidecar.isRecording { _ = try? audioSidecar.finish() }
             recordingStatus = "Hay una grabación pendiente de finalizar."
             return
         }
         recordingArmed = true
-        recordingStatus = "Esperando fotograma clave HEVC. No cierres la aplicación."
+        recordingStatus = captureGlassesAudio
+            ? "Grabando video HEVC y micrófono HFP en archivo separado."
+            : "Grabando solo video HEVC, sin audio."
     }
 
     func finishRecording() async {
         guard recordingArmed && !recordingFinishing else { return }
         recordingArmed = false
         recordingFinishing = true
+        let firstVideoClock = clipRecorder.firstVideoSampleUptime()
+        let wantedAudio = captureGlassesAudio
+        var sound: WivraAudioResult?
+        var soundError: String?
+        if wantedAudio {
+            do { sound = try audioSidecar.finish() }
+            catch { soundError = error.localizedDescription }
+        }
         let result = await clipRecorder.stop()
-        recordingFinishing = false
         switch result {
         case .saved(let url, let frames, let dropped):
             lastRecordedURL = url
-            recordingStatus = "MOV guardado: \(frames) fotogramas, \(dropped) descartados. Sin audio."
+            recordingStatus = "Video original guardado (\(frames) cuadros; \(dropped) descartados)."
+            if let sound {
+                lastSeparateAudioURL = sound.url
+                if let firstVideoClock {
+                    let offset = sound.firstSampleUptime - firstVideoClock
+                    lastAudioSyncOffsetSeconds = offset
+                    do {
+                        let combined = try await WivraLocalMux.merge(
+                            videoURL: url, audioURL: sound.url, audioStartOffset: offset
+                        )
+                        lastCombinedVideoURL = combined
+                        recordingStatus = "Video con audio y pista CAF independiente guardados. Verifica sincronía."
+                    } catch {
+                        recordingStatus = "Originales guardados. No se pudo combinar: " + error.localizedDescription
+                    }
+                } else {
+                    recordingStatus = "Originales guardados. No hay reloj de inicio de video para sincronizar."
+                }
+            } else if wantedAudio {
+                recordingStatus = "Solo video guardado. El micrófono seleccionado falló: " +
+                    (soundError ?? "sin muestras válidas")
+            } else {
+                recordingStatus = "Video sin audio guardado."
+            }
+            do {
+                lastCaptureManifestURL = try WivraCaptureManifest.write(
+                    videoURL: url, audioURL: lastSeparateAudioURL,
+                    mergedURL: lastCombinedVideoURL,
+                    audioOffsetSeconds: lastAudioSyncOffsetSeconds,
+                    audioPortName: selectedAudioDeviceName
+                )
+            } catch {
+                recordingStatus += " Advertencia: no se guardó el manifiesto de proyecto."
+            }
         case .noFrames:
-            recordingStatus = "No llegaron fotogramas clave durante la grabación; no se creó video."
+            if let sound { lastSeparateAudioURL = sound.url }
+            recordingStatus = "No se creó video: faltaron cuadros clave HEVC."
         case .failed(let message):
-            recordingStatus = "La grabación falló: " + message
+            if let sound { lastSeparateAudioURL = sound.url }
+            recordingStatus = "La grabación de video falló: " + message
         }
+        recordingFinishing = false
     }
 
     func register() {
