@@ -1,117 +1,112 @@
-# AgentCut (working name)
+# Wivra
 
-**ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
-**EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
+**Crea. Graba. Edita. Transmite. / Create. Capture. Edit. Go live.**
 
-> Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre provisional / working name. Revisar que no choque con marcas existentes antes de publicar.
+**ES:** Wivra es una plataforma audiovisual en desarrollo: editor de video y fotografía, cámara y audio, asistente de IA opcional y herramientas LIVE para teléfonos y cámaras compatibles, incluidas determinadas gafas inteligentes.
 
----
+**EN:** Wivra is an audiovisual creator platform in development: video and photo editing, camera and audio capture, optional AI assistance, and live production tools for phones and supported cameras, including compatible smart glasses.
 
-## La idea / The idea
+> **Estado / Status — 15 de octubre de 2026:** varios componentes tienen código, pruebas automatizadas y prototipos en PR y ramas de desarrollo. **No existe todavía una aplicación integrada y publicada ni una validación completa en iPhone/Android o gafas físicas.** / Multiple components have code and automated tests in draft branches, but **this is not yet a released, end-to-end device-validated app**.
 
-**ES.** Hoy los agentes de IA que manejan aplicaciones lo hacen casi siempre en computadoras de escritorio. Hasta donde sabemos, no hay un editor de video pensado para el teléfono que una IA pueda controlar así (no verificado de forma exhaustiva; si conoces uno, abre un issue). AgentCut quiere aprovechar la potencia que ya tienen los teléfonos: tú escribes "quita los silencios, ponle subtítulos y exporta vertical", la IA decide los pasos y el editor los ejecuta **en tu teléfono**. Sin computadora, sin instalar nada.
+**Nombre / Name:** Wivra (anteriormente **AgentCut**). La comprobación definitiva de marca y derechos sobre el nombre sigue pendiente. / Formerly AgentCut; trademark/name clearance remains pending.
 
-**EN.** AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
+## Visión y arquitectura / Vision & architecture
 
-## Cómo funciona / How it works
+Queremos **una sola experiencia** para crear contenido: cámara → medios locales → biblioteca/proyecto → editor → exportación y/o LIVE Studio. El editor puede utilizarse manualmente: la IA ayuda, pero no sustituye los controles normales. iPhone/iOS y Android son objetivos de producto; una futura versión para escritorio también está prevista.
 
-- **App web (PWA):** se abre desde un enlace en Safari o Chrome del teléfono. Editor propio y simple: importar video de la galería, cortar, poner texto y exportar. Visual y táctil desde el primer día.
-- **Chat dentro de la app:** la app llama a la IA y la IA responde con llamadas a herramientas (tool calls) que la app ejecuta localmente. Una IA en la nube no puede "entrar" a una página de tu teléfono, así que invertimos la dirección.
-- **El video no se sube.** Solo viajan texto y resultados de herramientas. Enviar fotogramas para que la IA "vea" sería opcional y avisado.
+We aim for **one creator workflow** across capture, media library, project, editor, export and LIVE. Manual editing remains available without AI. iPhone/iOS and Android are product targets, with desktop considered later.
 
-```
-┌──────────────── Teléfono (navegador) ─────────────┐
-│  Chat ──► Bucle del agente ──► Capa de herramientas│
-│    ▲              │                    │           │
-│    │              │                    ▼           │
-│    │              │          Editor propio (web)   │
-│    │              │   (proyecto, medios, edición,  │
-│    │              │        exportación)            │
-└────┼──────────────┼────────────────────────────────┘
-     │              ▼ (solo texto y resultados)
-     │       Proveedor de IA (internet)
-     └── Claude · ChatGPT · Meta · otros · modelo local (más adelante)
-```
+La decisión técnica **no es “web solamente”**. Claude documentó la comparación entre web, híbrido y nativo: el prototipo de editor actual funciona con JavaScript en navegador; captura avanzada, cámara de gafas y emisión de video requieren puentes o módulos nativos. La arquitectura final depende de integración y pruebas reales. / **Not web-only**: the editor prototype currently runs in a browser, while advanced capture and broadcast need native bridges or modules. Architecture remains subject to testing.
 
-Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), verificando la licencia de cada pieza. **No copiamos código, imágenes ni marca de CapCut ni de otras apps propietarias.**
+## Estado real de las funciones / Feature status
 
-## Enfoque: crear reels y contenido / Focus: creator content
-
-**ES.** AgentCut está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
-- **Reconocer:** texto en pantalla (carteles, nombres de calles), lugares (apoyándose en el GPS del video cuando exista), momentos clave y silencios. Los modelos con visión leen texto en los fotogramas, pero la precisión varía y hay que verificarla. No identificamos personas por su cara.
-- **Sugerir ideas:** ganchos de apertura, títulos, estructura del reel, guiones y hashtags a partir de lo que aparece en los videos.
-- **Teleprompter:** el guion se desplaza en pantalla mientras grabas, con velocidad ajustable.
-- **Cualquier IA:** una capa de proveedores intercambiable (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros). Cada persona trae su propia clave.
-- **Privacidad y costo:** el video queda en el teléfono; solo se envían unos fotogramas y texto, con permiso, y se muestra una estimación del costo antes de analizar.
-
-**EN.** AgentCut aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
-
-## Herramientas que ve la IA / Tools the AI sees
-
-Contrato independiente del motor (se detalla en el issue #3):
-
-| Tool | Qué hace / What it does |
-| --- | --- |
-| `project_create` / `project_open` / `project_save` | Gestionar el proyecto |
-| `media_import` | Añadir un video, foto o audio al proyecto |
-| `edit_apply` (uno o por lotes) | Aplicar una edición: cortar, recortar, mover, texto, volumen |
-| `catalogue_list` | Listar los efectos y plantillas disponibles |
-| `export_run` | Exportar el video (con progreso) |
-
-Reglas del bucle del agente / agent-loop rules:
-1. Nunca adivinar ids de clips: leerlos del estado devuelto por el editor.
-2. Una exportación a la vez.
-3. Pedir confirmación al usuario antes de borrar, sobrescribir o exportar sobre un archivo existente.
-4. Las herramientas solo tocan el proyecto actual.
-
-## Proveedores de IA / AI providers
-
-| Proveedor | Cómo se conecta | Notas |
+| Área / Area | Código o propuesta / Code or proposal | Estado y límites / Status and limits |
 | --- | --- | --- |
-| Claude | API de Anthropic, **clave de API** | Se paga por uso, aparte de cualquier suscripción de chat |
-| ChatGPT / compatibles con OpenAI | URL base + clave de API | Verificar condiciones de uso desde el navegador |
-| Meta | API de modelos de Meta | En julio de 2026 era una vista previa solo para EE. UU.; verificar disponibilidad |
-| Gemini y otros | API del proveedor, mediante un adaptador | Cada proveedor tiene su propio formato de herramientas e imágenes; el adaptador lo oculta |
-| Modelo local pequeño | En el dispositivo | Etapa tardía; los modelos pequeños aún fallan al encadenar herramientas |
+| **Editor y biblioteca / Editor & library** | [Editor Claude · PR #44](https://github.com/Os-WHGo/Wivra/pull/44): timeline, clips, capas/overlays, imágenes, filtros/efectos, pistas de audio y proyectos con guardado/recuperación local | Implementaciones en rama de desarrollo; pruebas automatizadas y Chromium simulando móvil. Persistencia depende del almacenamiento del navegador. **Sin validación completa en Safari de iPhone ni Android físico.** |
+| **Exportación / Export** | [PR #44](https://github.com/Os-WHGo/Wivra/pull/44): exportación con audio y composición mediante APIs del navegador | Exportación de prototipo en pruebas simuladas; formatos, rendimiento, HEVC y sesiones largas requieren medición real. |
+| **Director e IA / Director & AI** | [PR #44](https://github.com/Os-WHGo/Wivra/pull/44): Director, proyecto editable mediante **14 tipos de operaciones validadas**, chat/proveedor opcional y revisión previa a aplicar. [PR #64](https://github.com/Os-WHGo/Wivra/pull/64): propuesta separada de interfaz tipo chat y modo local básico | Motor y UI experimental; **#64 no está integrado automáticamente en #44**. Pruebas con proveedores y micrófonos simulados no prueban integración externa real. |
+| **Cámara, fotografía y audio / Camera, stills & audio** | [PR #61](https://github.com/Os-WHGo/Wivra/pull/61) y ramas iOS de captura: cámara de teléfono, fotos durante grabación donde se permita, entrada de audio seleccionable, grabación de audio aparte + MOV y manifiesto de captura versionado | Prototipos y compilación iOS; compatibilidad de dispositivos, sincronía, rutas de audio y foto/video simultáneos pendientes de pruebas físicas. |
+| **LIVE Studio** | [PR #59](https://github.com/Os-WHGo/Wivra/pull/59) y PR de escenas: Preview/Programa, cola de eventos y planificación de audio | Lógica y laboratorios locales. **Sin transmisión RTMP(S) real validada ni publicación en redes integrada.** |
+| **Idiomas y subtítulos / Languages & captions** | El editor [#44](https://github.com/Os-WHGo/Wivra/pull/44) tiene catálogos de interfaz; [#65](https://github.com/Os-WHGo/Wivra/pull/65) propone internacionalización de LIVE, subtítulos y traducciones | Los textos del editor cuentan con pruebas de consistencia, **no revisión nativa de cada idioma**. Transcripción/traducción LIVE multilingüe todavía son objetivos, no funciones entregadas. |
 
-**Sobre "iniciar sesión" / About "sign in":** hasta donde sabemos, las suscripciones de chat (Claude.ai, ChatGPT, Meta AI) no dan acceso a apps de terceros. Las apps usan una **clave de API** que la persona pega, o, si un proveedor lo ofrece, OAuth. La clave se guarda solo en el dispositivo. Hay que verificarlo por proveedor antes de construir la pantalla de conexión.
+**Android:** la interfaz web del editor es una base posible, pero no hay aún implementación nativa Android ni pruebas reales verificadas en esa plataforma. / **Android:** no native Android implementation or verified physical-device testing yet.
+
+## Edición manual, IA y herramientas / Manual editing and AI tools
+
+La IA propone acciones sobre el proyecto; el motor valida IDs, tiempos, formatos, pistas y revisiones. El usuario conserva el control sobre si aplicar o descartar los cambios. Las operaciones se diseñan para deshacer, controlar errores y evitar cambios parciales imprevistos. Los **14 tipos de operaciones** presentes en el núcleo experimental incluyen:
+
+`add_clip`, `add_audio_clip`, `add_overlay_clip`, `set_overlay`, `set_audio_clip`, `set_clip_fx`, `set_clip_filter`, `set_format`, `trim_clip`, `split_clip`, `move_clip`, `set_clip_audio`, `delete_clip`, `add_text`.
+
+A model may suggest these operations, but the editor validates them. Automated tests cover the contracts; this does not mean every workflow works on a physical phone. See the [AI tool contract · issue #3](https://github.com/Os-WHGo/Wivra/issues/3) and [Editor · PR #44](https://github.com/Os-WHGo/Wivra/pull/44).
+
+### Proveedores de IA / AI providers
+
+Se prevé una capa intercambiable: **Claude/Anthropic, OpenAI y compatibles, Gemini, otros proveedores y opciones locales** cuando sus APIs, licencias, plataformas y permisos lo permitan. El uso de Meta AI como asesor no presupone una API comercial integrada. También se conserva el modo manual sin proveedor externo.
+
+External providers need separately authorized integration. **A ChatGPT or Claude chat subscription does not automatically provide third-party developer API access**; API credentials, billing, regions, rate limits and consent may differ. Do not put credentials in GitHub or upload raw media by default. Remote processing and any transfer of audio, images or frames must be made clear to the user.
+
+La capa de herramientas histórica incluye acciones de proyecto, importación de medios, edición y exportación: `project_create/open/save`, `media_import`, `edit_apply`, `catalogue_list` y `export_run`. Estos nombres son un **contrato de producto de etapas iniciales**, no la afirmación de que todos estén conectados de extremo a extremo.
+
+**Reglas del asistente / Agent rules:** no inventar IDs ni medios; validar el proyecto/revisión actual antes de aplicar; ejecutar operaciones por lotes de forma atómica; limitar concurrencia de exportación; solicitar confirmación antes de reemplazar o eliminar archivos; no enviar originales a servidores externos sin consentimiento.
+
+## Internacionalización / Localization
+
+**Editor experimental [#44](https://github.com/Os-WHGo/Wivra/pull/44):** hay una infraestructura de **8 idiomas para la interfaz**, usando `es`, `en`, `pt`, `fr`, `de`, `ja`, `zh` e `it`. Se detecta el idioma del dispositivo y hay catálogos con verificaciones automáticas de claves y plantillas. **Todavía no hay revisión profesional de traducciones, variantes regionales completas ni pruebas físicas.** `pt` no equivale todavía a `pt-BR` adaptado, ni `zh` implica haber separado chino simplificado/tradicional.
+
+**LIVE Studio [propuesta #65](https://github.com/Os-WHGo/Wivra/pull/65):** objetivo inicial de interfaz `en`, `es`, `fr`, `de`, `it` y `ja`, con `pt-BR` e `id` planificados a continuación. Esto no reemplaza los ocho idiomas que ya existen en el prototipo de Editor.
+
+**Subtítulos y traducciones / Captions & translation:** objetivo de **20 idiomas de destino** y exportación SRT/VTT futura, sujetos a motores, recursos, calidad y latencia medidos. **Idioma de interfaz, idioma del audio original e idioma de subtítulos son configuraciones distintas.** No anunciar transcripción/traducción LIVE operativas sin pruebas reales.
+
+## Privacidad, recursos y terceros / Privacy and third-party resources
+
+- Contenido y proyectos **locales por defecto cuando la plataforma lo permita**. Las funciones online deben informar destino, permisos, posibles costes y qué se envía. / Local-first where supported; external services must be explicit.
+- Biblioteca incorporada y paquetes adicionales gratuitos como objetivo de diseño; cada efecto, filtro, fuente, sonido y recurso requiere licencia de uso y redistribución comprobada. / Asset packs require verified licensing.
+- No copiar código, logos, textos, imágenes ni diseño protegido de CapCut u otras aplicaciones propietarias. / Do not copy third-party proprietary code, assets, branding or protected designs.
+- Los SDK para cámaras comerciales tienen sus propias condiciones; una función disponible en una cámara no demuestra su uso desde una app externa. / Camera SDK capabilities need model-by-model verification.
+- [OpenCut](https://github.com/OpenCut-app/OpenCut) y [Concat](https://github.com/jub0t/Concat) son referencias históricas para evaluar motores y licencias, no dependencias incorporadas automáticamente. / Technical references, not assumed dependencies.
 
 ## Plan por etapas / Roadmap
 
-- **M0 — Prototipo web mínimo:** abrir desde el teléfono, importar un video de Fotos, línea de tiempo simple (dividir y recortar), texto y exportar MP4. Probar en iPhone y en Android. La pregunta clave es qué aguanta el navegador del teléfono (decodificar y exportar video, memoria, pantalla bloqueada).
-- **M1 — Chat + herramientas:** panel de chat, bucle del agente, herramientas de la tabla, un solo proveedor (Claude).
-- **M2 — Más proveedores:** ChatGPT, Meta cuando esté disponible, selector de proveedor.
-- **M3 — Herramientas de creador:** quitar silencios, subtítulos, exportación vertical 9:16.
-- **M3b — Análisis de video y asistente de contenido:** sacar fotogramas y transcripción en el teléfono, reconocer texto y lugares, sugerir ideas y guiones (issue #6).
-- **M3c — Teleprompter:** guion que se desplaza mientras grabas (issue #7).
-- **M4 — Video de podcast:** plantilla (audio + onda o subtítulos + fondo).
-- **M5 — En vivo (investigación):** transmisión desde gafas Ray-Ban Meta. Hay que investigar qué permite Meta antes de prometer nada.
-- **M6 — Modelo local:** un modelo pequeño en el teléfono, sin internet.
+El plan original **M0–M6** es una referencia histórica, no el estado de una sola rama integrada. Las etapas se han refinado a medida que se desarrolla código real.
 
-**Referencias, no dependencias:** [OpenCut](https://github.com/OpenCut-app/OpenCut) (MIT) y [Concat](https://github.com/jub0t/Concat) (AGPL-3.0) son editores abiertos que sirven de inspiración técnica. En la prueba del issue #1, OpenCut cargó e importó en un iPhone, pero el clip no se quedó en la línea de tiempo con el dedo.
+| Etapa / Stage | Objetivo original / Original scope | Estado al 15 oct 2026 |
+| --- | --- | --- |
+| M0 | Editor móvil básico / Basic phone editor | Prototipo web en ramas, no producto publicado |
+| M1 | Chat y control por herramientas / Tool-driven editing | Operaciones validadas y UI experimental en PR #44 |
+| M2 | Proveedores IA intercambiables / Interchangeable AI providers | Integración parcial; servicios reales pendientes |
+| M3 | Herramientas de creador y subtítulos / Creator features and captions | Herramientas visuales parciales, captions no completados |
+| M3b / M3c | Análisis de contenido y teleprompter / Video understanding and teleprompter | Propuestas y prototipos parciales |
+| M4 | Video de podcast / Podcast-video templates | Pendiente |
+| M5 | Grabación y emisión compatible / Compatible capture and LIVE | Prototipos nativos iOS y laboratorio LIVE, sin emisión real probada |
+| M6 | Modelo de IA local / Local AI model | Modo básico experimental; modelo avanzado local pendiente |
+
+**Siguiente hito técnico:** integrar de manera controlada editor, captura y LIVE bajo un contrato de proyecto/medios único, probar en iPhone físico, avanzar compatibilidad Android y verificar exportación, audio y recuperación de proyectos. / Controlled integration and physical testing are prerequisites for release.
 
 ## Preguntas abiertas / Open questions
 
-1. ¿Qué APIs del navegador sirven para decodificar y exportar video en iPhone y Android? / Which browser APIs can decode and encode video on iPhone and Android?
-2. ¿Dónde se aloja la app (hosting estático)? / Where is the app hosted (static hosting)?
-3. ¿Puede la página llamar directamente a las APIs de los proveedores de IA, o hace falta un pequeño intermediario? / Can the page call AI provider APIs directly, or is a small proxy needed?
-4. ¿Cómo encadenan herramientas los modelos locales pequeños? / How reliable are small local models at tool use?
-5. ¿Qué permite Meta a apps de terceros con las gafas? / What does Meta allow third-party apps to do with the glasses?
-6. ¿Qué licencia tendrá el código nuevo? Decisión del propietario del repo. / Which license for the new code? Owner's decision.
+- ¿Qué arquitectura compartirá interfaz y proyectos entre iOS, Android y futuro escritorio sin duplicar el editor?
+- ¿Qué capacidades reales de cada cámara externa permite su SDK, firmware, sistema operativo y región?
+- ¿Qué rendimiento y formatos de exportación funcionan realmente en Safari, iOS nativo y Android?
+- ¿Qué proveedores de IA y modelos locales son seguros, compatibles, accesibles y sostenibles sin imponer pagos?
+- ¿Cómo se medirán sincronía, calidad de subtítulos, latencia y accesibilidad en el uso real?
+- ¿Qué licencias y avisos de terceros se necesitarán para redistribuir el código y los recursos?
 
-## Cómo trabajamos / How we work
+## Código, colaboración y decisiones / Code & collaboration
 
-- El **propietario del repo decide**. Las IAs colaboradoras proponen opciones con pros y contras; no declaran reglas "no negociables".
-- Todo cambio va en un **pull request en borrador**. Nada se fusiona a `main` sin revisión del propietario.
-- Cada dato se marca como **verificado (con fuente)** o **no verificado**.
-- Primero lo que funciona en un teléfono real; después la documentación extra.
-- Los comentarios y commits se firman con el nombre de quien los escribe (Claude, ChatGPT, etc.), porque todos usan la misma cuenta de GitHub.
+La rama `main` mantiene una base documental inicial. **El desarrollo real se distribuye entre PR en borrador, no fusionados automáticamente**. La fuente de verdad de cada función es su código y pruebas en el HEAD real de la rama correspondiente.
 
-## Se buscan manos / Help wanted
+- [Editor y Director / Editor & Director · PR #44](https://github.com/Os-WHGo/Wivra/pull/44)
+- [Cámara iPhone / iPhone camera · PR #61](https://github.com/Os-WHGo/Wivra/pull/61)
+- [LIVE Studio · PR #59](https://github.com/Os-WHGo/Wivra/pull/59)
+- [Asistente chat-first / Chat-first UI · PR #64](https://github.com/Os-WHGo/Wivra/pull/64)
+- [Idiomas y traducción / Languages · PR #65](https://github.com/Os-WHGo/Wivra/pull/65)
+- [Coordinación · Issue #49](https://github.com/Os-WHGo/Wivra/issues/49)
+- [Se buscan colaboradores / Help wanted · Issue #26 (traducciones)](https://github.com/Os-WHGo/Wivra/issues/26)
 
-JavaScript/TypeScript y APIs de video del navegador (WebCodecs, WebAssembly), diseño táctil móvil, agentes con herramientas, pruebas en iPhone y Android reales, traducciones.
+**Flujo de trabajo / Workflow:** el propietario decide integración, licencia y publicación. Cada agente o colaborador trabaja en su rama, propone un PR en borrador, registra qué está verificado y qué no, revisa cambios concurrentes antes de editar y **no fusiona a `main` sin autorización**. Las pruebas simuladas no sustituyen ensayos reales.
+
+El trabajo inicial de Claude incluye guía de agentes, arquitectura comparada y tareas para colaboradores en su rama del Editor. Esos documentos se enlazarán desde aquí cuando se integren de forma controlada, sin agregar enlaces rotos a `main`.
 
 ## Licencia / License
 
-Por decidir. / To be decided.
+**Por decidir / Not yet selected.** El repositorio es público, pero **`main` todavía no tiene una licencia general aprobada**. La visibilidad pública por sí sola no autoriza reutilizar ni redistribuir el código; cada dependencia y SDK mantiene sus propios términos. / A public repository is not automatically an open-source-licensed project. Third-party terms apply separately.
