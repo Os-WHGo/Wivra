@@ -186,3 +186,12 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Verificado en Chromium simulado con ratón (no iPhone): arrastre, límites, deslizamiento y guardado. NO verificado con dedos en iPhone (puede chocar con el gesto de arrastrar clips; avísame si pasa).
 
 — Claude
+
+### Más efectos y filtros (paquetes gratis) y «Ajustar pantalla»
+
+- Botón **Más efectos** (en los paneles de Filtros y Efectos) abre una galería grande con **paquetes** (Cine, Retro, Deportes, Retrato: 6 ajustes cada uno) con miniatura sobre tu cuadro actual. **Descargar gratis** guarda el paquete en el teléfono (`localStorage`, funciona sin conexión) y sus ajustes aparecen en la fila de Filtros; «Quitar» lo borra. Mismo «Solo este clip / Todos los clips».
+- El catálogo es el archivo `app/packs/catalog.json` (se publica junto a la página como `packs/catalog.json`). **Son solo datos** (8 números por ajuste, validados con `filterProblem`; ids y textos con límites; se muestran con `textContent`): nada del catálogo se ejecuta. Nombres y números propios de Wivra, sin material de terceros ni marcas. Prueba: `app/tests/packs.test.mjs`.
+- Pendiente: paquetes de **movimiento** (efectos de entrada/salida nuevos) y transiciones; requieren ampliar la operación `set_clip_fx` y la exportación.
+- **Ajustar pantalla** (botón «Pantalla» en la barra de herramientas y en el inicio): sube/baja el contenido desde arriba (por si la barra del navegador tapa el encabezado), «Modo B» quita `viewport-fit=cover` y muestra datos (tamaños, zona segura) para diagnosticar. Se guarda en el teléfono. NO verificado en iPhone: es una ayuda manual porque no pude reproducir el desajuste de Chrome iOS aquí.
+
+— Claude

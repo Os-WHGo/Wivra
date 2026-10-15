@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>/* ajuste de pantalla guardado (iPhone/Chrome: barras del navegador) */
+try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}; if (z.padTop) document.documentElement.style.setProperty('--padTop', z.padTop + 'px'); if (z.nocover) document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1'); } catch (e) {}
+</script>
 <meta name="theme-color" content="#12141a">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Wivra"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEB0lEQVR42u3dPVIcMRRF4UHFCigiE7I9AkIiAiKHDrw9QvbhwAnlwjbMtKT3853MdnlaLR3d9zR0F1c3t99OwEcMUwBygBwgB8gBcoAcIAfIAXKAHAA5QA6QA+QAOUAO5OA64Jiefrz1XIzvj3ehxnMV4THBtjYEd2WnHJwIbskeOWiRQpHVctAikSLr5KBFOkUGMzKyZj4HM/ixp6zQInWJGcwQIavlYEYBPwYz+LFODmaU8WMwgx87j7JIygirLbavwmAGP+bKwYySfug5MFMOsVE1PCQHpskhNgqHh+TAHDnERu3wkBwgB1bKoaaUryySA+QAOUAOrODMVxOO7UZfHu7f//H552vPxZg6D2e8wXAdajre/2UrRWLOw4g2I5/81/JmRJiHEXNG+vgReR40pAgmx+e3Qu3wCD4PkgOZ5agaHvHvS3KAHMgiR9vvQHPNWI7kqNd2pLij0WoriA09B5rJUamyZLmXnXKoLMFnSVkBOZBOji9lZo2240t3sbfySg6QA+XlyF5Zco1/vxwOtGFnRlkBOZBUjiYH2kSHWMkBcqCVHBkrS8YxR/ld9s8/X/dOX6iXuYMc75WVj7d1nzd1yXFO4PMjkBzrD7QvD/f/fcP9qAulqymtk8P7uuRASzku2dBf/b8rr0WO6OXWDDQtK+dt5Yadh54DeeSYfaBd3D0kPcR2TI7LS0Or4qKsoK4c67/L6vPtWUQ5eh5oA951l7Jy7CZu0nnoOZBNjmMPtDM2+rEXjVlJ6yfHvBJQvrgoK3rh6nLsepqr9lNkwyb+44q7rkuOIt1Gk85Dz/HB9tV5JJDjkgPthSfJjZcmR7WoL1lclJW/7l3FpZQcv7fvrk289+od5Zi9ff/9+XuvTo5Stb9Y59G65/jMxu3ceYwaSzj1Y7cPgBwgR8406llcJAeSy3Hsxj3v0yKMgRwgR8IQ6tZ5jA6LeuCHBBkGOUCObF1tn+IiOVBCjji9ZJOuVnKgtxwzNmuHzmOUX+Z5qxhqMOQAOfKEf+3iIjlQSI7tT3AFH4/kADku2IIrt2nVB5WzJsfe903ij6d7WYn2GmO91yrPlOP7411MP6L9VscgZpy3Xten5ETbl5W++XBaATlADoSQI0hPinkrJTlADiyWQ2UpXFMkB2bKITyqxobkwGQ5hEfJ2JAcmC+H8KgXG0cmBz+KmXFwWeFHJTP0HFgoh/AoExtTkoMfNcyYVVb4UcCMiT0HP7KbMbch5UdqM06n09XN7bfZo3/68WYJM26/UeAemJFYDn4knc8VZUWJSbrNVstBkUTpu0cOiqQoyjvlYEnwRi2EHFyJ2bZHlANB8CN7kAPkADlADpAD5AA5QA6QA+QAyAFygBwgB8iBWPwCpbOki4mEkJcAAAAASUVORK5CYII=">
 <title>Wivra · editor</title>
@@ -10,7 +13,7 @@
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
-  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:var(--appH,100dvh); padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
+  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:var(--appH,100dvh); padding:calc(env(safe-area-inset-top) + var(--padTop,0px)) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
   button { font:inherit; color:inherit; background:none; border:0; padding:0; }
   .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
   .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
@@ -108,7 +111,7 @@
   .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
   .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
   #home { position:fixed; inset:0; z-index:50; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
-  #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 16px 40px; }
+  #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top) + var(--padTop,0px)) 16px 40px; }
   #home h1 { margin:6px 0 2px; font-size:30px; letter-spacing:.5px; } #home h2 { margin:26px 0 8px; font-size:17px; } #home .m { color:var(--mut); margin:2px 0 14px; font-size:14px; }
   .hgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .hcard { text-align:left; padding:14px; min-height:92px; border-radius:16px; background:var(--bar); border:1px solid var(--line); color:var(--fg); display:flex; flex-direction:column; gap:6px; }
@@ -134,6 +137,8 @@ body.dock .back{pointer-events:none;background:transparent}
 .fgrid button span{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;background:rgba(0,0,0,.55);line-height:1.1}
 .fgrid button.on{border-color:#fff}
 .fgrid.sq button{aspect-ratio:1}
+.fgrid.static{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;overflow:visible}
+.galhead{display:flex;align-items:center;gap:8px;margin:16px 0 2px}.galhead b{flex:1;font-size:16px}.galhead small{display:block;color:var(--mut);font-weight:400;font-size:12px}.galhead .btn{width:auto;padding:6px 12px;font-size:13px;margin:0}
 .frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
 </style>
 </head>
@@ -165,6 +170,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Capa</button>
   <button class="tool" id="bFx" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos</button>
   <button class="tool" id="bFilt" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></svg>Filtros</button>
+  <button class="tool" id="bScreen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/></svg>Pantalla</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="home"><div class="hin">
   <h1>Wivra</h1><p class="m">¿Qué quieres hacer?</p>
@@ -175,7 +181,18 @@ body.dock .back{pointer-events:none;background:transparent}
     <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
   </div>
   <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
+  <p class="m" style="margin-top:22px"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px;font-size:14px">Ajustar pantalla</button></p>
 </div></div>
+<div class="sheet" id="sScreen" style="z-index:60"><h2>Ajustar pantalla</h2>
+  <p class="m">Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba esto. Se guarda en este teléfono.</p>
+  <div class="frow" style="align-items:center"><span class="m" style="flex:1;margin:0">Bajar el contenido desde arriba: <b id="scrTop">0</b> px</span><button class="btn sec" id="scrTopMinus" type="button">−</button><button class="btn sec" id="scrTopPlus" type="button">+</button></div>
+  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="scrNoCover"> Modo B: pantalla sin «cover» (recarga la página)</label>
+  <pre id="scrDiag" style="font-size:11px;color:var(--mut);white-space:pre-wrap;margin:8px 0"></pre>
+  <div class="dockbar"><button class="btn sec" id="scrReset" type="button">Reiniciar</button><button class="btn" id="scrDone" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sGallery" style="max-height:88dvh;z-index:40"><h2>Más efectos y filtros</h2><p class="m">Gratis. Se descargan al teléfono y los puedes usar sin conexión.</p>
+  <div class="chips" id="galScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <p class="m" id="galStatus"></p><div id="galPacks"></div>
+  <button id="galDone" class="btn" type="button">✓ Listo</button></div>
 <div class="sheet" id="sExit"><h2>¿Salir del proyecto?</h2><p class="m" id="exitInfo">Se guarda solo mientras editas. Elige qué hacer.</p>
   <label class="m" for="pzName">Nombre del proyecto</label><input id="pzName" maxlength="60" autocomplete="off">
   <button class="btn" id="exitSave" type="button">Guardar y salir</button>
@@ -209,7 +226,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <div class="fgrid" id="fxIn"></div>
   <div class="fgrid" id="fxOut" style="display:none"></div>
   <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
-  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m more" id="fltInfo">Elige un video en la línea de tiempo.</p>
   <div class="chips" id="fltScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
   <div class="fgrid" id="fltLooks"></div>
@@ -217,7 +234,7 @@ body.dock .back{pointer-events:none;background:transparent}
     </div>
   <div id="fltSliders" class="more"></div>
   <button id="fltReset" class="btn sec more" type="button">Quitar filtro</button>
-  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="fltDone" class="btn" type="button">✓ Listo</button></div></div>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fltDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sDel"><h2>¿Qué borrar?</h2><p class="m" id="delInfo"></p>
   <button id="delBoth" class="btn">Video y audio (los siguientes se juntan)</button>
   <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
@@ -390,6 +407,69 @@ function fmt(n) { return Math.round(n * 100) / 100; }
   g.addEventListener('dblclick', () => { set(null); try { localStorage.removeItem(KEY); } catch {} });
   $('tlwrap').addEventListener('scroll', () => { const t = $('thead'); if (t) t.style.transform = 'translateY(' + (-$('tlwrap').scrollTop) + 'px)'; }, { passive: true });
 })();
+// ---- Ajustar pantalla (barras de Chrome/Safari en iPhone) ----
+(function screenFix() {
+  const KEY = 'wivra.screen'; let z = {}; try { z = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(z)); } catch {} };
+  const apply = () => { document.documentElement.style.setProperty('--padTop', (z.padTop || 0) + 'px'); $('scrTop').textContent = z.padTop || 0; $('scrNoCover').checked = !!z.nocover; };
+  const diag = () => {
+    const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'; document.body.appendChild(probe);
+    const cs = getComputedStyle(probe), vv = window.visualViewport; const t = cs.paddingTop, b = cs.paddingBottom; probe.remove();
+    $('scrDiag').textContent = `ventana ${innerWidth}x${innerHeight} · visual ${vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) + ' (arriba ' + Math.round(vv.offsetTop) + ')' : '—'}\ndocumento ${document.documentElement.clientHeight} · pantalla ${screen.width}x${screen.height} · zona segura ${t}/${b} · x${devicePixelRatio} · cover ${document.querySelector('meta[name=viewport]').content.includes('cover') ? 'sí' : 'no'}`;
+  };
+  const open = () => { apply(); diag(); $('sScreen').classList.add('on'); };
+  $('bScreen').onclick = () => { closeSheets(); open(); }; $('hScreen').onclick = open;
+  $('scrDone').onclick = () => $('sScreen').classList.remove('on');
+  $('scrTopPlus').onclick = () => { z.padTop = Math.min(200, (z.padTop || 0) + 10); save(); apply(); diag(); };
+  $('scrTopMinus').onclick = () => { z.padTop = Math.max(0, (z.padTop || 0) - 10); save(); apply(); diag(); };
+  $('scrNoCover').onchange = () => { z.nocover = $('scrNoCover').checked; save(); location.reload(); };
+  $('scrReset').onclick = () => { z = {}; save(); apply(); location.reload(); };
+  apply();
+})();
+// ---- Paquetes de efectos y filtros: catálogo gratis (solo datos, validados) que se descarga al teléfono ----
+const PK_KEY = 'wivra.packs'; let pkInstalled = {}, pkCatalog = null;
+try { const j = JSON.parse(localStorage.getItem(PK_KEY) || '{}') || {}; for (const [k, v] of Object.entries(j)) { const c = pkClean(v); if (c) pkInstalled[k] = c; } } catch {}
+function pkClean(p) {      // nada del catálogo se ejecuta: solo números dentro de rango y textos cortos
+  if (!p || typeof p !== 'object') return null; const id = String(p.id || ''); if (!/^[a-z0-9_-]{1,24}$/.test(id)) return null; const looks = [];
+  for (const l of Array.isArray(p.looks) ? p.looks : []) {
+    const lid = String(l && l.id || ''); if (!/^[a-z0-9_-]{1,24}$/.test(lid) || !l.p || typeof l.p !== 'object') continue;
+    let q = {}; for (const k of FILTER_KEYS) { const v = l.p[k]; if (v === undefined) continue; if (typeof v !== 'number') { q = null; break; } q[k] = v; }
+    if (!q || filterProblem(q) || !Object.values(q).some(v => v !== 0)) continue; looks.push({ id: lid, name: String(l.name || lid).slice(0, 40), p: q });
+  }
+  return looks.length ? { id, name: String(p.name || id).slice(0, 40), desc: String(p.desc || '').slice(0, 120), looks: looks.slice(0, 40) } : null;
+}
+const pkFull = (p) => { const o = {}; for (const k of FILTER_KEYS) o[k] = p[k] || 0; return o; };
+function pkLookP(id) { const [pid, lid] = id.slice(3).split('/'); const p = pkInstalled[pid] || (pkCatalog || []).find(x => x.id === pid), l = p && p.looks.find(x => x.id === lid); return l ? l.p : {}; }
+const pkSave = () => { try { localStorage.setItem(PK_KEY, JSON.stringify(pkInstalled)); } catch {} };
+async function pkLoad() {
+  try { const r = await fetch(new URL('packs/catalog.json', location.href), { cache: 'no-cache' }); if (!r.ok) throw new Error('http'); const j = await r.json(); if (j.schema !== 'wivra-packs') throw new Error('schema'); pkCatalog = (j.packs || []).map(pkClean).filter(Boolean); $('galStatus').textContent = ''; }
+  catch { pkCatalog = null; $('galStatus').textContent = 'No se pudo cargar el catálogo (¿sin conexión?). Se muestran los paquetes ya descargados.'; }
+}
+function galRender() {
+  const c = fltTarget(), src = fltSrcCanvas(c, 96, 128), box = $('galPacks'); box.replaceChildren();
+  const list = [...(pkCatalog || [])]; for (const p of Object.values(pkInstalled)) if (!list.some(x => x.id === p.id)) list.push(p);
+  if (!list.length) { const m = document.createElement('p'); m.className = 'm'; m.textContent = 'No hay paquetes todavía.'; box.appendChild(m); return; }
+  for (const p of list) {
+    const inst = !!pkInstalled[p.id], head = document.createElement('div'); head.className = 'galhead';
+    const t = document.createElement('b'), sm = document.createElement('small'); t.textContent = p.name + ' · ' + p.looks.length; sm.textContent = p.desc; t.appendChild(sm);
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn ' + (inst ? 'sec' : ''); btn.textContent = inst ? 'Quitar' : 'Descargar gratis';
+    btn.onclick = () => { if (inst) delete pkInstalled[p.id]; else pkInstalled[p.id] = p; pkSave(); fltLooksRender(); fltSync(); galRender(); };
+    head.append(t, btn); box.appendChild(head);
+    const g = document.createElement('div'); g.className = 'fgrid static';
+    for (const lk of p.looks) {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.look = 'pk:' + p.id + '/' + lk.id; const cv = document.createElement('canvas'), sp = document.createElement('span'); sp.textContent = lk.name; b.append(cv, sp);
+      cv.width = 96; cv.height = 128; const out = fxRender(src, lk.p, 0), x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, 96, 128); else x.drawImage(src, 0, 0);
+      if (c && c.filter && FILTER_KEYS.every(k => Math.abs((c.filter[k] || 0) - (lk.p[k] || 0)) < 1e-6)) b.classList.add('on');
+      b.onclick = () => { const cc = fltTarget(); if (!cc) return say('Elige un video en la línea de tiempo.', 'bad'); if (!pkInstalled[p.id]) { pkInstalled[p.id] = p; pkSave(); fltLooksRender(); } fltLook = b.dataset.look; fltApply(cc, pkFull(lk.p)); galRender(); };
+      g.appendChild(b);
+    }
+    box.appendChild(g);
+  }
+}
+document.addEventListener('click', async (e) => { if (!e.target.closest('[data-gallery]')) return; openSheet('sGallery'); galRender(); await pkLoad(); galRender(); });
+$('galScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
+$('galDone').onclick = closeSheets;
+fltLooksRender();
 const DOCKS = ['sFilt', 'sFx', 'sOver'];
 function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
 function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
@@ -1554,7 +1634,8 @@ function fltOverlay(el, wr, c) {      // capa con filtro: se dibuja en un <canva
 }
 let fltScope = 'one', fltLook = null;
 const fltKeys = Object.keys(FLT_LABELS);
-const fltScaled = (look, lv) => { const o = {}; for (const k of fltKeys) o[k] = Math.round(((LOOK_PRESETS[look].p[k] || 0) * lv) * 1000) / 1000; return o; };
+const fltLookP = (id) => (id && id.startsWith('pk:')) ? pkLookP(id) : ((LOOK_PRESETS[id] || {}).p || {});
+const fltScaled = (look, lv) => { const o = {}, P = fltLookP(look); for (const k of fltKeys) o[k] = Math.round(((P[k] || 0) * lv) * 1000) / 1000; return o; };
 function fltTargets(c) { return fltScope === 'all' ? [...session.project.clips, ...(session.project.overlayClips || [])] : [c]; }
 function fltApply(c, extra) {      // una sola edición (un paso en deshacer) para «este clip» o «todos»
   const ops = fltTargets(c).map(k => ({ op: 'set_clip_filter', clip_id: k.id, ...extra }));
@@ -1577,7 +1658,7 @@ function fltSrcCanvas(c, W, H) {      // cuadro actual del clip en miniatura (o 
 function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
   const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
   document.querySelectorAll('#fltLooks button').forEach(b => {
-    const cv = b.querySelector('canvas'); const id = b.dataset.look; const out = fxRender(src, id === 'none' ? null : LOOK_PRESETS[id].p, 0);
+    const cv = b.querySelector('canvas'); const id = b.dataset.look; const out = fxRender(src, id === 'none' ? null : fltLookP(id), 0);
     cv.width = W; cv.height = H; const x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, W, H); else x.drawImage(src, 0, 0);
   });
 }
@@ -1586,16 +1667,14 @@ function fltSync() {
   $('fltInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
   const f = (ok && c.filter) || {};
   if (f.look) fltLook = f.look; else if (!c?.filter) fltLook = null;
-  document.querySelectorAll('#fltLooks button').forEach(b => b.classList.toggle('on', (b.dataset.look === 'none' && !c?.filter) || (!!c && !!f.look && b.dataset.look === f.look)));
+  document.querySelectorAll('#fltLooks button').forEach(b => { const id = b.dataset.look, pk = id.startsWith('pk:'); b.classList.toggle('on', (id === 'none' && !c?.filter) || (!!c && !!f.look && id === f.look) || (!!c && pk && !f.look && !!c.filter && fltKeys.every(k => Math.abs((c.filter[k] || 0) - (fltLookP(id)[k] || 0)) < 1e-6))); });
   for (const k of fltKeys) { const r = $('flt_' + k); if (r) { r.value = Math.round((f[k] || 0) * 100); r.previousElementSibling.textContent = r.value; r.disabled = !ok; } }
   const lvOk = ok && !!fltLook && !!c.filter; $('fltLevel').disabled = !lvOk;
-  if (lvOk) { const p = LOOK_PRESETS[fltLook].p, k = fltKeys.find(q => Math.abs(p[q] || 0) > 1e-9); const lv = f.look ? 1 : (k ? (f[k] || 0) / p[k] : 1); $('fltLevel').value = Math.round(Math.max(0, Math.min(1, lv)) * 100); } else $('fltLevel').value = 100;
+  if (lvOk) { const p = fltLookP(fltLook), k = fltKeys.find(q => Math.abs(p[q] || 0) > 1e-9); const lv = f.look ? 1 : (k ? (f[k] || 0) / p[k] : 1); $('fltLevel').value = Math.round(Math.max(0, Math.min(1, lv)) * 100); } else $('fltLevel').value = 100;
   $('fltLvTxt').textContent = $('fltLevel').value;
   $('fltReset').disabled = !ok || !c.filter;
 }
 (function fltBuild() {
-  const l = $('fltLooks'); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; b.innerHTML = '<canvas></canvas><span></span>'; b.lastChild.textContent = name; l.appendChild(b); };
-  mk('none', 'Sin filtro'); for (const [id, v] of Object.entries(LOOK_PRESETS)) mk(id, v.name);
   const box = $('fltSliders');
   for (const k of fltKeys) {
     const lo = FILTER_RANGES[k][0] < 0 ? -100 : 0, lab = document.createElement('label'); lab.className = 'm';
@@ -1619,13 +1698,18 @@ function fltSync() {
     fltApply(c, n === 100 ? { look: fltLook } : fltScaled(fltLook, n / 100));
   });
 })();
+function fltLooksRender() {      // ajustes de fábrica + los de paquetes descargados
+  const l = $('fltLooks'); l.replaceChildren(); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; const cv = document.createElement('canvas'), sp = document.createElement('span'); sp.textContent = name; b.append(cv, sp); l.appendChild(b); };
+  mk('none', 'Sin filtro'); for (const [id, v] of Object.entries(LOOK_PRESETS)) mk(id, v.name);
+  for (const p of Object.values(pkInstalled)) for (const lk of p.looks) mk('pk:' + p.id + '/' + lk.id, lk.name);
+}
 $('fltLooks').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return; const c = fltTarget(); if (!c) return;
-  fltLook = b.dataset.look === 'none' ? null : b.dataset.look; $('fltLevel').value = 100;
-  fltApply(c, { look: b.dataset.look });
+  const id = b.dataset.look; fltLook = id === 'none' ? null : id; $('fltLevel').value = 100;
+  fltApply(c, id.startsWith('pk:') ? pkFull(fltLookP(id)) : { look: id });
 });
 function scopeSet(sc) {      // «Solo este clip» / «Todos los clips»: un solo ajuste compartido por Filtros y Efectos
-  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button, #ovScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
+  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button, #ovScope button, #galScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
 }
 $('fltScope').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return; scopeSet(b.dataset.s);
