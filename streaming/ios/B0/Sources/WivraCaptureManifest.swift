@@ -94,17 +94,34 @@ struct WivraCaptureManifest: Codable {
     // Do not invent DJI tracks or a second HFP backup on the USB route.
     static func write(videoURL: URL, audioURL: URL?,
                       mergedURL: URL?, audioOffsetSeconds: Double?,
-                      audioPortName: String?, audioSampleRateHz: Double? = nil,
+                      audioPortName: String?, audioSource: String = "ios-bluetooth-hfp",
+                      audioSampleRateHz: Double? = nil,
                       audioChannelCount: Int? = nil) throws -> URL {
         let tracks: [WivraCaptureTrack]
         if let audioURL {
-            tracks = [WivraCaptureTrack(
-                id: "audio-1", kind: "audio", role: "voice_primary",
-                source: "ios-bluetooth-hfp", file: audioURL.lastPathComponent,
-                channelIndex: nil, sampleRateHz: audioSampleRateHz,
-                channelCount: audioChannelCount, inputName: audioPortName,
-                startOffsetSeconds: audioOffsetSeconds
-            )]
+            if audioSource == "ios-usb-audio" && audioChannelCount == 2 {
+                // Two *observed* PCM channels of one USB input, not an assumption
+                // that the receiver has two people/transmitters connected.
+                // They stay in the same CAF file; the editor may extract L/R
+                // non-destructively after verifying the contents on hardware.
+                tracks = (0..<2).map { channel in
+                    WivraCaptureTrack(
+                        id: "audio-\(channel + 1)", kind: "audio", role: "other",
+                        source: audioSource, file: audioURL.lastPathComponent,
+                        channelIndex: channel, sampleRateHz: audioSampleRateHz,
+                        channelCount: audioChannelCount, inputName: audioPortName,
+                        startOffsetSeconds: audioOffsetSeconds
+                    )
+                }
+            } else {
+                tracks = [WivraCaptureTrack(
+                    id: "audio-1", kind: "audio", role: "voice_primary",
+                    source: audioSource, file: audioURL.lastPathComponent,
+                    channelIndex: nil, sampleRateHz: audioSampleRateHz,
+                    channelCount: audioChannelCount, inputName: audioPortName,
+                    startOffsetSeconds: audioOffsetSeconds
+                )]
+            }
         } else {
             tracks = []
         }

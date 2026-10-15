@@ -45,7 +45,7 @@ struct MetaB0Screen: View {
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
-                Text("B0 vista previa. B1B experimental: video HEVC + micrófono Bluetooth confirmado. Sin LIVE.")
+                Text("B0 vista previa. B1D experimental: video HEVC + entrada de audio seleccionada. Sin LIVE.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -119,6 +119,45 @@ struct MetaB0Screen: View {
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("register_with_meta")
 
+                if model.receiveCompressedHEVC {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Grabar pista de audio independiente", isOn: $model.captureSelectedAudio)
+                            .disabled(model.sessionState != .idle)
+                            .accessibilityIdentifier("meta_b1b_audio_enabled")
+                        if model.captureSelectedAudio {
+                            Button("Detectar entradas de audio") {
+                                Task { await model.audioRoute.discover() }
+                            }
+                            .disabled(model.sessionState != .idle)
+                            Picker("Fuente de audio", selection: Binding(
+                                get: { model.audioRoute.selectedUID },
+                                set: { model.audioRoute.selectedUID = $0 }
+                            )) {
+                                Text("Elegir dispositivo detectado").tag("")
+                                ForEach(model.audioRoute.ports) { port in
+                                    Text("\(port.name) · \(port.kind)").tag(port.id)
+                                }
+                            }
+                            .disabled(model.sessionState != .idle)
+                            Button("Preparar micrófono seleccionado") {
+                                do {
+                                    _ = try model.audioRoute.activateSelectedInput()
+                                } catch {
+                                    model.errorMessage = error.localizedDescription
+                                }
+                            }
+                            .disabled(model.sessionState != .idle ||
+                                      model.audioRoute.selectedUID.isEmpty)
+                            Text(model.audioRoute.status).font(.footnote)
+                            Text("Se usa una sola entrada activa. Un receptor USB de dos canales podrá separarse en pistas cuando el hardware lo permita.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+
                 Button("2 · Iniciar sesión con gafas") { model.startSession() }
                     .disabled(!model.canStartSession)
                     .buttonStyle(.borderedProminent)
@@ -133,33 +172,10 @@ struct MetaB0Screen: View {
 
                 if model.receiveCompressedHEVC {
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Grabar audio desde las Ray-Ban", isOn: $model.captureGlassesAudio)
-                            .disabled(model.recordingArmed || model.recordingFinishing)
-                            .accessibilityIdentifier("meta_b1b_audio_enabled")
-                        if model.captureGlassesAudio {
-                            Button("Buscar micrófonos Bluetooth HFP") {
-                                Task { await model.audioRoute.discover() }
-                            }
-                            .disabled(model.recordingArmed || model.recordingFinishing)
-                            Picker("Micrófono seleccionado", selection: Binding(
-                                get: { model.audioRoute.selectedUID },
-                                set: { model.audioRoute.selectedUID = $0 }
-                            )) {
-                                Text("Elegir micrófono").tag("")
-                                ForEach(model.audioRoute.ports) { port in
-                                    Text(port.name).tag(port.id)
-                                }
-                            }
-                            .disabled(model.recordingArmed || model.recordingFinishing)
-                            Text(model.audioRoute.status)
-                                .font(.footnote)
-                            Text("El micrófono debe aparecer realmente conectado. Wivra no usará el del teléfono sin autorización.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Label("Destino: pista CAF independiente + MOV con audio",
-                                  systemImage: "waveform")
-                                .font(.caption)
-                        }
+                        Text(model.captureSelectedAudio
+                             ? "Fuente verificada · CAF independiente + MOV combinado solicitado"
+                             : "Grabación HEVC sin audio")
+                            .font(.footnote)
 
                         HStack {
                             Button(model.recordingArmed ? "Detener y guardar MOV" : "Grabar HEVC") {
@@ -173,7 +189,7 @@ struct MetaB0Screen: View {
                             .buttonStyle(.borderedProminent)
                             .accessibilityIdentifier("meta_b1_record")
                             if model.recordingArmed {
-                                Label(model.captureGlassesAudio ? "REC · video + audio" : "REC · solo video",
+                                Label(model.captureSelectedAudio ? "REC · video + audio" : "REC · solo video",
                                       systemImage: "record.circle.fill")
                                     .foregroundStyle(.red)
                             }
@@ -236,7 +252,7 @@ struct MetaB0Screen: View {
                         .foregroundStyle(.red)
                 }
 
-                Text("Mantén Wivra en primer plano. B1B es experimental: comprueba pista original, audio CAF y video integrado con auriculares. La sincronía y duración real todavía requieren gafas físicas. Respeta alertas térmicas.")
+                Text("Mantén Wivra en primer plano. B1D es experimental: comprueba pista original, audio CAF y video integrado con auriculares. La sincronía y duración real todavía requieren gafas físicas. Respeta alertas térmicas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
