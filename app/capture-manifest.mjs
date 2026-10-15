@@ -86,13 +86,25 @@ export function planImportOps(plan, ctx) {
   if (!plan || !Array.isArray(plan.audioTracks)) throw new Error('planImportOps necesita el resultado de importPlan.');
   const videoStart = Number.isFinite(ctx?.videoStart) ? ctx.videoStart : 0, assets = ctx?.assets || {};
   const ops = [], warnings = [], skipped = [];
+  // A channelIndex is a request for one channel, not proof that the full file
+  // is already split. Never play the same stereo CAF twice as two voices.
+  // Only independently extracted/verified assets may be provided by the caller.
+  const splitChannelAssets = ctx?.splitChannelAssets || {};
+  const usedSplitIds = new Set();
   const v = assets[plan.videoFile];
   if (!v) skipped.push({ file: plan.videoFile, reason: 'video no abierto' }); else ops.push({ op: 'add_clip', asset_id: v.id, start: videoStart });
   for (const t of plan.audioTracks) {
-    const a = assets[t.file];
+    const indexed = t.channelIndex != null;
+    const a = indexed ? splitChannelAssets[t.id] : assets[t.file];
+    // A full audio asset is never an acceptable replacement for an isolated channel.
+    if (indexed && (!a || !a.id || a.id === assets[t.file]?.id || usedSplitIds.has(a.id))) {
+      warnings.push(`${t.id}: canal ${t.channelIndex} no separado; se omite para evitar audio duplicado.`);
+      skipped.push({ file: t.file, id: t.id, reason: 'canal independiente sin extraer' });
+      continue;
+    }
     if (!a) { skipped.push({ file: t.file, id: t.id, reason: 'archivo de audio no abierto' }); continue; }
     if (!(a.duration > 0)) { skipped.push({ file: t.file, id: t.id, reason: 'no se pudo medir la duración' }); continue; }
-    if (t.channelIndex != null && (t.channelCount ?? 0) > 1) warnings.push(`${t.id}: canal ${t.channelIndex} de ${t.channelCount}; el editor aún reproduce el archivo completo (separar canales no está implementado).`);
+    if (indexed) usedSplitIds.add(a.id);
     if (!t.offsetKnown) warnings.push(`${t.id}: desfase desconocido; se coloca al inicio del video. Ajústalo a mano.`);
     const off = t.offsetKnown ? t.offsetSeconds : 0;
     const at = videoStart + off;                       // dónde cae el inicio del audio en el timeline
