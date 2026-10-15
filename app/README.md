@@ -96,3 +96,8 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Círculo amarillo de tamaño más pequeño (el área para tocarlo sigue siendo grande).
 - **Pantalla ampliada**: botón ⤢ sobre la pantalla o doble toque; esconde la línea de tiempo y la barra.
 - Estado: implementado + pruebas automáticas (núcleo 46, app 41) + Chromium simulado. **No probado en iPhone.** Subtítulos automáticos desde audio y pistas de texto aparte: **no hechos** (ver decisión pendiente).
+
+## Poner un video encima moviéndolo de fila · 14-10-2026 (noche)
+- Encima de la fila de Video hay siempre una fila de capas (la más alta de la lista va arriba en pantalla). Mantén pulsado un clip del video principal y suéltalo en esa fila: pasa a ser una capa. Arrastra una capa hacia abajo, al video principal: vuelve a ser parte del video (si el lugar está ocupado, queda al final). Un solo deshacer.
+- «Agregar» ya solo tiene **Video** (se suma al final) y **Audio**; las capas se hacen arrastrando (o con el + de la fila de Video). El botón «Superponer» se llama ahora «Capa» (tamaño, posición, silenciar).
+- Estado: implementado + Chromium simulado. **No probado en iPhone.**
