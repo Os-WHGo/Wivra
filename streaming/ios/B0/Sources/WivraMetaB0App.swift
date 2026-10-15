@@ -187,14 +187,17 @@ struct MetaB0Screen: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("start_meta_preview")
 
-                if !model.receiveCompressedHEVC {
+                Group {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Fotografía desde las gafas", systemImage: "camera")
                             .font(.headline)
-                        Text("El iPhone muestra los fotogramas recibidos de las Ray-Ban. La foto se solicita a la cámara de las gafas, no se toma una captura de pantalla.")
+                        Text(model.receiveCompressedHEVC
+                             ? "En HEVC se puede solicitar una foto mientras se graba; la vista previa visual aún no está disponible en este modo. Validar simultaneidad con gafas reales."
+                             : "El iPhone muestra los fotogramas recibidos de las Ray-Ban. El botón solicita una foto real, no una captura de pantalla.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         Toggle("Cuadrícula de tercios (solo encuadre)", isOn: $photoGridEnabled)
+                            .disabled(model.receiveCompressedHEVC)
                             .accessibilityIdentifier("wivra_photo_grid")
                         Button {
                             model.capturePhoto()
@@ -221,7 +224,44 @@ struct MetaB0Screen: View {
                             }
                             .accessibilityIdentifier("wivra_photo_share")
                         }
-                        Text("Modo fotográfico experimental. ISO, obturador y enfoque manual de las gafas no están expuestos por la API utilizada.")
+                        if model.lastCapturedPhotoURL != nil {
+                            Divider()
+                            Label("Estilos fotográficos", systemImage: "camera.filters")
+                                .font(.subheadline.bold())
+                            Picker("Aspecto de película", selection: $model.chosenPhotoLook) {
+                                ForEach(WivraPhotoLook.allCases) { look in
+                                    Text(look.label).tag(look)
+                                }
+                            }
+                            .accessibilityIdentifier("wivra_photo_look")
+                            HStack {
+                                Text("Intensidad")
+                                Slider(value: $model.photoLookStrength, in: 0...1)
+                                    .accessibilityIdentifier("wivra_photo_look_strength")
+                            }
+                            Button {
+                                model.exportPhotoLookCopy()
+                            } label: {
+                                Label(model.photoLookBusy ? "Aplicando filtro…" : "Guardar copia con filtro",
+                                      systemImage: "square.and.arrow.down")
+                            }
+                            .disabled(model.photoLookBusy)
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("wivra_photo_look_export")
+                            Text(model.photoLookStatus)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let image = model.editedPhotoImage,
+                               let editedURL = model.lastEditedPhotoURL {
+                                Image(uiImage: image).resizable().scaledToFit()
+                                    .frame(maxWidth: 180, maxHeight: 200)
+                                    .accessibilityLabel("Copia con filtro")
+                                ShareLink(item: editedURL) {
+                                    Label("Compartir fotografía con filtro", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                        }
+                        Text("Modo fotográfico experimental. ISO, obturador y enfoque manual de las gafas no están expuestos por la API utilizada. Los filtros modifican copias, nunca la exposición del sensor.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
