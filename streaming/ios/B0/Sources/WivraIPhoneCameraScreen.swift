@@ -34,7 +34,9 @@ struct WivraIPhonePreview: UIViewRepresentable {
 }
 
 struct WivraIPhoneCameraScreen: View {
-    @State private var camera = WivraIPhoneCamera()
+    // Shared with the tab coordinator so the next camera waits for actual
+    // AVCaptureSession shutdown, not merely a SwiftUI view disappearance.
+    @Bindable var camera: WivraIPhoneCamera
 
     var body: some View {
         ScrollView {
