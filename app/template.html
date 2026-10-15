@@ -133,7 +133,12 @@
 <div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
   <div id="vlist"></div>
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
+  <button id="pzNew" class="btn sec">Empezar un proyecto nuevo</button>
   <button id="vdone" class="btn">Listo</button></div>
+<div class="sheet" id="sMiss"><h2>Faltan archivos</h2><p class="m">Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar.</p>
+  <div id="missList" class="m"></div>
+  <label class="btn" for="relink" style="cursor:pointer">Elegir archivos</label><input id="relink" type="file" multiple accept="video/*,audio/*,.caf,.wav,.m4a,.mov" style="position:absolute;width:1px;height:1px;opacity:0">
+  <button id="missDone" class="btn sec">Seguir sin ellos</button></div>
 
 <div class="sheet" id="sAudio"><h2>Audio del clip</h2><p class="m" id="auInfo">Toca un clip en la línea de tiempo para elegirlo.</p>
   <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="auMute"> Silenciar el audio original de este clip</label>
@@ -287,6 +292,8 @@ const anyClip = (id) => { if (!session || !id) return null; for (const g of GKEY
 const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 'audio' : 'main');
 let nOvShown = 0;
 const OV_ROW = 34, UI_MAX_OVERLAY = 3, AU_ROW = 32, UI_MAX_AUDIO = 3;
+const mediaFiles = {};   // id -> File/Blob original (para guardarlo en el teléfono)
+function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : 'video' }); }
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
 let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
@@ -332,6 +339,7 @@ function render() {
   if (on && !loading) { const n = p.clips.length; $('info').textContent = `${n} clip${n === 1 ? '' : 's'} · ${fmt(timelineEnd(p))} s en total`; }
   updateFrame(); renderTimeline();
   if ($('sVids').classList.contains('on')) renderVids();
+  pzSchedule();
 }
 function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncMedia(); } }
 function run(ops) {
@@ -527,7 +535,7 @@ async function addTrackFile(file, kind) {
   if (loading) return; loading = true; stopPlayIfAny();
   try {
     const pr = kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
-    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 };
+    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind);
     session.addAsset({ id, duration: pr.duration, name: file.name });
     const start = round2(tlTime); let op;
     if (kind === 'video') {
@@ -561,7 +569,7 @@ async function importCapture(files) {
       const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
       try {
         const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
-        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; session ||= new Session(createProject({ assets: [] }));
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); session ||= new Session(createProject({ assets: [] }));
         session.addAsset({ id, duration: pr.duration, name: f.name }); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
     };
@@ -615,7 +623,7 @@ async function importSelectedFiles(files) {
   for (const f of files) {
     try {
       const m = await probe(f); const id = 'a' + (++assetSeq);
-      media[id] = { ...m, name: f.name, thumbs: [], step: 1 };
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1 }; keepFile(id, f, 'video');
       if (!session) session = new Session(createProject({ assets: [] }));
       session.addAsset({ id, duration: m.duration, name: f.name }); added.push(id);
     } catch (e) { failed.push(e.message); }
@@ -1022,6 +1030,7 @@ $('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); 
 let expCancel = false, expBusy = false, expUrl = null;
 $('bExp').onclick = () => {
   if (!session || expBusy) return;
+  if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
@@ -1340,6 +1349,87 @@ $('dirApplyEdit').onclick=()=>{
  }catch(e){quickPending=null;quickAgent=null;
   $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
 };
+
+/* ---------- Guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
+let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [];
+const pzStored = new Set();
+function pzSchedule() {
+  if (!pzReady || !session) return;
+  const key = session.project.revision + ':' + session.project.assets.length + ':' + Object.keys(media).length;
+  if (key === pzKey) return; pzKey = key; clearTimeout(pzTimer); pzTimer = setTimeout(pzSave, 700);
+}
+async function pzSave() {
+  if (!session) return; if (pzBusy) { pzAgain = true; return; } pzBusy = true;
+  try {
+    pzDb ||= await pzOpen();
+    for (const a of session.project.assets) {
+      if (pzStored.has(a.id) || !mediaFiles[a.id]) continue;
+      if (await pzPutBlob(pzDb, a.id, mediaFiles[a.id])) pzStored.add(a.id);
+      else if (!pzWarned) { pzWarned = true; say('El teléfono no tiene espacio para guardar “' + ((media[a.id] || {}).name || 'un archivo') + '”. El proyecto se guarda igual; al reabrir tendrás que elegir ese archivo otra vez.', 'bad'); }
+    }
+    await pzSaveSnapshot(pzDb, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored] }));
+    await pzDeleteBlobs(pzDb, session.project.assets.map(a => a.id));
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+    window.__pzSaved = (window.__pzSaved || 0) + 1;
+  } catch (e) { if (!pzWarned) { pzWarned = true; say('No se pudo guardar el proyecto en este teléfono: ' + e.message, 'bad'); } }
+  pzBusy = false; if (pzAgain) { pzAgain = false; pzSchedule(); }
+}
+function pzShowMissing() {
+  const l = $('missList'); l.replaceChildren();
+  for (const a of pzMissing) { const d = document.createElement('div'); d.textContent = '• ' + (a.name || a.id) + (a.size ? ' (' + (a.size / 1048576).toFixed(1) + ' MB)' : ''); l.appendChild(d); }
+  if (pzMissing.length) openSheet('sMiss'); else closeSheets();
+}
+async function pzRestore() {
+  try {
+    pzDb = await pzOpen(); const saved = await pzLoad(pzDb);
+    if (!saved) return;
+    const r = readSnapshot(saved.raw);
+    if (!r.ok) { say('El proyecto guardado no se pudo abrir: ' + r.errors.join(' '), 'bad'); window.__pzError = r.errors.join(' '); return; }
+    const sn = r.snapshot; assetSeq = Math.max(assetSeq, sn.assetSeq);
+    for (const a of sn.assets) {
+      const b = saved.blobs[a.id]; if (!b) continue;
+      media[a.id] = { url: URL.createObjectURL(b), name: a.name, duration: a.duration, w: a.w, h: a.h, thumbs: [], step: 1, size: a.size, type: a.type, kind: a.kind };
+      mediaFiles[a.id] = b; pzStored.add(a.id);
+    }
+    session = new Session(sn.project);
+    pzMissing = missingAssets(sn, Object.keys(media));
+    selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
+    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));
+    $('stage').classList.add('on'); pzKey = '';
+    render(); syncScroll();
+    const first = sortedClips(sn.project)[0]; if (first && media[first.asset_id]) useAsset(first.asset_id, tlTime);
+    for (const id of Object.keys(media)) if (media[id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    say('Proyecto reabierto.' + (r.warnings.length ? ' ' + r.warnings.join(' ') : ''), r.warnings.length ? 'bad' : 'ok');
+    if (pzMissing.length) pzShowMissing();
+    window.__pzRestored = true;
+  } catch (e) { say('No se pudo reabrir el proyecto guardado: ' + e.message, 'bad'); window.__pzError = e.message; }
+  finally { pzReady = true; pzSchedule(); }
+}
+$('relink').addEventListener('change', async () => {
+  const files = [...$('relink').files]; $('relink').value = ''; if (!files.length || loading) return; loading = true;
+  const { matches } = matchFiles(pzMissing, files), bad = [];
+  for (const { asset, file } of matches) {
+    try {
+      const pr = asset.kind === 'audio' ? await probeAudio(file) : await probe(file);
+      if (Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
+      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind);
+      pzMissing = pzMissing.filter(m => m.id !== asset.id);
+      if (media[asset.id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(asset.id));
+    } catch (e) { bad.push(e.message); }
+  }
+  loading = false; pzKey = ''; render(); syncMedia(); showFrame();
+  if (bad.length) say('No se pudo reconectar: ' + bad.join(' · '), 'bad');
+  else if (!matches.length) say('Ningún archivo coincide por nombre con los que faltan.', 'bad');
+  pzShowMissing();
+});
+$('missDone').onclick = () => closeSheets();
+$('pzNew').onclick = async () => {
+  if (!confirm('¿Empezar un proyecto nuevo? Se borra el proyecto guardado en este teléfono (tus videos originales no se tocan).')) return;
+  try { pzDb ||= await pzOpen(); await pzClear(pzDb); } catch {}
+  pzReady = false; location.reload();
+};
+pzRestore();
+
 loadShootPlan();
 renderShootPlan();
 

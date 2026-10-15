@@ -113,3 +113,12 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Núcleo: `set_overlay` con `shape`, `frame` (0–0,1), `frameColor` (#rrggbb), `opacity` (0,1–1). Todo se conserva al cortar y se deshace.
 - La hoja de Capa es más baja para que se vea la pantalla mientras eliges.
 - Estado: implementado + pruebas automáticas (núcleo 48, app 41) + Chromium simulado (vista previa y fotograma exportado con nube/marco/transparencia). **No probado en iPhone.** Formas dibujadas a mano o importadas como vector: no hechas. «iPhone Dual» (cámara frontal y trasera a la vez): **no verificado**; lo que sí se puede es importar las dos tomas y poner una como pantallita.
+
+## Guardar y reabrir el proyecto (corte mínimo)
+
+- Se guarda solo, 0,7 s después de cada cambio, en el propio teléfono (IndexedDB). No se sube nada a ningún servidor.
+- Se guarda: el proyecto completo (clips, capas con forma/marco/transparencia/zoom/efectos, audios y pistas, textos, formato) y los archivos originales (video/audio) como copia local. NO se guarda el historial de deshacer.
+- Si el teléfono no deja guardar un archivo (poco espacio) el proyecto se guarda igual; al reabrir aparece «Faltan archivos» y se reconectan eligiéndolos otra vez (se emparejan por nombre; se comprueba la duración). Exportar queda bloqueado mientras falte alguno.
+- Proyecto dañado o de una versión más nueva: se avisa y no se pisa; los clips imposibles se descartan con aviso; proyectos viejos sin `format`/`overlayClips`/`audioClips`/`nextId` se migran (`app/persist.mjs`, esquema `wivra-project` versión 1).
+- «Empezar un proyecto nuevo» (hoja «Tus videos») borra lo guardado.
+- Verificado en Chromium simulado (no iPhone): guardar → cerrar → reabrir idéntico, seguir editando, deshacer, agregar video sin choque de ids, exportar, archivo faltante y reconexión, datos dañados. **NO verificado en iPhone**: límites de espacio de Safari, posible borrado automático por el sistema (se pide `storage.persist()` pero iOS puede ignorarlo), videos muy grandes (se duplican en el almacenamiento local), comportamiento en modo privado.
