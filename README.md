@@ -10,17 +10,17 @@
 
 ## Qué queremos construir / Product vision
 
-Una **sola experiencia Wivra**, con flujo compartido entre cámara, biblioteca de proyectos, editor y LIVE Studio. Priorizamos iPhone y Android; una versión para escritorio es un objetivo futuro. El prototipo de editor actual utiliza tecnologías web, mientras las capacidades de captura móvil y gafas requieren integración nativa.
+Una **sola experiencia Wivra**, con flujo compartido entre cámara, biblioteca de proyectos, editor y LIVE Studio. Priorizamos iPhone y Android; una versión para escritorio es un objetivo futuro. El prototipo de editor actual utiliza tecnologías web, mientras las capacidades avanzadas de captura y transmisión requieren puentes o módulos nativos. **No se ha fijado una arquitectura exclusivamente web.** La propuesta técnica anterior compara soluciones web, híbridas y nativas; la arquitectura definitiva depende de pruebas e integración.
 
-**One Wivra experience** across camera, project library, editor and LIVE Studio. iOS and Android come first; desktop is a future goal. The current editor prototype is web-based, while advanced capture and wearable integrations need native components.
+**One Wivra experience** across camera, project library, editor and LIVE Studio. iOS and Android come first; desktop is a future goal. The current editor prototype is web-based, while advanced capture and streaming need native bridges or modules. **The product is not limited to a web-only architecture.** Earlier work compared web, hybrid and native approaches; final architecture depends on integration and testing.
 
 | Área / Area | Alcance previsto / Intended scope | Estado comprobado / Verified status |
 | --- | --- | --- |
-| **Editor** | Línea de tiempo, clips, múltiples pistas, texto, fotografías, filtros, audio y exportación / Timeline, clips, tracks, text, photos, filters, audio, export | Prototipo web en [PR #44](../../pull/44). Tests automatizados; no validación completa en Safari/iPhone físico. / Web prototype; no end-to-end physical iPhone test. |
-| **Asistente / AI** | Control manual o mediante chat y voz; modo básico local y proveedores externos opcionales / Manual, chat and voice control; local basics and optional AI providers | Funciones parciales y propuesta de interfaz simplificada en [PR #64](../../pull/64). / Partial functions and UI proposal. |
-| **Cámara y audio / Camera & audio** | Cámara de teléfono, fuentes externas compatibles, selección de micrófono, fotos y pistas de audio separadas / Phone camera, supported external sources, microphone selection, stills and separate audio tracks | Prototipos iOS y pruebas de compilación en [PR #61](../../pull/61) y ramas de captura; faltan pruebas completas en equipos reales. / iOS prototypes, physical testing pending. |
-| **LIVE Studio** | Vista previa/programa, escenas, audio y futura publicación a destinos autorizados / Preview/program, scenes, audio and eventual publishing to authorized destinations | Lógica y pantallas experimentales en [PR #59](../../pull/59) y PR relacionados. **Sin transmisión RTMP real validada**. / Experimental, no validated RTMP broadcast. |
-| **Subtítulos e idiomas / Captions & languages** | Transcripción, pistas de subtítulos, traducción y exportación SRT/VTT / Transcription, subtitle tracks, translation and SRT/VTT export | Diseño propuesto en [PR #65](../../pull/65); transcripción y traducción automáticas aún no implementadas de extremo a extremo. / Proposed, not end-to-end implemented. |
+| **Editor** | Línea de tiempo, clips, múltiples pistas, texto, fotografías, filtros, audio y exportación / Timeline, clips, tracks, text, photos, filters, audio, export | Prototipo web en [PR #44](https://github.com/Os-WHGo/Wivra/pull/44). Tests automatizados; no validación completa en Safari/iPhone físico. / Web prototype; no end-to-end physical iPhone test. |
+| **Asistente / AI** | Control manual o mediante chat y voz; modo básico local y proveedores externos opcionales / Manual, chat and voice control; local basics and optional AI providers | Funciones parciales y propuesta de interfaz simplificada en [PR #64](https://github.com/Os-WHGo/Wivra/pull/64). / Partial functions and UI proposal. |
+| **Cámara y audio / Camera & audio** | Cámara de teléfono, fuentes externas compatibles, selección de micrófono, fotos y pistas de audio separadas / Phone camera, supported external sources, microphone selection, stills and separate audio tracks | Prototipos iOS y pruebas de compilación en [PR #61](https://github.com/Os-WHGo/Wivra/pull/61) y ramas de captura; faltan pruebas completas en equipos reales. / iOS prototypes, physical testing pending. |
+| **LIVE Studio** | Vista previa/programa, escenas, audio y futura publicación a destinos autorizados / Preview/program, scenes, audio and eventual publishing to authorized destinations | Lógica y pantallas experimentales en [PR #59](https://github.com/Os-WHGo/Wivra/pull/59) y PR relacionados. **Sin transmisión RTMP real validada**. / Experimental, no validated RTMP broadcast. |
+| **Subtítulos e idiomas / Captions & languages** | Transcripción, pistas de subtítulos, traducción y exportación SRT/VTT / Transcription, subtitle tracks, translation and SRT/VTT export | Diseño propuesto en [PR #65](https://github.com/Os-WHGo/Wivra/pull/65); transcripción y traducción automáticas aún no implementadas de extremo a extremo. / Proposed, not end-to-end implemented. |
 
 ## Principios de diseño / Design principles
 
@@ -30,6 +30,15 @@ Una **sola experiencia Wivra**, con flujo compartido entre cámara, biblioteca d
 - **Compatibilidad por capacidades.** La disponibilidad depende del modelo, SDK, sistema operativo, permisos y región; no basta el nombre comercial de una cámara. / **Capability-based integration:** device and region support must be verified.
 - **Costos transparentes.** Funciones básicas gratuitas como objetivo; servicios de terceros y procesamiento remoto pueden tener costos propios. / **Transparent costs:** free core goal, optional external processing may incur fees.
 - **Sin promesas prematuras.** Un test de CI aprobado no equivale a una sesión real de grabación o transmisión. / **No premature claims:** passing CI does not prove device functionality.
+
+## Continuidad técnica / Technical continuity
+
+El trabajo inicial de Claude documentó **la arquitectura abierta**, la capa de herramientas verificables para el asistente y el uso opcional de proveedores de IA. La evolución de Wivra mantiene ese enfoque: el usuario puede editar manualmente, el asistente propone operaciones verificadas y los componentes nativos deben compartir contratos con el editor. La investigación y el código de distintas ramas no se consideran integrados por aparecer en este README.
+
+Claude's earlier work established an **open architecture**, validated editor-tool interfaces and optional AI providers. Wivra keeps manual editing available, uses verifiable assistant operations and plans shared contracts between native capture and the editor. Work on separate branches is not automatically integrated.
+
+- **Colaboración / Collaboration:** trabajo en ramas propias y PR en borrador; no modificar ramas de otros colaboradores sin coordinación. / Separate branches and draft PRs; coordinate before touching another contributor's branch.
+- **Derechos de terceros / Third-party rights:** no copiar marcas, código, imágenes, sonido ni bibliotecas ajenas sin verificar permisos y licencias. / Do not copy third-party brands, code, images, audio or libraries without checking rights and licenses.
 
 ## Idiomas / Languages
 
@@ -41,12 +50,12 @@ Target LIVE UI languages: **English, Spanish, French, German, Italian and Japane
 
 La rama `main` es una base documental inicial; **el trabajo funcional se encuentra en PR separados, todavía sin fusionar**. Para revisar avances y limitaciones reales:
 
-- [Editor / Editor prototype · PR #44](../../pull/44)
-- [Camera / Cámara iPhone · PR #61](../../pull/61)
-- [LIVE Studio · PR #59](../../pull/59)
-- [Chat-first assistant / Asistente simplificado · PR #64](../../pull/64)
-- [Languages and captions / Idiomas y subtítulos · PR #65](../../pull/65)
-- [Coordination / Coordinación · Issue #49](../../issues/49)
+- [Editor / Editor prototype · PR #44](https://github.com/Os-WHGo/Wivra/pull/44)
+- [Camera / Cámara iPhone · PR #61](https://github.com/Os-WHGo/Wivra/pull/61)
+- [LIVE Studio · PR #59](https://github.com/Os-WHGo/Wivra/pull/59)
+- [Chat-first assistant / Asistente simplificado · PR #64](https://github.com/Os-WHGo/Wivra/pull/64)
+- [Languages and captions / Idiomas y subtítulos · PR #65](https://github.com/Os-WHGo/Wivra/pull/65)
+- [Coordination / Coordinación · Issue #49](https://github.com/Os-WHGo/Wivra/issues/49)
 
 La integración final, compatibilidad entre ramas, pruebas de dispositivo, publicación y distribución están pendientes. / Integration, cross-branch compatibility, physical testing, release and distribution remain pending.
 
