@@ -10,7 +10,7 @@ enum WivraCaptureTab: Hashable {
 }
 
 @MainActor
-private final class WivraPreviewUIView: UIView {
+final class WivraPreviewUIView: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
 
     var previewLayer: AVCaptureVideoPreviewLayer {
