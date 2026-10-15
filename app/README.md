@@ -215,7 +215,7 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Sigue siendo una PROPUESTA: el validador decide y la persona aprueba. Probado en Chromium simulado, no en iPhone.
 
 ### Idiomas y Ajustes (Claude)
-- **Idiomas:** español (original), inglés, portugués, francés, alemán, japonés y chino. El español es la clave: si falta una frase se ve en español. Textos en `app/i18n/*.tsv` (una fila por frase: `es || en || pt || fr || de || ja || zh`); el traductor de `app/i18n.mjs` cambia la pantalla en vivo (sin recargar) y entiende plantillas `{}` y prefijos `texto:`.
+- **Idiomas:** español (original), inglés, portugués, francés, alemán, japonés, chino e italiano. El español es la clave: si falta una frase se ve en español. Textos en `app/i18n/*.tsv` (una fila por frase: `es || en || pt || fr || de || ja || zh`; el italiano va aparte en `strings-it.tsv` con `es || it`); el traductor de `app/i18n.mjs` cambia la pantalla en vivo (sin recargar) y entiende plantillas `{}` y prefijos `texto:`.
 - **Primera vez:** al abrir el inicio sin idioma guardado aparece «Elegir idioma» (el del teléfono marcado). Se guarda en `wivra.lang` y se cambia en Ajustes (⚙, arriba a la derecha del inicio).
 - **Ajustes:** idioma, Ajustar pantalla (ya no está suelto en el inicio), espacio usado y borrar paquetes descargados, transcripción/traducción (pronto), privacidad, acerca de.
 - **Regla para colaboradores:** todo texto nuevo se escribe en español y se agrega su fila al `.tsv` (hay un test que exige las mismas frases en todos los idiomas).

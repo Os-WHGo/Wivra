@@ -1,5 +1,5 @@
 // Idiomas de Wivra. El español es el texto original y sirve de clave: si falta una traducción, se ve en español (nunca vacío). — Claude
-export const I18N_LANGS = [['es', 'Español'], ['en', 'English'], ['pt', 'Português'], ['fr', 'Français'], ['de', 'Deutsch'], ['ja', '日本語'], ['zh', '中文']];
+export const I18N_LANGS = [['es', 'Español'], ['en', 'English'], ['pt', 'Português'], ['fr', 'Français'], ['de', 'Deutsch'], ['ja', '日本語'], ['zh', '中文'], ['it', 'Italiano']];
 export const i18nDetect = (nav) => { const l = String(nav || '').slice(0, 2).toLowerCase(); return I18N_LANGS.some((x) => x[0] === l) ? l : 'en'; };
 /** map: {español: traducción}. Devuelve tr(texto). Admite: frase exacta; plantillas con {} (números u otros datos); y "prefijo:" seguido de texto libre. */
 export function i18nCompile(map) {
