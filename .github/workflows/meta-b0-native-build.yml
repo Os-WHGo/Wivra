@@ -43,8 +43,25 @@ jobs:
             -configuration Debug \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -derivedDataPath "$PWD/.build" \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee device-build.log
+      - name: Package unsigned iPhone test build for later owner-side signing
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          app_path=".build/Build/Products/Debug-iphoneos/WivraMetaB0.app"
+          test -d "$app_path"
+          mkdir -p .payload/Payload
+          cp -R "$app_path" .payload/Payload/
+          (cd .payload && zip -qr ../WivraMetaB1-UNSIGNED.ipa Payload)
+      - name: Upload UNSIGNED test IPA artifact (not installable until owner signs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: WivraMetaB1-UNSIGNED-arm64
+          path: streaming/ios/B0/WivraMetaB1-UNSIGNED.ipa
+          retention-days: 7
+          if-no-files-found: error
       - name: Summarize errors if build fails
         if: failure()
         working-directory: streaming/ios/B0

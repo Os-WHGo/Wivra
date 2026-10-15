@@ -8,6 +8,7 @@ import MWDATCamera
 import Observation
 import UIKit
 import QuartzCore
+import CoreMedia
 
 @Observable
 @MainActor
@@ -24,7 +25,13 @@ final class MetaB0Model {
     var frameWidth = 0
     var frameHeight = 0
     var lastErrorWasThermal = false
-    var chosenProfile = "balanced" // switched only before a new preview session
+    var chosenProfile = "balanced" // chosen before a new camera session
+    var receiveCompressedHEVC = false
+    var recordingArmed = false
+    var recordingFinishing = false
+    var lastRecordedURL: URL?
+    var recordingStatus = "B1A experimental: solo video HEVC, sin audio."
+    private let clipRecorder = WivraHEVCRecorder()
 
     private let wearables: any WearablesInterface
     private let selector: AutoDeviceSelector
@@ -53,6 +60,35 @@ final class MetaB0Model {
     var canStartSession: Bool { isRegistered && sessionState == .idle }
     var canStartPreview: Bool { sessionState == .started && camera == nil }
     var hasPreview: Bool { camera != nil && streamState != .stopped }
+    var canRecord: Bool { receiveCompressedHEVC && camera != nil && framesReceived > 0 && !recordingFinishing }
+    var isCompressedMode: Bool { camera != nil && receiveCompressedHEVC }
+
+    func beginRecording() {
+        guard canRecord && !recordingArmed else { return }
+        guard clipRecorder.arm() else {
+            recordingStatus = "Hay una grabación pendiente de finalizar."
+            return
+        }
+        recordingArmed = true
+        recordingStatus = "Esperando fotograma clave HEVC. No cierres la aplicación."
+    }
+
+    func finishRecording() async {
+        guard recordingArmed && !recordingFinishing else { return }
+        recordingArmed = false
+        recordingFinishing = true
+        let result = await clipRecorder.stop()
+        recordingFinishing = false
+        switch result {
+        case .saved(let url, let frames, let dropped):
+            lastRecordedURL = url
+            recordingStatus = "MOV guardado: \(frames) fotogramas, \(dropped) descartados. Sin audio."
+        case .noFrames:
+            recordingStatus = "No llegaron fotogramas clave durante la grabación; no se creó video."
+        case .failed(let message):
+            recordingStatus = "La grabación falló: " + message
+        }
+    }
 
     func register() {
         guard registrationState != .registering else { return }
@@ -139,12 +175,11 @@ final class MetaB0Model {
 
     private func beginPreview() {
         guard let session = deviceSession, session.state == .started, camera == nil else { return }
-        // B0: .raw avoids implementing VideoToolbox HEVC decode before
-        // first-frame and link reliability tests. The SDK performs decoding.
-        // B1 will move the file/RTMPS path to .hvc1 compressed samples.
+        // B0 preview uses SDK decoded frames (.raw). B1A uses compressed
+        // .hvc1 for direct file writing. B1A has no image preview yet.
         let economy = chosenProfile == "economy"
         let config = StreamConfiguration(
-            videoCodec: .raw,
+            videoCodec: receiveCompressedHEVC ? .hvc1 : .raw,
             resolution: economy ? .low : .medium,
             frameRate: economy ? 15 : 24
         )
@@ -161,6 +196,9 @@ final class MetaB0Model {
                 Task { @MainActor [weak self] in
                     self?.streamState = state
                     if state == .stopped {
+                        if self?.recordingArmed == true {
+                            Task { await self?.finishRecording() }
+                        }
                         self?.camera?.stop()
                         self?.clearPreview()
                     }
@@ -184,10 +222,23 @@ final class MetaB0Model {
                 }
             }.store(in: streamTokens)
 
+            let compressed = receiveCompressedHEVC
+            let recorder = clipRecorder
             stream.videoFramePublisher.listen { [weak self] frame in
-                let renderedFrame = frame.makeUIImage()
-                Task { @MainActor [weak self] in
-                    self?.onFrame(renderedFrame)
+                if compressed {
+                    recorder.append(frame.sampleBuffer)
+                    let dimensions = CMSampleBufferGetFormatDescription(frame.sampleBuffer)
+                        .map { CMVideoFormatDescriptionGetDimensions($0) }
+                    let width = Int(dimensions?.width ?? 0)
+                    let height = Int(dimensions?.height ?? 0)
+                    Task { @MainActor [weak self] in
+                        self?.onFrame(nil, compressedWidth: width, compressedHeight: height)
+                    }
+                } else {
+                    let image = frame.makeUIImage()
+                    Task { @MainActor [weak self] in
+                        self?.onFrame(image)
+                    }
                 }
             }.store(in: streamTokens)
 
@@ -203,15 +254,19 @@ final class MetaB0Model {
         }
     }
 
-    private func onFrame(_ image: UIImage?) {
+    private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0) {
         guard camera != nil, streamState != .stopped else { return }
-        guard let image else { return }
-        previewImage = image
+        if !receiveCompressedHEVC && image == nil { return }
+        if let image {
+            previewImage = image
+            frameWidth = Int(image.size.width * image.scale)
+            frameHeight = Int(image.size.height * image.scale)
+        } else {
+            frameWidth = compressedWidth
+            frameHeight = compressedHeight
+        }
         framesReceived += 1
         framesThisSecond += 1
-        // UIImage dimensions may vary due to radio conditions; use actual image.
-        frameWidth = Int(image.size.width * image.scale)
-        frameHeight = Int(image.size.height * image.scale)
 
         let now = CACurrentMediaTime()
         if firstFrameTime == nil {
@@ -229,6 +284,13 @@ final class MetaB0Model {
     }
 
     func stopPreview() {
+        if recordingArmed {
+            Task {
+                await finishRecording()
+                stopPreview()
+            }
+            return
+        }
         guard let activeCamera = camera else { return }
         streamState = .stopping
         activeCamera.stop()
@@ -236,6 +298,13 @@ final class MetaB0Model {
     }
 
     func endSession() {
+        if recordingArmed {
+            Task {
+                await finishRecording()
+                endSession()
+            }
+            return
+        }
         // This step deliberately also stops when app enters background.
         // The upstream sample does not guarantee a background camera LIVE.
         stopPreview()
