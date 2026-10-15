@@ -172,13 +172,13 @@ body.dock .back{pointer-events:none;background:transparent}
   .ai-chat .ai-mode-row label{font-size:13px;flex:none}
   .ai-chat .ai-mode-row select{flex:1;min-width:0;font-size:14px}
   .ai-chat .ai-log{display:flex;flex-direction:column;gap:8px;min-height:78px;max-height:26dvh;overflow:auto;padding:8px;margin-bottom:8px;background:#11131a;border:1px solid var(--line);border-radius:12px}
-  .ai-chat .ai-log:empty::before{content:"Escribe tu primera instrucción. El modo básico admite títulos y recortes exactos.";display:block;font-size:13px;color:var(--mut);padding:6px}
+  .ai-chat .ai-empty{font-size:13px;color:var(--mut);padding:6px}
   .ai-chat .ai-msg{border-radius:14px;max-width:92%;white-space:pre-wrap;font-size:14px}
   .ai-chat .ai-msg.ai-user{align-self:flex-end;background:#293453}
   .ai-chat .ai-msg.ai-assistant{align-self:flex-start;background:var(--bar)}
   .ai-chat .ai-composer{background:#191c24;border:1px solid var(--line);border-radius:14px;padding:10px}
   .ai-chat .ai-composer label{display:block;margin:0 0 5px}
-  .ai-chat .ai-composer textarea{margin:0;min-height:64px}
+  .ai-chat .ai-composer textarea{margin:0;min-height:88px}
   .ai-chat .ai-actions{align-items:center;justify-content:flex-end;gap:8px;margin-top:6px}
   .ai-chat .ai-actions #aiAsk{flex:1;min-width:0}
   .ai-chat .ai-settings{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
@@ -326,7 +326,7 @@ body.dock .back{pointer-events:none;background:transparent}
       <option value="local">Básico · gratis y sin conexión</option>
       <option value="connected">IA conectada · opcional</option>
     </select></div>
-  <div id="aiLog" class="ai-log" role="log" aria-label="Conversación de edición" aria-live="polite"></div>
+  <div id="aiLog" class="ai-log" role="log" aria-label="Conversación de edición" aria-live="polite"><div class="ai-empty" id="aiEmpty">Escribe tu primera instrucción. El modo básico (en español) admite títulos y recortes exactos; con una IA conectada puedes escribir en tu idioma.</div></div>
   <div class="ai-composer">
     <label for="ask">¿Qué quieres cambiar en el video?</label>
     <textarea id="ask" rows="2" placeholder='Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"'></textarea>
@@ -1465,22 +1465,28 @@ $('expGo').onclick = async () => {
 
 /* ---------- IA directa: propuesta → tú apruebas → un solo deshacer ---------- */
 let aiPending = null, aiBusy = false;
-const aiSay = (t, cls) => { $('aiMsg').className = cls || ''; $('aiMsg').textContent = t; };
+// Una línea por <div>: el traductor en vivo compara frases completas, así cada línea se traduce por separado.
+const aiSay = (t, cls) => { const m = $('aiMsg'); m.className = cls || ''; m.replaceChildren(...String(t).split('\n').map((l) => { const d = document.createElement('div'); d.textContent = l; return d; })); };
 for (const pr of PRESETS) { const o = document.createElement('option'); o.value = pr.id; o.textContent = pr.name; $('aiProv').appendChild(o); }
 function aiPreset() { const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0]; $('aiModel').value = pr.model; $('aiBaseRow').style.display = pr.id === 'custom' ? 'block' : 'none'; $('aiKeyLink').style.display = pr.keyUrl ? 'inline' : 'none'; $('aiKeyLink').href = pr.keyUrl || '#'; }
 $('aiProv').onchange = aiPreset; aiPreset();
+// El modo básico solo entiende español: su ejemplo funciona tal cual. Con una IA conectada se muestra el ejemplo que sí se traduce.
+const AI_PH_LOCAL = 'Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"', AI_PH_CONNECTED = 'Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver"';
+let aiPhLocal = null;
 function aiSync() {
   const local = $('aiMode').value === 'local';
   $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8);
   $('aiAsk').textContent = local ? 'Revisar cambio gratis' : 'Pedir propuesta a IA';
+  if (aiPhLocal !== local) { aiPhLocal = local; $('ask').placeholder = local ? AI_PH_LOCAL : AI_PH_CONNECTED; }
 }
 $('aiMode').addEventListener('change', aiSync);
 for (const id of ['ask', 'aiKey', 'aiModel']) $(id).addEventListener('input', aiSync);
 function aiClear() { aiPending = null; $('aiProp').style.display = 'none'; }
 $('aiDiscard').onclick = () => { aiClear(); aiHistory.push({ role: 'user', content: '(Descarté tu propuesta; no se aplicó nada.)' }); aiSay('Propuesta descartada. No cambió nada.'); };
 let aiHistory = [];
-function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item ai-msg ' + (who === 'tú' ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
-$('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren(); $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
+// El texto va en su propio nodo (sin el ✨ delante) para que el traductor en vivo lo reconozca; lo que escribe la persona nunca se traduce.
+function aiLogAdd(who, text) { const d = document.createElement('div'), mine = who === 'tú'; d.className = 'item ai-msg ' + (mine ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = mine ? 'right' : 'left'; if (mine) d.dataset.notr = '1'; else { const s = document.createElement('span'); s.textContent = '✨ '; s.setAttribute('aria-hidden', 'true'); d.appendChild(s); } d.appendChild(document.createTextNode(text)); $('aiEmpty').hidden = true; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
+$('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren($('aiEmpty')); $('aiEmpty').hidden = false; $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
   const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
@@ -1497,6 +1503,7 @@ $('aiAsk').onclick = async () => {
     aiLogAdd('ia', (r.nota ? r.nota + '\n' : '') + lines); aiHistory.push({ role: 'assistant', content: 'Propuse:\n' + lines });
     $('ask').value = ''; aiSync();
     $('aiProp').style.display = 'block'; aiSay('Revisa la propuesta. Nada cambia hasta que toques Aplicar. Para corregirla, escribe o dicta otra frase.', 'ok');
+    try { $('aiProp').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e2) { /* el botón Aplicar queda donde está */ }
   } catch (e) { aiSay(e.message, 'bad'); } finally { aiBusy = false; aiSync(); }
 };
 /* Dictado: Web Speech del navegador (si existe). El micrófono del teclado del iPhone también sirve en el cuadro de texto. */
@@ -1516,7 +1523,7 @@ $('aiAsk').onclick = async () => {
 })();
 $('aiApply').onclick = () => {
   if (!aiPending) return;
-  if (aiPending.revision !== session.project.revision) { aiClear(); return aiSay('El proyecto cambió mientras tanto. Vuelve a pedírselo a la IA.', 'bad'); }
+  if (aiPending.revision !== session.project.revision) { aiClear(); return aiSay('El proyecto cambió mientras tanto. Vuelve a pedir el cambio.', 'bad'); }
   const r = run(aiPending.ops); aiClear();
   if (r.ok) aiHistory.push({ role: 'user', content: '(Apliqué tu propuesta.)' });
   if (r.ok) { closeSheets(); say('Aplicado. Puedes deshacerlo con la flecha.', 'ok'); } else aiSay('No se pudo aplicar: ' + r.message, 'bad');
@@ -1642,8 +1649,11 @@ $('dirUseInAI').onclick=()=>{
     directorBrief=readDirectorBrief();
     setDirectorAIContext(directorAITaskContext(directorBrief,session.project));
     $('ask').value='Revisa el objetivo que te adjunté y el material realmente disponible. Propón una primera edición con los cambios que puedas justificar; si falta evidencia, no inventes cortes.';
+    // El contexto del Director solo lo usa la IA conectada (el modo básico no lo lee): se pasa a ese modo y, si falta la clave, se abre su sección.
+    $('aiMode').value='connected';
+    if($('aiKey').value.trim().length<8)$('aiSettings').open=true;
     aiSync();openSheet('sAI');
-    aiSay('Idea preparada como contexto, no enviada. Revisa tu petición y pulsa Pedirle a la IA cuando quieras.','ok');
+    aiSay('Idea preparada como contexto, no enviada. Revisa tu petición y envíala cuando quieras.','ok');
   }catch(e){$('dirStatus').textContent='No pude preparar el contexto: '+e.message;}
 };
 $('aiDirectorRemove').onclick=()=>{setDirectorAIContext(null);aiSay('Idea separada de la conversación con IA.');};

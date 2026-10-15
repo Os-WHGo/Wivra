@@ -329,3 +329,66 @@ No se pudo reabrir el proyecto guardado: || Non è stato possibile riaprire il p
 No se pudo importar la captura: || Impossibile importare la ripresa:
 No se pudo reconectar: || Non è stato possibile riconnettere:
 El proyecto guardado no se pudo abrir: || Impossibile aprire il progetto salvato:
+Asistente Wivra || Assistente Wivra
+Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla. || Chiedi modifiche scrivendo o dettando. Ti mostreremo prima una proposta; sei tu a decidere se applicarla.
+Asistente || Assistente
+Básico · gratis y sin conexión || Base · gratis e senza connessione
+IA conectada · opcional || IA collegata · facoltativa
+¿Qué quieres cambiar en el video? || Cosa vuoi cambiare nel video?
+Revisar cambio gratis || Rivedi modifica (gratis)
+Pedir propuesta a IA || Chiedi una proposta all'IA
+⏹ Detener || ⏹ Ferma
+La idea del Director está adjunta a esta conversación. || L'idea del Director è allegata a questa conversazione.
+Desvincular idea || Scollega l'idea
+✓ Aplicar cambios || ✓ Applica modifiche
+↺ Nueva conversación || ↺ Nuova conversazione
+⚙ Configurar una IA externa (opcional) || ⚙ Configura un'IA esterna (facoltativo)
+Este modo puede usar servicios externos y sus límites de uso. Solo se envían instrucciones y un resumen del proyecto, nunca el archivo multimedia. || Questa modalità può usare servizi esterni e i relativi limiti di utilizzo. Vengono inviati solo le istruzioni e un riepilogo del progetto, mai il file multimediale.
+Copiar instrucciones a ChatGPT o Claude manualmente || Copia manualmente le istruzioni in ChatGPT o Claude
+1. Copiar instrucciones || 1. Copia le istruzioni
+2. Pegar respuesta || 2. Incolla la risposta
+3. Revisar y aplicar al video || 3. Rivedi e applica al video
+Modo de asistente || Modalità dell'assistente
+Conversación de edición || Conversazione di modifica
+Solo en memoria; se borra al cerrar || Solo in memoria; si cancella alla chiusura
+Escribe tu primera instrucción. El modo básico (en español) admite títulos y recortes exactos; con una IA conectada puedes escribir en tu idioma. || Scrivi la tua prima istruzione. La modalità base (solo in spagnolo) supporta titoli e accorciamenti esatti; con un'IA collegata puoi scrivere nella tua lingua.
+Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver" || Esempio (in spagnolo): Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"
+Pensando… || Sto pensando…
+El proveedor está saturado. Reintentando ({}/2)… || Il provider è sovraccarico. Nuovo tentativo ({}/2)…
+No propongo cambios. || Non propongo modifiche.
+No propongo cambios: || Non propongo modifiche:
+La IA no propone cambios. || L'IA non propone modifiche.
+Mi propuesta fue rechazada por el editor (operación {}): {} || La mia proposta è stata rifiutata dall'editor (operazione {}): {}
+Nada cambió. Corrígela con otra frase. || Non è cambiato nulla. Correggila con un'altra frase.
+Revisa la propuesta. Nada cambia hasta que toques Aplicar. Para corregirla, escribe o dicta otra frase. || Controlla la proposta. Non cambia nulla finché non tocchi Applica. Per correggerla, scrivi o detta un'altra frase.
+Propuesta descartada. No cambió nada. || Proposta scartata. Non è cambiato nulla.
+Conversación nueva. || Nuova conversazione.
+Escuchando… habla y toca Detener cuando termines. || Sto ascoltando… parla e tocca Ferma quando hai finito.
+No pude iniciar el dictado: || Non sono riuscito ad avviare la dettatura:
+Micrófono: || Microfono:
+El navegador no dejó usar el micrófono. Actívalo en Ajustes del teléfono, o usa el micrófono del teclado. || Il browser non ha consentito l'uso del microfono. Attivalo nelle Impostazioni del telefono, oppure usa il microfono della tastiera.
+El proyecto cambió mientras tanto. Vuelve a pedir el cambio. || Nel frattempo il progetto è cambiato. Richiedi di nuovo la modifica.
+No se pudo aplicar: || Non è stato possibile applicare:
+Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba. || Per dettare, usa il microfono della tastiera del telefono nel riquadro sopra.
+Idea preparada como contexto, no enviada. Revisa tu petición y envíala cuando quieras. || Idea preparata come contesto, non ancora inviata. Controlla la tua richiesta e inviala quando vuoi.
+Idea separada de la conversación con IA. || Idea scollegata dalla conversazione con l'IA.
+El modo local básico solo entiende texto entre comillas o recortes explícitos. Para comprender ideas generales necesitas conectar un modelo de IA. || La modalità locale base capisce solo frasi in spagnolo con testo tra virgolette o accorciamenti espliciti. Per capire idee generali devi collegare un modello di IA.
+Primero importa un video para poner texto || Importa prima un video per aggiungere del testo
+No existe ese número de clip || Non esiste una clip con quel numero
+La clave no sirvió (401/403). Revisa que esté completa y que sea del proveedor elegido. || La chiave non ha funzionato (401/403). Controlla che sia completa e che appartenga al provider scelto.
+No encontré ese modelo o esa dirección (404). Revisa el nombre del modelo. || Non ho trovato quel modello o quell'indirizzo (404). Controlla il nome del modello.
+Llegaste al límite gratis del proveedor (429). Espera un minuto o prueba otro proveedor. || Hai raggiunto il limite gratuito del provider (429). Aspetta un minuto o prova un altro provider.
+Llegaste al límite gratis del proveedor (429). Espera un minuto o prueba otro proveedor. (se intentó {} veces) || Hai raggiunto il limite gratuito del provider (429). Aspetta un minuto o prova un altro provider. (provato {} volte)
+El proveedor falló ({}). Intenta de nuevo en un momento. || Il provider ha avuto un errore ({}). Riprova tra un momento.
+El proveedor falló ({}). Intenta de nuevo en un momento. (se intentó {} veces) || Il provider ha avuto un errore ({}). Riprova tra un momento. (provato {} volte)
+El proveedor rechazó la petición ({}). {} || Il provider ha rifiutato la richiesta ({}). {}
+El proveedor rechazó la petición ({}). || Il provider ha rifiutato la richiesta ({}).
+La petición tardó demasiado y se canceló. || La richiesta ha impiegato troppo tempo ed è stata annullata.
+No pude conectar. Revisa tu internet. Si sigue igual, este proveedor puede no permitir llamadas desde una página web (CORS); prueba otro proveedor. || Non sono riuscito a connettermi. Controlla la tua connessione a internet. Se continua così, questo provider potrebbe non consentire chiamate da una pagina web (CORS); prova un altro provider.
+La IA respondió algo inesperado (sin mensaje). || L'IA ha risposto in modo inatteso (senza messaggio).
+La IA devolvió operaciones que no se pudieron leer. || L'IA ha restituito operazioni che non è stato possibile leggere.
+La IA respondió algo que no es JSON. || L'IA ha risposto con qualcosa che non è JSON.
+Falta elegir proveedor y modelo. || Scegli prima un provider e un modello.
+Falta pegar tu clave. || Incolla prima la tua chiave.
+Escribe qué quieres que haga la IA. || Scrivi cosa vuoi che faccia l'IA.
+Este navegador no puede hacer la llamada. || Questo browser non può effettuare la chiamata.
