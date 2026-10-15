@@ -1,6 +1,6 @@
-// Wivra Meta B0 — ORIGINAL test application. Compiled for simulator; NOT hardware-verified.
-// Uses the public DAT 1.0.1 lifecycle; this is camera PREVIEW ONLY,
-// no audio, local recording, stored-glasses-media import or RTMPS publishing.
+// Wivra Meta B0/B1 experimental native capture application.
+// RAW preview and in-stream JPEG stills; separate HEVC recording and audio are
+// independent paths. Neither physical glasses testing nor LIVE is implied.
 // — ChatGPT, 2026-10-13
 import Foundation
 import MWDATCore
@@ -18,6 +18,10 @@ final class MetaB0Model {
     var sessionState: DeviceSessionState = .idle
     var streamState: StreamState = .stopped
     var previewImage: UIImage?
+    var capturedPhotoImage: UIImage?
+    var lastCapturedPhotoURL: URL?
+    var photoCaptureInFlight = false
+    var photoCaptureStatus = "Fotografías JPEG guardadas localmente; no se suben automáticamente."
     var showCameraPermissionConfirm = false
     var errorMessage: String?
     var framesReceived = 0
@@ -85,7 +89,42 @@ final class MetaB0Model {
     var canStartPreview: Bool { sessionState == .started && camera == nil }
     var hasPreview: Bool { camera != nil && streamState != .stopped }
     var canRecord: Bool { receiveCompressedHEVC && camera != nil && framesReceived > 0 && !recordingFinishing }
+    var canCapturePhoto: Bool {
+        !receiveCompressedHEVC && camera != nil && streamState == .streaming &&
+        previewImage != nil && !photoCaptureInFlight && !recordingArmed
+    }
     var isCompressedMode: Bool { camera != nil && receiveCompressedHEVC }
+
+    func capturePhoto() {
+        guard canCapturePhoto, let stream = camera?.stream else { return }
+        photoCaptureInFlight = true
+        photoCaptureStatus = "Solicitando fotografía a las gafas…"
+        // This is an SDK still image, NOT a screenshot of the preview stream.
+        if !stream.capturePhoto(format: .jpeg) {
+            photoCaptureInFlight = false
+            photoCaptureStatus = "La cámara no pudo iniciar la foto. Espera y vuelve a intentar."
+        }
+    }
+
+    private func handleCapturedPhoto(_ bytes: Data) {
+        photoCaptureInFlight = false
+        guard !bytes.isEmpty, let image = UIImage(data: bytes) else {
+            photoCaptureStatus = "La cámara entregó una imagen vacía o ilegible."
+            return
+        }
+        do {
+            let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("WivraPhotos", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let url = folder.appendingPathComponent("Wivra_Photo_\(UUID().uuidString).jpg")
+            try bytes.write(to: url, options: .atomic)
+            lastCapturedPhotoURL = url
+            capturedPhotoImage = image
+            photoCaptureStatus = "Fotografía JPEG guardada en Wivra; puedes compartirla o guardarla desde el menú."
+        } catch {
+            photoCaptureStatus = "No se pudo guardar la fotografía: " + error.localizedDescription
+        }
+    }
 
     func beginRecording() {
         guard canRecord && !recordingArmed else { return }
@@ -320,6 +359,10 @@ final class MetaB0Model {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.errorMessage = error.localizedDescription
+                    if self.photoCaptureInFlight {
+                        self.photoCaptureInFlight = false
+                        self.photoCaptureStatus = "La fotografía se interrumpió: " + error.localizedDescription
+                    }
                     // Never fight SDK thermal safety to preserve a LIVE.
                     switch error {
                     case .thermalHot:
@@ -330,6 +373,14 @@ final class MetaB0Model {
                     default:
                         break
                     }
+                }
+            }.store(in: streamTokens)
+
+            // Keep the listener until the camera/stream ends. Actual photo data
+            // is returned asynchronously, independently of preview frames.
+            stream.photoDataPublisher.listen { [weak self] photo in
+                Task { @MainActor [weak self] in
+                    self?.handleCapturedPhoto(photo.data)
                 }
             }.store(in: streamTokens)
 
@@ -426,6 +477,10 @@ final class MetaB0Model {
 
     private func clearPreview() {
         streamTokens.clear()
+        if photoCaptureInFlight {
+            photoCaptureStatus = "Fotografía interrumpida: se cerró la vista previa."
+            photoCaptureInFlight = false
+        }
         camera = nil
         previewImage = nil
         firstFrameTime = nil
