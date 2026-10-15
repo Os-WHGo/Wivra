@@ -1,0 +1,19 @@
+name: Wivra Cross-Agent Audit
+on:
+  pull_request:
+    paths:
+      - 'app/tests/audit-cross-agent-boundaries.test.mjs'
+      - '.github/workflows/cross-agent-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated audit diagnostics on real editor modules
+        run: node --test app/tests/audit-cross-agent-boundaries.test.mjs
