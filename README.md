@@ -3,7 +3,7 @@
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
-> Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
+> Estado / Status (15-10-2026): **prototipo en desarrollo, no es una app publicada.** El editor de este PR (#44) ya funciona en un navegador simulado (Chromium, 430×727): importar videos, línea de tiempo con capas y audio, filtros y efectos, texto, exportación real, proyectos guardados con recuperación, Director, IA con 14 operaciones validadas y interfaz en 8 idiomas (traducciones automáticas, sin revisar por nativos). **No está probado en un iPhone ni en Android reales.** Android: todavía sin trabajo nativo. Captura de cámara y LIVE están en PR aparte (ver #49). Detalles técnicos en [`app/README.md`](app/README.md). / Prototype in development, not a released app; tested only in simulated Chromium, not on real iPhone or Android.
 > Nombre: **Wivra** (antes "AgentCut"; renombrado el 13-10-2026 por decisión del propietario; el repositorio se renombra en GitHub a `wivra`). Pendiente: comprobar que no choque con marcas existentes antes de publicar.
 
 ---

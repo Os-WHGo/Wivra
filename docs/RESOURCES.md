@@ -34,7 +34,7 @@
 - **Meta Model API (Muse Spark 1.1):** según prensa, funciona con el SDK de OpenAI y formatos compatibles, y en julio de 2026 era una vista previa solo para desarrolladores de EE. UU. **No verificado:** URL base, llamadas a herramientas, entrada de imágenes y si se puede llamar desde el navegador (las páginas de documentación que leí no traían esos datos).
 - **Muse Glimmer:** modelo de pesos abiertos (Apache-2.0, 30 000 millones de parámetros, publicado el 10 de agosto de 2026). Meta lo describe para una Mac o PC con una GPU de consumo y 24–32 GB de memoria. **No es un modelo para teléfono.**
 - **App Muse (consumidor):** no tiene un formulario para agregar servidores MCP. Construye conectores por su cuenta sobre su máquina virtual, y Muse Code (su agente de programación) sí admite MCP. Además se puede proponer un servidor al catálogo de conectores en muse.ai/platform. Fuentes en el historial del proyecto; las fuentes no coinciden del todo, así que **probar antes de prometer**.
-- AgentCut es un **cliente** de IA (la app llama a la IA), no un servidor MCP. Para que Muse o Claude "la lean" como repositorio, sirve el archivo `AGENTS.md`.
+- Wivra es un **cliente** de IA (la app llama a la IA), no un servidor MCP. Para que Muse o Claude "la lean" como repositorio, sirve el archivo `AGENTS.md`.
 
 ## 5. Gafas Meta (Ray-Ban Meta y otras)
 
@@ -44,7 +44,7 @@
 - Es para apps **nativas de iOS y Android**. Las "web apps" son otra vía y corren directamente en las Ray-Ban Meta Display, sin el toolkit.
 - La **publicación pública todavía no está abierta** ("pronto"). Requiere emparejar las gafas con la app Meta AI, activar el modo desarrollador, aceptar una política de uso y estar en un país compatible.
 
-**Qué significa para AgentCut (inferencia mía):**
+**Qué significa para Wivra (inferencia mía):**
 1. **Hoy:** una app web no puede leer la cámara de las gafas en vivo. Sí puede editar el video que las gafas ya grabaron, si llega a la galería del teléfono. **No verificado:** cómo se sincronizan los videos de las gafas con Fotos.
 2. **Después:** una app nativa pequeña (un envoltorio de nuestra web) con el toolkit podría traer la cámara de las gafas al editor y así permitir un en vivo propio. Hay que revisar país, requisitos y que la publicación esté abierta.
 3. El teleprompter en las gafas solo tendría sentido con las Ray-Ban Meta Display.
