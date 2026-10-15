@@ -37,6 +37,7 @@ struct WivraMetaB0App: App {
 
 struct MetaB0Screen: View {
     @Bindable var model: MetaB0Model
+    @State private var photoGridEnabled = false
 
     var body: some View {
         ScrollView {
@@ -54,7 +55,23 @@ struct MetaB0Screen: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .accessibilityLabel("Fotogramas reales recibidos de las gafas")
+                            .overlay {
+                                if photoGridEnabled && !model.receiveCompressedHEVC {
+                                    GeometryReader { proxy in
+                                        Path { path in
+                                            for fraction in [1.0 / 3.0, 2.0 / 3.0] {
+                                                path.move(to: CGPoint(x: proxy.size.width * fraction, y: 0))
+                                                path.addLine(to: CGPoint(x: proxy.size.width * fraction, y: proxy.size.height))
+                                                path.move(to: CGPoint(x: 0, y: proxy.size.height * fraction))
+                                                path.addLine(to: CGPoint(x: proxy.size.width, y: proxy.size.height * fraction))
+                                            }
+                                        }
+                                        .stroke(.white.opacity(0.65), lineWidth: 1)
+                                    }
+                                    .allowsHitTesting(false)
+                                }
+                            }
+                            .accessibilityLabel("Vista previa de la cámara de las gafas")
                     } else {
                         ZStack {
                             Color.black
@@ -169,6 +186,49 @@ struct MetaB0Screen: View {
                 .disabled(!model.canStartPreview)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("start_meta_preview")
+
+                if !model.receiveCompressedHEVC {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Fotografía desde las gafas", systemImage: "camera")
+                            .font(.headline)
+                        Text("El iPhone muestra los fotogramas recibidos de las Ray-Ban. La foto se solicita a la cámara de las gafas, no se toma una captura de pantalla.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Toggle("Cuadrícula de tercios (solo encuadre)", isOn: $photoGridEnabled)
+                            .accessibilityIdentifier("wivra_photo_grid")
+                        Button {
+                            model.capturePhoto()
+                        } label: {
+                            Label(model.photoCaptureInFlight ? "Tomando foto…" : "Tomar fotografía",
+                                  systemImage: "camera.shutter.button")
+                        }
+                        .disabled(!model.canCapturePhoto)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("wivra_photo_shutter")
+                        Text(model.photoCaptureStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("wivra_photo_status")
+                        if let image = model.capturedPhotoImage,
+                           let url = model.lastCapturedPhotoURL {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 180, maxHeight: 200)
+                                .accessibilityLabel("Última fotografía guardada")
+                            ShareLink(item: url) {
+                                Label("Compartir o guardar fotografía JPEG", systemImage: "square.and.arrow.up")
+                            }
+                            .accessibilityIdentifier("wivra_photo_share")
+                        }
+                        Text("Modo fotográfico experimental. ISO, obturador y enfoque manual de las gafas no están expuestos por la API utilizada.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
 
                 if model.receiveCompressedHEVC {
                     VStack(alignment: .leading, spacing: 8) {

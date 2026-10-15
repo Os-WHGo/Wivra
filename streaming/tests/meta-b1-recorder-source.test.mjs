@@ -42,3 +42,25 @@ test('B0 RAW preview is still available independently of compressed recording',(
  assert.match(view,/B1A · Grabar HEVC/);
  assert.match(model,/if !receiveCompressedHEVC && image == nil/);
 });
+
+test('B1F photo mode captures an SDK still, not the preview image, and saves JPEG locally',()=>{
+ const model=read('Sources/MetaB0Model.swift'),view=read('Sources/WivraMetaB0App.swift');
+ assert.match(model,/stream\.photoDataPublisher\.listen/);
+ assert.match(model,/stream\.capturePhoto\(format: \.jpeg\)/);
+ assert.match(model,/if !stream\.capturePhoto/);
+ assert.match(model,/!receiveCompressedHEVC && camera != nil && streamState == \.streaming/);
+ assert.match(model,/UIImage\(data: bytes\)/);
+ assert.match(model,/appendingPathComponent\("WivraPhotos", isDirectory: true\)/);
+ assert.match(model,/bytes\.write\(to: url, options: \.atomic\)/);
+ assert.match(model,/if photoCaptureInFlight \{/);
+ assert.match(view,/Fotografía desde las gafas/);
+ assert.match(view,/model\.capturePhoto\(\)/);
+ assert.match(view,/ShareLink\(item: url\)/);
+ assert.match(view,/wivra_photo_shutter/);
+});
+test('B1F optional viewfinder grid does not claim manual sensor controls',()=>{
+ const view=read('Sources/WivraMetaB0App.swift');
+ assert.match(view,/Cuadrícula de tercios \(solo encuadre\)/);
+ assert.match(view,/photoGridEnabled/);
+ assert.match(view,/ISO, obturador y enfoque manual de las gafas no están expuestos/);
+});
