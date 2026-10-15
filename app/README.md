@@ -201,3 +201,9 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Todos los paneles (menos las preguntas «¿Salir del proyecto?» y «Faltan archivos») tienen una **✕** arriba a la derecha y una **rayita** arriba que se arrastra hacia abajo (más de ~70 px) para cerrarlos. Cerrar no deshace nada: los cambios ya aplicados se quedan. Verificado en Chromium simulado con ratón; NO con el dedo en iPhone.
 
 — Claude
+
+### Paneles compactos (Claude)
+- Paneles de Filtros/Efectos/Capas más bajos (≈38 % de la pantalla): botones de 30 px, cuadritos de 44–50 px, la línea de tiempo (al menos una pista) sigue visible.
+- Las vistas previas usan una **imagen de ejemplo genérica** (no el video), así no se recalculan al mover el video.
+- «Ver más» (botón pequeño) abre la versión grande: cuadrícula de 4 columnas, el video se achica y la línea de tiempo se oculta; «Ver menos» vuelve.
+- Probado solo en Chromium simulado 430×727, NO en iPhone.

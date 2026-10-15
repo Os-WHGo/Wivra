@@ -131,8 +131,28 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
 .sheet.dock .chips{margin:4px 0}.sheet.dock .fgrid{margin:6px 0}
 #sOver.dock .fgrid{grid-auto-columns:60px}#sOver.dock .fgrid.sq{grid-auto-columns:56px}
 body.dock{padding-bottom:calc(var(--dockh,0px) + env(safe-area-inset-bottom))}
-body.dock #tlbox,body.dock .bar{display:none}
+body.dock .bar{display:none}
+body.dock #tlbox{height:auto;max-height:96px}body.dock #tlwrap{max-height:96px}
+body.dockexp #tlbox{display:none}
 body.dock .back{pointer-events:none;background:transparent}
+/* compacto: botones y cuadritos chicos (pero tocables); «Ver más» agranda */
+.sheet.dock:not(.exp){padding:6px 12px 8px;max-height:38dvh}
+.sheet.dock:not(.exp) .shx{top:4px;right:8px;width:30px;height:30px;font-size:14px}
+.sheet.dock:not(.exp) .shgrip{height:12px;margin:-4px -12px 0}
+.sheet.dock:not(.exp) h2{font-size:13px;margin:0 36px 2px 0}
+.sheet.dock:not(.exp) .chips{margin:2px 0;gap:5px}
+.sheet.dock:not(.exp) .chips button{min-width:0;min-height:30px;padding:4px 9px;font-size:12px;border-radius:8px}
+.sheet.dock:not(.exp) .fgrid{grid-auto-columns:50px;gap:5px;margin:3px 0;padding-bottom:2px}
+.sheet.dock:not(.exp) .fgrid button{border-radius:8px;border-width:2px}
+.sheet.dock:not(.exp) .fgrid button span{font-size:9px;padding:1px;line-height:1}
+#sOver.dock:not(.exp) .fgrid,#sOver.dock:not(.exp) .fgrid.sq{grid-auto-columns:44px}
+.sheet.dock:not(.exp) .dockbar{gap:6px;margin-top:3px}
+.sheet.dock:not(.exp) .dockbar .btn{min-height:32px;height:32px;padding:0 8px;font-size:12.5px;border-radius:9px}
+.sheet.dock:not(.exp) .dockbar .btn{width:auto;flex:1 1 0;min-width:0;white-space:nowrap}.sheet.dock:not(.exp) .dockbar .btn[data-more]{flex:0 0 auto;padding:0 12px}
+.sheet.dock:not(.exp) input[type=range]{height:24px}
+.sheet.dock.exp{max-height:66dvh}
+.sheet.dock.exp .fgrid{grid-auto-flow:row;grid-template-columns:repeat(4,1fr);grid-auto-columns:auto;overflow:visible;gap:8px}
+
 .fgrid{display:grid;grid-auto-flow:column;grid-auto-columns:78px;gap:8px;margin:8px 0;overflow-x:auto;padding-bottom:4px}
 .fgrid button{position:relative;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#222;aspect-ratio:3/4;color:#fff;font-size:11px;cursor:pointer}
 .fgrid button canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -487,10 +507,10 @@ fltLooksRender();
 })();
 const DOCKS = ['sFilt', 'sFx', 'sOver'];
 function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
-function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
-document.addEventListener('click', (e) => { const b = e.target.closest('[data-more]'); if (!b) return; const sh = b.closest('.sheet'), o = !sh.classList.contains('exp'); sh.classList.toggle('exp', o); b.textContent = o ? 'Ver menos' : 'Ver más'; dockMeasure(); try { showFrame(); syncOverlays(); } catch {} });
+function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); document.body.classList.remove('dockexp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-more]'); if (!b) return; const sh = b.closest('.sheet'), o = !sh.classList.contains('exp'); sh.classList.toggle('exp', o); document.body.classList.toggle('dockexp', o && sh.classList.contains('dock')); b.textContent = o ? 'Ver menos' : 'Ver más'; dockMeasure(); try { showFrame(); syncOverlays(); } catch {} });
 if (window.ResizeObserver) new ResizeObserver(() => dockMeasure()).observe(document.body);
-function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov', 'dock'); document.body.style.removeProperty('--dockh'); try { showFrame(); syncOverlays(); } catch {} }
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov', 'dock', 'dockexp'); document.body.style.removeProperty('--dockh'); try { showFrame(); syncOverlays(); } catch {} }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
@@ -1660,15 +1680,17 @@ function fltSource(c) {
   if (kindOf(c.id) === 'overlay') { const w = document.querySelector(`#olay .ow[data-id="${c.id}"]`); const e = w && w.querySelector('video,img,canvas:not(.fxl)'); if (e) return e; }
   return $('v');
 }
-function fltSrcCanvas(c, W, H) {      // cuadro actual del clip en miniatura (o un degradado si aún no hay cuadro)
-  const src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d'); let ok = false;
-  const e = c && fltSource(c);
-  try {
-    const sw = e && (e.videoWidth || e.naturalWidth || e.width), sh = e && (e.videoHeight || e.naturalHeight || e.height);
-    if (sw > 0 && sh > 0 && (e.readyState === undefined || e.readyState >= 2)) { const k = Math.max(W / sw, H / sh); g.drawImage(e, (W - sw * k) / 2, (H - sh * k) / 2, sw * k, sh * k); ok = true; }
-  } catch { ok = false; }
-  if (!ok) { const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#6aa6d8'); gr.addColorStop(.55, '#c9b28a'); gr.addColorStop(1, '#3b5a2e'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
-  return src;
+let fltSample = null;
+function fltSrcCanvas(c, W, H) {      // imagen de EJEMPLO genérica (no el video): cielo, sol, cerros, casa y persona
+  if (fltSample && fltSample.width === W && fltSample.height === H) return fltSample;
+  const src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, H * .62); sky.addColorStop(0, '#4a86c8'); sky.addColorStop(1, '#f1d6a4'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(W * .72, H * .24, W * .11, 0, 7); g.fill();
+  g.fillStyle = '#5d8a4a'; g.beginPath(); g.moveTo(0, H * .66); g.quadraticCurveTo(W * .3, H * .44, W * .6, H * .62); g.quadraticCurveTo(W * .85, H * .5, W, H * .6); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+  g.fillStyle = '#35603a'; g.fillRect(0, H * .8, W, H * .2);
+  g.fillStyle = '#d9604c'; g.fillRect(W * .12, H * .56, W * .3, H * .2); g.fillStyle = '#7a2e2a'; g.beginPath(); g.moveTo(W * .1, H * .56); g.lineTo(W * .27, H * .45); g.lineTo(W * .44, H * .56); g.fill();
+  g.fillStyle = '#2b2f4a'; g.fillRect(W * .58, H * .6, W * .1, H * .22); g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(W * .63, H * .56, W * .06, 0, 7); g.fill();
+  fltSample = src; return src;
 }
 function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
   const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
