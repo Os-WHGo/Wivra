@@ -147,3 +147,13 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Verificado en Chromium simulado (no iPhone): vista previa en blanco y negro con canales iguales, reproducción, exportación (píxeles medidos), «todos», deshacer, reabrir. **NO verificado en iPhone**: fluidez con 1–4 videos filtrados a la vez (cada cuadro se sube a la GPU), límite de contextos WebGL de Safari, exportación larga con filtros.
 - Sin librerías de terceros. No se copió nada de otras apps: los nombres y números de los ajustes son propios. (Ref.: glfx.js es MIT [verificado en npm], no se usa.)
 - También: etiquetas de «pantalla de inicio» (ícono propio, pantalla completa al añadirla desde Safari).
+
+## Capas: tres modos (Todo / Video / Forma)
+
+- Al elegir una capa aparece el selector **Todo · Video · Forma** (también en pantalla completa). **Todo** mueve y agranda la capa entera. **Video**: la ventana queda fija y se mueve/agranda el video por dentro; se ve un «fantasma» punteado transparente con el tamaño completo del video para ubicarlo dentro de la forma. **Forma**: se mueve y agranda la ventana (forma/filtro) mientras el video queda quieto en pantalla.
+- `contentRect` / `solveContent` (`app/export.mjs`): el video se ajusta cubriendo la ventana, se escala por `zoom` y `px`/`py` (0–1) reparten el sobrante; vista previa y exportación usan la misma fórmula. Con zoom > 1, un `px`/`py` guardado antes se desplaza un poco respecto a la versión anterior.
+- El punto amarillo (asa) y el selector se ocultan mientras haya otro menú abierto.
+- Una sola operación `set_overlay` por gesto (un solo paso en deshacer).
+- Verificado en Chromium simulado (no iPhone): vista previa = fotograma exportado con zoom/desplazamiento/marco. NO verificado en iPhone: pellizco y arrastre en Safari, formas.
+
+— Claude

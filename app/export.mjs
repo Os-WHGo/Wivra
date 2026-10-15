@@ -101,8 +101,15 @@ export function overlayRect(c, W, H, vw, vh) {
 }
 // Dónde va el video (vw×vh) dentro de su cuadro bw×bh: rellena el cuadro (recorta lo que sobra), se mueve con px/py (0..1, 0.5 = centro) y se amplía con zoom desde el centro.
 export function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
-  const k = Math.max(bw / vw, bh / vh), w0 = vw * k, h0 = vh * k, x0 = (bw - w0) * px, y0 = (bh - h0) * py;
-  return { x: bw / 2 + (x0 - bw / 2) * zoom, y: bh / 2 + (y0 - bh / 2) * zoom, w: w0 * zoom, h: h0 * zoom };
+  // Contenido que cubre la ventana (bw×bh), ampliado `zoom` veces; px/py (0..1) deciden qué parte se ve (0 = borde izquierdo/superior, 1 = derecho/inferior).
+  const k = Math.max(bw / vw, bh / vh), w = vw * k * zoom, h = vh * k * zoom;
+  return { x: (bw - w) * px, y: (bh - h) * py, w, h };
+}
+/** Inverso de contentRect: dado el rectángulo que debe ocupar el contenido (abs, en el mismo sistema que la ventana win={left,top,w,h}), devuelve {zoom, px, py} válidos (zoom 1..4, el contenido siempre cubre la ventana). */
+export function solveContent(win, abs, vw, vh) {
+  const k = Math.max(win.w / vw, win.h / vh), w0 = vw * k, h0 = vh * k, cl = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const zoom = cl(abs.W / w0, 1, 4), Wc = w0 * zoom, Hc = h0 * zoom, dx = win.w - Wc, dy = win.h - Hc;
+  return { zoom, px: dx < -1e-6 ? cl((abs.X - win.left) / dx, 0, 1) : 0.5, py: dy < -1e-6 ? cl((abs.Y - win.top) / dy, 0, 1) : 0.5 };
 }
 // Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
 // Una imagen (logo, foto, GIF) se usa como capa con la misma interfaz mínima que un <video>: el resto del código no distingue.

@@ -14,6 +14,8 @@
   button { font:inherit; color:inherit; background:none; border:0; padding:0; }
   .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
   .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
+  .top .pill { white-space:nowrap; flex:0 0 auto; }
+  @media (max-width:430px) { .top { gap:6px; padding:8px 10px; } .top .pill { padding:0 10px; font-size:13px; gap:4px; } .top .pill svg { width:18px; height:18px; } }
   .pill { height:36px; padding:0 14px; border-radius:18px; background:var(--bar); border:1px solid var(--line); display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:14px; }
   .pill.go { background:var(--ac); border-color:var(--ac); color:#0c1022; } .pill:disabled { opacity:.45; }
   #info { font-size:12px; color:var(--mut); padding:0 14px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:18px; }
@@ -60,6 +62,10 @@
   #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
   .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
   .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
+  #ovModes { position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:101; display:none; gap:2px; padding:3px; border-radius:18px; background:#000b; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  #ovModes button { min-width:56px; min-height:34px; padding:0 10px; border-radius:15px; font-size:13px; font-weight:600; color:var(--fg); } #ovModes button.on { background:#ffd24a; color:#1a1400; }
+  #ovGhost { position:absolute; pointer-events:none; opacity:.4; outline:1.5px dashed #ffd24a; outline-offset:0; display:none; z-index:0; }
+  body.sheetopen:not(.sov) #ovHandle, body.sheetopen:not(.sov) #ovModes { display:none !important; }
   #frame > #fxMain { position:absolute; inset:0; width:100%; height:100%; object-fit:var(--fit, contain); display:none; pointer-events:none; }
   #frame.fxon > #fxMain { display:block; } #frame.fxon > #v { visibility:hidden !important; }
   #olay canvas, #olay img { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border:0; -webkit-user-drag:none; }
@@ -120,7 +126,7 @@
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="shapeDefs"></defs></svg>
-<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"></div><div id="ov"></div><div id="ovHandle"></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"><canvas id="ovGhost" aria-hidden="true"></canvas></div><div id="ov"></div><div id="ovHandle"></div><div id="ovModes" role="group" aria-label="Qué mover"><button type="button" data-m="all" class="on" title="Mueve y cambia el tamaño de todo el recuadro">Todo</button><button type="button" data-m="video" title="Mueve y agranda el video por dentro de la forma">Video</button><button type="button" data-m="shape" title="Mueve y cambia el tamaño de la forma sin mover el video">Forma</button></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
@@ -343,8 +349,8 @@ function say(t, cls) {                       // aviso corto sobre la barra + cop
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { x.style.display = 'none'; }, 3800);
 }
 function fmt(n) { return Math.round(n * 100) / 100; }
-function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); }
-function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
+function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); }
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov'); }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
@@ -442,13 +448,20 @@ function primeAudioPreview() {   // dentro del toque en Play: iOS solo deja inic
 // ---- Videos superpuestos en la vista previa (un <video> por clip dentro de #olay) ----
 const opool = {};
 for (const [k, d] of Object.entries(SHAPE_PATHS)) $('shapeDefs').insertAdjacentHTML('beforeend', `<clipPath id="shp-${k}" clipPathUnits="objectBoundingBox"><path d="${d}"/></clipPath>`);
-let fltAny = false;
+let fltAny = false, ovMode = 'all';
+function ovPlace(node, cr) { const st = node.style; st.position = 'absolute'; st.inset = 'auto'; st.left = cr.x + 'px'; st.top = cr.y + 'px'; st.width = cr.w + 'px'; st.height = cr.h + 'px'; st.objectFit = 'fill'; st.transform = ''; st.objectPosition = ''; }
+function ovGhostShow(el, wr, cr, w, h) {   // «cuadrado transparente» del tamaño del video completo, para ubicarlo dentro de la forma
+  const gh = $('ovGhost'), L = parseFloat(wr.style.left) || 0, T = parseFloat(wr.style.top) || 0;
+  const gw = 240, gH = Math.max(2, Math.round(gw * cr.h / cr.w)); if (gh.width !== gw || gh.height !== gH) { gh.width = gw; gh.height = gH; }
+  try { gh.getContext('2d').drawImage(el, 0, 0, gw, gH); } catch {}
+  Object.assign(gh.style, { display: 'block', left: (L + cr.x) + 'px', top: (T + cr.y) + 'px', width: cr.w + 'px', height: cr.h + 'px' });
+}
 let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arrastras o mueves un control
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 function ensureOverlayEl(c) {
   let el = opool[c.id]; const m = media[c.asset_id]; if (el || !m) return el;
   if (m.kind === 'image') { if (m.gif) el = m.makeEl(); else { el = imageEl(new Image()); el.src = m.url; el.draggable = false; } } else { el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; }
-  opool[c.id] = el; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
+  opool[c.id] = el; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.dataset.id = c.id; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
   return el;
 }
 function syncOverlays() {
@@ -466,7 +479,9 @@ function syncOverlays() {
     wr.style.display = 'block'; wr.style.width = w + 'px'; wr.style.height = h + 'px';
     wr.style.opacity = String(fx.alpha * (typeof c.opacity === 'number' ? c.opacity : 1)); wr.style.left = (vr.left - sr.left + c.x * vr.width - w / 2 + fx.dx * vr.width) + 'px'; wr.style.top = (vr.top - sr.top + c.y * vr.height - h / 2) + 'px';
     const cp = SHAPE_PATHS[c.shape] ? `url(#shp-${c.shape})` : ''; wr.style.clipPath = cp; wr.style.webkitClipPath = cp; wr.style.borderRadius = c.shape === 'rounded' ? '12%' : '4px';
-    el.style.objectPosition = `${(c.px ?? 0.5) * 100}% ${(c.py ?? 0.5) * 100}%`; el.style.transform = (c.zoom || 1) !== 1 ? `scale(${c.zoom})` : '';
+    const cvw = m.w || el.videoWidth || 16, cvh = m.h || el.videoHeight || 9, cr = contentRect(w, h, cvw, cvh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5);
+    ovPlace(el, cr); el.dataset.cr = JSON.stringify([cr.x, cr.y, cr.w, cr.h]);
+    if (c.id === selId && ovMode !== 'all') ovGhostShow(el, wr, cr, w, h); else if (c.id === selId) $('ovGhost').style.display = 'none';
     let fs = wr.querySelector('svg.ofr'); if (c.frame > 0) { if (!fs) { fs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); fs.setAttribute('class', 'ofr'); fs.setAttribute('viewBox', '0 0 1 1'); fs.setAttribute('preserveAspectRatio', 'none'); fs.innerHTML = '<path fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'; wr.appendChild(fs); } const fp = fs.firstChild; fp.setAttribute('d', SHAPE_PATHS[c.shape] || 'M0 0H1V1H0Z'); fp.setAttribute('stroke', c.frameColor || '#ffffff'); fp.setAttribute('stroke-width', String(2 * c.frame * w)); } else if (fs) fs.remove();
     wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
     el.style.visibility = ''; if (fltOverlay(el, wr, c)) fltAny = true;
@@ -476,7 +491,7 @@ function syncOverlays() {
       else if (Math.abs(el.currentTime - want) > 0.35) { try { el.currentTime = want; } catch {} }
     } else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) { try { el.currentTime = want; } catch {} } }
   }
-  if (!handleShown) $('ovHandle').style.display = 'none';
+  if (!handleShown) { $('ovHandle').style.display = 'none'; $('ovGhost').style.display = 'none'; } $('ovModes').style.display = handleShown ? 'flex' : 'none';
   const fm = fltMainRefresh(); if ((fm || fltAny) && playing && !fltRaf) fltRaf = requestAnimationFrame(() => { fltRaf = 0; syncOverlays(); });
   fltAny = false;
   for (const id of Object.keys(opool)) if (!list.some(c => c.id === id)) { opool[id].parentElement.remove(); delete opool[id]; }
@@ -484,32 +499,54 @@ function syncOverlays() {
 function syncMedia() { syncAudioPreview(); syncOverlays(); }
 // Un dedo sobre un superpuesto lo mueve; dos dedos (pellizco) le cambian el tamaño; el círculo amarillo de su esquina también.
 let ovGestureOn = false;
-function ovGesture(c, e, mode) {
+function ovGesture(c, e, how) {
   if (ovGestureOn) return; ovGestureOn = true;
   e.preventDefault(); stopPlayIfAny(); selId = c.id; selPart = 'v';
-  const vr = $('frame').getBoundingClientRect(), pts = new Map([[e.pointerId, [e.clientX, e.clientY]]]);
-  const base = { x: c.x, y: c.y, scale: c.scale }; ovDrag = { id: c.id, ...base };
-  const m = media[c.asset_id], ar = (m && m.w && m.h) ? m.h / m.w : 16 / 9;
+  const vr = $('frame').getBoundingClientRect(), pts = new Map([[e.pointerId, [e.clientX, e.clientY]]]), mode = ovMode;
+  const m = media[c.asset_id], cvw = (m && m.w) || 16, cvh = (m && m.h) || 9;
+  const base = { x: c.x, y: c.y, scale: c.scale }; ovDrag = { id: c.id, ...base, zoom: c.zoom || 1, px: c.px ?? 0.5, py: c.py ?? 0.5 };
+  // Ventana (la forma) y contenido (el video completo) en píxeles del cuadro, al empezar el gesto.
+  const win0 = (sc, x, y) => { const w = sc * vr.width, h = w * overlayAr(c, cvw, cvh); return { left: x * vr.width - w / 2, top: y * vr.height - h / 2, w, h }; };
+  const W0 = win0(c.scale, c.x, c.y), cr0 = contentRect(W0.w, W0.h, cvw, cvh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), abs0 = { X: W0.left + cr0.x, Y: W0.top + cr0.y, W: cr0.w, H: cr0.h };
   const cx = vr.left + c.x * vr.width, cy = vr.top + c.y * vr.height;       // centro del superpuesto en pantalla
   const d0h = Math.max(20, Math.hypot(e.clientX - cx, e.clientY - cy));
-  let moved = false, pinch0 = 0, startX = e.clientX, startY = e.clientY;
-  const pd = (ev) => { if (mode === 'move' && !pts.has(ev.pointerId)) { pts.set(ev.pointerId, [ev.clientX, ev.clientY]); if (pts.size === 2) { const a = [...pts.values()]; pinch0 = Math.max(20, Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1])); base.scale = ovDrag.scale; moved = true; } } };
+  let moved = false, pinch0 = 0, startX = e.clientX, startY = e.clientY, scaleBase = c.scale, off = [0, 0];
+  const apply = (dx, dy, s) => {      // dx,dy en píxeles; s = factor de tamaño (1 = igual)
+    if (mode === 'all') {
+      ovDrag.scale = Math.max(0.05, Math.min(1, scaleBase * s));
+      ovDrag.x = clamp01(base.x + dx / vr.width); ovDrag.y = clamp01(base.y + dy / vr.height);
+    } else if (mode === 'video') {      // la forma queda quieta; el video se mueve y se agranda por dentro (alrededor del centro de la forma)
+      const ccx = W0.left + W0.w / 2, ccy = W0.top + W0.h / 2, W = abs0.W * s, H = abs0.H * s;
+      const r = solveContent(W0, { X: ccx + (abs0.X - ccx) * s + dx, Y: ccy + (abs0.Y - ccy) * s + dy, W, H }, cvw, cvh); Object.assign(ovDrag, r);
+    } else {                            // 'shape': se mueve/redimensiona la forma y el video se queda donde está en pantalla
+      const sc = Math.max(0.05, Math.min(1, scaleBase * s)), x = clamp01(base.x + dx / vr.width), y = clamp01(base.y + dy / vr.height), Wn = win0(sc, x, y);
+      const r = solveContent(Wn, abs0, cvw, cvh); Object.assign(ovDrag, { scale: sc, x, y }, r);
+    }
+  };
+  const pd = (ev) => { if (how === 'move' && !pts.has(ev.pointerId)) { pts.set(ev.pointerId, [ev.clientX, ev.clientY]); if (pts.size === 2) { const a = [...pts.values()]; pinch0 = Math.max(20, Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1])); moved = true; } } };
   const mv = (ev) => {
     if (!pts.has(ev.pointerId)) return; pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    if (mode === 'handle') { moved = true; ovDrag.scale = Math.max(0.05, Math.min(1, base.scale * Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0h)); }
-    else if (pts.size >= 2 && pinch0) { const a = [...pts.values()]; ovDrag.scale = Math.max(0.05, Math.min(1, base.scale * Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) / pinch0)); }
-    else if (pts.size === 1) { const dx = (ev.clientX - startX) / vr.width, dy = (ev.clientY - startY) / vr.height; if (Math.abs(dx) + Math.abs(dy) > 0.01) moved = true; ovDrag.x = clamp01(base.x + dx); ovDrag.y = clamp01(base.y + dy); }
+    if (how === 'handle') { moved = true; apply(0, 0, Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0h); }
+    else if (pts.size >= 2 && pinch0) { const a = [...pts.values()]; apply(off[0], off[1], Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) / pinch0); }
+    else if (pts.size === 1) { const dx = ev.clientX - startX, dy = ev.clientY - startY; if (Math.abs(dx) + Math.abs(dy) > 4) moved = true; off = [dx, dy]; apply(dx, dy, 1); }
     syncOverlays();
   };
   const up = () => {
     for (const [t, f] of [['pointermove', mv], ['pointerup', up], ['pointercancel', up], ['pointerdown', pd]]) window.removeEventListener(t, f);
     ovGestureOn = false; const d = ovDrag; ovDrag = null; const r3 = (n) => Math.round(n * 1000) / 1000;
-    if (moved) { const r = edit([{ op: 'set_overlay', clip_id: c.id, x: r3(d.x), y: r3(d.y), scale: r3(d.scale) }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); } else render();
+    if (moved) {
+      const o = { op: 'set_overlay', clip_id: c.id };
+      if (mode !== 'video') { o.x = r3(d.x); o.y = r3(d.y); o.scale = r3(d.scale); }
+      if (mode !== 'all') { o.zoom = r3(d.zoom); o.px = r3(d.px); o.py = r3(d.py); }
+      const r = edit([o]); if (!r.ok) say('No se pudo: ' + r.message, 'bad');
+    } else render();
     if ($('sOver').classList.contains('on')) ovSync();
   };
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); window.addEventListener('pointerdown', pd);
 }
-$('olay').addEventListener('pointerdown', (e) => { const el = e.target.closest('video'); if (!el) return; const c = anyClip(el.dataset.id); if (c) ovGesture(c, e, 'move'); });
+$('olay').addEventListener('pointerdown', (e) => { const wr = e.target.closest('.ow'); if (!wr) return; const c = anyClip(wr.dataset.id); if (c) ovGesture(c, e, 'move'); });
+$('ovModes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; ovMode = b.dataset.m; $('ovModes').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (ovMode === 'all') $('ovGhost').style.display = 'none'; syncOverlays(); });
+$('ovModes').addEventListener('pointerdown', (e) => e.stopPropagation()); $('ovModes').addEventListener('pointerup', (e) => e.stopPropagation());
 $('ovHandle').addEventListener('pointerdown', (e) => { const c = anyClip(selId); if (c && kindOf(c.id) === 'overlay') ovGesture(c, e, 'handle'); });
 // ---- Pantalla ampliada: botón ⤢ o doble toque sobre el cuadro. Esconde la línea de tiempo y la barra para tener más espacio al mover capas, memes, CG… ----
 function toggleBig() { document.body.classList.toggle('big'); requestAnimationFrame(() => { syncOverlays(); requestAnimationFrame(syncOverlays); }); say(document.body.classList.contains('big') ? 'Pantalla ampliada. Doble toque o ⤢ para volver.' : 'Pantalla normal.', 'ok'); }
@@ -1433,7 +1470,7 @@ function fltOverlay(el, wr, c) {      // capa con filtro: se dibuja en un <canva
   if (!out) { if (fl) fl.remove(); el.style.visibility = ''; return false; }
   if (!fl) { fl = document.createElement('canvas'); fl.className = 'fxl'; wr.appendChild(fl); }
   if (fl.width !== out.width || fl.height !== out.height) { fl.width = out.width; fl.height = out.height; }
-  fl.getContext('2d').drawImage(out, 0, 0); fl.style.objectPosition = el.style.objectPosition; fl.style.transform = el.style.transform; el.style.visibility = 'hidden'; return true;
+  fl.getContext('2d').drawImage(out, 0, 0); { const r = JSON.parse(el.dataset.cr || 'null'); if (r) ovPlace(fl, { x: r[0], y: r[1], w: r[2], h: r[3] }); } el.style.visibility = 'hidden'; return true;
 }
 function fltSync() {
   const c = fltTarget(), ok = !!c && kindOf(c.id) !== 'audio';
