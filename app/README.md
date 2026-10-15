@@ -138,3 +138,12 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Se guardan y reabren con el proyecto (el GIF se vuelve a decodificar al abrir).
 - Verificado en Chromium simulado (PNG con alpha y GIF exportados y medidos). NO verificado en iPhone: formatos HEIC/WebP, GIF muy grandes, video con transparencia (WebM con alfa no existe en Safari; HEVC con alfa .mov sin probar).
 - Aún no: foto como clip del video principal (pase de diapositivas) y biblioteca de material; filtros de color y transiciones deportivas.
+
+## Filtros de color y grano
+
+- Botón **Filtros** (barra de herramientas): 11 ajustes preparados con fórmulas propias (Cámara antigua, Rollo de película, Grano fino, Blanco y negro, Noir, Sepia, Cálido, Frío, Intenso, Mate, Deportivo) y 8 deslizadores (brillo, contraste, saturación, calidez, sepia, desvanecido, viñeta, grano). Se aplica al clip elegido (video principal o capa); «Poner este filtro en todos los videos» y «Quitar filtro».
+- Operación validada `set_clip_filter` (`core/filters.mjs`): entra en el deshacer, se guarda con el proyecto y se conserva al cortar el clip. Los deslizadores muestran el valor provisional y solo al soltar entran al historial.
+- Se calcula en la tarjeta gráfica (WebGL, `app/filters-gl.mjs`) con la misma fórmula en la vista previa y al exportar; el shader coincide con la referencia en JS con diferencia máxima de 0,5/255. El grano cambia 24 veces por segundo y es idéntico en pantalla y exportación.
+- Verificado en Chromium simulado (no iPhone): vista previa en blanco y negro con canales iguales, reproducción, exportación (píxeles medidos), «todos», deshacer, reabrir. **NO verificado en iPhone**: fluidez con 1–4 videos filtrados a la vez (cada cuadro se sube a la GPU), límite de contextos WebGL de Safari, exportación larga con filtros.
+- Sin librerías de terceros. No se copió nada de otras apps: los nombres y números de los ajustes son propios. (Ref.: glfx.js es MIT [verificado en npm], no se usa.)
+- También: etiquetas de «pantalla de inicio» (ícono propio, pantalla completa al añadirla desde Safari).

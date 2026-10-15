@@ -1,6 +1,7 @@
 // Operaciones validadas. La IA propone; el validador decide. Todo-o-nada por lote.
 // — Claude
 import { clipLength, totalDuration } from './project.mjs';
+import { LOOK_IDS, filterProblem, mergeFilter, FILTER_KEYS } from './filters.mjs';
 
 const MAX_TEXT = 120;
 const err = (code, message) => ({ ok: false, code, message });
@@ -116,6 +117,19 @@ const handlers = {
     if (dur !== undefined) c.fxDur = dur;
     return { ok: true };
   },
+  // Filtro de color de un clip de video (principal o superpuesto). `look` = ajuste preparado (ver core/filters.mjs); los demás números lo retocan. look:'none' o reset:true lo quita.
+  set_clip_filter(p, { clip_id, look, reset, ...params }) {
+    const c = [...(p.clips || []), ...(p.overlayClips || [])].find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip de video ${clip_id}`);
+    if (look !== undefined && !LOOK_IDS.includes(look)) return err('bad_filter', `look debe ser uno de ${LOOK_IDS.join(', ')}`);
+    const given = FILTER_KEYS.filter((k) => params[k] !== undefined);
+    if (look === undefined && reset !== true && !given.length) return err('bad_filter', `Indica look, reset o alguno de: ${FILTER_KEYS.join(', ')}`);
+    const bad = filterProblem(params); if (bad) return err('bad_filter', bad);
+    if (reset === true || look === 'none') { delete c.filter; return { ok: true }; }
+    const f = mergeFilter(c.filter, look, params);
+    if (f) c.filter = f; else delete c.filter;
+    return { ok: true };
+  },
   set_format(p, { aspect, fit }) {
     if (aspect === undefined && fit === undefined) return err('bad_format', 'Indica aspect y/o fit');
     if (aspect !== undefined && !FORMATS.includes(aspect)) return err('bad_format', `aspect debe ser uno de ${FORMATS.join(', ')}`);
@@ -145,6 +159,7 @@ const handlers = {
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera
     if (c.fxDur !== undefined) right.fxDur = c.fxDur;
+    if (c.filter !== undefined) right.filter = { ...c.filter };   // el filtro sigue en las dos partes
     c.out = at;
     p[grp].push(right);
     return { ok: true, id };

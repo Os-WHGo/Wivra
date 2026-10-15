@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Wivra"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEB0lEQVR42u3dPVIcMRRF4UHFCigiE7I9AkIiAiKHDrw9QvbhwAnlwjbMtKT3853MdnlaLR3d9zR0F1c3t99OwEcMUwBygBwgB8gBcoAcIAfIAXKAHAA5QA6QA+QAOUAO5OA64Jiefrz1XIzvj3ehxnMV4THBtjYEd2WnHJwIbskeOWiRQpHVctAikSLr5KBFOkUGMzKyZj4HM/ixp6zQInWJGcwQIavlYEYBPwYz+LFODmaU8WMwgx87j7JIygirLbavwmAGP+bKwYySfug5MFMOsVE1PCQHpskhNgqHh+TAHDnERu3wkBwgB1bKoaaUryySA+QAOUAOrODMVxOO7UZfHu7f//H552vPxZg6D2e8wXAdajre/2UrRWLOw4g2I5/81/JmRJiHEXNG+vgReR40pAgmx+e3Qu3wCD4PkgOZ5agaHvHvS3KAHMgiR9vvQHPNWI7kqNd2pLij0WoriA09B5rJUamyZLmXnXKoLMFnSVkBOZBOji9lZo2240t3sbfySg6QA+XlyF5Zco1/vxwOtGFnRlkBOZBUjiYH2kSHWMkBcqCVHBkrS8YxR/ld9s8/X/dOX6iXuYMc75WVj7d1nzd1yXFO4PMjkBzrD7QvD/f/fcP9qAulqymtk8P7uuRASzku2dBf/b8rr0WO6OXWDDQtK+dt5Yadh54DeeSYfaBd3D0kPcR2TI7LS0Or4qKsoK4c67/L6vPtWUQ5eh5oA951l7Jy7CZu0nnoOZBNjmMPtDM2+rEXjVlJ6yfHvBJQvrgoK3rh6nLsepqr9lNkwyb+44q7rkuOIt1Gk85Dz/HB9tV5JJDjkgPthSfJjZcmR7WoL1lclJW/7l3FpZQcv7fvrk289+od5Zi9ff/9+XuvTo5Stb9Y59G65/jMxu3ceYwaSzj1Y7cPgBwgR8406llcJAeSy3Hsxj3v0yKMgRwgR8IQ6tZ5jA6LeuCHBBkGOUCObF1tn+IiOVBCjji9ZJOuVnKgtxwzNmuHzmOUX+Z5qxhqMOQAOfKEf+3iIjlQSI7tT3AFH4/kADku2IIrt2nVB5WzJsfe903ij6d7WYn2GmO91yrPlOP7411MP6L9VscgZpy3Xten5ETbl5W++XBaATlADoSQI0hPinkrJTlADiyWQ2UpXFMkB2bKITyqxobkwGQ5hEfJ2JAcmC+H8KgXG0cmBz+KmXFwWeFHJTP0HFgoh/AoExtTkoMfNcyYVVb4UcCMiT0HP7KbMbch5UdqM06n09XN7bfZo3/68WYJM26/UeAemJFYDn4knc8VZUWJSbrNVstBkUTpu0cOiqQoyjvlYEnwRi2EHFyJ2bZHlANB8CN7kAPkADlADpAD5AA5QA6QA+QAyAFygBwgB8iBWPwCpbOki4mEkJcAAAAASUVORK5CYII=">
 <title>Wivra · editor</title>
 <style>
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
@@ -59,6 +60,8 @@
   #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
   .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
   .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
+  #frame > #fxMain { position:absolute; inset:0; width:100%; height:100%; object-fit:var(--fit, contain); display:none; pointer-events:none; }
+  #frame.fxon > #fxMain { display:block; } #frame.fxon > #v { visibility:hidden !important; }
   #olay canvas, #olay img { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border:0; -webkit-user-drag:none; }
   #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
   input[type=checkbox] { width:auto; flex:0 0 auto; }
@@ -117,7 +120,7 @@
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="shapeDefs"></defs></svg>
-<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><div id="olay"></div><div id="ov"></div><div id="ovHandle"></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"></div><div id="ov"></div><div id="ovHandle"></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
@@ -138,6 +141,7 @@
   <button class="tool" id="bFormat" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8v8M21 8v8"/></svg>Formato</button>
   <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Capa</button>
   <button class="tool" id="bFx" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos</button>
+  <button class="tool" id="bFilt" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></svg>Filtros</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="home"><div class="hin">
   <h1>Wivra</h1><p class="m">¿Qué quieres hacer?</p>
@@ -181,6 +185,12 @@
   <p class="m">Al desaparecer</p><div class="chips" id="fxOut"><button data-v="none">Ninguno</button><button data-v="fade">Fundido</button><button data-v="slide">Deslizar</button><button data-v="zoom">Zoom</button></div>
   <label class="m">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <button id="fxDone" class="btn">Listo</button></div>
+<div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m" id="fltInfo">Elige un video en la línea de tiempo.</p>
+  <div class="chips" id="fltLooks"></div>
+  <div id="fltSliders"></div>
+  <button id="fltAll" class="btn sec" type="button">Poner este filtro en todos los videos</button>
+  <button id="fltReset" class="btn sec" type="button">Quitar filtro</button>
+  <button id="fltDone" class="btn" type="button">Listo</button></div>
 <div class="sheet" id="sDel"><h2>¿Qué borrar?</h2><p class="m" id="delInfo"></p>
   <button id="delBoth" class="btn">Video y audio (los siguientes se juntan)</button>
   <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
@@ -319,8 +329,64 @@ const totalDuration = (p) => p.clips.reduce((m, c) => Math.max(m, c.start + (c.o
 const timelineEnd = (p) => [p.clips, p.overlayClips || [], p.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
 const clipLength = (c) => c.out - c.in;
 
+// Filtros de color de Wivra (fórmulas propias, sin código de otras apps). Puro y sin dependencias; el mismo cálculo corre en la tarjeta gráfica (app/filters-gl.mjs).
+// Un filtro de clip es un objeto con parámetros numéricos (todo en 0 = sin cambio) y, opcional, `look` (nombre del ajuste preparado de donde salió).
+// — Claude
+const FILTER_RANGES = { brightness: [-1, 1], contrast: [-1, 1], saturation: [-1, 1], warmth: [-1, 1], sepia: [0, 1], fade: [0, 1], vignette: [0, 1], grain: [0, 1] };
+const FILTER_KEYS = Object.keys(FILTER_RANGES);
+// Ajustes preparados («looks»): nombre para mostrar + parámetros. Ids estables (los usa la IA y se guardan en el proyecto).
+const LOOK_PRESETS = {
+  vintage: { name: 'Cámara antigua', p: { saturation: -0.25, contrast: 0.1, warmth: 0.3, sepia: 0.15, fade: 0.35, vignette: 0.4, grain: 0.3 } },
+  film: { name: 'Rollo de película', p: { contrast: 0.2, saturation: 0.15, warmth: 0.12, fade: 0.2, vignette: 0.25, grain: 0.55 } },
+  grain: { name: 'Grano fino', p: { grain: 0.5 } },
+  bw: { name: 'Blanco y negro', p: { saturation: -1, contrast: 0.25 } },
+  noir: { name: 'Noir', p: { saturation: -1, contrast: 0.5, brightness: -0.05, vignette: 0.6, grain: 0.35 } },
+  sepia: { name: 'Sepia', p: { sepia: 0.9, contrast: 0.1, vignette: 0.25 } },
+  warm: { name: 'Cálido', p: { warmth: 0.5, saturation: 0.12 } },
+  cool: { name: 'Frío', p: { warmth: -0.5, saturation: 0.05, contrast: 0.05 } },
+  vivid: { name: 'Intenso', p: { saturation: 0.45, contrast: 0.2 } },
+  matte: { name: 'Mate', p: { fade: 0.45, contrast: -0.1, saturation: -0.15 } },
+  sport: { name: 'Deportivo', p: { contrast: 0.35, saturation: 0.35, brightness: 0.03, vignette: 0.15 } },
+};
+const LOOK_IDS = ['none', ...Object.keys(LOOK_PRESETS)];
+
+const flNum = (v) => typeof v === 'number' && Number.isFinite(v);
+/** Valida parámetros sueltos. → null si están bien, o un texto con el problema. */
+function filterProblem(params) {
+  for (const k of Object.keys(params)) {
+    if (!FILTER_KEYS.includes(k)) continue;
+    const v = params[k]; if (v === undefined) continue; const [lo, hi] = FILTER_RANGES[k];
+    if (!flNum(v) || v < lo || v > hi) return `${k} debe estar entre ${lo} y ${hi}`;
+  }
+  return null;
+}
+/** Une un filtro base con cambios; deja solo lo que no es cero. `look` se conserva solo si los números siguen siendo los del preset. → filtro o null (sin filtro). */
+function mergeFilter(base, look, params) {
+  const out = {}; const src = look && look !== 'none' ? LOOK_PRESETS[look].p : (base || {});
+  for (const k of FILTER_KEYS) { const v = params && params[k] !== undefined ? params[k] : src[k]; if (flNum(v) && Math.abs(v) > 1e-9) out[k] = Math.round(v * 1000) / 1000; }
+  const lk = look && look !== 'none' ? look : (base && base.look);
+  if (lk && LOOK_PRESETS[lk] && FILTER_KEYS.every((k) => (out[k] || 0) === (LOOK_PRESETS[lk].p[k] || 0))) out.look = lk;
+  return Object.keys(out).length ? out : null;
+}
+const hasFilter = (f) => !!f && FILTER_KEYS.some((k) => Math.abs(f[k] || 0) > 1e-9);
+
+const flClamp = (x) => Math.min(1, Math.max(0, x));
+/** Cálculo de referencia (igual que el shader), sin el grano. rgb en 0..1, uv en 0..1 (para la viñeta). */
+function filterRGB(rgb, f, uv = [0.5, 0.5]) {
+  let [r, g, b] = rgb; const F = (k) => (f && f[k]) || 0;
+  r += F('brightness') * 0.3; g += F('brightness') * 0.3; b += F('brightness') * 0.3;
+  const k = F('contrast'), cf = k >= 0 ? 1 + k : 1 + k * 0.8; r = (r - 0.5) * cf + 0.5; g = (g - 0.5) * cf + 0.5; b = (b - 0.5) * cf + 0.5;
+  const lum = (x, y, z) => 0.2126 * x + 0.7152 * y + 0.0722 * z, sat = 1 + F('saturation'); { const l = lum(r, g, b); r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat; }
+  const sp = F('sepia'); if (sp > 0) { const sr = 0.393 * r + 0.769 * g + 0.189 * b, sg = 0.349 * r + 0.686 * g + 0.168 * b, sb = 0.272 * r + 0.534 * g + 0.131 * b; r += (sr - r) * sp; g += (sg - g) * sp; b += (sb - b) * sp; }
+  const w = F('warmth'); r += w * 0.08; g += w * 0.02; b -= w * 0.08;
+  const fd = F('fade'); r = r * (1 - 0.18 * fd) + 0.12 * fd; g = g * (1 - 0.18 * fd) + 0.12 * fd; b = b * (1 - 0.18 * fd) + 0.12 * fd;
+  const v = F('vignette'); if (v > 0) { const d = Math.hypot(uv[0] - 0.5, uv[1] - 0.5) * 1.4142; const t = flClamp((d - 0.35) / 0.65), sm = t * t * (3 - 2 * t), m = 1 - v * sm * 0.8; r *= m; g *= m; b *= m; }
+  return [flClamp(r), flClamp(g), flClamp(b)];
+}
+
 // Operaciones validadas. La IA propone; el validador decide. Todo-o-nada por lote.
 // — Claude
+
 
 
 const MAX_TEXT = 120;
@@ -437,6 +503,19 @@ const handlers = {
     if (dur !== undefined) c.fxDur = dur;
     return { ok: true };
   },
+  // Filtro de color de un clip de video (principal o superpuesto). `look` = ajuste preparado (ver core/filters.mjs); los demás números lo retocan. look:'none' o reset:true lo quita.
+  set_clip_filter(p, { clip_id, look, reset, ...params }) {
+    const c = [...(p.clips || []), ...(p.overlayClips || [])].find((k) => k.id === clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip de video ${clip_id}`);
+    if (look !== undefined && !LOOK_IDS.includes(look)) return err('bad_filter', `look debe ser uno de ${LOOK_IDS.join(', ')}`);
+    const given = FILTER_KEYS.filter((k) => params[k] !== undefined);
+    if (look === undefined && reset !== true && !given.length) return err('bad_filter', `Indica look, reset o alguno de: ${FILTER_KEYS.join(', ')}`);
+    const bad = filterProblem(params); if (bad) return err('bad_filter', bad);
+    if (reset === true || look === 'none') { delete c.filter; return { ok: true }; }
+    const f = mergeFilter(c.filter, look, params);
+    if (f) c.filter = f; else delete c.filter;
+    return { ok: true };
+  },
   set_format(p, { aspect, fit }) {
     if (aspect === undefined && fit === undefined) return err('bad_format', 'Indica aspect y/o fit');
     if (aspect !== undefined && !FORMATS.includes(aspect)) return err('bad_format', `aspect debe ser uno de ${FORMATS.join(', ')}`);
@@ -466,6 +545,7 @@ const handlers = {
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera
     if (c.fxDur !== undefined) right.fxDur = c.fxDur;
+    if (c.filter !== undefined) right.filter = { ...c.filter };   // el filtro sigue en las dos partes
     c.out = at;
     p[grp].push(right);
     return { ok: true, id };
@@ -1252,12 +1332,13 @@ function imageEl(img) {
   Object.defineProperties(img, { paused: { value: true }, currentTime: { get: () => 0, set: () => {} }, videoWidth: { get: () => img.naturalWidth }, videoHeight: { get: () => img.naturalHeight } });
   img.pause = () => {}; img.play = () => Promise.resolve(); return img;
 }
-function drawOverlay(g, el, c, r) {
+function drawOverlay(g, el, c, r, t = 0) {
   const vw = el.videoWidth || el.naturalWidth, vh = el.videoHeight || el.naturalHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
-  try { g.drawImage(el, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t)) || el;
+  try { g.drawImage(src, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
   if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
     g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
     const p2 = new Path2D(); p2.addPath(new Path2D(d || 'M0 0H1V1H0Z'), new DOMMatrix([r.w, 0, 0, r.h, 0, 0])); g.stroke(p2);
@@ -1303,12 +1384,13 @@ function drawFrame(g, W, H, video, project, t, overlays = []) {
   if (video && video.videoWidth > 0) {
     const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
     const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
-    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(video, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
+    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t)) || video;   // filtro de color en la tarjeta gráfica
+    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
-    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r); g.restore();
+    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r, t); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -1795,6 +1877,67 @@ function gifCanvasEl(gif) {
   cv.pause = () => {}; cv.play = () => Promise.resolve(); return cv;
 }
 
+// Wivra · filtros de color en la tarjeta gráfica (WebGL). Un solo contexto compartido: se dibuja el fotograma con el filtro y se copia donde haga falta.
+// Misma fórmula que filterRGB() de core/filters.mjs; el grano usa un ruido que cambia 24 veces por segundo (igual en vista previa y exportación). — Claude
+// Solo navegador. Si WebGL no está disponible, fxRender devuelve null y el clip se ve sin filtro.
+let fxS = null, fxDead = false;
+const FX_VS = 'attribute vec2 p; varying vec2 uv; void main(){ uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
+const FX_FS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 uv; uniform sampler2D tex; uniform vec2 res;
+uniform float B, C, S, Sep, W, Fd, V, G, seed;
+void main(){
+  vec4 px = texture2D(tex, uv); vec3 c = px.rgb;
+  c += B * 0.3;
+  float cf = C >= 0.0 ? 1.0 + C : 1.0 + C * 0.8; c = (c - 0.5) * cf + 0.5;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = vec3(l) + (c - vec3(l)) * (1.0 + S);
+  if (Sep > 0.0) { vec3 sp = vec3(dot(c, vec3(0.393, 0.769, 0.189)), dot(c, vec3(0.349, 0.686, 0.168)), dot(c, vec3(0.272, 0.534, 0.131))); c += (sp - c) * Sep; }
+  c += vec3(W * 0.08, W * 0.02, -W * 0.08);
+  c = c * (1.0 - 0.18 * Fd) + 0.12 * Fd;
+  if (V > 0.0) { float d = distance(uv, vec2(0.5)) * 1.4142; float t = clamp((d - 0.35) / 0.65, 0.0, 1.0); c *= 1.0 - V * (t * t * (3.0 - 2.0 * t)) * 0.8; }
+  if (G > 0.0) { float n = fract(sin(dot(floor(uv * res) + seed, vec2(12.9898, 78.233))) * 43758.5453) - 0.5; float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c += n * G * 0.35 * (1.0 - 0.6 * abs(lm * 2.0 - 1.0)); }
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), px.a);
+}`;
+function fxInit() {
+  if (fxS) return fxS; if (fxDead || typeof document === 'undefined') return null;
+  try {
+    const cv = document.createElement('canvas'), gl = cv.getContext('webgl', { alpha: true, premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
+    if (!gl) { fxDead = true; return null; }
+    const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, FX_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FX_FS)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    gl.useProgram(pr);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    const u = {}; for (const n of ['res', 'B', 'C', 'S', 'Sep', 'W', 'Fd', 'V', 'G', 'seed']) u[n] = gl.getUniformLocation(pr, n);
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); fxS = null; });
+    return (fxS = { cv, gl, u });
+  } catch { fxDead = true; return null; }
+}
+const fxDims = (s) => s.videoWidth ? [s.videoWidth, s.videoHeight] : s.naturalWidth ? [s.naturalWidth, s.naturalHeight] : [s.width || 0, s.height || 0];
+/** Dibuja `src` (video, imagen o canvas) con el filtro `f` en el instante `t` (s). → canvas compartido (úsalo enseguida: el siguiente fxRender lo reemplaza), o null si no se puede. */
+function fxRender(src, f, t) {
+  const S = fxInit(); if (!S || !src) return null;
+  const [w0, h0] = fxDims(src); if (!(w0 > 0 && h0 > 0)) return null;
+  const k = Math.min(1, 1280 / Math.max(w0, h0)), w = Math.max(2, Math.round(w0 * k)), h = Math.max(2, Math.round(h0 * k)), { cv, gl, u } = S;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { return null; }
+  const F = (n) => (f && f[n]) || 0;
+  gl.viewport(0, 0, w, h); gl.uniform2f(u.res, w, h);
+  gl.uniform1f(u.B, F('brightness')); gl.uniform1f(u.C, F('contrast')); gl.uniform1f(u.S, F('saturation')); gl.uniform1f(u.Sep, F('sepia'));
+  gl.uniform1f(u.W, F('warmth')); gl.uniform1f(u.Fd, F('fade')); gl.uniform1f(u.V, F('vignette')); gl.uniform1f(u.G, F('grain'));
+  gl.uniform1f(u.seed, (Math.floor((t || 0) * 24) % 997) * 0.37);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  return cv;
+}
+
 // Wivra · conexión directa con una IA (sin copiar y pegar). Un solo contrato "OpenAI compatible"
 // que sirve para varios proveedores: tú pones dirección, modelo y tu propia clave.
 // - La clave vive solo en la memoria de la página (no se guarda, no va al repositorio ni al proyecto).
@@ -1964,7 +2107,7 @@ $('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 function render() {
   const p = session?.project, on = !!p;
   if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio','bFilt']) $(id).disabled = !on;
   const selc = anyClip(selId); $('bOver').disabled = !(selc && kindOf(selc.id) === 'overlay'); $('bFormat').disabled = !on; $('bAdd').disabled = !on; $('bFx').disabled = !(selc && kindOf(selc.id) !== 'audio');
   $('del').lastChild.textContent = selc && selPart === 'a' && kindOf(selc.id) !== 'audio' ? (selc.muted ? 'Poner audio' : 'Quitar audio') : 'Borrar';
   $('observe').disabled = !on || visualBusy; aiSync();
@@ -2041,6 +2184,7 @@ function primeAudioPreview() {   // dentro del toque en Play: iOS solo deja inic
 // ---- Videos superpuestos en la vista previa (un <video> por clip dentro de #olay) ----
 const opool = {};
 for (const [k, d] of Object.entries(SHAPE_PATHS)) $('shapeDefs').insertAdjacentHTML('beforeend', `<clipPath id="shp-${k}" clipPathUnits="objectBoundingBox"><path d="${d}"/></clipPath>`);
+let fltAny = false;
 let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arrastras o mueves un control
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 function ensureOverlayEl(c) {
@@ -2067,6 +2211,7 @@ function syncOverlays() {
     el.style.objectPosition = `${(c.px ?? 0.5) * 100}% ${(c.py ?? 0.5) * 100}%`; el.style.transform = (c.zoom || 1) !== 1 ? `scale(${c.zoom})` : '';
     let fs = wr.querySelector('svg.ofr'); if (c.frame > 0) { if (!fs) { fs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); fs.setAttribute('class', 'ofr'); fs.setAttribute('viewBox', '0 0 1 1'); fs.setAttribute('preserveAspectRatio', 'none'); fs.innerHTML = '<path fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'; wr.appendChild(fs); } const fp = fs.firstChild; fp.setAttribute('d', SHAPE_PATHS[c.shape] || 'M0 0H1V1H0Z'); fp.setAttribute('stroke', c.frameColor || '#ffffff'); fp.setAttribute('stroke-width', String(2 * c.frame * w)); } else if (fs) fs.remove();
     wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
+    el.style.visibility = ''; if (fltOverlay(el, wr, c)) fltAny = true;
     if (c.id === selId) { const hh = $('ovHandle'); hh.style.display = 'block'; hh.style.left = Math.max(0, Math.min(vr.width - 16, c.x * vr.width + w / 2 - 8)) + 'px'; hh.style.top = Math.max(0, Math.min(vr.height - 16, c.y * vr.height + h / 2 - 8)) + 'px'; handleShown = true; }
     if (playing) {
       if (el.paused) { try { el.currentTime = want; } catch {} el.play().catch(() => {}); }
@@ -2074,6 +2219,8 @@ function syncOverlays() {
     } else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) { try { el.currentTime = want; } catch {} } }
   }
   if (!handleShown) $('ovHandle').style.display = 'none';
+  const fm = fltMainRefresh(); if ((fm || fltAny) && playing && !fltRaf) fltRaf = requestAnimationFrame(() => { fltRaf = 0; syncOverlays(); });
+  fltAny = false;
   for (const id of Object.keys(opool)) if (!list.some(c => c.id === id)) { opool[id].parentElement.remove(); delete opool[id]; }
 }
 function syncMedia() { syncAudioPreview(); syncOverlays(); }
@@ -3005,6 +3152,72 @@ $('dirApplyEdit').onclick=()=>{
  }catch(e){quickPending=null;quickAgent=null;
   $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
 };
+
+/* ---------- Filtros de color (WebGL): vista previa igual a la exportación ---------- */
+let fltDrag = null, fltRaf = 0;      // fltDrag = {id, filter}: valores provisionales mientras mueves un control
+const FLT_LABELS = { brightness: 'Brillo', contrast: 'Contraste', saturation: 'Saturación', warmth: 'Calidez', sepia: 'Sepia', fade: 'Desvanecido', vignette: 'Viñeta', grain: 'Grano' };
+const fltOf = (c) => (fltDrag && fltDrag.id === c.id) ? fltDrag.filter : c.filter;
+function fltTarget() {
+  const s = anyClip(selId); if (s && kindOf(s.id) !== 'audio') return s;
+  const h = session && clipAt(session.project, tlTime); return h ? h.clip : null;
+}
+function fltMainRefresh() {
+  const fr = $('frame'), v = $('v'), hit = session && clipAt(session.project, tlTime), f = hit && fltOf(hit.clip);
+  if (f && v.readyState >= 2 && v.videoWidth > 0) {
+    const out = fxRender(v, f, tlTime), cv = $('fxMain');
+    if (out) { if (cv.width !== out.width || cv.height !== out.height) { cv.width = out.width; cv.height = out.height; } cv.getContext('2d').drawImage(out, 0, 0); cv.style.opacity = v.style.opacity; cv.style.transform = v.style.transform; fr.classList.add('fxon'); return true; }
+  }
+  fr.classList.remove('fxon'); return false;
+}
+function fltOverlay(el, wr, c) {      // capa con filtro: se dibuja en un <canvas> encima del medio original (que sigue sonando/avanzando oculto)
+  let fl = wr.querySelector('canvas.fxl'); const f = fltOf(c); let out = null;
+  if (f && (el.videoWidth > 0 || el.naturalWidth > 0 || el.width > 0)) out = fxRender(el, f, tlTime);
+  if (!out) { if (fl) fl.remove(); el.style.visibility = ''; return false; }
+  if (!fl) { fl = document.createElement('canvas'); fl.className = 'fxl'; wr.appendChild(fl); }
+  if (fl.width !== out.width || fl.height !== out.height) { fl.width = out.width; fl.height = out.height; }
+  fl.getContext('2d').drawImage(out, 0, 0); fl.style.objectPosition = el.style.objectPosition; fl.style.transform = el.style.transform; el.style.visibility = 'hidden'; return true;
+}
+function fltSync() {
+  const c = fltTarget(), ok = !!c && kindOf(c.id) !== 'audio';
+  $('fltInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
+  const f = (ok && c.filter) || {};
+  document.querySelectorAll('#fltLooks button').forEach(b => b.classList.toggle('on', (b.dataset.look === 'none' && !c?.filter) || (!!c && b.dataset.look === f.look)));
+  for (const k of Object.keys(FLT_LABELS)) { const r = $('flt_' + k); if (r) { r.value = Math.round((f[k] || 0) * 100); r.previousElementSibling.textContent = r.value; r.disabled = !ok; } }
+  $('fltAll').disabled = !ok || !c.filter; $('fltReset').disabled = !ok || !c.filter;
+}
+(function fltBuild() {
+  const l = $('fltLooks'); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; b.textContent = name; l.appendChild(b); };
+  mk('none', 'Sin filtro'); for (const [id, v] of Object.entries(LOOK_PRESETS)) mk(id, v.name);
+  const box = $('fltSliders');
+  for (const k of Object.keys(FLT_LABELS)) {
+    const lo = FILTER_RANGES[k][0] < 0 ? -100 : 0, lab = document.createElement('label'); lab.className = 'm';
+    lab.innerHTML = `${FLT_LABELS[k]}: <b>0</b><input type="range" id="flt_${k}" min="${lo}" max="100" step="1" value="0" style="width:100%">`;
+    box.appendChild(lab);
+    const r = lab.querySelector('input'), b = lab.querySelector('b');
+    r.addEventListener('input', () => {
+      const c = fltTarget(); if (!c) return; b.textContent = r.value;
+      const cur = { ...(c.filter || {}) }; delete cur.look; cur[k] = Number(r.value) / 100;
+      fltDrag = { id: c.id, filter: cur }; syncOverlays(); showFrame();
+    });
+    r.addEventListener('change', () => {
+      const c = fltTarget(); fltDrag = null; if (!c) return;
+      const res = edit([{ op: 'set_clip_filter', clip_id: c.id, [k]: Number(r.value) / 100 }], { ripple: false }); if (!res.ok) say('No se pudo: ' + res.message, 'bad'); fltSync(); showFrame();
+    });
+  }
+})();
+$('fltLooks').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return; const c = fltTarget(); if (!c) return;
+  const r = edit([{ op: 'set_clip_filter', clip_id: c.id, look: b.dataset.look }], { ripple: false }); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fltSync(); showFrame();
+});
+$('fltReset').onclick = () => { const c = fltTarget(); if (!c) return; edit([{ op: 'set_clip_filter', clip_id: c.id, reset: true }], { ripple: false }); fltSync(); showFrame(); };
+$('fltAll').onclick = () => {
+  const c = fltTarget(); if (!c || !c.filter) return; const { look, ...params } = c.filter;
+  const ops = [...session.project.clips, ...(session.project.overlayClips || [])].filter(k => k.id !== c.id).map(k => ({ op: 'set_clip_filter', clip_id: k.id, ...(look ? { look } : params) }));
+  if (!ops.length) return say('No hay otros videos.', 'bad');
+  const r = edit(ops, { ripple: false }); say(r.ok ? 'Filtro puesto en todos los videos.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad'); fltSync(); showFrame();
+};
+$('bFilt').onclick = () => { fltSync(); openSheet('sFilt'); }; $('fltDone').onclick = closeSheets;
+$('v').addEventListener('seeked', () => { if (session) fltMainRefresh(); }); $('v').addEventListener('loadeddata', () => { if (session) fltMainRefresh(); });
 
 /* ---------- Inicio, Mis proyectos, guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
 let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [], pzPid = null, pzName = '', pzBase = null;

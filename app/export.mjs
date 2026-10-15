@@ -110,12 +110,13 @@ export function imageEl(img) {
   Object.defineProperties(img, { paused: { value: true }, currentTime: { get: () => 0, set: () => {} }, videoWidth: { get: () => img.naturalWidth }, videoHeight: { get: () => img.naturalHeight } });
   img.pause = () => {}; img.play = () => Promise.resolve(); return img;
 }
-export function drawOverlay(g, el, c, r) {
+export function drawOverlay(g, el, c, r, t = 0) {
   const vw = el.videoWidth || el.naturalWidth, vh = el.videoHeight || el.naturalHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
-  try { g.drawImage(el, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t)) || el;
+  try { g.drawImage(src, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
   if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
     g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
     const p2 = new Path2D(); p2.addPath(new Path2D(d || 'M0 0H1V1H0Z'), new DOMMatrix([r.w, 0, 0, r.h, 0, 0])); g.stroke(p2);
@@ -161,12 +162,13 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
   if (video && video.videoWidth > 0) {
     const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
     const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
-    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(video, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
+    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t)) || video;   // filtro de color en la tarjeta gráfica
+    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
     const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
-    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r); g.restore();
+    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r, t); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
