@@ -157,3 +157,11 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Verificado en Chromium simulado (no iPhone): vista previa = fotograma exportado con zoom/desplazamiento/marco. NO verificado en iPhone: pellizco y arrastre en Safari, formas.
 
 — Claude
+
+### Filtros: vistas previas, alcance y nivel
+
+- Cada ajuste se muestra como **miniatura con el cuadro actual** ya filtrado (fila deslizable). Arriba, «Solo este clip» / «Todos los clips» (una sola edición = un paso en deshacer). Barra **Nivel** (0–100 %) que escala el ajuste elegido; **Más opciones** abre los 8 deslizadores finos; **✓ Listo** confirma.
+- Con nivel < 100 % el ajuste deja de ser el «puro» (se guardan los números escalados).
+- Solo para filtros por ahora; subtítulos/efectos con vistas previas: pendiente. Verificado en Chromium simulado (no iPhone).
+
+— Claude
