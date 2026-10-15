@@ -8,6 +8,38 @@ import UIKit
 struct WivraMetaB0App: App {
     @State private var model: MetaB0Model
     @State private var captureTab: WivraCaptureTab = .meta
+    @State private var pendingCaptureTab: WivraCaptureTab?
+    @State private var iPhoneCamera = WivraIPhoneCamera()
+
+    // Moving between sources is a two-phase handoff. SwiftUI cannot switch
+    // to the destination until the current camera has released AVFoundation
+    // or Meta DAT (including HEVC/CAF and manifest finalization).
+    private func requestCaptureTab(_ destination: WivraCaptureTab) {
+        guard destination != captureTab, pendingCaptureTab == nil else { return }
+        if destination == .iPhone {
+            if model.isReleasedForCameraHandoff {
+                captureTab = .iPhone
+            } else {
+                pendingCaptureTab = .iPhone
+                model.endSession()
+            }
+        } else if iPhoneCamera.isReleasedForCameraHandoff {
+            captureTab = .meta
+        } else {
+            pendingCaptureTab = .meta
+            iPhoneCamera.stop()
+        }
+    }
+
+    private func completeCameraHandoffIfReady() {
+        guard let destination = pendingCaptureTab else { return }
+        let released = destination == .iPhone
+            ? model.isReleasedForCameraHandoff
+            : iPhoneCamera.isReleasedForCameraHandoff
+        guard released else { return }
+        pendingCaptureTab = nil
+        captureTab = destination
+    }
 
     init() {
         do {
@@ -20,16 +52,32 @@ struct WivraMetaB0App: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $captureTab) {
+            TabView(selection: Binding(
+                get: { captureTab },
+                set: { requestCaptureTab($0) }
+            )) {
                 MetaB0Screen(model: model)
                     .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
                     .tag(WivraCaptureTab.meta)
-                WivraIPhoneCameraScreen()
+                WivraIPhoneCameraScreen(camera: iPhoneCamera)
                     .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
                     .tag(WivraCaptureTab.iPhone)
             }
-            .onChange(of: captureTab) { _, tab in
-                if tab == .iPhone { model.endSession() }
+            .overlay(alignment: .top) {
+                if pendingCaptureTab != nil {
+                    Label("Finalizando grabación y liberando cámara…",
+                          systemImage: "hourglass")
+                        .font(.footnote.bold())
+                        .padding(10)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                        .accessibilityIdentifier("camera_handoff_pending")
+                }
+            }
+            .onChange(of: model.isReleasedForCameraHandoff) { _, _ in
+                completeCameraHandoffIfReady()
+            }
+            .onChange(of: iPhoneCamera.isReleasedForCameraHandoff) { _, _ in
+                completeCameraHandoffIfReady()
             }
             .onOpenURL { url in
                 Task { @MainActor in
@@ -41,6 +89,7 @@ struct WivraMetaB0App: App {
             )) { _ in
                 // Neither source claims screen-off or background recording.
                 model.endSession()
+                iPhoneCamera.stop()
             }
         }
     }
