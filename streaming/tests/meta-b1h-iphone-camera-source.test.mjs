@@ -6,7 +6,7 @@ const read = file => readFileSync(new URL('../ios/B0/' + file, import.meta.url),
 
 test('B1H keeps native iPhone and Meta cameras as separate capture sources', () => {
     const app = read('Sources/WivraMetaB0App.swift');
-    assert.match(app, /WivraIPhoneCameraScreen\(\)/);
+    assert.match(app, /WivraIPhoneCameraScreen\(camera: iPhoneCamera\)/);
     // Tab selection must wait for session finalization, not fire endSession after switching.
     assert.match(app, /pendingCaptureTab = \.iPhone/);
     assert.match(app, /model\.endSession\(\)/);
