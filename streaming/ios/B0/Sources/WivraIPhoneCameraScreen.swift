@@ -94,13 +94,32 @@ struct WivraIPhoneCameraScreen: View {
                 if camera.proMode {
                     VStack(alignment: .leading, spacing: 8) {
                         if camera.supportsManualExposure {
+                            Toggle("Foto nocturna · solo fotografía", isOn: Binding(
+                                get: { camera.nightPhotoMode },
+                                set: { camera.setNightPhotoMode($0) }
+                            ))
+                            .disabled(!camera.supportsNightPhoto || camera.photoBusy)
+                            .accessibilityIdentifier("iphone_night_photo_mode")
+                            if camera.supportsNightPhoto {
+                                Text(String(format: "Esta lente admite hasta %.2f s (límite experimental de 8 s).", camera.maxNightPhotoExposureSeconds))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            } else {
+                                Text("Este formato no permite exposición fotográfica lenta. Prueba otra lente.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+
                             Text("ISO: \(Int(camera.iso))")
                             Slider(value: $camera.iso, in: camera.minISO...max(camera.minISO + 1, camera.maxISO))
                                 .onChange(of: camera.iso) { _, _ in camera.updateManualExposure() }
                                 .accessibilityIdentifier("iphone_iso")
 
-                            Text(String(format: "Obturación: 1/%.0f s", 1.0 / camera.shutterSeconds))
-                            Slider(value: $camera.shutterSeconds, in: (1.0 / 1000)...(1.0 / 30))
+                            Text(camera.nightPhotoMode
+                                 ? String(format: "Obturación de foto: %.3f s", camera.shutterSeconds)
+                                 : String(format: "Obturación: 1/%.0f s", 1.0 / camera.shutterSeconds))
+                            Slider(value: $camera.shutterSeconds,
+                                   in: (1.0 / 1000)...(camera.nightPhotoMode
+                                                        ? camera.maxNightPhotoExposureSeconds
+                                                        : (1.0 / 30)))
                                 .onChange(of: camera.shutterSeconds) { _, _ in camera.updateManualExposure() }
                                 .accessibilityIdentifier("iphone_shutter")
                         }
@@ -113,7 +132,9 @@ struct WivraIPhoneCameraScreen: View {
                             Text("Esta lente no ofrece control manual de enfoque.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
-                        Text("El obturador Pro de esta etapa está limitado a valores compatibles con video; no es modo de larga exposición.")
+                        Text(camera.nightPhotoMode
+                             ? "Solo JPEG, sin video simultáneo. Sujeta el iPhone con trípode. No es Night mode computacional, RAW ni apilado de estrellas."
+                             : "Durante video, obturación limitada a 1/30 s. Activa Foto nocturna para probar exposiciones más largas si la lente lo permite.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .padding()
@@ -138,7 +159,7 @@ struct WivraIPhoneCameraScreen: View {
                         Label(camera.isRecording ? "Finalizar MOV" : "Grabar MOV",
                               systemImage: camera.isRecording ? "stop.circle" : "record.circle")
                     }
-                    .disabled(!camera.isRunning || camera.isFinishing || camera.photoBusy)
+                    .disabled(!camera.isRunning || camera.isFinishing || camera.photoBusy || camera.nightPhotoMode)
                     .buttonStyle(.bordered)
                     .tint(camera.isRecording ? .red : .accentColor)
                     .accessibilityIdentifier("iphone_video_record")
@@ -186,7 +207,7 @@ struct WivraIPhoneCameraScreen: View {
                     .accessibilityIdentifier("iphone_share_movie")
                 }
 
-                Text("Prueba pendiente: fotografía durante video sin interrupción, micrófonos y rendimiento en iPhone físico. Esta fuente no promete grabación en segundo plano.")
+                Text("Foto nocturna: exposición real limitada por lente y formato, solo en Pro y sin MOV. Pendiente de ensayo en iPhone físico, igual que fotos durante video, micrófonos y rendimiento. Sin grabación en segundo plano.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding()
