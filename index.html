@@ -123,6 +123,7 @@
 .fgrid button canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .fgrid button span{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;background:rgba(0,0,0,.55);line-height:1.1}
 .fgrid button.on{border-color:#fff}
+.fgrid.sq button{aspect-ratio:1}
 .frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
 </style>
 </head>
@@ -211,11 +212,12 @@
   <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
   <button id="delCancel" class="btn sec">Cancelar</button></div>
 <div class="sheet" id="sOver"><h2>Video superpuesto</h2><p class="m" id="ovInfo">Toca un video superpuesto en la línea de tiempo para elegirlo.</p>
+  <div class="chips" id="ovScope"><button type="button" data-s="one" class="on">Solo esta capa</button><button type="button" data-s="all">Todas las capas</button></div>
   <label class="m">Tamaño: <b id="ovSizeTxt">40%</b><input type="range" id="ovSize" min="5" max="100" step="1" value="40" style="width:100%"></label>
   <label class="m">Posición horizontal: <b id="ovXTxt">72%</b><input type="range" id="ovX" min="0" max="100" step="1" value="72" style="width:100%"></label>
   <label class="m">Posición vertical: <b id="ovYTxt">28%</b><input type="range" id="ovY" min="0" max="100" step="1" value="28" style="width:100%"></label>
-  <div class="chips" id="ovPresets"><button data-p="0.2,0.12">↖</button><button data-p="0.8,0.12">↗</button><button data-p="0.5,0.5">Centro</button><button data-p="0.2,0.88">↙</button><button data-p="0.8,0.88">↘</button><button data-p="full">Pantalla</button></div>
-  <p class="m">Forma</p><div class="chips" id="ovShapes"></div>
+  <div class="fgrid" id="ovPresets"></div>
+  <p class="m">Forma</p><div class="fgrid sq" id="ovShapes"></div>
   <label class="m">Zoom dentro de la forma: <b id="ovZoomTxt">100%</b><input type="range" id="ovZoom" min="100" max="300" step="5" value="100" style="width:100%"></label>
   <label class="m">Mover el video dentro de la forma ↔ <b id="ovPxTxt">50%</b><input type="range" id="ovPx" min="0" max="100" step="1" value="50" style="width:100%"></label>
   <label class="m">Mover el video dentro de la forma ↕ <b id="ovPyTxt">50%</b><input type="range" id="ovPy" min="0" max="100" step="1" value="50" style="width:100%"></label>
@@ -2361,7 +2363,21 @@ $('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').
 $('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 $('fmtFit').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled || !session) return; const r = edit([{ op: 'set_format', fit: b.dataset.f }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 // ---- Controles del video superpuesto ----
-$('ovShapes').innerHTML = Object.entries(SHAPE_NAMES).map(([k, n]) => `<button data-s="${k}" class="shp"><svg viewBox="-0.04 -0.04 1.08 1.08" aria-hidden="true"><path d="${SHAPE_PATHS[k] || 'M0 0H1V1H0Z'}" fill="currentColor" stroke="none"/></svg><span>${n}</span></button>`).join('');
+const OV_POS = [['0.2,0.12', 'Arriba izq.'], ['0.8,0.12', 'Arriba der.'], ['0.5,0.5', 'Centro'], ['0.2,0.88', 'Abajo izq.'], ['0.8,0.88', 'Abajo der.'], ['full', 'Pantalla']];
+$('ovShapes').innerHTML = Object.entries(SHAPE_NAMES).map(([k, n]) => `<button type="button" data-s="${k}" class="shp"><canvas></canvas><span>${n}</span></button>`).join('');
+$('ovPresets').innerHTML = OV_POS.map(([p, n]) => `<button type="button" data-p="${p}"><canvas></canvas><span>${n}</span></button>`).join('');
+function ovThumbs(c) {      // formas y posiciones con el cuadro real de la capa
+  const S = 96, sq = fltSrcCanvas(c, S, S), tall = fltSrcCanvas(c, 54, 96);
+  document.querySelectorAll('#ovShapes button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = S; cv.height = S; const g = cv.getContext('2d'); g.fillStyle = '#111'; g.fillRect(0, 0, S, S);
+    g.save(); const m = new DOMMatrix().translate(S * 0.08, S * 0.08).scale(S * 0.84, S * 0.84); const pth = new Path2D(); pth.addPath(new Path2D(SHAPE_PATHS[b.dataset.s] || 'M0 0H1V1H0Z'), m); g.clip(pth); g.drawImage(sq, S * 0.08, S * 0.08, S * 0.84, S * 0.84); g.restore();
+  });
+  document.querySelectorAll('#ovPresets button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = 96; cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#111'; g.fillRect(0, 0, 96, 128); g.strokeStyle = '#555'; g.strokeRect(0.5, 0.5, 95, 127);
+    const full = b.dataset.p === 'full', [x, y] = full ? [0.5, 0.5] : b.dataset.p.split(',').map(Number), w = full ? 96 : 34, h = full ? 128 : 60;
+    g.drawImage(tall, x * 96 - w / 2, y * 128 - h / 2, w, h); g.strokeStyle = '#ffd24a'; g.strokeRect(x * 96 - w / 2 + .5, y * 128 - h / 2 + .5, w - 1, h - 1);
+  });
+}
 $('ovShapes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) ovCommit({ shape: b.dataset.s }); });
 for (const [id, key, txt, f] of [['ovZoom', 'zoom', 'ovZoomTxt', (v) => v / 100], ['ovPx', 'px', 'ovPxTxt', (v) => v / 100], ['ovPy', 'py', 'ovPyTxt', (v) => v / 100], ['ovFrame', 'frame', 'ovFrameTxt', (v) => v / 100], ['ovOpac', 'opacity', 'ovOpacTxt', (v) => v / 100]]) {
   $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { ...c, [key]: key === 'frame' && !f(Number($(id).value)) ? 0 : f(Number($(id).value)) }; syncOverlays(); });
@@ -2389,14 +2405,16 @@ function ovSync() {
   $('ovSize').value = Math.round(c.scale * 100); $('ovX').value = Math.round(c.x * 100); $('ovY').value = Math.round(c.y * 100); $('ovMute').checked = !!c.muted;
   $('ovSizeTxt').textContent = $('ovSize').value + '%'; $('ovXTxt').textContent = $('ovX').value + '%'; $('ovYTxt').textContent = $('ovY').value + '%';
 }
-function ovCommit(args) { if (!selId) return; ovDrag = null; const r = edit([{ op: 'set_overlay', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); ovSync(); }
+const OV_SCOPED = ['shape', 'frame', 'frameColor', 'opacity'];
+function ovCommit(args) { if (!selId) return; ovDrag = null; const all = fltScope === 'all' && kindOf(selId) === 'overlay' && Object.keys(args).every(k => OV_SCOPED.includes(k)); const ids = all ? (session.project.overlayClips || []).map(k => k.id) : [selId]; const r = edit(ids.map(id => ({ op: 'set_overlay', clip_id: id, ...args }))); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); ovSync(); }
 for (const [id, key, txt] of [['ovSize', 'scale', 'ovSizeTxt'], ['ovX', 'x', 'ovXTxt'], ['ovY', 'y', 'ovYTxt']]) {
   $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { id: c.id, x: c.x, y: c.y, scale: c.scale, [key]: Number($(id).value) / 100 }; if (key === 'scale') ovDrag.scale = Math.max(0.05, ovDrag.scale); syncOverlays(); });
   $(id).addEventListener('change', () => ovCommit({ [key]: key === 'scale' ? Math.max(0.05, Number($(id).value) / 100) : Number($(id).value) / 100 }));
 }
 $('ovMute').onchange = () => { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, muted: $('ovMute').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); syncMedia(); };
 $('ovPresets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; if (b.dataset.p === 'full') ovCommit({ x: 0.5, y: 0.5, scale: 1 }); else { const [x, y] = b.dataset.p.split(',').map(Number); ovCommit({ x, y }); } });
-$('bOver').onclick = () => { ovSync(); openSheet('sOver'); }; $('ovDone').onclick = closeSheets; $('trkDone').onclick = closeSheets;
+$('ovScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
+$('bOver').onclick = () => { ovSync(); openSheet('sOver'); ovThumbs(anyClip(selId)); }; $('ovDone').onclick = closeSheets; $('trkDone').onclick = closeSheets;
 // ---- Agregar pista (botón ＋ Pista): video encima del video, o audio ----
 function freeOverlayTrack(start, end) {
   for (let t = 1; t <= UI_MAX_OVERLAY; t++) if (!(session.project.overlayClips || []).some(c => c.track === t && c.start < end && c.start + (c.out - c.in) > start)) return t;
@@ -3321,7 +3339,7 @@ $('fltLooks').addEventListener('click', (e) => {
   fltApply(c, { look: b.dataset.look });
 });
 function scopeSet(sc) {      // «Solo este clip» / «Todos los clips»: un solo ajuste compartido por Filtros y Efectos
-  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
+  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button, #ovScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
 }
 $('fltScope').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return; scopeSet(b.dataset.s);
