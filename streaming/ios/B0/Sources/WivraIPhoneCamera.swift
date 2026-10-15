@@ -47,7 +47,15 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     private(set) var isStarting = false
     private(set) var isRecording = false
     private(set) var isFinishing = false
+    private(set) var isStopping = false
     private(set) var photoBusy = false
+
+    // A separate capture source cannot take over until AVCaptureSession has
+    // actually stopped, and pending MOV/JPEG callbacks are finished.
+    var isReleasedForCameraHandoff: Bool {
+        !isRunning && !isStarting && !isRecording && !isFinishing &&
+            !isStopping && !photoBusy
+    }
     private(set) var includesAudio = false
     private(set) var status = "Cámara detenida. Las capturas se quedan en el iPhone."
     private(set) var lastPhotoURL: URL?
@@ -94,7 +102,8 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     }
 
     func start() {
-        guard !isRunning && !isStarting && !isRecording && !selectedLensID.isEmpty else { return }
+        guard !isRunning && !isStarting && !isRecording && !isStopping &&
+              !selectedLensID.isEmpty else { return }
         isStarting = true
         status = "Solicitando permisos y preparando cámara…"
         generation += 1
@@ -366,15 +375,29 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
 
     func stop() {
         generation += 1
-        if isFinishing { closeAfterVideo = true; return }
-        if isRecording { closeAfterVideo = true; stopVideo(); return }
-        if !isRunning && !isStarting { return }
+        if isFinishing {
+            isStopping = true
+            closeAfterVideo = true
+            return
+        }
+        if isRecording {
+            isStopping = true
+            closeAfterVideo = true
+            stopVideo()
+            return
+        }
+        if !isRunning && !isStarting && !isStopping { return }
+        isStopping = true
         isStarting = false
         isRunning = false
+        // AVFoundation session.stopRunning() runs on the dedicated serial
+        // runner queue. The handoff remains blocked until its completion.
         runner.stop { [weak self] in
             Task { @MainActor [weak self] in
-                self?.activeDevice = nil
-                self?.status = "Cámara detenida. Medios originales guardados localmente."
+                guard let self else { return }
+                self.activeDevice = nil
+                self.isStopping = false
+                self.status = "Cámara detenida. Medios originales guardados localmente."
             }
         }
     }

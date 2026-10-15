@@ -40,6 +40,15 @@ final class MetaB0Model {
     var receiveCompressedHEVC = false
     var recordingArmed = false
     var recordingFinishing = false
+    private var endSessionAfterRecording = false
+
+    // The iPhone source must wait until the DAT stream AND the sidecar/MOV
+    // manifest finish, not merely until recordingArmed becomes false.
+    var isReleasedForCameraHandoff: Bool {
+        deviceSession == nil && camera == nil && !recordingArmed &&
+            !recordingFinishing && (sessionState == .idle || sessionState == .stopped)
+    }
+
     var lastRecordedURL: URL?
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
     var captureSelectedAudio = true
@@ -271,6 +280,9 @@ final class MetaB0Model {
             recordingStatus = "La grabación de video falló: " + message
         }
         recordingFinishing = false
+        if endSessionAfterRecording {
+            endSession()
+        }
     }
 
     func register() {
@@ -486,6 +498,8 @@ final class MetaB0Model {
     }
 
     func stopPreview() {
+        // Never tear down DAT frames while muxing a just-finished recording.
+        if recordingFinishing { return }
         if recordingArmed {
             Task {
                 await finishRecording()
@@ -500,13 +514,16 @@ final class MetaB0Model {
     }
 
     func endSession() {
-        if recordingArmed {
-            Task {
-                await finishRecording()
-                endSession()
+        // End can be requested while HEVC/CAF/MOV and manifest are still
+        // finishing. Do not release DAT until all writer work has completed.
+        if recordingArmed || recordingFinishing {
+            endSessionAfterRecording = true
+            if recordingArmed && !recordingFinishing {
+                Task { await finishRecording() }
             }
             return
         }
+        endSessionAfterRecording = false
         // This step deliberately also stops when app enters background.
         // The upstream sample does not guarantee a background camera LIVE.
         stopPreview()
