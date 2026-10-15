@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
-<title>AgentCut · editor</title>
+<title>Wivra · editor</title>
 <style>
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -69,9 +69,9 @@
 </style>
 </head>
 <body>
-<div class="top"><b>AgentCut</b><span class="sp"></span>
+<div class="top"><b>Wivra</b><span class="sp"></span>
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
-  <button class="pill go" disabled title="Todavía no exporta">Exportar · pronto</button></div>
+  <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
@@ -113,6 +113,15 @@
   <label>Recorte por números del primer clip</label>
   <div class="row"><div><input id="tin" inputmode="decimal" placeholder="Inicio (s)"></div><div><input id="tout" inputmode="decimal" placeholder="Fin (s)"></div></div>
   <button id="trim" class="btn sec" disabled>Recortar</button></div>
+
+<div class="sheet" id="sExp"><h2>Exportar video</h2>
+  <p class="m" id="expInfo"></p>
+  <button id="expGo" class="btn">Empezar a exportar</button>
+  <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
+    <button id="expCancel" class="btn sec">Cancelar</button></div>
+  <div id="expDone" style="display:none"><video id="expVid" controls playsinline style="width:100%;max-height:38dvh;border-radius:8px;background:#000;margin-top:10px"></video>
+    <button id="expShare" class="btn">Guardar o compartir</button><a id="expDl" class="btn sec" style="text-decoration:none">Descargar archivo</a></div>
+  <div id="expMsg"></div></div>
 <script>
 /*__CORE__*/
 const $ = (id) => document.getElementById(id);
@@ -137,7 +146,7 @@ $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openShee
 
 function render() {
   const p = session?.project, on = !!p;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
@@ -383,6 +392,41 @@ $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); 
 function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
 $('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
 $('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+
+/* ---------- Exportar: graba el resultado en el teléfono (tiempo real, con audio) ---------- */
+let expCancel = false, expBusy = false, expUrl = null;
+$('bExp').onclick = () => {
+  if (!session || expBusy) return;
+  const plan = exportPlan(session.project);
+  $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
+  openSheet('sExp');
+};
+$('expCancel').onclick = () => { expCancel = true; };
+$('expGo').onclick = async () => {
+  if (expBusy) return; expBusy = true; expCancel = false; stopPlayIfAny();
+  $('expGo').style.display = 'none'; $('expBar').style.display = 'block'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
+  try {
+    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel,
+      onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
+    $('expBar').style.display = 'none';
+    if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
+    if (expUrl) URL.revokeObjectURL(expUrl);
+    expUrl = URL.createObjectURL(r.blob); const name = `wivra-${Date.now()}.${r.ext}`;
+    $('expVid').src = expUrl; $('expDl').href = expUrl; $('expDl').download = name;
+    $('expShare').onclick = async () => {
+      const file = new File([r.blob], name, { type: r.mime });
+      try { if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Mi video' }); else $('expDl').click(); }
+      catch (e) { if (e.name !== 'AbortError') $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; }
+    };
+    $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
+    $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + ' Revisa la vista previa antes de publicar.';
+  } catch (e) {
+    $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
+    $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
+  } finally { expBusy = false; }
+};
 function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
 $('play').onclick = () => {
   if (playing) return stopPlay();

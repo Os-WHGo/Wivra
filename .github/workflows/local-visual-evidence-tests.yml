@@ -19,6 +19,8 @@ jobs:
         run: node --test app/tests/vision.test.mjs
       - name: Timeline logic (cut, delete, ripple)
         run: node --test app/tests/timeline.test.mjs
+      - name: Export logic (plan, size, format, text)
+        run: node --test app/tests/export.test.mjs
       - name: Verify existing core is still valid
         run: cd core && npm test
       - name: Rebuild single-file app and check committed output

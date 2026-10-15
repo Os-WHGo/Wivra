@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
-<title>AgentCut · editor</title>
+<title>Wivra · editor</title>
 <style>
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -69,9 +69,9 @@
 </style>
 </head>
 <body>
-<div class="top"><b>AgentCut</b><span class="sp"></span>
+<div class="top"><b>Wivra</b><span class="sp"></span>
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
-  <button class="pill go" disabled title="Todavía no exporta">Exportar · pronto</button></div>
+  <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
@@ -113,6 +113,15 @@
   <label>Recorte por números del primer clip</label>
   <div class="row"><div><input id="tin" inputmode="decimal" placeholder="Inicio (s)"></div><div><input id="tout" inputmode="decimal" placeholder="Fin (s)"></div></div>
   <button id="trim" class="btn sec" disabled>Recortar</button></div>
+
+<div class="sheet" id="sExp"><h2>Exportar video</h2>
+  <p class="m" id="expInfo"></p>
+  <button id="expGo" class="btn">Empezar a exportar</button>
+  <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
+    <button id="expCancel" class="btn sec">Cancelar</button></div>
+  <div id="expDone" style="display:none"><video id="expVid" controls playsinline style="width:100%;max-height:38dvh;border-radius:8px;background:#000;margin-top:10px"></video>
+    <button id="expShare" class="btn">Guardar o compartir</button><a id="expDl" class="btn sec" style="text-decoration:none">Descargar archivo</a></div>
+  <div id="expMsg"></div></div>
 <script>
 // AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
 // — Claude
@@ -267,7 +276,7 @@ function runTool(session, name, args = {}) {
 
 // Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
 function buildPrompt(request, project, observation = null) {
-  return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
+  return `Eres el asistente de edición de la app Wivra. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
 
 Operaciones permitidas (tiempos en segundos):
 - {"op":"trim_clip","clip_id":"c1","in":2,"out":8}  (in/out dentro de la duración del medio)
@@ -456,6 +465,148 @@ function reorderOps(project, orderedIds) {
   return ops;
 }
 
+// Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
+// reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
+// Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
+
+const r2 = (n) => Math.round(n * 100) / 100;
+
+// Lista de pasos en orden: clips, y "huecos" negros si hay espacio entre clips.
+function exportPlan(project) {
+  const clips = [...project.clips].sort((a, b) => a.start - b.start);
+  const segments = []; let cursor = 0;
+  for (const c of clips) {
+    if (c.start - cursor > 0.05) segments.push({ type: 'gap', dur: r2(c.start - cursor), start: cursor });
+    segments.push({ type: 'clip', clip: c, dur: r2(c.out - c.in) });
+    cursor = Math.max(cursor, c.start + (c.out - c.in));
+  }
+  const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
+  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+}
+
+// Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
+function outputSize(w, h, shortSide = 1080) {
+  if (!(w > 0 && h > 0)) return { w: 1080, h: 1920 };
+  const k = Math.min(1, shortSide / Math.min(w, h));
+  const even = (n) => Math.max(2, Math.round((n * k) / 2) * 2);
+  return { w: even(w), h: even(h) };
+}
+
+// Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
+const MIME_CANDIDATES = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4',
+  'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+function pickMime(isSupported) {
+  for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
+  return '';
+}
+const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
+
+const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
+
+// Parte un texto en líneas que quepan en `maxWidth` (measure(str) -> ancho).
+function wrapLines(text, maxWidth, measure) {
+  const words = String(text).split(/\s+/).filter(Boolean); const lines = []; let cur = '';
+  for (const w of words) {
+    const next = cur ? cur + ' ' + w : w;
+    if (cur && measure(next) > maxWidth) { lines.push(cur); cur = w; } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+// Dibuja un fotograma: el video centrado ("contain") sobre negro y los textos activos.
+function drawFrame(g, W, H, video, project, t) {
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  if (video && video.videoWidth > 0) {
+    const k = Math.min(W / video.videoWidth, H / video.videoHeight), dw = video.videoWidth * k, dh = video.videoHeight * k;
+    try { g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch { /* fotograma aún no listo */ }
+  }
+  const size = Math.round(Math.min(W, H) * 0.06);
+  g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.lineJoin = 'round'; g.lineWidth = Math.max(2, size / 6); g.strokeStyle = 'rgba(0,0,0,.85)'; g.fillStyle = '#fff';
+  let y = H * 0.86;
+  for (const tx of textsAt(project, t)) {
+    const lines = wrapLines(tx.text, W * 0.86, (s) => g.measureText(s).width);
+    y -= (lines.length - 1) * size * 1.2;
+    for (const line of lines) { g.strokeText(line, W / 2, y); g.fillText(line, W / 2, y); y += size * 1.2; }
+    y -= size * 1.2 * lines.length + size * 0.4;
+  }
+}
+
+const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
+const frame = () => new Promise((res) => requestAnimationFrame(res));
+
+// Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
+async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
+  const plan = exportPlan(project);
+  const firstClip = plan.segments.find((s) => s.type === 'clip');
+  if (!firstClip) throw new Error('No hay clips para exportar.');
+  if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
+  const first = media[firstClip.clip.asset_id] || {};
+  const { w: W, h: H } = outputSize(first.w, first.h);
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const g = canvas.getContext('2d');
+
+  const ev = document.createElement('video');
+  ev.playsInline = true; ev.setAttribute('playsinline', ''); ev.preload = 'auto';
+  ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
+  document.body.appendChild(ev);
+
+  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null;
+  const stream = canvas.captureStream(fps);
+  try {
+    ac = new AC(); await ac.resume().catch(() => {});
+    dest = ac.createMediaStreamDestination(); ac.createMediaElementSource(ev).connect(dest);
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+  } catch { ac = null; /* sin audio: se avisa al final */ }
+  const hasAudio = stream.getAudioTracks().length > 0;
+
+  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
+  const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((res) => { rec.onstop = res; });
+  const t0 = performance.now(); let cancelled = false;
+  const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
+
+  try {
+    rec.start(1000);
+    for (const seg of plan.segments) {
+      if (isCancelled()) { cancelled = true; break; }
+      if (seg.type === 'gap') {
+        const s = performance.now();
+        while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
+          drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
+        }
+        continue;
+      }
+      const c = seg.clip, m = media[c.asset_id]; if (!m) throw new Error('Falta el video original de un clip.');
+      if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
+      if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
+      await ev.play();
+      await new Promise((res) => {
+        const tick = () => {
+          const cur = ev.currentTime, t = c.start + (cur - c.in);
+          drawFrame(g, W, H, ev, project, t); report(t);
+          if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+      ev.pause();
+    }
+    await frame(); await frame();
+  } finally {
+    if (rec.state !== 'inactive') rec.stop();
+    await stopped;
+    stream.getTracks().forEach((t) => t.stop());
+    ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+  }
+  if (cancelled || isCancelled()) return { cancelled: true };
+  const type = rec.mimeType || mime || 'video/webm';
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd };
+}
+
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
@@ -478,7 +629,7 @@ $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openShee
 
 function render() {
   const p = session?.project, on = !!p;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
@@ -724,6 +875,41 @@ $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); 
 function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
 $('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
 $('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+
+/* ---------- Exportar: graba el resultado en el teléfono (tiempo real, con audio) ---------- */
+let expCancel = false, expBusy = false, expUrl = null;
+$('bExp').onclick = () => {
+  if (!session || expBusy) return;
+  const plan = exportPlan(session.project);
+  $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
+  openSheet('sExp');
+};
+$('expCancel').onclick = () => { expCancel = true; };
+$('expGo').onclick = async () => {
+  if (expBusy) return; expBusy = true; expCancel = false; stopPlayIfAny();
+  $('expGo').style.display = 'none'; $('expBar').style.display = 'block'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
+  try {
+    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel,
+      onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
+    $('expBar').style.display = 'none';
+    if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
+    if (expUrl) URL.revokeObjectURL(expUrl);
+    expUrl = URL.createObjectURL(r.blob); const name = `wivra-${Date.now()}.${r.ext}`;
+    $('expVid').src = expUrl; $('expDl').href = expUrl; $('expDl').download = name;
+    $('expShare').onclick = async () => {
+      const file = new File([r.blob], name, { type: r.mime });
+      try { if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Mi video' }); else $('expDl').click(); }
+      catch (e) { if (e.name !== 'AbortError') $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; }
+    };
+    $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
+    $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + ' Revisa la vista previa antes de publicar.';
+  } catch (e) {
+    $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
+    $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
+  } finally { expBusy = false; }
+};
 function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
 $('play').onclick = () => {
   if (playing) return stopPlay();

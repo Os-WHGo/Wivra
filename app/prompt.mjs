@@ -1,6 +1,6 @@
 // Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
 export function buildPrompt(request, project, observation = null) {
-  return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
+  return `Eres el asistente de edición de la app Wivra. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
 
 Operaciones permitidas (tiempos en segundos):
 - {"op":"trim_clip","clip_id":"c1","in":2,"out":8}  (in/out dentro de la duración del medio)

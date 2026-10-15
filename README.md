@@ -1,10 +1,10 @@
-# AgentCut
+# Wivra
 
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
 > Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre oficial: **AgentCut** (Agent + Cut, escrito con "Cut", no "Code"). Pendiente: revisar que no choque con marcas existentes antes de publicar.
+> Nombre: **Wivra** (antes "AgentCut"; renombrado el 13-10-2026 por decisión del propietario; el repositorio se renombra en GitHub a `wivra`). Pendiente: comprobar que no choque con marcas existentes antes de publicar.
 
 ---
 
@@ -38,14 +38,14 @@ Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), ve
 
 ## Enfoque: crear reels y contenido / Focus: creator content
 
-**ES.** AgentCut está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
+**ES.** Wivra está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
 - **Reconocer:** texto en pantalla (carteles, nombres de calles), lugares (apoyándose en el GPS del video cuando exista), momentos clave y silencios. Los modelos con visión leen texto en los fotogramas, pero la precisión varía y hay que verificarla. No identificamos personas por su cara.
 - **Sugerir ideas:** ganchos de apertura, títulos, estructura del reel, guiones y hashtags a partir de lo que aparece en los videos.
 - **Teleprompter:** el guion se desplaza en pantalla mientras grabas, con velocidad ajustable.
 - **Cualquier IA:** una capa de proveedores intercambiable (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros). Cada persona trae su propia clave.
 - **Privacidad y costo:** el video queda en el teléfono; solo se envían unos fotogramas y texto, con permiso, y se muestra una estimación del costo antes de analizar.
 
-**EN.** AgentCut aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
+**EN.** Wivra aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
 
 ## Herramientas que ve la IA / Tools the AI sees
 
