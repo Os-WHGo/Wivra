@@ -61,12 +61,13 @@ test('planImportOps: video + pistas con desfase positivo, negativo y desconocido
   m.tracks[1].offsetSeconds = 0.5; m.tracks[1].offsetKnown = true;
   const plan = importPlan(m, { useMuxed: false });
   const assets = { [plan.videoFile]: { id: 'a1', duration: 20 }, [m.tracks[0].file]: { id: 'a2', duration: 20 } };
-  const r = planImportOps(plan, { videoStart: 3, assets });
+  const splitChannelAssets = { host: { id: 'a3', duration: 20 }, guest: { id: 'a4', duration: 20 } };
+  const r = planImportOps(plan, { videoStart: 3, assets, splitChannelAssets });
   assert.equal(r.ops[0].op, 'add_clip'); assert.equal(r.ops[0].start, 3);
   const a = r.ops.filter((o) => o.op === 'add_audio_clip'); assert.equal(a.length, 2);
   assert.deepEqual([a[0].start, a[0].in, a[0].role], [2.99, 0, 'voice_primary']);   // -0.01 s: empieza un pelo antes del video
   assert.deepEqual([a[1].start, a[1].in, a[1].role], [3.5, 0, 'voice_guest']);
-  const s = new Session(createProject({ assets: Object.values(assets).map((x, i) => ({ id: x.id, duration: x.duration, name: 'f' + i })) }));
+  const s = new Session(createProject({ assets: [...Object.values(assets), ...Object.values(splitChannelAssets)].map((x, i) => ({ id: x.id, duration: x.duration, name: 'f' + i })) }));
   assert.ok(s.apply(r.ops).ok); assert.equal(s.project.clips.length, 1); assert.equal(s.project.audioClips.length, 2);
 });
 test('planImportOps: desfase negativo grande recorta el inicio del audio; al inicio del timeline no usa tiempo negativo', () => {
@@ -90,4 +91,25 @@ test('planImportOps con el MOV combinado no agrega pistas de audio (ya suenan de
   const m = parseManifest(byName('single-hfp-sidecar')).manifest; const plan = importPlan(m, { useMuxed: true });
   const r = planImportOps(plan, { videoStart: 0, assets: { [plan.videoFile]: { id: 'a1', duration: 10 } } });
   assert.deepEqual(r.ops.map((o) => o.op), ['add_clip']);
+});
+
+test('B1L: un archivo estéreo no reproduce canales L/R duplicados sin una extracción real', () => {
+  const m = parseManifest(byName('usb-stereo-two-transmitters-hypothetical')).manifest;
+  const plan = importPlan(m);
+  const ctx = { videoStart: 0, assets: { [plan.videoFile]: { id: 'v', duration: 20 }, [m.tracks[0].file]: { id: 'whole-stereo', duration: 20 } } };
+  const unsplit = planImportOps(plan, ctx);
+  assert.equal(unsplit.ops.filter(o => o.op === 'add_audio_clip').length, 0);
+  assert.equal(unsplit.skipped.length, 2);
+  assert.ok(unsplit.warnings.some(w => /no separado/.test(w)));
+  const fake = planImportOps(plan, { ...ctx, splitChannelAssets: { host: { id: 'whole-stereo', duration: 20 }, guest: { id: 'whole-stereo', duration: 20 } } });
+  assert.equal(fake.ops.filter(o => o.op === 'add_audio_clip').length, 0);
+  const reused = planImportOps(plan, { ...ctx, splitChannelAssets: { host: { id: 'only-left', duration: 20 }, guest: { id: 'only-left', duration: 20 } } });
+  assert.equal(reused.ops.filter(o => o.op === 'add_audio_clip').length, 1);
+});
+test('B1L: manifest iPhone con sonido incorporado no inventa pistas independientes', () => {
+  const result = parseManifest({ schemaVersion: 2, captureID: 'iphone-1', cameraSource: 'iphone-avfoundation', audioSource: 'none', selectedInputName: null, originalVideoFile: 'iphone.mov', originalAudioFile: null, muxedVideoFile: null, audioStartOffsetSeconds: null, createdAtISO8601: '2026-10-15T22:00:00Z', tracks: [], muxedFromTrackIDs: [] });
+  assert.equal(result.ok, true);
+  const plan = importPlan(result.manifest, { useMuxed: true });
+  assert.deepEqual(plan.audioTracks, []);
+  assert.deepEqual(planImportOps(plan, { assets: { 'iphone.mov': { id: 'v', duration: 5 } } }).ops.map(o => o.op), ['add_clip']);
 });
