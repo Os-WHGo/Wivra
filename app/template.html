@@ -10,7 +10,7 @@
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
-  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:100dvh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
+  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:var(--appH,100dvh); padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
   button { font:inherit; color:inherit; background:none; border:0; padding:0; }
   .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
   .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
@@ -91,7 +91,7 @@
   #toast { position:fixed; left:50%; transform:translateX(-50%); top:calc(58px + env(safe-area-inset-top)); max-width:92%; background:#232834; border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:14px; white-space:pre-wrap; display:none; z-index:20; } #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
   .back { position:fixed; inset:0; background:#0009; display:none; z-index:30; } .back.on { display:block; }
   .sheet { position:fixed; left:0; right:0; bottom:0; max-width:560px; margin-inline:auto; max-height:82dvh; overflow-y:auto; background:var(--bar); border-radius:18px 18px 0 0; border:1px solid var(--line); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:none; z-index:31; } .sheet.on { display:block; }
-  #sOver { max-height:44dvh; } body:has(#sOver.on) #back { background:transparent; }      /* al elegir forma y tamaño se ve la pantalla */
+  #sOver { }      /* al elegir forma y tamaño se ve la pantalla */
   .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
   input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
   .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
@@ -118,6 +118,15 @@
   #pzName { width:100%; box-sizing:border-box; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#0d0f14; color:var(--fg); padding:0 12px; font-size:16px; }
   .btn.bad { background:#3a1f26; color:var(--bad); }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
+/* paneles con vista previa: pegados abajo, sin tapar el video; «Ver más» los agranda y el video se achica */
+.dockbar{display:flex;gap:10px;margin-top:8px}.dockbar .btn{flex:1;margin:0}
+.sheet.dock:not(.exp) .more{display:none !important}
+.sheet.dock{max-height:60dvh;padding-top:10px}.sheet.dock h2{font-size:15px;margin:0 0 6px}
+.sheet.dock .chips{margin:4px 0}.sheet.dock .fgrid{margin:6px 0}
+#sOver.dock .fgrid{grid-auto-columns:60px}#sOver.dock .fgrid.sq{grid-auto-columns:56px}
+body.dock{padding-bottom:calc(var(--dockh,0px) + env(safe-area-inset-bottom))}
+body.dock #tlbox,body.dock .bar{display:none}
+body.dock .back{pointer-events:none;background:transparent}
 .fgrid{display:grid;grid-auto-flow:column;grid-auto-columns:78px;gap:8px;margin:8px 0;overflow-x:auto;padding-bottom:4px}
 .fgrid button{position:relative;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#222;aspect-ratio:3/4;color:#fff;font-size:11px;cursor:pointer}
 .fgrid button canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -193,41 +202,42 @@
   <div class="chips" id="fmtAspect"><button data-a="original">Original</button><button data-a="9:16">9:16 Reels</button><button data-a="1:1">1:1</button><button data-a="4:5">4:5</button><button data-a="16:9">16:9</button></div>
   <div class="chips" id="fmtFit"><button data-f="cover">Rellenar (recorta)</button><button data-f="contain">Entero (barras)</button></div>
   <p class="m" id="fmtNote"></p><button id="fmtDone" class="btn">Listo</button></div>
-<div class="sheet" id="sFx"><h2>Efectos</h2><p class="m" id="fxInfo">Elige un video en la línea de tiempo.</p>
+<div class="sheet" id="sFx"><h2>Efectos</h2><p class="m more" id="fxInfo">Elige un video en la línea de tiempo.</p>
   <div class="chips" id="fxScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
-  <p class="m">Al aparecer</p><div class="fgrid" id="fxIn"></div>
-  <p class="m">Al desaparecer</p><div class="fgrid" id="fxOut"></div>
-  <label class="m">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
-  <button id="fxDone" class="btn">Listo</button></div>
-<div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m" id="fltInfo">Elige un video en la línea de tiempo.</p>
+  <div class="chips" id="fxTabs"><button type="button" data-t="fxIn" class="on">Al aparecer</button><button type="button" data-t="fxOut">Al desaparecer</button></div>
+  <div class="fgrid" id="fxIn"></div>
+  <div class="fgrid" id="fxOut" style="display:none"></div>
+  <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m more" id="fltInfo">Elige un video en la línea de tiempo.</p>
   <div class="chips" id="fltScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
   <div class="fgrid" id="fltLooks"></div>
   <div class="frow"><label class="m" style="flex:1">Nivel: <b id="fltLvTxt">100</b>%<input id="fltLevel" type="range" min="0" max="100" step="1" value="100" style="width:100%"></label>
-    <button id="fltMore" class="btn sec" type="button">Más opciones</button></div>
-  <div id="fltSliders" style="display:none"></div>
-  <button id="fltReset" class="btn sec" type="button">Quitar filtro</button>
-  <button id="fltDone" class="btn" type="button">✓ Listo</button></div>
+    </div>
+  <div id="fltSliders" class="more"></div>
+  <button id="fltReset" class="btn sec more" type="button">Quitar filtro</button>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="fltDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sDel"><h2>¿Qué borrar?</h2><p class="m" id="delInfo"></p>
   <button id="delBoth" class="btn">Video y audio (los siguientes se juntan)</button>
   <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
   <button id="delCancel" class="btn sec">Cancelar</button></div>
-<div class="sheet" id="sOver"><h2>Video superpuesto</h2><p class="m" id="ovInfo">Toca un video superpuesto en la línea de tiempo para elegirlo.</p>
+<div class="sheet" id="sOver"><h2>Video superpuesto</h2><p class="m more" id="ovInfo">Toca un video superpuesto en la línea de tiempo para elegirlo.</p>
   <div class="chips" id="ovScope"><button type="button" data-s="one" class="on">Solo esta capa</button><button type="button" data-s="all">Todas las capas</button></div>
-  <label class="m">Tamaño: <b id="ovSizeTxt">40%</b><input type="range" id="ovSize" min="5" max="100" step="1" value="40" style="width:100%"></label>
-  <label class="m">Posición horizontal: <b id="ovXTxt">72%</b><input type="range" id="ovX" min="0" max="100" step="1" value="72" style="width:100%"></label>
-  <label class="m">Posición vertical: <b id="ovYTxt">28%</b><input type="range" id="ovY" min="0" max="100" step="1" value="28" style="width:100%"></label>
+  <label class="m more">Tamaño: <b id="ovSizeTxt">40%</b><input type="range" id="ovSize" min="5" max="100" step="1" value="40" style="width:100%"></label>
+  <label class="m more">Posición horizontal: <b id="ovXTxt">72%</b><input type="range" id="ovX" min="0" max="100" step="1" value="72" style="width:100%"></label>
+  <label class="m more">Posición vertical: <b id="ovYTxt">28%</b><input type="range" id="ovY" min="0" max="100" step="1" value="28" style="width:100%"></label>
   <div class="fgrid" id="ovPresets"></div>
   <p class="m">Forma</p><div class="fgrid sq" id="ovShapes"></div>
-  <label class="m">Zoom dentro de la forma: <b id="ovZoomTxt">100%</b><input type="range" id="ovZoom" min="100" max="300" step="5" value="100" style="width:100%"></label>
-  <label class="m">Mover el video dentro de la forma ↔ <b id="ovPxTxt">50%</b><input type="range" id="ovPx" min="0" max="100" step="1" value="50" style="width:100%"></label>
-  <label class="m">Mover el video dentro de la forma ↕ <b id="ovPyTxt">50%</b><input type="range" id="ovPy" min="0" max="100" step="1" value="50" style="width:100%"></label>
-  <label class="m">Marco: <b id="ovFrameTxt">0%</b><input type="range" id="ovFrame" min="0" max="10" step="0.5" value="0" style="width:100%"></label>
-  <div class="chips" id="ovColors"><button data-c="#ffffff" style="background:#fff"></button><button data-c="#000000" style="background:#000"></button><button data-c="#ffd24a" style="background:#ffd24a"></button><button data-c="#ff4d6d" style="background:#ff4d6d"></button><button data-c="#4dd2ff" style="background:#4dd2ff"></button><button data-c="#5fd4a0" style="background:#5fd4a0"></button></div>
-  <label class="m">Transparencia: <b id="ovOpacTxt">100%</b> visible<input type="range" id="ovOpac" min="10" max="100" step="5" value="100" style="width:100%"></label>
-  <div class="chips" id="ovOrder"><button data-o="front">Traer adelante</button><button data-o="back">Mandar atrás</button><button data-o="screen">Pantallita en la esquina</button></div>
-  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ovMute"> Silenciar el sonido de este video</label>
-  <p class="m">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
-  <button id="ovDone" class="btn">Listo</button></div>
+  <label class="m more">Zoom dentro de la forma: <b id="ovZoomTxt">100%</b><input type="range" id="ovZoom" min="100" max="300" step="5" value="100" style="width:100%"></label>
+  <label class="m more">Mover el video dentro de la forma ↔ <b id="ovPxTxt">50%</b><input type="range" id="ovPx" min="0" max="100" step="1" value="50" style="width:100%"></label>
+  <label class="m more">Mover el video dentro de la forma ↕ <b id="ovPyTxt">50%</b><input type="range" id="ovPy" min="0" max="100" step="1" value="50" style="width:100%"></label>
+  <label class="m more">Marco: <b id="ovFrameTxt">0%</b><input type="range" id="ovFrame" min="0" max="10" step="0.5" value="0" style="width:100%"></label>
+  <div class="chips more" id="ovColors"><button data-c="#ffffff" style="background:#fff"></button><button data-c="#000000" style="background:#000"></button><button data-c="#ffd24a" style="background:#ffd24a"></button><button data-c="#ff4d6d" style="background:#ff4d6d"></button><button data-c="#4dd2ff" style="background:#4dd2ff"></button><button data-c="#5fd4a0" style="background:#5fd4a0"></button></div>
+  <label class="m more">Transparencia: <b id="ovOpacTxt">100%</b> visible<input type="range" id="ovOpac" min="10" max="100" step="5" value="100" style="width:100%"></label>
+  <div class="chips more" id="ovOrder"><button data-o="front">Traer adelante</button><button data-o="back">Mandar atrás</button><button data-o="screen">Pantallita en la esquina</button></div>
+  <label class="m more" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ovMute"> Silenciar el sonido de este video</label>
+  <p class="m more">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="ovDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
   <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
@@ -360,8 +370,18 @@ function say(t, cls) {                       // aviso corto sobre la barra + cop
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { x.style.display = 'none'; }, 3800);
 }
 function fmt(n) { return Math.round(n * 100) / 100; }
-function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); }
-function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov'); }
+// iPhone: la altura real visible (barras del navegador) puede diferir de 100dvh; se ajusta y la página no se desplaza
+(function fitApp() {
+  const vv = window.visualViewport; if (!vv) return;
+  const f = () => { document.documentElement.style.setProperty('--appH', Math.round(vv.height) + 'px'); if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0); };
+  vv.addEventListener('resize', f); vv.addEventListener('scroll', f); window.addEventListener('orientationchange', f); f();
+})();
+const DOCKS = ['sFilt', 'sFx', 'sOver'];
+function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
+function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-more]'); if (!b) return; const sh = b.closest('.sheet'), o = !sh.classList.contains('exp'); sh.classList.toggle('exp', o); b.textContent = o ? 'Ver menos' : 'Ver más'; dockMeasure(); try { showFrame(); syncOverlays(); } catch {} });
+if (window.ResizeObserver) new ResizeObserver(() => dockMeasure()).observe(document.body);
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov', 'dock'); document.body.style.removeProperty('--dockh'); try { showFrame(); syncOverlays(); } catch {} }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
@@ -605,6 +625,7 @@ function fxCommit(args) {
   const r = edit(ops); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fxSync(); syncOverlays();
 }
 $('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
+$('fxTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#fxTabs button').forEach(x => x.classList.toggle('on', x === b)); $('fxIn').style.display = b.dataset.t === 'fxIn' ? '' : 'none'; $('fxOut').style.display = b.dataset.t === 'fxOut' ? '' : 'none'; dockMeasure(); });
 $('fxScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
 $('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ intro: b.dataset.v }); });
 $('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
@@ -1596,10 +1617,9 @@ $('fltScope').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return; scopeSet(b.dataset.s);
   const c = fltTarget(); if (fltScope === 'all' && c && c.filter) { const { look, ...pr } = c.filter; fltApply(c, look ? { look } : pr); }   // al pasar a «Todos» se copia el ajuste actual a todos
 });
-$('fltMore').onclick = () => { const s = $('fltSliders'), o = s.style.display === 'none'; s.style.display = o ? '' : 'none'; $('fltMore').textContent = o ? 'Menos opciones' : 'Más opciones'; };
 $('fltReset').onclick = () => { const c = fltTarget(); if (!c) return; fltLook = null; fltApply(c, { reset: true }); };
 $('bFilt').onclick = () => { fltSync(); openSheet('sFilt'); const c = fltTarget(); fltThumbs(c); }; $('fltDone').onclick = closeSheets;
-$('v').addEventListener('seeked', () => { if (session) fltMainRefresh(); }); $('v').addEventListener('loadeddata', () => { if (session) fltMainRefresh(); });
+$('v').addEventListener('seeked', () => { if (session) fltMainRefresh(); }); $('v').addEventListener('seeked', () => { const c = anyClip(selId); if (!c) return; if ($('sFilt').classList.contains('on')) fltThumbs(fltTarget()); else if ($('sFx').classList.contains('on')) fxThumbs(c); else if ($('sOver').classList.contains('on')) ovThumbs(c); }); $('v').addEventListener('loadeddata', () => { if (session) fltMainRefresh(); });
 
 /* ---------- Inicio, Mis proyectos, guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
 let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [], pzPid = null, pzName = '', pzBase = null;

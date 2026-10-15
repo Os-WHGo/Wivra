@@ -171,3 +171,11 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - **Capas** con el mismo esquema: «Forma» y «Posición» son miniaturas con el cuadro real de la capa; «Solo esta capa / Todas las capas» (compartido con Filtros y Efectos) aplica forma, marco, color de marco y transparencia a todas las capas en una sola edición. Tamaño/posición/orden siguen siendo por capa. Subtítulos: pendiente.
 
 — Claude
+
+### Paneles acoplados (Filtros, Efectos, Capa)
+
+- Al abrir uno de estos paneles queda **pegado abajo y sin tapar el video**: se oculta la línea de tiempo y el video crece; el panel compacto muestra solo lo esencial (alcance + fila de miniaturas + nivel). **Ver más** agranda el panel (ajustes finos, duración, marco, transparencia…) y el video se achica; **✓ Listo** lo cierra.
+- Efectos: pestañas «Al aparecer / Al desaparecer». La página usa la altura visible real del navegador (`visualViewport`) para que las barras de Safari/Chrome en iPhone no la desplacen.
+- Verificado en Chromium simulado a 430×727 (no iPhone). NO verificado en iPhone: el ajuste con `visualViewport` (corrige el desplazamiento y el espacio vacío que se veía debajo de la barra de herramientas, pero no pude reproducirlo aquí).
+
+— Claude
