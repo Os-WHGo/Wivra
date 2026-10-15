@@ -110,6 +110,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
   .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
   .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
+  #home .hin { position:relative; } #home .hgear { position:absolute; top:calc(14px + env(safe-area-inset-top) + var(--padTop,0px)); right:14px; width:44px; height:44px; border-radius:22px; background:#2a2f3d; color:var(--fg); font-size:22px; border:1px solid var(--line); padding:0; }
+  .sheet h3 { font-size:14px; margin:16px 0 4px; color:var(--mut); font-weight:600; }
+  #langList button { display:block; width:100%; min-height:52px; margin:8px 0; border-radius:14px; background:#2a2f3b; color:var(--fg); font-size:18px; text-align:left; padding:0 18px; border:2px solid transparent; } #langList button.on { border-color:var(--ac); }
   #home { position:fixed; inset:0; z-index:50; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
   #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top) + var(--padTop,0px)) 16px 40px; }
   #home h1 { margin:6px 0 2px; font-size:30px; letter-spacing:.5px; } #home h2 { margin:26px 0 8px; font-size:17px; } #home .m { color:var(--mut); margin:2px 0 14px; font-size:14px; }
@@ -203,8 +206,17 @@ body.dock .back{pointer-events:none;background:transparent}
     <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
   </div>
   <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
-  <p class="m" style="margin-top:22px"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px;font-size:14px">Ajustar pantalla</button></p>
+  <button id="hSet" class="hgear" type="button" aria-label="Ajustes">⚙</button>
 </div></div>
+<div class="sheet" id="sSettings" style="z-index:60;max-height:86dvh;overflow-y:auto"><h2>Ajustes</h2>
+  <h3>Idioma de la app</h3><div class="chips" id="setLangs"></div>
+  <h3>Pantalla</h3><p class="m"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px">Ajustar pantalla</button></p>
+  <h3>Datos y espacio</h3><p class="m">Espacio usado por Wivra: <b id="setSpace" data-notr>…</b></p><p class="m"><button id="setClearPacks" type="button" class="btn sec" style="width:auto;padding:8px 14px">Borrar paquetes descargados</button></p>
+  <h3>Transcripción y traducción</h3><p class="m">Próximamente: transcribir tu voz y traducir los subtítulos a otros idiomas.</p>
+  <h3>Privacidad</h3><p class="m">El video no sale de tu teléfono. Solo se envía algo a internet si tú lo pides (por ejemplo, el chat con tu IA), y siempre se avisa.</p>
+  <h3>Acerca de</h3><p class="m">Wivra es una app en construcción (versión de prueba). Efectos y filtros: fórmulas propias. Las traducciones de la interfaz son automáticas y aún pueden tener errores.</p>
+</div>
+<div id="sLang" style="display:none;position:fixed;inset:0;z-index:70;background:var(--bg);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:calc(40px + env(safe-area-inset-top)) 16px 40px"><h1 data-notr>Wivra</h1><h2 data-notr>🌐 Idioma · Language · Langue · Sprache · 言語 · 语言</h2><div id="langList" data-notr></div></div></div>
 <div class="sheet" id="sScreen" style="z-index:60"><h2>Ajustar pantalla</h2>
   <p class="m">Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba esto. Se guarda en este teléfono.</p>
   <div class="frow" style="align-items:center"><span class="m" style="flex:1;margin:0">Bajar el contenido desde arriba: <b id="scrTop">0</b> px</span><button class="btn sec" id="scrTopMinus" type="button">−</button><button class="btn sec" id="scrTopPlus" type="button">+</button></div>
@@ -1893,7 +1905,7 @@ async function pzRenderHome() {
     const c = document.createElement('div'); c.className = 'pcard'; c.dataset.id = m.id; c.setAttribute('role', 'button'); c.tabIndex = 0;
     const t = document.createElement('div'); t.className = 'pt';
     const nm = document.createElement('b'); nm.textContent = m.name;
-    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString(i18nCur, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
     t.append(nm, sub);
     const ren = document.createElement('button'); ren.className = 'pa'; ren.textContent = 'Nombre'; ren.type = 'button';
     const del = document.createElement('button'); del.className = 'pa bad'; del.textContent = 'Borrar'; del.type = 'button';
@@ -1905,6 +1917,51 @@ async function pzRenderHome() {
   }
   window.__pzHome = list.length;
 }
+// ---- Idiomas (el español es el original; ver app/i18n.mjs y app/i18n/*.tsv) ----
+let i18nCur = 'es', i18nTr = (x) => x, i18nBusy = false; const i18nTexts = new WeakMap(), i18nAttrs = new WeakMap();
+const I18N_ATTRS = ['placeholder', 'title', 'aria-label'];
+function i18nNode(n) {
+  const p = n.parentElement; if (!p || p.closest('script,style,textarea,[data-notr]')) return;
+  const cur = n.nodeValue, rec = i18nTexts.get(n), base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
+  if (t !== cur) { i18nBusy = true; n.nodeValue = t; i18nBusy = false; }
+  i18nTexts.set(n, { o: base, t });
+}
+function i18nAttr(e, a) {
+  if (e.closest('[data-notr]')) return; const cur = e.getAttribute(a); if (cur == null) return;
+  let m = i18nAttrs.get(e); if (!m) i18nAttrs.set(e, m = {}); const rec = m[a], base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
+  if (t !== cur) { i18nBusy = true; e.setAttribute(a, t); i18nBusy = false; } m[a] = { o: base, t };
+}
+function i18nWalk(root) {
+  if (root.nodeType === 3) return i18nNode(root); if (root.nodeType !== 1) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) i18nNode(n);
+  for (const e of [root, ...root.querySelectorAll('[placeholder],[title],[aria-label]')]) for (const a of I18N_ATTRS) if (e.hasAttribute && e.hasAttribute(a)) i18nAttr(e, a);
+}
+function i18nApply(lang) {
+  i18nCur = lang; i18nTr = lang === 'es' ? (x) => x : i18nCompile(I18N_DATA[lang]); document.documentElement.lang = lang;
+  try { localStorage.setItem('wivra.lang', lang); } catch {}
+  i18nWalk(document.body); document.querySelectorAll('#setLangs button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+}
+const i18nSaved = () => { try { const l = localStorage.getItem('wivra.lang'); return I18N_LANGS.some(x => x[0] === l) ? l : null; } catch { return null; } };
+new MutationObserver((recs) => {
+  if (i18nBusy || i18nCur === 'es') return;
+  for (const r of recs) {
+    if (r.type === 'characterData') i18nNode(r.target);
+    else if (r.type === 'attributes') i18nAttr(r.target, r.attributeName);
+    else r.addedNodes.forEach(i18nWalk);
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
+(function i18nSetup() {
+  const mk = (box, onPick, cur) => { box.innerHTML = ''; for (const [id, name] of I18N_LANGS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.l = id; b.dataset.notr = '1'; b.textContent = name; b.classList.toggle('on', id === cur); b.onclick = () => onPick(id); box.appendChild(b); } };
+  const saved = i18nSaved();
+  mk($('setLangs'), (id) => i18nApply(id), saved || 'es');
+  if (saved) i18nApply(saved);
+  else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; }, det); $('sLang').style.display = 'block'; }
+  $('hSet').onclick = async () => {
+    $('sSettings').classList.add('on'); $('setSpace').textContent = '…';
+    try { const e = await navigator.storage.estimate(); $('setSpace').textContent = (e.usage / 1048576 < 10 ? (e.usage / 1048576).toFixed(1) : Math.round(e.usage / 1048576)) + ' MB'; } catch { $('setSpace').textContent = '—'; }
+  };
+  $('setClearPacks').onclick = () => { pkInstalled = {}; pkSave(); try { fltLooksRender(); } catch {} say(i18nTr('Paquetes borrados.')); };
+})();
 $('hEditor').onclick = () => { location.hash = '#new'; };
 $('hDirector').onclick = () => { location.hash = '#new-director'; };
 $('bHome').onclick = () => { if (!session) { location.hash = ''; return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
