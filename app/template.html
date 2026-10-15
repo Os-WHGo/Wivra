@@ -57,22 +57,31 @@
   .row { display:flex; gap:8px; } .row > * { flex:1; }
   #msg { white-space:pre-wrap; font-size:14px; margin-top:8px; } .item { padding:8px 0; border-top:1px solid var(--line); font-size:14px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
   input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+  .vrow { display:grid; grid-template-columns:30px 56px 1fr auto auto; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line); touch-action:pan-y; background:var(--bar); }
+  .vrow:first-child { border-top:0; } .vrow.drag { background:#232834; box-shadow:0 6px 20px #000a; position:relative; z-index:5; }
+  .vrow .n { font:700 13px ui-rounded,-apple-system,sans-serif; color:var(--mut); text-align:center; }
+  .vrow .th { width:56px; height:56px; border-radius:8px; background:#262b36 center/cover no-repeat; border:1px solid var(--line); }
+  .vrow .nm { min-width:0; } .vrow .nm b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .vrow .nm span { font-size:12px; color:var(--mut); }
+  .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
+  .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
+  .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
 </style>
 </head>
 <body>
 <div class="top"><b>AgentCut</b><span class="sp"></span>
-  <label class="pill" for="file" id="pick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*">
+  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
   <button class="pill go" disabled title="Todavía no exporta">Exportar · pronto</button></div>
 <div id="info">Ningún video elegido.</div>
 <div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
-  <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Se queda en tu teléfono. Nada se sube.</span><label class="pill go" for="file">Elegir video</label></div></div>
+  <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
 <div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
+  <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
   <button class="tool" id="split" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M7 8 3 12l4 4M17 8l4 4-4 4"/></svg>Cortar</button>
   <button class="tool" id="del" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Borrar</button>
   <button class="tool" id="bText" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Texto</button>
@@ -83,6 +92,11 @@
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div class="back" id="back"></div>
+
+<div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
+  <div id="vlist"></div>
+  <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
+  <button id="vdone" class="btn">Listo</button></div>
 
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
@@ -104,7 +118,9 @@
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
-let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, thumbs = [], thumbStep = 1, toastTimer = null;
+let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
+const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
+let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
 function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
@@ -116,17 +132,20 @@ function fmt(n) { return Math.round(n * 100) / 100; }
 function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); }
 function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
 $('back').onclick = closeSheets;
+$('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
 $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
 
 function render() {
   const p = session?.project, on = !!p;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs']) $(id).disabled = !on;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
   $('del').disabled = !on || !selId;
   $('stage').classList.toggle('on', on);
+  if (on && !loading) { const n = p.clips.length; $('info').textContent = `${n} clip${n === 1 ? '' : 's'} · ${fmt(totalDuration(p))} s en total`; }
   renderTimeline();
+  if ($('sVids').classList.contains('on')) renderVids();
 }
 function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; } }
 function run(ops) {
@@ -137,31 +156,93 @@ function run(ops) {
   return r;
 }
 
-$('file').addEventListener('change', () => {
-  const f = $('file').files[0]; if (!f) return;
-  visualEvidence = null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent = '';
-  if (objUrl) URL.revokeObjectURL(objUrl);
-  objUrl = URL.createObjectURL(f);
-  const v = $('v'); v.src = objUrl;
-  $('info').textContent = 'Leyendo…';
-  v.onloadedmetadata = () => {
-    if (!isFinite(v.duration)) { $('info').textContent = 'No pude leer la duración de este video.'; return; }
-    const d = Math.round(v.duration * 100) / 100;
-    session = new Session(createProject({ assets: [{ id: 'a1', duration: d, name: f.name }] }));
-    selId = null; tlTime = 0; thumbs = []; stopPlayIfAny();
+function probe(file) {          // lee duración y tamaño de un archivo sin tocar el video principal
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), t = document.createElement('video');
+    t.muted = true; t.playsInline = true; t.preload = 'metadata'; t.src = url;
+    const fail = () => { const e = t.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido'; URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}, ${(file.size / 1048576).toFixed(1)} MB): ${cod}${e && e.message ? ' (' + e.message + ')' : ''}`)); };
+    t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
+  });
+}
+function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
+  const v = $('v'), m = media[id]; if (!m) return;
+  if (curAsset !== id) {
+    curAsset = id; pendingSeek = time; v.src = m.url;
+    v.onloadedmetadata = () => { if (pendingSeek != null) { try { v.currentTime = pendingSeek; } catch {} pendingSeek = null; if (playing) v.play().catch(() => {}); } };
+    return;
+  }
+  if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
+}
+let loading = false;
+$('file').addEventListener('change', async () => {
+  const files = [...$('file').files]; $('file').value = ''; if (!files.length || loading) return;
+  loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
+  const failed = [], added = [];
+  for (const f of files) {
+    try {
+      const m = await probe(f); const id = 'a' + (++assetSeq);
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1 };
+      if (!session) session = new Session(createProject({ assets: [] }));
+      session.addAsset({ id, duration: m.duration, name: f.name }); added.push(id);
+    } catch (e) { failed.push(e.message); }
+  }
+  if (added.length) {
+    let start = totalDuration(session.project);
+    const ops = added.map(id => { const o = { op: 'add_clip', asset_id: id, start: round2(start) }; start += media[id].duration; return o; });
+    const first = !session.project.clips.length;
     $('stage').classList.add('on');
-    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / d));
-    run([{ op: 'add_clip', asset_id: 'a1' }]);
-    $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
-    say('Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
-    makeThumbs(objUrl, d, v.videoWidth, v.videoHeight);
-  };
-  v.onerror = () => {
-    const e = v.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido';
-    $('info').textContent = 'Este navegador no puede reproducir este video.';
-    say(`Detalle: archivo “${f.name}”, tipo “${f.type || 'sin tipo'}”, ${(f.size / 1048576).toFixed(1)} MB, error: ${cod}${e && e.message ? ' (' + e.message + ')' : ''}. Navegador: ${navigator.userAgent}`, 'bad');
-  };
+    if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
+    run(ops);
+    if (first) useAsset(added[0], 0);
+    for (const id of added) thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    const n = session.project.clips.length;
+    $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total`;
+    say(added.length > 1 ? `${added.length} videos cargados. Revisa el orden.` : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    if (n > 1) { renderVids(); openSheet('sVids'); }
+  } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
+  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
+  loading = false;
 });
+
+/* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
+function renderVids() {
+  const L = $('vlist'); L.replaceChildren(); if (!session) return;
+  const clips = sortedClips(session.project);
+  clips.forEach((c, i) => {
+    const m = media[c.asset_id], r = document.createElement('div'); r.className = 'vrow'; r.dataset.id = c.id;
+    const th = m?.thumbs?.[0]?.url;
+    r.innerHTML = `<div class="n">${i + 1}</div><div class="th"${th ? ` style="background-image:url(${th})"` : ''}></div><div class="nm"><b></b><span>${fmt(c.out - c.in)} s</span></div><div class="mv"><button aria-label="Subir">▲</button><button aria-label="Bajar">▼</button></div><div class="hd2" aria-label="Arrastrar">≡</div>`;
+    r.querySelector('b').textContent = m ? m.name : c.asset_id;
+    const [up, dn] = r.querySelectorAll('.mv button'); up.disabled = i === 0; dn.disabled = i === clips.length - 1;
+    up.onclick = () => moveClip(c.id, i - 1); dn.onclick = () => moveClip(c.id, i + 1);
+    r.querySelector('.hd2').addEventListener('pointerdown', (e) => dragRow(e, r, i));
+    L.appendChild(r);
+  });
+}
+function moveClip(id, to) {
+  const ids = sortedClips(session.project).map(c => c.id), from = ids.indexOf(id);
+  if (to < 0 || to >= ids.length) return;
+  ids.splice(to, 0, ids.splice(from, 1)[0]); commitOrder(ids);
+}
+function commitOrder(ids) {
+  const ops = reorderOps(session.project, ids); if (!ops) return say('No se pudo reordenar.', 'bad');
+  if (ops.length) { const r = run(ops); if (!r.ok) return say('No se pudo: ' + r.message, 'bad'); }
+  renderVids();
+}
+function dragRow(e, row, from) {
+  e.preventDefault(); const rows = [...$('vlist').children], h = row.offsetHeight, y0 = e.clientY; let to = from;
+  row.classList.add('drag');
+  const mv = (ev) => {
+    const dy = ev.clientY - y0; row.style.transform = `translateY(${dy}px)`;
+    to = Math.max(0, Math.min(rows.length - 1, Math.round(from + dy / h)));
+    rows.forEach((r, i) => { if (r !== row) r.style.transform = (from < to && i > from && i <= to) ? `translateY(${-h}px)` : (from > to && i < from && i >= to) ? `translateY(${h}px)` : ''; });
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    if (to !== from) moveClip(row.dataset.id, to); else renderVids();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
 
 $('trim').onclick = () => {
   const c = session.project.clips[0];
@@ -169,7 +250,8 @@ $('trim').onclick = () => {
   say(r.ok ? 'Recortado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
 $('copy').onclick = async () => {
-  const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
+  if (!$('ask').value.trim()) return say('Primero escribe qué quieres que haga la IA en el cuadro de arriba. Luego toca Copiar.', 'bad');
+  const prompt = buildPrompt($('ask').value.trim(), session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
   catch { $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
@@ -220,7 +302,7 @@ function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if
 const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
 function showFrame() {
   const hit = clipAt(session.project, tlTime);
-  if (hit && Math.abs($('v').currentTime - hit.assetTime) > 0.04) { try { $('v').currentTime = hit.assetTime; } catch {} }
+  if (hit) useAsset(hit.clip.asset_id, hit.assetTime);
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
 }
 function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
@@ -243,8 +325,9 @@ function renderTimeline() {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
-    for (const th of thumbs) {
-      const left = (th.t - thumbStep / 2 - c.in) * pps, w = thumbStep * pps;
+    const mm = media[c.asset_id], step = mm ? mm.step : 1;
+    for (const th of (mm ? mm.thumbs : [])) {
+      const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
       if (left + w < 0 || left > (c.out - c.in) * pps) continue;
       const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
     }
@@ -314,7 +397,8 @@ $('play').onclick = () => {
       if (!next) { stopPlay(); return; }
       tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
     }
-    if (cur !== hit.clip.id) { cur = hit.clip.id; $('v').currentTime = hit.assetTime; $('v').play().catch(() => {}); }
+    if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
+    if (cur !== hit.clip.id) { cur = hit.clip.id; const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
@@ -324,22 +408,23 @@ $('play').onclick = () => {
 };
 $('v').addEventListener('click', () => { if (session) $('play').click(); });
 
-async function makeThumbs(url, dur, vw, vh) {
-  thumbs = []; const n = Math.max(6, Math.min(30, Math.round(dur))); thumbStep = dur / n;
-  const t = document.createElement('video'); t.muted = true; t.playsInline = true; t.preload = 'auto'; t.src = url;
-  const cv = document.createElement('canvas'); cv.height = 56; cv.width = Math.max(24, Math.round(56 * (vw / vh || 0.56)));
+async function makeThumbs(id) {
+  const m = media[id]; if (!m) return;
+  const dur = m.duration, n = Math.max(6, Math.min(30, Math.round(dur))); m.step = dur / n; m.thumbs = [];
+  const t = document.createElement('video'); t.muted = true; t.playsInline = true; t.preload = 'auto'; t.src = m.url;
+  const cv = document.createElement('canvas'); cv.height = 56; cv.width = Math.max(24, Math.round(56 * (m.w / m.h || 0.56)));
   const cx = cv.getContext('2d');
   const seekTo = (time) => new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('seek')), 4000); t.onseeked = () => { clearTimeout(to); res(); }; t.currentTime = time; });
   try {
     await new Promise((res, rej) => { t.onloadeddata = res; t.onerror = rej; setTimeout(rej, 6000); });
     for (let i = 0; i < n; i++) {
-      if (url !== objUrl) return;
-      const time = (i + 0.5) * thumbStep; await seekTo(time);
-      cx.drawImage(t, 0, 0, cv.width, cv.height); thumbs.push({ t: time, url: cv.toDataURL('image/jpeg', 0.5) });
-      if (i % 4 === 3 || i === n - 1) renderTimeline();
+      const time = (i + 0.5) * m.step; await seekTo(time);
+      cx.drawImage(t, 0, 0, cv.width, cv.height); m.thumbs.push({ t: time, url: cv.toDataURL('image/jpeg', 0.5) });
+      if (i % 4 === 3 || i === n - 1 || i === 0) { renderTimeline(); if ($('sVids').classList.contains('on')) renderVids(); }
     }
   } catch { /* sin miniaturas: los bloques se ven igual */ }
 }
+
 render();
 </script>
 </body>
