@@ -1,10 +1,10 @@
-# AgentCut (working name)
+# AgentCut
 
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
 > Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre provisional / working name. Revisar que no choque con marcas existentes antes de publicar.
+> Nombre oficial: **AgentCut** (Agent + Cut, escrito con "Cut", no "Code"). Pendiente: revisar que no choque con marcas existentes antes de publicar.
 
 ---
 
@@ -12,11 +12,11 @@
 
 **ES.** Hoy los agentes de IA que manejan aplicaciones lo hacen casi siempre en computadoras de escritorio. Hasta donde sabemos, no hay un editor de video pensado para el teléfono que una IA pueda controlar así (no verificado de forma exhaustiva; si conoces uno, abre un issue). AgentCut quiere aprovechar la potencia que ya tienen los teléfonos: tú escribes "quita los silencios, ponle subtítulos y exporta vertical", la IA decide los pasos y el editor los ejecuta **en tu teléfono**. Sin computadora, sin instalar nada.
 
-**EN.** AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
+**EN.** (Architecture is open: web-first is only a proposal, see `docs/ARCHITECTURE.md`.) AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
 
 ## Cómo funciona / How it works
 
-- **App web (PWA):** se abre desde un enlace en Safari o Chrome del teléfono. Editor propio y simple: importar video de la galería, cortar, poner texto y exportar. Visual y táctil desde el primer día.
+- **Arquitectura: en discusión.** El propietario no ha decidido que sea solo web. La propuesta técnica (web primero, cápsula nativa después para gafas y transmisión en vivo, comparada con las otras opciones) está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Hoy lo más fácil de probar desde un iPhone, sin computadora, es una página web: importar video de la galería, cortar, poner texto y exportar.
 - **Chat dentro de la app:** la app llama a la IA y la IA responde con llamadas a herramientas (tool calls) que la app ejecuta localmente. Una IA en la nube no puede "entrar" a una página de tu teléfono, así que invertimos la dirección.
 - **El video no se sube.** Solo viajan texto y resultados de herramientas. Enviar fotogramas para que la IA "vea" sería opcional y avisado.
 
