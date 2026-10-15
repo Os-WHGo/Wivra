@@ -2,7 +2,7 @@
 
 **Decisión del propietario (13-oct-2026):** lo importante es poder elegir de dónde se recibe el audio. No requiere festivales, DJ, mixer, streamer ni marketplace. El video puede seguir siendo de las Ray-Ban Meta y el audio llegar desde cualquier **entrada real compatible** del iPhone.
 
-[línea retirada]
+Las propuestas de ventas/tours, cloud-sync automático, comandos y gestos NO constituyen instrucciones del propietario.
 
 ## Alcance implementado en esta rama experimental
 - La miniapp iOS de B1 detecta fuentes **que devuelve `AVAudioSession.availableInputs`**: micrófono integrado, headset por cable, Bluetooth HFP, audio USB. No asume que DJI, Ray-Ban ni AirPods estén conectados por el nombre de una marca.
