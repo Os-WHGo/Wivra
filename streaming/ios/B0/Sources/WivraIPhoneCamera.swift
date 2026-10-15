@@ -56,6 +56,10 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     private(set) var lastPhotoImage: UIImage?
 
     var proMode = false
+    // Slow shutter belongs to STILL photos only, never an ongoing MOV recording.
+    private(set) var nightPhotoMode = false
+    private(set) var supportsNightPhoto = false
+    private(set) var maxNightPhotoExposureSeconds = 1.0 / 30.0
     var iso = 100.0
     var shutterSeconds = 1.0 / 120
     var focusPosition = 0.5
@@ -166,6 +170,12 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         iso = Double(device.iso).clamped(to: minISO...maxISO)
         supportsManualExposure = device.isExposureModeSupported(.custom)
         supportsManualFocus = device.isLockingFocusWithCustomLensPositionSupported
+        let hardwareMaximum = CMTimeGetSeconds(device.activeFormat.maxExposureDuration)
+        maxNightPhotoExposureSeconds = hardwareMaximum.isFinite
+            ? min(8.0, max(1.0 / 30.0, hardwareMaximum))
+            : 1.0 / 30.0
+        supportsNightPhoto = supportsManualExposure && maxNightPhotoExposureSeconds >= 1.0 / 8.0
+        nightPhotoMode = false
         shutterSeconds = 1.0 / 120
         focusPosition = Double(device.lensPosition)
         proMode = false
@@ -178,9 +188,13 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
             defer { device.unlockForConfiguration() }
             if enabled && device.isExposureModeSupported(.custom) {
                 proMode = true
+                nightPhotoMode = false
+                shutterSeconds = min(shutterSeconds, 1.0 / 30.0)
                 setManualExposureOnLockedDevice(device)
             } else {
                 proMode = false
+                nightPhotoMode = false
+                shutterSeconds = 1.0 / 120.0
                 if device.isExposureModeSupported(.continuousAutoExposure) {
                     device.exposureMode = .continuousAutoExposure
                 }
@@ -193,8 +207,35 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         }
     }
 
+    // Custom exposure is provided by AVCaptureDevice.activeFormat, not simulated
+    // by brightening a JPEG. Hardware/format limits are read per selected lens.
+    // Switching back to video-safe timing is required before recording a movie.
+    func setNightPhotoMode(_ enabled: Bool) {
+        guard isRunning && !isRecording && !isFinishing && !photoBusy,
+              proMode && supportsManualExposure, let device = activeDevice else { return }
+        guard !enabled || supportsNightPhoto else {
+            status = "La lente no ofrece una obturación fotográfica lenta en este formato."
+            return
+        }
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+            nightPhotoMode = enabled
+            shutterSeconds = enabled
+                ? min(0.5, maxNightPhotoExposureSeconds)
+                : min(shutterSeconds, 1.0 / 30.0)
+            setManualExposureOnLockedDevice(device)
+            status = enabled
+                ? "Foto nocturna experimental. Usa trípode; respeta el límite real de esta lente."
+                : "Exposición devuelta al rango compatible con grabación de video."
+        } catch {
+            status = "Foto nocturna: " + error.localizedDescription
+        }
+    }
+
     func updateManualExposure() {
-        guard isRunning && !isRecording && proMode && supportsManualExposure,
+        guard isRunning && !isRecording && !isFinishing && !photoBusy
+              && proMode && supportsManualExposure,
               let device = activeDevice else { return }
         do {
             try device.lockForConfiguration()
@@ -207,9 +248,11 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
 
     private func setManualExposureOnLockedDevice(_ device: AVCaptureDevice) {
         let safeISO = Float(iso.clamped(to: minISO...maxISO))
-        // B1H uses conventional video-safe shutter times, not long exposure.
         let floor = max(CMTimeGetSeconds(device.activeFormat.minExposureDuration), 1.0 / 1000.0)
-        let ceiling = min(CMTimeGetSeconds(device.activeFormat.maxExposureDuration), 1.0 / 30.0)
+        // Long exposures are possible only in photo-only mode when the device
+        // advertises them; otherwise remain within the 1/30-second video bound.
+        let limit = nightPhotoMode ? maxNightPhotoExposureSeconds : 1.0 / 30.0
+        let ceiling = min(CMTimeGetSeconds(device.activeFormat.maxExposureDuration), limit)
         let seconds = shutterSeconds.clamped(to: floor...max(floor, ceiling))
         device.setExposureModeCustom(duration: CMTimeMakeWithSeconds(seconds, preferredTimescale: 1_000_000),
                                      iso: safeISO, completionHandler: nil)
@@ -231,7 +274,9 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     func takePhoto() {
         guard isRunning && !photoBusy && !isFinishing else { return }
         photoBusy = true
-        status = isRecording ? "Solicitando foto durante video…" : "Capturando fotografía…"
+        status = isRecording ? "Solicitando foto durante video…"
+            : nightPhotoMode ? "Capturando foto nocturna con obturación real (experimental)…"
+            : "Capturando fotografía…"
         photoOutput.capturePhoto(
             with: AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg]),
             delegate: self
@@ -269,6 +314,10 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         guard isRunning && !isFinishing else { return }
         if isRecording {
             stopVideo()
+            return
+        }
+        guard !nightPhotoMode else {
+            status = "Desactiva Foto nocturna antes de grabar MOV."
             return
         }
         guard !photoBusy else { return }
