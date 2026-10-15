@@ -3,92 +3,102 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AgentCut · prueba en teléfono</title>
+<meta name="theme-color" content="#12141a">
+<title>AgentCut · editor</title>
 <style>
-  :root { --bg:#111; --card:#1c1c1e; --fg:#f2f2f7; --mut:#9a9aa3; --ac:#0a84ff; --bad:#ff453a; --ok:#30d158; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.4 -apple-system, system-ui, sans-serif; padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); max-width:640px; margin-inline:auto; }
-  h1 { font-size:22px; margin:16px 0 4px; } h2 { font-size:17px; margin:0 0 8px; }
-  p.m { color:var(--mut); margin:0 0 12px; font-size:15px; }
-  section { background:var(--card); border-radius:14px; padding:14px; margin:12px 0; }
-  button, .btn { display:block; width:100%; min-height:48px; font:inherit; font-weight:600; border:0; border-radius:12px; background:var(--ac); color:#fff; padding:12px; margin:8px 0; text-align:center; }
-  button.sec { background:#3a3a3c; } button:disabled { opacity:.4; }
-  input, textarea { width:100%; font-size:16px; /* 16px evita el zoom de iOS */ background:#000; color:var(--fg); border:1px solid #3a3a3c; border-radius:10px; padding:10px; }
-  textarea { min-height:90px; } label { font-size:14px; color:var(--mut); }
+  :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
+  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:100dvh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; }
+  .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
+  .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
+  .pill { height:36px; padding:0 14px; border-radius:18px; background:var(--bar); border:1px solid var(--line); display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:14px; }
+  .pill.go { background:var(--ac); border-color:var(--ac); color:#0c1022; } .pill:disabled { opacity:.45; }
+  #info { font-size:12px; color:var(--mut); padding:0 14px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:18px; }
+  .stage { position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0 14px; }
+  video { max-width:100%; max-height:100%; border-radius:6px; background:#000; display:none; }
+  .stage.on video { display:block; }
+  #ov { position:absolute; left:14px; right:14px; bottom:10%; text-align:center; font-weight:800; font-size:22px; text-shadow:0 0 8px #000, 0 0 2px #000; pointer-events:none; }
+  .empty { position:absolute; inset:14px; border:1.5px dashed var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--mut); padding:20px; }
+  .stage.on .empty { display:none; }
+  .empty .pill { font-size:16px; height:46px; padding:0 22px; }
+  .ctl { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:6px 14px; }
+  .ctl .t { font:600 13px ui-rounded, -apple-system, system-ui, sans-serif; font-variant-numeric:tabular-nums; color:var(--mut); } .ctl .t b { color:var(--fg); font-weight:700; }
+  .ctl .r { display:flex; justify-content:flex-end; gap:2px; }
+  .ib { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; } .ib:active { background:var(--bar); } .ib:disabled { opacity:.35; }
+  #play { width:54px; height:54px; border-radius:27px; background:var(--fg); color:#12141a; } #play:active { background:#fff; }
+  svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
+  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
+  #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
+  #tlinner { position:relative; height:134px; }
+  #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
+  #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #ttrack { top:94px; height:30px; }
+  .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
+  .blk.sel { border-color:var(--sel); } .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
+  .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
+  .hd { position:absolute; top:0; width:22px; height:100%; background:#ffc53dcc; touch-action:none; display:none; } .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
+  .hd::after { content:''; position:absolute; top:35%; bottom:35%; left:9px; width:3px; border-radius:2px; background:#12141a; }
+  .txb { background:#3b2f66; border-color:var(--tx); font-size:12px; padding:5px 8px; white-space:nowrap; }
+  #head { position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px; background:#fff; pointer-events:none; box-shadow:0 0 6px #000; z-index:3; }
+  #head::before { content:''; position:absolute; top:0; left:-4px; border:5px solid transparent; border-top:7px solid #fff; border-bottom:0; }
+  .zoom { position:absolute; right:8px; top:26px; display:flex; flex-direction:column; gap:6px; z-index:4; }
+  .zoom button { width:34px; height:34px; border-radius:17px; background:#191c24dd; border:1px solid var(--line); font-weight:700; } .zoom button:disabled { opacity:.4; }
+  .bar { display:flex; gap:2px; overflow-x:auto; padding:6px 8px 8px; scrollbar-width:none; } .bar::-webkit-scrollbar { display:none; }
+  .tool { flex:0 0 auto; min-width:68px; padding:6px 6px 4px; border-radius:12px; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; color:var(--fg); } .tool:active { background:var(--bar); }
+  .tool:disabled { opacity:.35; } .tool.soon { color:var(--mut); opacity:.6; } .tool small { font-size:9px; color:var(--mut); margin-top:-3px; }
+  #toast { position:fixed; left:50%; transform:translateX(-50%); top:calc(58px + env(safe-area-inset-top)); max-width:92%; background:#232834; border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:14px; white-space:pre-wrap; display:none; z-index:20; } #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
+  .back { position:fixed; inset:0; background:#0009; display:none; z-index:30; } .back.on { display:block; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; max-width:560px; margin-inline:auto; max-height:82dvh; overflow-y:auto; background:var(--bar); border-radius:18px 18px 0 0; border:1px solid var(--line); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:none; z-index:31; } .sheet.on { display:block; }
+  .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
+  input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
+  .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
-  video { width:100%; max-height:34vh; background:#000; border-radius:10px; }
-  .stage { position:relative; } #ov { position:absolute; left:0; right:0; bottom:12%; text-align:center; font-weight:700; font-size:22px; text-shadow:0 0 6px #000; pointer-events:none; }
-  .item { padding:8px 0; border-top:1px solid #2c2c2e; font-size:15px; } .item:first-child { border-top:0; }
-  #msg { white-space:pre-wrap; font-size:15px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
-  .tlbar { display:flex; align-items:center; gap:8px; margin-bottom:8px; } .tlbar span { font-variant-numeric:tabular-nums; font-size:15px; flex:1; }
-  .tlbar button { width:auto; min-width:48px; margin:0; padding:8px 14px; }
-  #tlwrap { overflow-x:auto; overflow-y:hidden; background:#0b0b0c; border-radius:10px; -webkit-overflow-scrolling:touch; }
-  #tlinner { position:relative; height:150px; }
-  #ruler { position:absolute; top:0; left:0; right:0; height:28px; touch-action:none; background:#161618; font-size:11px; color:var(--mut); }
-  #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #3a3a3c; padding-left:3px; font-style:normal; line-height:28px; pointer-events:none; }
-  .trk { position:absolute; left:0; right:0; }
-  #vtrack { top:34px; height:60px; } #ttrack { top:100px; height:36px; }
-  .blk { position:absolute; top:0; height:100%; border-radius:8px; overflow:hidden; background:#2c2c2e; border:2px solid #48484a; box-sizing:border-box; }
-  .blk.sel { border-color:#ffd60a; }
-  .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
-  .blk .lb { position:absolute; left:6px; bottom:2px; font-size:11px; text-shadow:0 0 4px #000; pointer-events:none; }
-  .hd { position:absolute; top:0; width:24px; height:100%; background:#ffd60a99; touch-action:none; display:none; }
-  .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
-  .txb { background:#5e5ce6; border-color:#8e8cf0; font-size:12px; padding:6px; white-space:nowrap; }
-  #head { position:absolute; top:0; width:2px; height:100%; background:#fff; pointer-events:none; box-shadow:0 0 4px #000; }
+  #msg { white-space:pre-wrap; font-size:14px; margin-top:8px; } .item { padding:8px 0; border-top:1px solid var(--line); font-size:14px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
   input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+  @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
 </style>
 </head>
 <body>
-<h1>AgentCut</h1>
-<p class="m">Prueba de teléfono · el video NO sale de tu teléfono · todavía no exporta</p>
+<div class="top"><b>AgentCut</b><span class="sp"></span>
+  <label class="pill" for="file" id="pick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*">
+  <button class="pill go" disabled title="Todavía no exporta">Exportar · pronto</button></div>
+<div id="info">Ningún video elegido.</div>
+<div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
+  <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Se queda en tu teléfono. Nada se sube.</span><label class="pill go" for="file">Elegir video</label></div></div>
+<div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
+  <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+  <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
+<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+  <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
+<div class="bar" role="toolbar" aria-label="Herramientas">
+  <button class="tool" id="split" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M7 8 3 12l4 4M17 8l4 4-4 4"/></svg>Cortar</button>
+  <button class="tool" id="del" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Borrar</button>
+  <button class="tool" id="bText" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Texto</button>
+  <button class="tool" id="bAI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>IA</button>
+  <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio<small>pronto</small></button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
+  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="back" id="back"></div>
 
-<section>
-  <h2>1. Tu video</h2>
-  <label class="btn" for="file" id="pick">Elegir video del teléfono</label>
-  <input id="file" type="file" accept="video/*">
-  <p class="m" id="info">Ningún video elegido.</p>
-  <div class="stage"><video id="v" playsinline></video><div id="ov"></div></div>
-</section>
+<div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
+  <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
-<section>
-  <h2>2. Línea de tiempo</h2>
-  <div class="tlbar"><button id="play" class="sec" disabled>▶</button><span><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></span><button id="zo" class="sec" disabled>−</button><button id="zi" class="sec" disabled>＋</button></div>
-  <div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div><div id="head"></div></div></div>
-  <p class="m" id="hint">Elige un video para ver su línea de tiempo.</p>
-  <div class="row"><button id="split" disabled>✂ Cortar aquí</button><button id="del" class="sec" disabled>🗑 Borrar clip</button></div>
-  <div class="row"><button id="undo" class="sec" disabled>↩ Deshacer</button><button id="redo" class="sec" disabled>↪ Rehacer</button></div>
-  <label>Texto en pantalla (en la línea blanca, 3 s)</label><input id="txt" placeholder="Vancouver">
-  <button id="addtxt" class="sec" disabled>Poner texto aquí</button>
-  <details><summary class="m">Recorte por números (avanzado)</summary>
-    <div class="row"><div><label>Inicio (s)</label><input id="tin" inputmode="decimal" placeholder="2"></div><div><label>Fin (s)</label><input id="tout" inputmode="decimal" placeholder="8"></div></div>
-    <button id="trim" class="sec" disabled>Recortar el primer clip</button>
-  </details>
-</section>
+<div class="sheet" id="sAI"><h2>Con tu IA</h2><p class="m">Gratis y sin clave: copias el mensaje, lo pegas en ChatGPT o Claude, y traes la respuesta.</p>
+  <label>¿Qué quieres que haga?</label><textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
+  <button id="copy" class="btn" disabled>1. Copiar el mensaje para mi IA</button>
+  <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
+  <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></div>
 
-<section>
-  <h2>3. Con tu IA (gratis, sin clave)</h2>
-  <p class="m">Usa ChatGPT o Claude normales. Copias, pegas y vuelves.</p>
-  <label>¿Qué quieres que haga?</label>
-  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
-  <button id="copy" disabled>① Copiar el mensaje para mi IA</button>
-  <label>② Pega aquí la respuesta de la IA</label>
-  <textarea id="reply"></textarea>
-  <button id="apply" disabled>③ Aplicar</button>
-  <div id="msg"></div>
-</section>
-
-<section>
-  <h2>4. Observar el video (local)</h2>
-  <p class="m">Escanea ocho fotogramas livianos y propone momentos con cambios visuales. Las imágenes nunca salen del dispositivo desde esta pantalla. No identifica calles, personas ni voz.</p>
-  <button id="observe" class="sec" disabled>🔍 Inspeccionar fotogramas</button>
-  <div id="visionStatus" class="m" role="status" aria-live="polite"></div>
-  <div id="visualCandidates"></div>
-  <p class="m">Cuando uses «Copiar el mensaje para mi IA», podrás incluir estas métricas numéricas. La IA no verá los fotogramas originales: si necesita reconocer lugares, tendrás que compartir imágenes por separado y con tu permiso.</p>
-</section>
-
-
-
+<div class="sheet" id="sObs"><h2>Observar el video</h2><p class="m">Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada.</p>
+  <button id="observe" class="btn" disabled>Inspeccionar fotogramas</button>
+  <div id="visionStatus" class="m" role="status" aria-live="polite" style="margin-top:8px"></div><div id="visualCandidates"></div>
+  <label>Recorte por números del primer clip</label>
+  <div class="row"><div><input id="tin" inputmode="decimal" placeholder="Inicio (s)"></div><div><input id="tout" inputmode="decimal" placeholder="Fin (s)"></div></div>
+  <button id="trim" class="btn sec" disabled>Recortar</button></div>
 <script>
 // AgentCut core · proyecto como JSON puro (fuente única de verdad). Sin dependencias.
 // — Claude
@@ -416,34 +426,43 @@ const fmtTime = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); retur
 
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
-let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, thumbs = [], thumbStep = 1;
 let visualEvidence = null, visualBusy = false;
+let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, thumbs = [], thumbStep = 1, toastTimer = null;
+const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
-function say(t, cls) { const m = $('msg'); m.textContent = t; m.className = cls || ''; }
+function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
+  const m = $('msg'); m.textContent = t; m.className = cls || '';
+  const x = $('toast'); x.textContent = t.length > 160 ? t.slice(0, 157) + '…' : t; x.className = cls || ''; x.style.display = 'block';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { x.style.display = 'none'; }, 3800);
+}
 function fmt(n) { return Math.round(n * 100) / 100; }
+function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); }
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
+$('back').onclick = closeSheets;
+$('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
 
 function render() {
-  const p = session?.project;
-  const on = !!p;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt']) $(id).disabled = !on;
+  const p = session?.project, on = !!p;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
   $('del').disabled = !on || !selId;
+  $('stage').classList.toggle('on', on);
   renderTimeline();
 }
-function stopPlayIfAny() { if (typeof playing !== 'undefined' && playing) { playing = false; $('v').pause(); $('play').textContent = '▶'; } }
+function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
   if (session.project.clips.every(c => c.id !== selId)) selId = null;
   tlTime = Math.min(tlTime, totalDuration(session.project));
-  render();
+  render(); syncScroll();
   return r;
 }
 
 $('file').addEventListener('change', () => {
   const f = $('file').files[0]; if (!f) return;
-  visualEvidence=null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent='';
+  visualEvidence = null; $('visualCandidates').replaceChildren(); $('visionStatus').textContent = '';
   if (objUrl) URL.revokeObjectURL(objUrl);
   objUrl = URL.createObjectURL(f);
   const v = $('v'); v.src = objUrl;
@@ -453,16 +472,17 @@ $('file').addEventListener('change', () => {
     const d = Math.round(v.duration * 100) / 100;
     session = new Session(createProject({ assets: [{ id: 'a1', duration: d, name: f.name }] }));
     selId = null; tlTime = 0; thumbs = []; stopPlayIfAny();
+    $('stage').classList.add('on');
+    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / d));
     run([{ op: 'add_clip', asset_id: 'a1' }]);
-    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth - 24) / d));
-    render(); makeThumbs(objUrl, d, v.videoWidth, v.videoHeight);
     $('info').textContent = `${f.name} · ${d} s · ${v.videoWidth}×${v.videoHeight}`;
-    say('Video cargado. Ya puedes editar.', 'ok');
+    say('Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    makeThumbs(objUrl, d, v.videoWidth, v.videoHeight);
   };
   v.onerror = () => {
     const e = v.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido';
     $('info').textContent = 'Este navegador no puede reproducir este video.';
-    say(`Detalle para el desarrollador: archivo “${f.name}”, tipo “${f.type || 'sin tipo'}”, ${(f.size / 1048576).toFixed(1)} MB, error: ${cod}${e && e.message ? ' (' + e.message + ')' : ''}. Navegador: ${navigator.userAgent}`, 'bad');
+    say(`Detalle: archivo “${f.name}”, tipo “${f.type || 'sin tipo'}”, ${(f.size / 1048576).toFixed(1)} MB, error: ${cod}${e && e.message ? ' (' + e.message + ')' : ''}. Navegador: ${navigator.userAgent}`, 'bad');
   };
 });
 
@@ -474,13 +494,14 @@ $('trim').onclick = () => {
 $('copy').onclick = async () => {
   const prompt = buildPrompt($('ask').value || '(escribe qué quieres arriba)', session.project, evidenceForPrompt(visualEvidence));
   try { await navigator.clipboard.writeText(prompt); say('Copiado. Pégalo en ChatGPT o Claude y copia su respuesta.', 'ok'); }
-  catch { $('reply').value = ''; $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
+  catch { $('ask').value = prompt; say('No pude copiar solo: el mensaje quedó en la caja de arriba; selecciónalo y cópialo.', 'bad'); }
 };
 $('apply').onclick = () => {
   const ops = parseReply($('reply').value);
   if (!ops) return say('No encontré una lista de operaciones en lo que pegaste. Pídele a la IA: “responde solo con el JSON”.', 'bad');
   const r = run(ops);
-  say(r.ok ? `Aplicado (${ops.length} operaciones).` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
+  if (r.ok) closeSheets();
+  say(r.ok ? `Aplicado (${ops.length} operaciones). Revisa la línea de tiempo.` : `La app rechazó la operación ${r.failed_index + 1}: ${r.message}\nNada cambió. Copia este texto y pégaselo a la IA para que corrija.`, r.ok ? 'ok' : 'bad');
 };
 
 $('observe').onclick=async()=>{
@@ -517,71 +538,53 @@ $('observe').onclick=async()=>{
   finally{visualBusy=false;render()}
 };
 
-/* ---------- Línea de tiempo visual (lógica pura en timeline.mjs) ---------- */
-function edit(ops, opts) {            // edición manual: valida, cierra huecos, un solo deshacer
-  const plan = planEdit(session.project, ops, opts);
-  if (!plan.ok) return plan;
-  return run(plan.ops);
-}
-const vv = () => $('v');
-function showFrame() {                // muestra en el video el instante tlTime de la línea
+/* ---------- Línea de tiempo: la línea blanca está fija al centro y el contenido se desliza por debajo ---------- */
+function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if (!plan.ok) return plan; return run(plan.ops); }
+const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
+function showFrame() {
   const hit = clipAt(session.project, tlTime);
-  if (hit && Math.abs(vv().currentTime - hit.assetTime) > 0.04) { try { vv().currentTime = hit.assetTime; } catch {} }
+  if (hit && Math.abs($('v').currentTime - hit.assetTime) > 0.04) { try { $('v').currentTime = hit.assetTime; } catch {} }
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
 }
-function setTime(t, seek = true) {
-  const tot = totalDuration(session.project);
-  tlTime = Math.max(0, Math.min(t, tot));
-  if (seek) showFrame();
-  paintHead();
-}
-function paintHead() {
-  if (!session) return;
-  $('head').style.left = (tlTime * pps) + 'px';
-  $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project));
-  const w = $('tlwrap'), x = tlTime * pps;
-  if (playing && (x < w.scrollLeft + 10 || x > w.scrollLeft + w.clientWidth - 30)) w.scrollLeft = Math.max(0, x - 40);
-}
+function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
+function syncScroll() { if (session) wrap().scrollLeft = tlTime * pps; labels(); }
+wrap().addEventListener('scroll', () => {
+  if (!session || playing) return;
+  const t = Math.max(0, Math.min(wrap().scrollLeft / pps, totalDuration(session.project)));
+  if (Math.abs(t - tlTime) < 0.004) return;
+  tlTime = t; showFrame(); labels();
+}, { passive: true });
 function renderTimeline() {
-  const p = session?.project, inner = $('tlinner'), wrap = $('tlwrap');
+  const p = session?.project, inner = $('tlinner'), L = padL();
   $('vtrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
-  if (!p) { $('hint').textContent = 'Elige un video para ver su línea de tiempo.'; return; }
+  if (!p) { labels(); return; }
   const tot = totalDuration(p);
-  inner.style.width = Math.max(tot * pps + 60, wrap.clientWidth) + 'px';
+  inner.style.width = (L * 2 + tot * pps) + 'px';
   const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
-  for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
-  const asset = (id) => p.assets.find(a => a.id === id);
+  for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (L + t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
   for (const c0 of sortedClips(p)) {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
-    b.style.left = (c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
     for (const th of thumbs) {
       const left = (th.t - thumbStep / 2 - c.in) * pps, w = thumbStep * pps;
       if (left + w < 0 || left > (c.out - c.in) * pps) continue;
       const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
     }
-    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = c.id + ' · ' + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
   }
   for (const t of p.texts) {
-    const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
+    const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
   }
-  $('hint').textContent = selId ? 'Clip elegido: arrastra los bordes amarillos para recortar.' : 'Toca un clip para elegirlo. Toca la regla de arriba para mover la línea blanca.';
-  paintHead();
+  labels();
 }
-// tocar un clip / regla
 $('tlinner').addEventListener('click', (e) => {
   const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
-  selId = b.dataset.id; const r = $('tlinner').getBoundingClientRect(); setTime((e.clientX - r.left) / pps); render();
+  selId = selId === b.dataset.id ? null : b.dataset.id; render();
 });
-$('ruler').addEventListener('pointerdown', (e) => {
-  const mv = (ev) => { const r = $('tlinner').getBoundingClientRect(); setTime((ev.clientX - r.left) / pps); };
-  mv(e); const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
-  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
-});
-// arrastrar bordes = recortar
-$('tlinner').addEventListener('pointerdown', (e) => {
+$('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bordes amarillos = recortar
   const h = e.target.closest('.hd'); if (!h) return;
   const id = h.parentElement.dataset.id, c = session.project.clips.find(k => k.id === id), a = session.project.assets.find(k => k.id === c.asset_id);
   const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
@@ -597,7 +600,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {
     const d = drag; drag = null;
     if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
       const r = edit([{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }]);
-      say(r.ok ? `Recortado: ahora usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+      say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
     } else render();
   };
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
@@ -613,39 +616,37 @@ $('del').onclick = () => {
 $('addtxt').onclick = () => {
   const tot = totalDuration(session.project);
   const r = run([{ op: 'add_text', text: $('txt').value, start: Math.min(tlTime, Math.max(0, tot - 0.1)), duration: 3 }]);
-  say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+  if (r.ok) closeSheets(); say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
-$('undo').onclick = () => { session.undo(); setTime(tlTime, false); render(); say('Deshecho.', 'ok'); };
-$('redo').onclick = () => { session.redo(); render(); say('Rehecho.', 'ok'); };
-$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); };
-$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); };
-// reproducir el resultado editado, saltando huecos
-function stopPlay() { playing = false; vv().pause(); $('play').textContent = '▶'; }
+$('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
+$('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
+function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
+$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
+$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
 $('play').onclick = () => {
   if (playing) return stopPlay();
-  const p = session.project, clips = sortedClips(p); if (!clips.length) return;
+  const p = session.project; if (!p.clips.length) return;
   if (tlTime >= totalDuration(p) - 0.05) tlTime = 0;
-  playing = true; $('play').textContent = '⏸';
-  let cur = null;
+  playing = true; $('play').innerHTML = PAUSE; let cur = null;
   const frame = () => {
     if (!playing) return;
     const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
-    if (!hit) {                                                    // hueco o fin
+    if (!hit) {
       const next = sortedClips(session.project).find(c => c.start > tlTime);
       if (!next) { stopPlay(); return; }
       tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
     }
-    if (cur !== hit.clip.id) { cur = hit.clip.id; vv().currentTime = hit.assetTime; vv().play().catch(() => {}); }
-    const c = hit.clip;
-    tlTime = c.start + (vv().currentTime - c.in);
-    if (vv().currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    if (cur !== hit.clip.id) { cur = hit.clip.id; $('v').currentTime = hit.assetTime; $('v').play().catch(() => {}); }
+    const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
+    if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
-    paintHead(); requestAnimationFrame(frame);
+    wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
 };
-vv().addEventListener('click', () => { if (session) $('play').click(); });
-// miniaturas: se sacan con un segundo video oculto, una por una
+$('v').addEventListener('click', () => { if (session) $('play').click(); });
+
 async function makeThumbs(url, dur, vw, vh) {
   thumbs = []; const n = Math.max(6, Math.min(30, Math.round(dur))); thumbStep = dur / n;
   const t = document.createElement('video'); t.muted = true; t.playsInline = true; t.preload = 'auto'; t.src = url;
@@ -662,7 +663,6 @@ async function makeThumbs(url, dur, vw, vh) {
     }
   } catch { /* sin miniaturas: los bloques se ven igual */ }
 }
-
 render();
 </script>
 </body>
