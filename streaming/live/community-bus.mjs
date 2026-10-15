@@ -34,6 +34,7 @@ export function createCommunityPolicy(options={}) {
   const alertDestination=options.alertDestination ?? 'monitor';
   const publicAudioConsent=options.publicAudioConsent ?? false;
   const minRole=options.minRole ?? {};
+  const minContributions=options.minContributions ?? {};
   const minDelayMs=options.minDelayMs ?? 4000;
   const cooldownMs=options.cooldownMs ?? 6500;
   const maxAgeMs=options.maxAgeMs ?? 45000;
@@ -43,7 +44,7 @@ export function createCommunityPolicy(options={}) {
       typeof publicAudioConsent!=='boolean' ||
       !inList(['off','monitor','program','both'],readDestination) ||
       !inList(['off','monitor','program','both'],alertDestination) ||
-      !isObj(minRole) || !nonnegative(minDelayMs) || minDelayMs>120000 ||
+      !isObj(minRole) || !isObj(minContributions) || !nonnegative(minDelayMs) || minDelayMs>120000 ||
       !nonnegative(cooldownMs) || cooldownMs>120000 ||
       !nonnegative(maxAgeMs) || maxAgeMs<1000 || maxAgeMs>600000 ||
       !Number.isInteger(maxQueue) || maxQueue<1 || maxQueue>100)
@@ -57,11 +58,21 @@ export function createCommunityPolicy(options={}) {
     if(!inList(COMMUNITY_ROLES,role)) refuse('Invalid per-platform minimum role.');
     roles[provider]=role;
   }
-  if(Object.keys(minRole).some(k=>!inList(COMMUNITY_PROVIDERS,k)))
+  if(Object.keys(minRole).some(k=>!inList(COMMUNITY_PROVIDERS,k)) ||
+     Object.keys(minContributions).some(k=>!inList(COMMUNITY_PROVIDERS,k)))
     refuse('Unknown provider in community policy.');
+  // Monetary limits must be expressed in each provider's verified currency.
+  // Never compare contribution amounts between different currencies.
+  const limits={};
+  for(const [provider,v] of Object.entries(minContributions)) {
+    if(!isObj(v) || !Number.isSafeInteger(v.amountMinor) || v.amountMinor<0 ||
+      typeof v.currency!=='string' || !/^[A-Z]{3}$/.test(v.currency))
+      refuse('Invalid provider currency threshold.');
+    limits[provider]={amountMinor:v.amountMinor,currency:v.currency};
+  }
   return Object.freeze({schema:COMMUNITY_SCHEMA,mode,readEnabled,alertSounds,
     readDestination,alertDestination,publicAudioConsent,
-    minRole:Object.freeze(roles),minDelayMs,cooldownMs,maxAgeMs,maxQueue});
+    minRole:Object.freeze(roles),minContributions:Object.freeze(limits),minDelayMs,cooldownMs,maxAgeMs,maxQueue});
 }
 
 // Providers must verify OAuth/EventSub/webhook origin/authorization themselves.
@@ -97,6 +108,11 @@ export function eventPriority(event) {
   return kindWeight[event.kind] + roleRank[event.role]*6;
 }
 function eligible(event,policy) {
+  if(event.kind==='donation' && policy.minContributions[event.provider]) {
+    const min=policy.minContributions[event.provider];
+    if(event.contribution?.currency!==min.currency || event.contribution.amountMinor<min.amountMinor)
+      return false;
+  }
   if(event.kind!=='chat') return policy.mode==='quiet'
     ? inList(['donation','gift','subscription'],event.kind):true;
   if(!policy.readEnabled || policy.readDestination==='off' || policy.mode==='quiet')
@@ -115,7 +131,6 @@ function phrase(event) {
     case 'subscription': return clean(prefix+' se suscribió.',410);
     case 'gift': return clean(prefix+' envió un regalo.',410);
     case 'donation': return clean(prefix+' envió una contribución'+
-      (event.contribution?' ('+event.contribution.currency+' '+(event.contribution.amountMinor/100).toFixed(2)+')':'')+
       (event.text?': '+event.text:'.'),410);
   }
 }
