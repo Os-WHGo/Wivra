@@ -118,6 +118,12 @@
   #pzName { width:100%; box-sizing:border-box; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#0d0f14; color:var(--fg); padding:0 12px; font-size:16px; }
   .btn.bad { background:#3a1f26; color:var(--bad); }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
+.fgrid{display:grid;grid-auto-flow:column;grid-auto-columns:78px;gap:8px;margin:8px 0;overflow-x:auto;padding-bottom:4px}
+.fgrid button{position:relative;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#222;aspect-ratio:3/4;color:#fff;font-size:11px;cursor:pointer}
+.fgrid button canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fgrid button span{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;background:rgba(0,0,0,.55);line-height:1.1}
+.fgrid button.on{border-color:#fff}
+.frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -192,11 +198,13 @@
   <label class="m">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <button id="fxDone" class="btn">Listo</button></div>
 <div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m" id="fltInfo">Elige un video en la línea de tiempo.</p>
-  <div class="chips" id="fltLooks"></div>
-  <div id="fltSliders"></div>
-  <button id="fltAll" class="btn sec" type="button">Poner este filtro en todos los videos</button>
+  <div class="chips" id="fltScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <div class="fgrid" id="fltLooks"></div>
+  <div class="frow"><label class="m" style="flex:1">Nivel: <b id="fltLvTxt">100</b>%<input id="fltLevel" type="range" min="0" max="100" step="1" value="100" style="width:100%"></label>
+    <button id="fltMore" class="btn sec" type="button">Más opciones</button></div>
+  <div id="fltSliders" style="display:none"></div>
   <button id="fltReset" class="btn sec" type="button">Quitar filtro</button>
-  <button id="fltDone" class="btn" type="button">Listo</button></div>
+  <button id="fltDone" class="btn" type="button">✓ Listo</button></div>
 <div class="sheet" id="sDel"><h2>¿Qué borrar?</h2><p class="m" id="delInfo"></p>
   <button id="delBoth" class="btn">Video y audio (los siguientes se juntan)</button>
   <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
@@ -3221,19 +3229,48 @@ function fltOverlay(el, wr, c) {      // capa con filtro: se dibuja en un <canva
   if (fl.width !== out.width || fl.height !== out.height) { fl.width = out.width; fl.height = out.height; }
   fl.getContext('2d').drawImage(out, 0, 0); { const r = JSON.parse(el.dataset.cr || 'null'); if (r) ovPlace(fl, { x: r[0], y: r[1], w: r[2], h: r[3] }); } el.style.visibility = 'hidden'; return true;
 }
+let fltScope = 'one', fltLook = null;
+const fltKeys = Object.keys(FLT_LABELS);
+const fltScaled = (look, lv) => { const o = {}; for (const k of fltKeys) o[k] = Math.round(((LOOK_PRESETS[look].p[k] || 0) * lv) * 1000) / 1000; return o; };
+function fltTargets(c) { return fltScope === 'all' ? [...session.project.clips, ...(session.project.overlayClips || [])] : [c]; }
+function fltApply(c, extra) {      // una sola edición (un paso en deshacer) para «este clip» o «todos»
+  const ops = fltTargets(c).map(k => ({ op: 'set_clip_filter', clip_id: k.id, ...extra }));
+  const r = edit(ops, { ripple: false }); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fltSync(); showFrame();
+}
+function fltSource(c) {
+  if (kindOf(c.id) === 'overlay') { const w = document.querySelector(`#olay .ow[data-id="${c.id}"]`); const e = w && w.querySelector('video,img,canvas:not(.fxl)'); if (e) return e; }
+  return $('v');
+}
+function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
+  const W = 96, H = 128, src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d'); let ok = false;
+  const e = c && fltSource(c);
+  try {
+    const sw = e && (e.videoWidth || e.naturalWidth || e.width), sh = e && (e.videoHeight || e.naturalHeight || e.height);
+    if (sw > 0 && sh > 0 && (e.readyState === undefined || e.readyState >= 2)) { const k = Math.max(W / sw, H / sh); g.drawImage(e, (W - sw * k) / 2, (H - sh * k) / 2, sw * k, sh * k); ok = true; }
+  } catch { ok = false; }
+  if (!ok) { const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#6aa6d8'); gr.addColorStop(.55, '#c9b28a'); gr.addColorStop(1, '#3b5a2e'); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+  document.querySelectorAll('#fltLooks button').forEach(b => {
+    const cv = b.querySelector('canvas'); const id = b.dataset.look; const out = fxRender(src, id === 'none' ? null : LOOK_PRESETS[id].p, 0);
+    cv.width = W; cv.height = H; const x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, W, H); else x.drawImage(src, 0, 0);
+  });
+}
 function fltSync() {
   const c = fltTarget(), ok = !!c && kindOf(c.id) !== 'audio';
   $('fltInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
   const f = (ok && c.filter) || {};
-  document.querySelectorAll('#fltLooks button').forEach(b => b.classList.toggle('on', (b.dataset.look === 'none' && !c?.filter) || (!!c && b.dataset.look === f.look)));
-  for (const k of Object.keys(FLT_LABELS)) { const r = $('flt_' + k); if (r) { r.value = Math.round((f[k] || 0) * 100); r.previousElementSibling.textContent = r.value; r.disabled = !ok; } }
-  $('fltAll').disabled = !ok || !c.filter; $('fltReset').disabled = !ok || !c.filter;
+  if (f.look) fltLook = f.look; else if (!c?.filter) fltLook = null;
+  document.querySelectorAll('#fltLooks button').forEach(b => b.classList.toggle('on', (b.dataset.look === 'none' && !c?.filter) || (!!c && !!f.look && b.dataset.look === f.look)));
+  for (const k of fltKeys) { const r = $('flt_' + k); if (r) { r.value = Math.round((f[k] || 0) * 100); r.previousElementSibling.textContent = r.value; r.disabled = !ok; } }
+  const lvOk = ok && !!fltLook && !!c.filter; $('fltLevel').disabled = !lvOk;
+  if (lvOk) { const p = LOOK_PRESETS[fltLook].p, k = fltKeys.find(q => Math.abs(p[q] || 0) > 1e-9); const lv = f.look ? 1 : (k ? (f[k] || 0) / p[k] : 1); $('fltLevel').value = Math.round(Math.max(0, Math.min(1, lv)) * 100); } else $('fltLevel').value = 100;
+  $('fltLvTxt').textContent = $('fltLevel').value;
+  $('fltReset').disabled = !ok || !c.filter;
 }
 (function fltBuild() {
-  const l = $('fltLooks'); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; b.textContent = name; l.appendChild(b); };
+  const l = $('fltLooks'); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; b.innerHTML = '<canvas></canvas><span></span>'; b.lastChild.textContent = name; l.appendChild(b); };
   mk('none', 'Sin filtro'); for (const [id, v] of Object.entries(LOOK_PRESETS)) mk(id, v.name);
   const box = $('fltSliders');
-  for (const k of Object.keys(FLT_LABELS)) {
+  for (const k of fltKeys) {
     const lo = FILTER_RANGES[k][0] < 0 ? -100 : 0, lab = document.createElement('label'); lab.className = 'm';
     lab.innerHTML = `${FLT_LABELS[k]}: <b>0</b><input type="range" id="flt_${k}" min="${lo}" max="100" step="1" value="0" style="width:100%">`;
     box.appendChild(lab);
@@ -3243,24 +3280,31 @@ function fltSync() {
       const cur = { ...(c.filter || {}) }; delete cur.look; cur[k] = Number(r.value) / 100;
       fltDrag = { id: c.id, filter: cur }; syncOverlays(); showFrame();
     });
-    r.addEventListener('change', () => {
-      const c = fltTarget(); fltDrag = null; if (!c) return;
-      const res = edit([{ op: 'set_clip_filter', clip_id: c.id, [k]: Number(r.value) / 100 }], { ripple: false }); if (!res.ok) say('No se pudo: ' + res.message, 'bad'); fltSync(); showFrame();
-    });
+    r.addEventListener('change', () => { const c = fltTarget(); fltDrag = null; if (!c) return; fltApply(c, { [k]: Number(r.value) / 100 }); });
   }
+  const lv = $('fltLevel');
+  lv.addEventListener('input', () => {
+    const c = fltTarget(); if (!c || !fltLook) return; $('fltLvTxt').textContent = lv.value;
+    fltDrag = { id: c.id, filter: fltScaled(fltLook, Number(lv.value) / 100) }; syncOverlays(); showFrame();
+  });
+  lv.addEventListener('change', () => {
+    const c = fltTarget(); fltDrag = null; if (!c || !fltLook) return; const n = Number(lv.value);
+    fltApply(c, n === 100 ? { look: fltLook } : fltScaled(fltLook, n / 100));
+  });
 })();
 $('fltLooks').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return; const c = fltTarget(); if (!c) return;
-  const r = edit([{ op: 'set_clip_filter', clip_id: c.id, look: b.dataset.look }], { ripple: false }); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fltSync(); showFrame();
+  fltLook = b.dataset.look === 'none' ? null : b.dataset.look; $('fltLevel').value = 100;
+  fltApply(c, { look: b.dataset.look });
 });
-$('fltReset').onclick = () => { const c = fltTarget(); if (!c) return; edit([{ op: 'set_clip_filter', clip_id: c.id, reset: true }], { ripple: false }); fltSync(); showFrame(); };
-$('fltAll').onclick = () => {
-  const c = fltTarget(); if (!c || !c.filter) return; const { look, ...params } = c.filter;
-  const ops = [...session.project.clips, ...(session.project.overlayClips || [])].filter(k => k.id !== c.id).map(k => ({ op: 'set_clip_filter', clip_id: k.id, ...(look ? { look } : params) }));
-  if (!ops.length) return say('No hay otros videos.', 'bad');
-  const r = edit(ops, { ripple: false }); say(r.ok ? 'Filtro puesto en todos los videos.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad'); fltSync(); showFrame();
-};
-$('bFilt').onclick = () => { fltSync(); openSheet('sFilt'); }; $('fltDone').onclick = closeSheets;
+$('fltScope').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return; fltScope = b.dataset.s;
+  document.querySelectorAll('#fltScope button').forEach(x => x.classList.toggle('on', x === b));
+  const c = fltTarget(); if (fltScope === 'all' && c && c.filter) { const { look, ...pr } = c.filter; fltApply(c, look ? { look } : pr); }   // al pasar a «Todos» se copia el ajuste actual a todos
+});
+$('fltMore').onclick = () => { const s = $('fltSliders'), o = s.style.display === 'none'; s.style.display = o ? '' : 'none'; $('fltMore').textContent = o ? 'Menos opciones' : 'Más opciones'; };
+$('fltReset').onclick = () => { const c = fltTarget(); if (!c) return; fltLook = null; fltApply(c, { reset: true }); };
+$('bFilt').onclick = () => { fltSync(); openSheet('sFilt'); const c = fltTarget(); fltThumbs(c); }; $('fltDone').onclick = closeSheets;
 $('v').addEventListener('seeked', () => { if (session) fltMainRefresh(); }); $('v').addEventListener('loadeddata', () => { if (session) fltMainRefresh(); });
 
 /* ---------- Inicio, Mis proyectos, guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
