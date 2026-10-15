@@ -138,6 +138,28 @@
     <button id="dirSaveAsset" class="btn sec">Guardar explicación de este video</button>
     <p class="m" id="dirAssetStatus"></p>
   </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Guía de grabación en Wivra</h3>
+    <p class="m">Genera un checklist sencillo y marca cada toma al grabarla. La plantilla es local, todavía no usa un modelo de IA ni inventa lugares cercanos.</p>
+    <label for="dirSpot">Lugar o tema que quieres grabar</label><input id="dirSpot" placeholder="Ej.: el parque, una cafetería o el barrio">
+    <div class="row">
+      <div><label for="dirShotCount">Cantidad de tomas</label><input id="dirShotCount" type="number" min="3" max="12" value="5"></div>
+      <div><label for="dirShootLength">Duración final deseada (s)</label><input id="dirShootLength" type="number" min="10" max="3600" value="45"></div>
+    </div>
+    <button id="dirGenerateChecklist" class="btn">Crear lista de tomas aquí</button>
+    <div id="dirPlanInfo" class="m" role="status" aria-live="polite" style="margin:10px 0"></div>
+    <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
+    <input type="file" id="directorCamera" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+    <p class="m">«Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma.</p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Edición directa dentro de Wivra (prueba básica)</h3>
+    <p class="m">No necesitas copiar prompts para esta prueba. Las órdenes muy sencillas se convierten en operaciones reales del editor, con vista previa del cambio y aprobación. Todavía NO es un modelo de IA.</p>
+    <textarea id="dirQuickEdit" rows="2" placeholder='Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver"'></textarea>
+    <button class="btn sec" id="dirPrepareEdit">Revisar propuesta local</button>
+    <pre id="dirPreparedOps" style="white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.4 monospace;color:var(--mut)"></pre>
+    <button class="btn" id="dirApplyEdit" disabled>Aplicar al editor</button>
+  </div>
   <label for="dirCorrection">Instrucción adicional o corrección (no reemplaza las anteriores)</label>
   <textarea id="dirCorrection" rows="2" placeholder="No, mejor que el comienzo use la segunda toma..."></textarea>
   <button id="dirAddCorrection" class="btn sec">Agregar a la conversación</button>
@@ -447,6 +469,226 @@ function directorPrompt(project,brief,options={}){
  ].join('\n\n');
 }
 
+/**
+ * In-app shoot checklist, offline-first. No AI model or geocoding in this file.
+ * Creates sensible GENERIC shots, never fabricates nearby businesses/places.
+ * The director can accept any provider's verified structured shot proposal later.
+ * — ChatGPT
+ */
+const MAX_SHOTS = 30;
+const TYPES = Object.freeze(['establish','context','detail','action','perspective','closing','custom']);
+const MEDIA = Object.freeze(['reels','tiktok','shorts','youtube','other']);
+const clean=(v,limit,label)=>{
+ if(typeof v!=='string'||!v.trim()||v.length>limit)throw new Error('Invalid '+label);
+ return v.trim();
+};
+const pickLocationHints=subject=>{
+ const val=subject.toLocaleLowerCase('es');
+ if(/café|cafetería|coffee|restaurante|sushi|comida|local/i.test(val))
+   return ['Fachada o entrada (si se permite grabar)','Mesa o producto con buena luz','Zona con ambiente, evitando grabar a desconocidos'];
+ if(/montaña|sendero|bosque|parque|lago|mirador|río|nieve|naturaleza/i.test(val))
+   return ['Acceso público y seguro','Punto panorámico permitido','Detalle cercano de paisaje o señalización'];
+ if(/calle|ciudad|barrio|edificio|arquitectura|vancouver|whistler|pueblo/i.test(val))
+   return ['Punto público para un plano general','Cruce o letrero legible desde zona segura','Perspectiva distinta sin bloquear el paso'];
+ return ['Entrada o vista general del lugar','Detalle reconocible con buena iluminación','Segundo ángulo o punto de vista permitido'];
+};
+const beats=[
+ {kind:'establish',title:'Gancho y plano general',text:'Primero muestra el lugar y lo más llamativo en una toma breve',pct:0.14},
+ {kind:'context',title:'Identificación del lugar',text:'Graba el nombre, entrada o señal que ayude a entender dónde estás',pct:0.14},
+ {kind:'detail',title:'Detalle distintivo',text:'Acércate a un objeto, textura o elemento interesante que realmente exista',pct:0.18},
+ {kind:'action',title:'Recorrido o acción POV',text:'Camina o muestra la experiencia con una toma estable y movimiento controlado',pct:0.32},
+ {kind:'closing',title:'Cierre y última imagen',text:'Cierra con otro ángulo y una frase o ambiente para conectar con el siguiente video',pct:0.22}
+];
+function apportionDuration(duration,n){
+ const weights=n===5?beats.map(x=>x.pct):Array.from({length:n},()=>1/n);
+ let secs=weights.map(w=>Math.max(1,Math.round(duration*w)));
+ let diff=duration-secs.reduce((a,b)=>a+b,0);
+ let cursor=secs.length-1;
+ while(diff!==0 && secs.length){
+   if(diff>0){secs[cursor]++;diff--}
+   else if(secs[cursor]>1){secs[cursor]--;diff++}
+   cursor=(cursor-1+secs.length)%secs.length;
+   if(diff<0 && secs.every(n=>n<=1))break;
+ }
+ return secs;
+}
+function createShootPlan({
+ subject,platform='reels',durationSeconds=45,shotCount=5,
+ style='',userLocation=null
+}={}){
+ const topic=clean(subject,1400,'subject');
+ if(!MEDIA.includes(platform))throw new Error('Invalid platform');
+ if(!Number.isInteger(durationSeconds)||durationSeconds<10||durationSeconds>3600)throw new Error('Duration from 10 to 3600 seconds');
+ if(!Number.isInteger(shotCount)||shotCount<3||shotCount>12||durationSeconds<shotCount)
+  throw new Error('Invalid shot count');
+ if(typeof style!=='string'||style.length>500)throw new Error('Invalid style');
+ if(userLocation!==null&&typeof userLocation!=='string')throw new Error('Invalid location');
+ const duration=apportionDuration(durationSeconds,shotCount);
+ const template=Array.from({length:shotCount},(_,i)=>{
+   const b=beats[i<4?i:4];
+   const text=i>=5?'Graba otro punto de vista permitido, con algo diferente de las tomas anteriores':b.text;
+   return {
+     id:'shot-'+(i+1),kind:i>=5?'custom':b.kind,
+     title:i>=5?'Toma adicional '+(i+1):b.title,
+     direction:text,
+     durationSeconds:duration[i],
+     state:'todo',
+     assetId:null,
+     verification:'generic_suggestion_unverified',
+     note:''
+   };
+ });
+ const locationHints=pickLocationHints(topic);
+ return {
+  schema:'agentcut-shoot-plan-v0.1',
+  subject:topic,platform,durationSeconds,style:style.trim(),
+  locationLabel:userLocation?.trim()||null,
+  locationGrounding:'user_description_only',
+  shotLocations:locationHints.map((hint,i)=>({
+    id:'loc-'+(i+1),hint,actualPlaceVerified:false,coordinates:null
+  })),
+  shots:template,
+  createdBy:'built_in_offline_template_not_ai',
+  revision:0,
+  editProjectAssetIds:[],
+  warnings:[
+   'Son ideas generales, NO establecimientos reales ni tomas que ya se hayan grabado.',
+   'Para lugares concretos cercanos se requiere consulta geográfica y permiso explícito.',
+   'Antes de grabar verifica acceso público, normas del lugar y privacidad de otras personas.'
+  ]
+ };
+}
+function progress(plan){
+ const completed=plan.shots.filter(x=>x.state==='done').length;
+ return {done:completed,total:plan.shots.length,remaining:plan.shots.length-completed,
+   percent:Math.round(completed*100/Math.max(1,plan.shots.length)),
+   readyToEdit:completed===plan.shots.length && completed>0};
+}
+function updateShot(plan,shotId,changes,{project=null}={}){
+ if(!plan?.shots?.some(s=>s.id===shotId))throw new Error('Unknown shot');
+ if(!changes||typeof changes!=='object')throw new Error('Invalid update');
+ const permitted=['state','assetId','note','direction','title','durationSeconds'];
+ if(Object.keys(changes).some(k=>!permitted.includes(k)))throw new Error('Unsupported shot field');
+ if('state' in changes&&!['todo','done'].includes(changes.state))throw new Error('Invalid shot state');
+ if('title' in changes)clean(changes.title,130,'shot title');
+ if('direction' in changes)clean(changes.direction,1200,'shot direction');
+ if('note' in changes&&(typeof changes.note!=='string'||changes.note.length>1000))throw new Error('Invalid note');
+ if('durationSeconds' in changes&&(!Number.isFinite(changes.durationSeconds)||changes.durationSeconds<=0||changes.durationSeconds>3600))
+   throw new Error('Invalid shot duration');
+ if('assetId' in changes&&changes.assetId!==null){
+   if(!project?.assets?.some(asset=>asset.id===changes.assetId))throw new Error('Attach only existing video assets');
+ }
+ return {...plan,revision:plan.revision+1,
+  shots:plan.shots.map(s=>s.id===shotId?{...s,...changes}:s)};
+}
+function validateProviderShotPlan(candidate,{subject,platform='reels',maxShots=12}={}){
+ if(!candidate||!Array.isArray(candidate.shots)||candidate.shots.length<1||candidate.shots.length>maxShots)
+  throw new Error('Invalid model shot proposal');
+ const topic=clean(subject,1400,'subject');
+ if(!MEDIA.includes(platform))throw new Error('Invalid platform');
+ let duration=0;
+ const shots=candidate.shots.map((s,i)=>{
+  if(!s||typeof s!=='object')throw new Error('Invalid model shot');
+  const title=clean(s.title,130,'shot title'),direction=clean(s.direction,1200,'shot direction');
+  if(!Number.isFinite(s.durationSeconds)||s.durationSeconds<1||s.durationSeconds>3600)throw new Error('Invalid shot duration');
+  duration+=s.durationSeconds;
+  return {id:'shot-'+(i+1),kind:TYPES.includes(s.kind)?s.kind:'custom',
+    title,direction,durationSeconds:s.durationSeconds,
+    state:'todo',assetId:null,verification:'model_suggested_not_verified',note:''};
+ });
+ const placeHints=Array.isArray(candidate.placeHints)?candidate.placeHints.slice(0,6).map(x=>clean(x,250,'location hint')):[];
+ return {
+  schema:'agentcut-shoot-plan-v0.1',subject:topic,platform,
+  durationSeconds:duration,style:'',
+  locationLabel:null,locationGrounding:'not_verified_by_map',
+  shotLocations:placeHints.map((hint,i)=>({id:'loc-'+(i+1),hint,actualPlaceVerified:false,coordinates:null})),
+  shots,revision:0,editProjectAssetIds:[],createdBy:'model_proposal_requires_review',
+  warnings:['Modelo no verificó acceso ni ubicaciones: confirmar antes de viajar o grabar.']
+ };
+}
+
+/**
+ * Local in-app execution boundary: agent/model proposes JSON tools; editor owns
+ * verification, explicit review and commit. The provider can run on-device
+ * or through an authorized service. It NEVER receives raw files here.
+ * No API/model credentials and NO network access exist in this module.
+ * — ChatGPT
+ */
+
+
+
+function createAgentToolController({session,model=null}={}){
+ if(!session?.project||typeof session.apply!=='function')throw new Error('A real editor session is required');
+ let pending=null;
+ function parseCandidate(output){
+   if(typeof output==='string'){try{return JSON.parse(output)}catch{throw new Error('Invalid JSON returned by model')}}
+   return output;
+ }
+ return {
+  getPending:()=>pending?structuredClone(pending):null,
+  async propose({message,kind='edit',evidence=null,subject=null,platform='reels'}={}){
+   if(typeof message!=='string'||!message.trim()||message.length>12000)throw new Error('Please give instructions');
+   if(typeof model!=='function')throw new Error('No integrated AI provider is connected yet');
+   if(!['edit','shot_plan'].includes(kind))throw new Error('Unsupported agent task');
+   const revision=session.project.revision;
+   // A plugin adapter can use exactly this structure; no file data/GPS sent.
+   const payload={kind,message,revision,
+     project:{revision,assets:session.project.assets.map(a=>({id:a.id,name:a.name,duration:a.duration})),
+       clips:session.project.clips.map(x=>({...x})),
+       texts:session.project.texts.map(x=>({...x}))},
+     evidence,
+     note:'The media files themselves are not shared. Request a review if evidence does not prove a fact.'};
+   const raw=parseCandidate(await model(payload));
+   if(kind==='edit'){
+     if(!raw||!Array.isArray(raw.operations)||!raw.operations.length||raw.operations.length>50)
+       throw new Error('Model must return 1 to 50 validated operations');
+     const trial=applyBatch(session.project,raw.operations,revision);
+     if(!trial.ok)throw new Error('Rejected model operation: '+trial.message);
+     pending={kind,revision,operations:structuredClone(raw.operations),
+       description:String(raw.description||'Propuesta de edición').slice(0,400),draftProject:trial.project};
+   }else{
+     const shotPlan=validateProviderShotPlan(raw,{subject:subject||message,platform});
+     pending={kind,revision,shotPlan,
+       description:String(raw.description||'Propuesta de tomas').slice(0,400)};
+   }
+   return structuredClone(pending);
+  },
+  approve(){
+   if(!pending)throw new Error('No pending plan');
+   const item=pending;pending=null;
+   if(item.revision!==session.project.revision)throw new Error('The editor changed; request a new plan');
+   if(item.kind==='shot_plan')return {ok:true,kind:'shot_plan',plan:item.shotPlan};
+   const result=session.apply(item.operations,item.revision);
+   if(!result.ok)throw new Error('Edit was rejected: '+result.message);
+   return {ok:true,kind:'edit',revision:result.revision,operationsApplied:item.operations.length};
+  },
+  reject(){pending=null;return {ok:true,rejected:true}}
+ };
+}
+
+/** Very small ON-DEVICE rule fallback to prove in-app edit control without
+ * falsely presenting it as a semantic AI model. Never guesses best moments.
+ */
+function localBasicCommand(request,project){
+ const text=String(request||'').trim();
+ const operations=[];
+ const quoted=text.match(/(?:pon|agrega|añade|escribe)\s+(?:un\s+)?(?:texto|título|titulo)\s*[:]?\s*[«"“']([^»"”']{1,120})[»"”']/i);
+ if(quoted){
+  const length=project.clips.reduce((max,c)=>Math.max(max,c.start+c.out-c.in),0);
+  if(length<=0)throw new Error('Primero importa un video para poner texto');
+  operations.push({op:'add_text',text:quoted[1],start:0,duration:Math.min(3,length)});
+ }
+ const trim=text.match(/(?:recorta|corta)\s+(?:el\s+)?(?:video|clip)\s*(\d+)\s+(?:de|desde|entre)\s*(\d+(?:[.,]\d+)?)\s+(?:a|hasta|y)\s*(\d+(?:[.,]\d+)?)/i);
+ if(trim){
+  const idx=Number(trim[1])-1;
+  const clip=[...project.clips].sort((a,b)=>a.start-b.start)[idx];
+  if(!clip)throw new Error('No existe ese número de clip');
+  operations.push({op:'trim_clip',clip_id:clip.id,in:Number(trim[2].replace(',','.')),out:Number(trim[3].replace(',','.'))});
+ }
+ if(!operations.length)throw new Error('El modo local básico solo entiende texto entre comillas o recortes explícitos. Para comprender ideas generales necesitas conectar un modelo de IA.');
+ return {operations,description:'Operaciones locales básicas, sin modelo de IA'};
+}
+
 // Modo "copiar y pegar": funciona con ChatGPT/Claude gratis, sin API. — Claude
 function buildPrompt(request, project, observation = null) {
   return `Eres el asistente de edición de la app AgentCut. Responde SOLO con un bloque JSON (una lista de operaciones), sin explicaciones.
@@ -644,6 +886,8 @@ let visualEvidence = null, visualBusy = false;
 let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
+let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
+const SHOOT_STORAGE_KEY='agentcut-shoot-checklist-v1';
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
 function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
@@ -661,6 +905,7 @@ $('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 
 function render() {
   const p = session?.project, on = !!p;
+  if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
   for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids']) $(id).disabled = !on;
   $('observe').disabled = !on || visualBusy;
   $('undo').disabled = !on || !session.undoStack.length;
@@ -698,8 +943,8 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
 let loading = false;
-$('file').addEventListener('change', async () => {
-  const files = [...$('file').files]; $('file').value = ''; if (!files.length || loading) return;
+async function importSelectedFiles(files) {
+  if (!files.length || loading) return;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
   for (const f of files) {
@@ -726,6 +971,24 @@ $('file').addEventListener('change', async () => {
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
   if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
   loading = false;
+}
+$('file').addEventListener('change', async () => {
+  const chosen=[...$('file').files];$('file').value='';
+  await importSelectedFiles(chosen);
+});
+$('directorCamera').addEventListener('change',async()=>{
+  const files=[...$('directorCamera').files];$('directorCamera').value='';
+  if(!files.length)return;
+  const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
+  await importSelectedFiles(files);
+  const added=session?.project.assets.find(a=>!existing.has(a.id));
+  if(added&&shootPlan&&selectedShootId){
+   try{
+     shootPlan=updateShot(shootPlan,selectedShootId,{state:'done',assetId:added.id},{project:session.project});
+     saveShootPlan();renderShootPlan();
+     say('Toma grabada y asociada al proyecto.','ok');
+   }catch(e){say(e.message,'bad')}
+  }
 });
 
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
@@ -1021,6 +1284,109 @@ $('dirCopy').addEventListener('click',async()=>{
    }
  }catch(e){$('dirStatus').textContent='Falta información: '+e.message}
 });
+
+
+/* Director: checklist offline and validated quick edits, no hidden AI service. */
+function saveShootPlan(){
+ try{if(shootPlan)localStorage.setItem(SHOOT_STORAGE_KEY,JSON.stringify(shootPlan))}
+ catch{ /* private mode or file scheme may refuse local storage */ }
+}
+function loadShootPlan(){
+ try{
+  const restored=JSON.parse(localStorage.getItem(SHOOT_STORAGE_KEY)||'null');
+  if(restored?.schema==='agentcut-shoot-plan-v0.1'&&Array.isArray(restored.shots)){
+    // Saved asset IDs do NOT grant access to files after page reload.
+    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null}))};
+  }
+ }catch{ /* ignore corrupt storage */ }
+}
+function renderShootPlan(){
+ const list=$('dirChecklist'),places=$('dirPlaceHints');
+ list.replaceChildren();places.replaceChildren();
+ if(!shootPlan){
+  $('dirPlanInfo').textContent='Todavía no hay lista de tomas.';
+  return;
+ }
+ const p=progress(shootPlan);
+ $('dirPlanInfo').textContent=p.done+' de '+p.total+' tomas completadas ('+p.percent+' %). '+(p.readyToEdit?'Lista lista para revisar tus videos.':'Marca las tomas que hayas grabado.');
+ const sub=document.createElement('p');sub.className='m';
+ sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
+ places.append(sub);
+ for(const loc of shootPlan.shotLocations){
+  const hint=document.createElement('p');hint.className='m';hint.textContent='• '+loc.hint;places.append(hint);
+ }
+ for(const shot of shootPlan.shots){
+  const card=document.createElement('div');card.className='item';
+  const title=document.createElement('label');title.style.cssText='display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--fg)';
+  const check=document.createElement('input');check.type='checkbox';check.checked=shot.state==='done';
+  check.style.cssText='width:24px;height:24px;flex:none';
+  check.setAttribute('aria-label','Toma completada: '+shot.title);
+  check.onchange=()=>{
+   shootPlan=updateShot(shootPlan,shot.id,{state:check.checked?'done':'todo'});
+   saveShootPlan();renderShootPlan();
+  };
+  const label=document.createElement('span');label.textContent=shot.title+' · '+shot.durationSeconds+' s';
+  title.append(check,label);
+  const body=document.createElement('p');body.className='m';body.style.margin='4px 0';body.textContent=shot.direction;
+  const row=document.createElement('div');row.className='row';
+  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
+  cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
+  const choose=document.createElement('select');
+  choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
+  choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
+  const none=document.createElement('option');none.value='';none.textContent='Asociar video...';choose.append(none);
+  (session?.project.assets||[]).forEach(asset=>{
+    const opt=document.createElement('option');opt.value=asset.id;opt.textContent=asset.name||asset.id;
+    choose.append(opt);
+  });
+  choose.value=shot.assetId||'';
+  choose.onchange=()=>{
+    if(!session||!choose.value)return;
+    try{
+      shootPlan=updateShot(shootPlan,shot.id,{assetId:choose.value,state:'done'},{project:session.project});
+      saveShootPlan();renderShootPlan();say('Video asociado a la toma.','ok');
+    }catch(e){say(e.message,'bad')}
+  };
+  row.append(cam,choose);
+  if(shot.assetId){
+    const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
+    card.append(title,body,linked,row);
+  }else card.append(title,body,row);
+  list.append(card);
+ }
+}
+$('dirGenerateChecklist').onclick=()=>{
+ try{
+  const subject=$('dirSpot').value.trim()||$('dirGoal').value.trim();
+  shootPlan=createShootPlan({subject,
+   platform:$('dirPlatform').value,shotCount:Number($('dirShotCount').value),
+   durationSeconds:Number($('dirShootLength').value),style:$('dirNotes').value.trim()});
+  saveShootPlan();renderShootPlan();
+ }catch(e){$('dirPlanInfo').textContent=e.message}
+};
+$('dirPrepareEdit').onclick=async()=>{
+ if(!session){say('Importa al menos un video antes de editar.','bad');return}
+ try{
+  quickAgent=createAgentToolController({session,
+   model:async ({message,project})=>localBasicCommand(message,project)});
+  quickPending=await quickAgent.propose({message:$('dirQuickEdit').value});
+  $('dirPreparedOps').textContent='Propuesta local, aún NO aplicada:\n'+JSON.stringify(quickPending.operations,null,2);
+  $('dirApplyEdit').disabled=false;
+ }catch(e){quickPending=null;quickAgent=null;$('dirApplyEdit').disabled=true;
+  $('dirPreparedOps').textContent=e.message}
+};
+$('dirApplyEdit').onclick=()=>{
+ if(!quickAgent||!quickPending)return;
+ try{
+  const result=quickAgent.approve();quickPending=null;quickAgent=null;
+  $('dirPreparedOps').textContent='Aplicado '+result.operationsApplied+' cambio(s). Puedes deshacerlos.';
+  selId=null;tlTime=Math.min(tlTime,totalDuration(session.project));
+  render();syncScroll();say('Edición realizada dentro de Wivra.','ok');
+ }catch(e){quickPending=null;quickAgent=null;
+  $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
+};
+loadShootPlan();
+renderShootPlan();
 
 render();
 </script>
