@@ -98,7 +98,7 @@ Reglas del bucle del agente / agent-loop rules:
 3. ¿Puede la página llamar directamente a las APIs de los proveedores de IA, o hace falta un pequeño intermediario? / Can the page call AI provider APIs directly, or is a small proxy needed?
 4. ¿Cómo encadenan herramientas los modelos locales pequeños? / How reliable are small local models at tool use?
 5. ¿Qué permite Meta a apps de terceros con las gafas? / What does Meta allow third-party apps to do with the glasses?
-6. ¿Qué licencia tendrá el código nuevo? Decisión del propietario del repo. / Which license for the new code? Owner's decision.
+6. ~~¿Qué licencia tendrá el código nuevo?~~ **Decidido: MIT** (ver abajo). / ~~Which license?~~ **Decided: MIT.**
 
 ## Cómo trabajamos / How we work
 
@@ -114,4 +114,10 @@ JavaScript/TypeScript y APIs de video del navegador (WebCodecs, WebAssembly), di
 
 ## Licencia / License
 
-Por decidir. / To be decided.
+**MIT** para el código nuevo de AgentCut (decisión del propietario, 13 oct 2026). Ver [`LICENSE`](LICENSE). / **MIT** for AgentCut's new code (owner's decision, 13 Oct 2026).
+
+**Consecuencias prácticas / Practical consequences**
+- Podemos reutilizar código **MIT, Apache-2.0 o BSD** conservando sus avisos de autoría (por ejemplo OpenCut clásico, MIT).
+- **No** podemos copiar código **AGPL/GPL** (por ejemplo Concat) dentro de AgentCut sin cambiar la licencia de todo el proyecto. Se puede usar como referencia o manejarlo solo por su API, según su permiso especial. / We cannot copy AGPL/GPL code (e.g. Concat) into AgentCut without relicensing the whole project.
+- Pendiente de verificar: licencia del SDK de las gafas Meta (no es de código abierto) y de cada dependencia nueva. / To verify: Meta glasses SDK terms and each new dependency.
+- El nombre "AgentCut" puede cambiar (issue #14); la licencia aplica al código, no a una marca. / The name may change; the license covers code, not a trademark.
