@@ -122,3 +122,10 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Proyecto dañado o de una versión más nueva: se avisa y no se pisa; los clips imposibles se descartan con aviso; proyectos viejos sin `format`/`overlayClips`/`audioClips`/`nextId` se migran (`app/persist.mjs`, esquema `wivra-project` versión 1).
 - «Empezar un proyecto nuevo» (hoja «Tus videos») borra lo guardado.
 - Verificado en Chromium simulado (no iPhone): guardar → cerrar → reabrir idéntico, seguir editando, deshacer, agregar video sin choque de ids, exportar, archivo faltante y reconexión, datos dañados. **NO verificado en iPhone**: límites de espacio de Safari, posible borrado automático por el sistema (se pide `storage.persist()` pero iOS puede ignorarlo), videos muy grandes (se duplican en el almacenamiento local), comportamiento en modo privado.
+
+## Pantalla de inicio y «Mis proyectos»
+
+- Al abrir la página aparece el **inicio**: Editor de video (proyecto nuevo), Director (lista de tomas), y «Transmisión en vivo» y «Plantillas» como *pronto* (sin función todavía). Debajo, **Mis proyectos**: tocar uno lo continúa; «Nombre» lo renombra; «Borrar» lo elimina del teléfono.
+- Varios proyectos guardados (IndexedDB v2: `pj`, `pb`, `pi`); el proyecto único de la versión anterior se migra solo como «Proyecto anterior». Rutas: `#new`, `#new-director`, `#p=<id>` (un refresco vuelve al mismo proyecto; cambiar de pantalla recarga la página limpia).
+- Botón **‹ Inicio** en el editor → «Guardar y salir», «Seguir editando», «Descartar cambios de esta sesión» (el proyecto vuelve a como estaba al abrirlo; en un proyecto nuevo lo borra) y «Borrar el proyecto». También guarda al pasar la pestaña a segundo plano.
+- Verificado en Chromium simulado (no iPhone). NO verificado en iPhone: gesto «atrás» de Safari con las rutas `#`, guardado al cerrar la pestaña desde el selector de apps.

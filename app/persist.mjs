@@ -89,39 +89,76 @@ export function matchFiles(missing, files) {
   return { matches, left };
 }
 
-// ---------- IndexedDB (solo en el navegador) ----------
-const PZ_DB = 'wivra', PZ_SP = 'project', PZ_SB = 'blobs', PZ_KEY = 'current';
+/** Resumen corto para la lista «Mis proyectos». */
+export function makeMeta({ id, name, project, now = Date.now() }) {
+  const end = [project.clips, project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  return { id, name: String(name || '').slice(0, 60) || 'Proyecto', updatedAt: now, clips: project.clips.length + (project.overlayClips || []).length, duration: Math.round(end * 10) / 10 };
+}
+export const newProjectId = (now = Date.now(), rnd = Math.random()) => 'p' + now.toString(36) + Math.floor(rnd * 1296).toString(36);
+export function defaultName(now = Date.now()) {
+  const d = new Date(now), m = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][d.getMonth()], z = (n) => String(n).padStart(2, '0');
+  return `Proyecto ${d.getDate()} ${m} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+// ---------- IndexedDB (solo en el navegador). Varios proyectos: cada uno con su id. ----------
+// Almacenes v2: pj = proyectos (id -> JSON), pb = archivos (id/asset -> Blob), pi = resumen (id -> meta).
+// Los almacenes de la v1 (project/blobs, un solo proyecto «current») se pasan a v2 la primera vez (pzMigrateLegacy).
+const PZ_DB = 'wivra';
 const pzReq = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 const pzDone = (tx) => new Promise((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('cancelado')); });
+const pzRange = (pid) => IDBKeyRange.bound(pid + '/', pid + '/\uffff');
 
 export function pzOpen(idb = globalThis.indexedDB) {
   return new Promise((res, rej) => {
     if (!idb) return rej(new Error('Este navegador no tiene almacenamiento local.'));
-    const r = idb.open(PZ_DB, 1);
-    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains(PZ_SP)) d.createObjectStore(PZ_SP); if (!d.objectStoreNames.contains(PZ_SB)) d.createObjectStore(PZ_SB); };
+    const r = idb.open(PZ_DB, 2);
+    r.onupgradeneeded = () => { const d = r.result; for (const n of ['project', 'blobs', 'pj', 'pb', 'pi']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); r.onblocked = () => rej(new Error('El almacenamiento está bloqueado por otra pestaña.'));
   });
 }
-
-/** Guarda un archivo (si ya estaba, no lo repite). → true si quedó guardado. */
-export async function pzPutBlob(db, id, file) {
-  try { const tx = db.transaction(PZ_SB, 'readwrite'); tx.objectStore(PZ_SB).put(file, id); await pzDone(tx); return true; }
-  catch { return false; }          // normalmente QuotaExceededError
+/** Si hay un proyecto de la v1, lo pasa a v2 con nombre «Proyecto anterior». → id o null. */
+export async function pzMigrateLegacy(db) {
+  const raw = await pzReq(db.transaction('project').objectStore('project').get('current'));
+  if (raw === undefined) return null;
+  const id = 'legacy1', bl = db.transaction('blobs').objectStore('blobs'), keys = await pzReq(bl.getAllKeys());
+  const blobs = []; for (const k of keys) blobs.push([k, await pzReq(db.transaction('blobs').objectStore('blobs').get(k))]);
+  const r = readSnapshot(raw), tx = db.transaction(['pj', 'pb', 'pi', 'project', 'blobs'], 'readwrite');
+  tx.objectStore('pj').put(typeof raw === 'string' ? raw : JSON.stringify(raw), id);
+  for (const [k, b] of blobs) tx.objectStore('pb').put(b, id + '/' + k);
+  tx.objectStore('pi').put(r.ok ? makeMeta({ id, name: 'Proyecto anterior', project: r.snapshot.project, now: r.snapshot.savedAt || Date.now() }) : { id, name: 'Proyecto anterior (dañado)', updatedAt: Date.now(), clips: 0, duration: 0 }, id);
+  tx.objectStore('project').delete('current'); tx.objectStore('blobs').clear();
+  await pzDone(tx); return id;
 }
-export async function pzSaveSnapshot(db, snapshot) {
-  const tx = db.transaction(PZ_SP, 'readwrite'); tx.objectStore(PZ_SP).put(JSON.stringify(snapshot), PZ_KEY); await pzDone(tx);
+/** Lista de proyectos, el más reciente primero. */
+export async function pzList(db) {
+  const all = await pzReq(db.transaction('pi').objectStore('pi').getAll());
+  return all.filter((m) => m && m.id).sort((a, b) => b.updatedAt - a.updatedAt);
 }
-export async function pzDeleteBlobs(db, keepIds) {
-  const keep = new Set(keepIds), tx = db.transaction(PZ_SB, 'readwrite'), st = tx.objectStore(PZ_SB);
-  const keys = await pzReq(st.getAllKeys()); for (const k of keys) if (!keep.has(k)) st.delete(k); await pzDone(tx);
+/** Guarda un archivo del proyecto. → true si quedó guardado (false normalmente = sin espacio). */
+export async function pzPutBlob(db, pid, id, file) {
+  try { const tx = db.transaction('pb', 'readwrite'); tx.objectStore('pb').put(file, pid + '/' + id); await pzDone(tx); return true; }
+  catch { return false; }
 }
-/** → { raw, blobs:{id:Blob} } o null si no hay nada guardado. */
-export async function pzLoad(db) {
-  const raw = await pzReq(db.transaction(PZ_SP).objectStore(PZ_SP).get(PZ_KEY)); if (raw === undefined) return null;
-  const st = db.transaction(PZ_SB).objectStore(PZ_SB), keys = await pzReq(st.getAllKeys()), blobs = {};
-  for (const k of keys) blobs[k] = await pzReq(db.transaction(PZ_SB).objectStore(PZ_SB).get(k));
-  return { raw, blobs };
+/** Guarda el proyecto y su resumen a la vez (o ambos o ninguno). */
+export async function pzSaveSnapshot(db, pid, snapshot, meta) {
+  const tx = db.transaction(['pj', 'pi'], 'readwrite'); tx.objectStore('pj').put(JSON.stringify(snapshot), pid); tx.objectStore('pi').put(meta, pid); await pzDone(tx);
 }
-export async function pzClear(db) {
-  const tx = db.transaction([PZ_SP, PZ_SB], 'readwrite'); tx.objectStore(PZ_SP).clear(); tx.objectStore(PZ_SB).clear(); await pzDone(tx);
+export async function pzDeleteBlobs(db, pid, keepIds) {
+  const keep = new Set(keepIds.map((k) => pid + '/' + k)), tx = db.transaction('pb', 'readwrite'), st = tx.objectStore('pb');
+  const keys = await pzReq(st.getAllKeys(pzRange(pid))); for (const k of keys) if (!keep.has(k)) st.delete(k); await pzDone(tx);
+}
+/** → { raw, meta, blobs:{assetId:Blob} } o null si no existe. */
+export async function pzLoad(db, pid) {
+  const raw = await pzReq(db.transaction('pj').objectStore('pj').get(pid)); if (raw === undefined) return null;
+  const meta = await pzReq(db.transaction('pi').objectStore('pi').get(pid)) || null;
+  const keys = await pzReq(db.transaction('pb').objectStore('pb').getAllKeys(pzRange(pid))), blobs = {};
+  for (const k of keys) blobs[k.slice(pid.length + 1)] = await pzReq(db.transaction('pb').objectStore('pb').get(k));
+  return { raw, meta, blobs };
+}
+export async function pzDeleteProject(db, pid) {
+  const tx = db.transaction(['pj', 'pb', 'pi'], 'readwrite'); tx.objectStore('pj').delete(pid); tx.objectStore('pi').delete(pid); tx.objectStore('pb').delete(pzRange(pid)); await pzDone(tx);
+}
+export async function pzRename(db, pid, name) {
+  const st = db.transaction('pi').objectStore('pi'), m = await pzReq(st.get(pid)); if (!m) return;
+  const tx = db.transaction('pi', 'readwrite'); tx.objectStore('pi').put({ ...m, name: String(name || '').slice(0, 60) || m.name }, pid); await pzDone(tx);
 }

@@ -76,3 +76,11 @@ test('archivos faltantes y reconexión por nombre/tamaño', () => {
   const solo = matchFiles([{ id: 'x', name: 'b.mov', size: 50 }], [{ name: 'b.mov', size: 77 }]);
   assert.equal(solo.matches.length, 1);   // mismo nombre, tamaño distinto: se acepta (la duración se verifica después)
 });
+test('resumen de «Mis proyectos»: nombre, clips, duración; ids y nombre por defecto', async () => {
+  const { makeMeta, newProjectId, defaultName } = await import('../persist.mjs');
+  const m = makeMeta({ id: 'p1', name: '  '.repeat(0) + 'x'.repeat(100), project: sample(), now: 5 });
+  assert.equal(m.name.length, 60); assert.equal(m.clips, 2); assert.equal(m.duration, 10); assert.equal(m.updatedAt, 5);
+  assert.equal(makeMeta({ id: 'p2', name: '', project: sample() }).name, 'Proyecto');
+  assert.notEqual(newProjectId(1, 0.1), newProjectId(2, 0.1)); assert.match(newProjectId(), /^p[a-z0-9]+$/);
+  assert.match(defaultName(Date.UTC(2026, 9, 14, 12, 5)), /^Proyecto \d+ oct \d\d:\d\d$/);
+});

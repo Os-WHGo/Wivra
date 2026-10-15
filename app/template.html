@@ -96,11 +96,22 @@
   .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
   .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
   .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
+  #home { position:fixed; inset:0; z-index:50; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 16px 40px; }
+  #home h1 { margin:6px 0 2px; font-size:30px; letter-spacing:.5px; } #home h2 { margin:26px 0 8px; font-size:17px; } #home .m { color:var(--mut); margin:2px 0 14px; font-size:14px; }
+  .hgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hcard { text-align:left; padding:14px; min-height:92px; border-radius:16px; background:var(--bar); border:1px solid var(--line); color:var(--fg); display:flex; flex-direction:column; gap:6px; }
+  .hcard b { font-size:16px; } .hcard span { font-size:13px; color:var(--mut); } .hcard.main { background:var(--ac); border-color:var(--ac); color:#0c1022; } .hcard.main span { color:#2a3256; } .hcard:disabled { opacity:.5; } .hcard:active:not(:disabled) { filter:brightness(1.15); }
+  .pcard { display:flex; align-items:center; gap:10px; padding:12px 14px; margin:0 0 8px; border-radius:14px; background:var(--bar); border:1px solid var(--line); } .pcard:active { filter:brightness(1.15); }
+  .pcard .pt { flex:1; min-width:0; } .pcard .pt b { display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pcard .pt span { font-size:12.5px; color:var(--mut); }
+  .pcard button.pa { min-width:44px; min-height:44px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:12.5px; padding:0 8px; } .pcard button.pa.bad { color:var(--bad); }
+  #pzName { width:100%; box-sizing:border-box; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#0d0f14; color:var(--fg); padding:0 12px; font-size:16px; }
+  .btn.bad { background:#3a1f26; color:var(--bad); }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
 </style>
 </head>
 <body>
-<div class="top"><b>Wivra</b><span class="sp"></span>
+<div class="top"><button class="pill" id="bHome" type="button" title="Volver al inicio">‹ Inicio</button><span class="sp"></span>
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
@@ -127,13 +138,28 @@
   <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Capa</button>
   <button class="tool" id="bFx" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
+<div id="home"><div class="hin">
+  <h1>Wivra</h1><p class="m">¿Qué quieres hacer?</p>
+  <div class="hgrid">
+    <button class="hcard main" id="hEditor" type="button"><b>Editor de video</b><span>Empezar un proyecto nuevo</span></button>
+    <button class="hcard" id="hDirector" type="button"><b>Director</b><span>Lista de tomas y guion</span></button>
+    <button class="hcard" disabled type="button"><b>Transmisión en vivo</b><span>pronto</span></button>
+    <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
+  </div>
+  <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
+</div></div>
+<div class="sheet" id="sExit"><h2>¿Salir del proyecto?</h2><p class="m" id="exitInfo">Se guarda solo mientras editas. Elige qué hacer.</p>
+  <label class="m" for="pzName">Nombre del proyecto</label><input id="pzName" maxlength="60" autocomplete="off">
+  <button class="btn" id="exitSave" type="button">Guardar y salir</button>
+  <button class="btn sec" id="exitStay" type="button">Seguir editando</button>
+  <button class="btn sec" id="exitDiscard" type="button">Descartar cambios de esta sesión</button>
+  <button class="btn bad" id="exitDelete" type="button">Borrar el proyecto</button></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div class="back" id="back"></div>
 
 <div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
   <div id="vlist"></div>
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
-  <button id="pzNew" class="btn sec">Empezar un proyecto nuevo</button>
   <button id="vdone" class="btn">Listo</button></div>
 <div class="sheet" id="sMiss"><h2>Faltan archivos</h2><p class="m">Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar.</p>
   <div id="missList" class="m"></div>
@@ -1350,47 +1376,53 @@ $('dirApplyEdit').onclick=()=>{
   $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
 };
 
-/* ---------- Guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
-let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [];
-const pzStored = new Set();
+/* ---------- Inicio, Mis proyectos, guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
+let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [], pzPid = null, pzName = '', pzBase = null;
+const pzStored = new Set(), pzSleep = (ms) => new Promise(r => setTimeout(r, ms));
+const pzHashPid = () => { const m = /^#p=([\w-]+)$/.exec(location.hash); return m ? m[1] : null; };
+window.addEventListener('hashchange', () => location.reload());   // cambiar de pantalla = recargar limpio (sin restos del proyecto anterior)
 function pzSchedule() {
   if (!pzReady || !session) return;
   const key = session.project.revision + ':' + session.project.assets.length + ':' + Object.keys(media).length;
   if (key === pzKey) return; pzKey = key; clearTimeout(pzTimer); pzTimer = setTimeout(pzSave, 700);
 }
 async function pzSave() {
-  if (!session) return; if (pzBusy) { pzAgain = true; return; } pzBusy = true;
+  if (!session || !pzReady) return; if (pzBusy) { pzAgain = true; return; } pzBusy = true;
   try {
     pzDb ||= await pzOpen();
     for (const a of session.project.assets) {
       if (pzStored.has(a.id) || !mediaFiles[a.id]) continue;
-      if (await pzPutBlob(pzDb, a.id, mediaFiles[a.id])) pzStored.add(a.id);
+      if (await pzPutBlob(pzDb, pzPid, a.id, mediaFiles[a.id])) pzStored.add(a.id);
       else if (!pzWarned) { pzWarned = true; say('El teléfono no tiene espacio para guardar “' + ((media[a.id] || {}).name || 'un archivo') + '”. El proyecto se guarda igual; al reabrir tendrás que elegir ese archivo otra vez.', 'bad'); }
     }
-    await pzSaveSnapshot(pzDb, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored] }));
-    await pzDeleteBlobs(pzDb, session.project.assets.map(a => a.id));
+    await pzSaveSnapshot(pzDb, pzPid, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored] }), makeMeta({ id: pzPid, name: pzName, project: session.project }));
+    await pzDeleteBlobs(pzDb, pzPid, session.project.assets.map(a => a.id));
+    if (location.hash !== '#p=' + pzPid) history.replaceState(null, '', '#p=' + pzPid);   // sin recargar: así un refresco vuelve a ESTE proyecto
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
     window.__pzSaved = (window.__pzSaved || 0) + 1;
   } catch (e) { if (!pzWarned) { pzWarned = true; say('No se pudo guardar el proyecto en este teléfono: ' + e.message, 'bad'); } }
   pzBusy = false; if (pzAgain) { pzAgain = false; pzSchedule(); }
 }
+async function pzFlush() { clearTimeout(pzTimer); while (pzBusy) await pzSleep(40); pzKey = ''; await pzSave(); while (pzBusy) await pzSleep(40); }
+document.addEventListener('visibilitychange', () => { if (document.hidden && pzReady && session) { clearTimeout(pzTimer); pzSave(); } });   // iOS puede cerrar la pestaña en segundo plano
 function pzShowMissing() {
   const l = $('missList'); l.replaceChildren();
   for (const a of pzMissing) { const d = document.createElement('div'); d.textContent = '• ' + (a.name || a.id) + (a.size ? ' (' + (a.size / 1048576).toFixed(1) + ' MB)' : ''); l.appendChild(d); }
   if (pzMissing.length) openSheet('sMiss'); else closeSheets();
 }
-async function pzRestore() {
+async function pzRestore(pid) {
   try {
-    pzDb = await pzOpen(); const saved = await pzLoad(pzDb);
-    if (!saved) return;
+    pzDb ||= await pzOpen(); const saved = await pzLoad(pzDb, pid);
+    if (!saved) { say('Ese proyecto ya no existe.', 'bad'); window.__pzError = 'no existe'; return; }
     const r = readSnapshot(saved.raw);
     if (!r.ok) { say('El proyecto guardado no se pudo abrir: ' + r.errors.join(' '), 'bad'); window.__pzError = r.errors.join(' '); return; }
-    const sn = r.snapshot; assetSeq = Math.max(assetSeq, sn.assetSeq);
+    const sn = r.snapshot; assetSeq = Math.max(assetSeq, sn.assetSeq); pzName = (saved.meta && saved.meta.name) || defaultName();
     for (const a of sn.assets) {
       const b = saved.blobs[a.id]; if (!b) continue;
       media[a.id] = { url: URL.createObjectURL(b), name: a.name, duration: a.duration, w: a.w, h: a.h, thumbs: [], step: 1, size: a.size, type: a.type, kind: a.kind };
       mediaFiles[a.id] = b; pzStored.add(a.id);
     }
+    pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
     pzMissing = missingAssets(sn, Object.keys(media));
     selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
@@ -1405,6 +1437,43 @@ async function pzRestore() {
   } catch (e) { say('No se pudo reabrir el proyecto guardado: ' + e.message, 'bad'); window.__pzError = e.message; }
   finally { pzReady = true; pzSchedule(); }
 }
+async function pzRenderHome() {
+  const l = $('hList'); l.replaceChildren();
+  let list = []; try { pzDb ||= await pzOpen(); list = await pzList(pzDb); } catch (e) { l.innerHTML = ''; const p = document.createElement('p'); p.className = 'm'; p.textContent = 'Este navegador no puede guardar proyectos (' + e.message + ').'; l.appendChild(p); return; }
+  if (!list.length) { const p = document.createElement('p'); p.className = 'm'; p.textContent = 'Todavía no tienes proyectos. Cuando empieces uno en el editor, aparecerá aquí para continuarlo.'; l.appendChild(p); }
+  for (const m of list) {
+    const c = document.createElement('div'); c.className = 'pcard'; c.dataset.id = m.id; c.setAttribute('role', 'button'); c.tabIndex = 0;
+    const t = document.createElement('div'); t.className = 'pt';
+    const nm = document.createElement('b'); nm.textContent = m.name;
+    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    t.append(nm, sub);
+    const ren = document.createElement('button'); ren.className = 'pa'; ren.textContent = 'Nombre'; ren.type = 'button';
+    const del = document.createElement('button'); del.className = 'pa bad'; del.textContent = 'Borrar'; del.type = 'button';
+    c.append(t, ren, del);
+    c.onclick = () => { location.hash = '#p=' + m.id; };
+    ren.onclick = async (e) => { e.stopPropagation(); const n = prompt('Nombre del proyecto', m.name); if (n && n.trim()) { await pzRename(pzDb, m.id, n.trim()); pzRenderHome(); } };
+    del.onclick = async (e) => { e.stopPropagation(); if (!confirm('¿Borrar “' + m.name + '”? Se borra del teléfono (tus videos originales no se tocan).')) return; await pzDeleteProject(pzDb, m.id); pzRenderHome(); };
+    l.appendChild(c);
+  }
+  window.__pzHome = list.length;
+}
+$('hEditor').onclick = () => { location.hash = '#new'; };
+$('hDirector').onclick = () => { location.hash = '#new-director'; };
+$('bHome').onclick = () => { if (!session) { location.hash = ''; return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
+$('exitStay').onclick = () => closeSheets();
+$('exitSave').onclick = async () => { const n = $('pzName').value.trim(); if (n) pzName = n.slice(0, 60); await pzFlush(); pzReady = false; location.hash = ''; };
+$('exitDiscard').onclick = async () => {
+  if (!confirm(pzBase ? '¿Descartar lo que hiciste en esta sesión? El proyecto vuelve a como estaba al abrirlo.' : '¿Descartar este proyecto? Se borra lo que llevas.')) return;
+  clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
+  try { if (pzBase) { await pzSaveSnapshot(pzDb, pzPid, JSON.parse(pzBase.raw), pzBase.meta || makeMeta({ id: pzPid, name: pzName, project: readSnapshot(pzBase.raw).snapshot.project })); await pzDeleteBlobs(pzDb, pzPid, pzBase.ids); } else await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo descartar: ' + e.message, 'bad'); }
+  location.hash = '';
+};
+$('exitDelete').onclick = async () => {
+  if (!confirm('¿Borrar “' + pzName + '” del teléfono? No se puede deshacer (tus videos originales no se tocan).')) return;
+  clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
+  try { await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo borrar: ' + e.message, 'bad'); }
+  location.hash = '';
+};
 $('relink').addEventListener('change', async () => {
   const files = [...$('relink').files]; $('relink').value = ''; if (!files.length || loading) return; loading = true;
   const { matches } = matchFiles(pzMissing, files), bad = [];
@@ -1423,12 +1492,18 @@ $('relink').addEventListener('change', async () => {
   pzShowMissing();
 });
 $('missDone').onclick = () => closeSheets();
-$('pzNew').onclick = async () => {
-  if (!confirm('¿Empezar un proyecto nuevo? Se borra el proyecto guardado en este teléfono (tus videos originales no se tocan).')) return;
-  try { pzDb ||= await pzOpen(); await pzClear(pzDb); } catch {}
-  pzReady = false; location.reload();
-};
-pzRestore();
+(async function pzStart() {
+  const h = location.hash, pid = pzHashPid();
+  if (!h || h === '#') {           // pantalla de inicio
+    try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
+    await pzRenderHome(); return;
+  }
+  $('home').style.display = 'none';
+  try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
+  if (pid) { pzPid = pid; await pzRestore(pid); return; }
+  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director
+  if (h === '#new-director') { refreshDirectorAssets(); openSheet('sDirector'); }
+})();
 
 loadShootPlan();
 renderShootPlan();
