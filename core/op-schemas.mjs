@@ -23,6 +23,7 @@ const osP = {
 const osF = Object.keys(osFilterProps);
 export const OP_SCHEMAS = {
   add_clip: { desc: 'agrega un video (no imágenes) a la línea principal', required: ['asset_id'], props: ['asset_id', 'start'] },
+  add_photo_clip: { desc: 'agrega una foto o GIF a la línea principal (dura `duration` s, 3 por omisión; sin sonido); solo imágenes', required: ['asset_id'], props: ['asset_id', 'start', 'duration'] },
   add_audio_clip: { desc: 'pista de audio aparte (música, micrófono); no cambia la duración del video', required: ['asset_id'], props: ['asset_id', 'start', 'in', 'out', 'role', 'volume', 'muted', 'track'] },
   add_overlay_clip: { desc: 'video o imagen superpuesta (capa) con posición y tamaño', required: ['asset_id'], props: ['asset_id', 'start', 'in', 'out', 'track', 'x', 'y', 'scale', 'volume', 'muted'] },
   set_overlay: { desc: 'cambia posición, tamaño, forma, marco u opacidad de una capa', required: ['clip_id'], props: ['clip_id', 'x', 'y', 'scale', 'track', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity'] },

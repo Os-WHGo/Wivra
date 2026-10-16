@@ -34,6 +34,8 @@ const GOLDEN = [
   [{ op: 'set_clip_audio', clip_id: 'c1' }, 'Audio de c1: '],
   [{ op: 'add_clip', asset_id: 'a1' }, 'Agregar a1 en 0 s'],
   [{ op: 'add_clip', asset_id: 'a1', start: 4 }, 'Agregar a1 en 4 s'],
+  [{ op: 'add_photo_clip', asset_id: 'a3' }, 'Foto a3 en 0 s por 3 s'],
+  [{ op: 'add_photo_clip', asset_id: 'a3', start: 12, duration: 4.5 }, 'Foto a3 en 12 s por 4.5 s'],
   [{ op: 'add_text', text: 'Vancouver', start: 0, duration: 3 }, 'Texto «Vancouver» en 0 s por 3 s'],
   [{ op: 'add_text', text: 'Hola {2} y {1}', start: 1.5, duration: 2.25 }, 'Texto «Hola {2} y {1}» en 1.5 s por 2.25 s'],
   [{ op: 'add_audio_clip', asset_id: 'a2' }, 'Pista de audio a2 en 0 s'],
@@ -73,8 +75,8 @@ test('fillTemplate: rellena en orden, en una sola pasada, y deja la marca si fal
   assert.equal(fillTemplate('sin marcas', ['x']), 'sin marcas');
 });
 
-test('en español cada operación sale EXACTAMENTE como antes de traducir (38 casos)', () => {
-  assert.equal(GOLDEN.length, 38);
+test('en español cada operación sale EXACTAMENTE como antes de traducir (40 casos)', () => {
+  assert.equal(GOLDEN.length, 40);
   for (const [o, es] of GOLDEN) assert.equal(describeOperation(o, { lookName }), es, JSON.stringify(o));
 });
 
