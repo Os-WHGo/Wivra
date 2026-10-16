@@ -21,7 +21,7 @@ const osP = {
   frame: { type: 'number', minimum: 0, maximum: 0.1, description: 'grosor del marco' }, frameColor: { type: 'string', description: 'color #rrggbb' }, opacity: { type: 'number', minimum: 0.1, maximum: 1 },
   intro: { type: 'string', enum: FX, description: 'efecto al aparecer' }, outro: { type: 'string', enum: FX, description: 'efecto al desaparecer' }, dur: { type: 'number', minimum: 0.1, maximum: 3, description: 'segundos del efecto' },
   look: { type: 'string', enum: LOOK_IDS, description: 'ajuste preparado; none lo quita' }, reset: { type: 'boolean', description: 'true quita el filtro' }, ...osFilterProps,
-  aspect: { type: 'string', enum: FORMATS }, fit: { type: 'string', enum: FITS, description: 'cover recorta, contain deja barras' },
+  safe: { type: 'boolean', description: 'true: los textos se colocan dentro de la zona segura de Reels/TikTok/Shorts (solo 9:16)' }, aspect: { type: 'string', enum: FORMATS }, fit: { type: 'string', enum: FITS, description: 'cover recorta, contain deja barras' },
 };
 const osF = Object.keys(osFilterProps);
 export const OP_SCHEMAS = {
@@ -33,7 +33,7 @@ export const OP_SCHEMAS = {
   set_audio_clip: { desc: 'cambia la fila o el papel de una pista de audio', required: ['clip_id'], props: ['clip_id', 'track', 'role'] },
   set_clip_fx: { desc: 'efecto de entrada/salida (fade, slide, zoom) de un clip de video o capa', required: ['clip_id'], props: ['clip_id', 'intro', 'outro', 'dur'] },
   set_clip_filter: { desc: 'filtro de color de un clip de video o capa (look preparado y/o ajustes sueltos)', required: ['clip_id'], props: ['clip_id', 'look', 'reset', ...osF] },
-  set_format: { desc: 'forma del cuadro de salida (original, 9:16, 1:1, 4:5, 16:9) y cómo se ajusta', required: [], props: ['aspect', 'fit'] },
+  set_format: { desc: 'forma del cuadro de salida (original, 9:16, 1:1, 4:5, 16:9), cómo se ajusta y la zona segura de los textos (9:16)', required: [], props: ['aspect', 'fit', 'safe'] },
   trim_clip: { desc: 'recorta un clip (in/out dentro de la duración del medio)', required: ['clip_id', 'in', 'out'], props: ['clip_id', 'in', 'out'] },
   split_clip: { desc: 'corta un clip en dos en el tiempo `at` del medio', required: ['clip_id', 'at'], props: ['clip_id', 'at'] },
   move_clip: { desc: 'mueve un clip a otro instante de la línea de tiempo', required: ['clip_id', 'start'], props: ['clip_id', 'start'] },

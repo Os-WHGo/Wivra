@@ -64,6 +64,8 @@ const GOLDEN = [
   [{ op: 'set_format', aspect: '16:9', fit: 'contain' }, 'Formato: cuadro 16:9, barras negras'],
   [{ op: 'set_format', aspect: '1:1' }, 'Formato: cuadro 1:1'],
   [{ op: 'set_format', fit: 'cover' }, 'Formato: rellenar'],
+  [{ op: 'set_format', safe: true }, 'Formato: zona segura de textos'],
+  [{ op: 'set_format', aspect: '9:16', safe: false }, 'Formato: cuadro 9:16, sin zona segura de textos'],
   [{ op: 'set_format' }, 'Formato: '],
   [{ op: 'algo_nuevo', x: 1 }, '{"op":"algo_nuevo","x":1}'],
 ];
@@ -79,8 +81,8 @@ test('fillTemplate: rellena en orden, en una sola pasada, y deja la marca si fal
   assert.equal(fillTemplate('sin marcas', ['x']), 'sin marcas');
 });
 
-test('en español cada operación sale EXACTAMENTE como antes de traducir (44 casos)', () => {
-  assert.equal(GOLDEN.length, 44);
+test('en español cada operación sale EXACTAMENTE como antes de traducir (46 casos)', () => {
+  assert.equal(GOLDEN.length, 46);
   for (const [o, es] of GOLDEN) assert.equal(describeOperation(o, { lookName }), es, JSON.stringify(o));
 });
 
