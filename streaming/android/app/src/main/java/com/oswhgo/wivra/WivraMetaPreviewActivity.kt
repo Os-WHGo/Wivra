@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
-import android.graphics.Bitmap
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
@@ -245,10 +244,22 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                         val now = SystemClock.elapsedRealtime()
                         if (now - lastPreviewEnqueueMs >= 160L && !frame.isCompressed) {
                             lastPreviewEnqueueMs = now
+                            val expectedPixels = frame.width.toLong() * frame.height.toLong()
+                            val expectedBytes = expectedPixels * 3 / 2
                             val copied = frame.buffer.duplicate()
-                            val bytes = ByteArray(copied.remaining())
-                            copied.get(bytes)
-                            incoming.trySend(LocalPreviewFrame(bytes, frame.width, frame.height))
+                            // Never allocate an unbounded buffer, especially with corrupted
+                            // dimensions or an undocumented YUV plane layout.
+                            if (frame.width > 0 && frame.height > 0 &&
+                                frame.width % 2 == 0 && frame.height % 2 == 0 &&
+                                expectedPixels <= 1280L * 1920L &&
+                                copied.remaining().toLong() == expectedBytes) {
+                                val bytes = ByteArray(copied.remaining())
+                                copied.get(bytes)
+                                incoming.trySend(LocalPreviewFrame(bytes, frame.width, frame.height))
+                            } else if (!warnedUnsupportedLayout) {
+                                warnedUnsupportedLayout = true
+                                show("Video recibido, pero su formato no coincide con I420. Sin imagen.")
+                            }
                         }
                     }
                 }
