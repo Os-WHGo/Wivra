@@ -138,4 +138,15 @@
     <string name="teleprompter_bigger">Texte +</string>
     <string name="teleprompter_hide">Masquer / afficher</string>
     <string name="teleprompter_wpm">Lecture : %1$d mots par minute</string>
+    <string name="phone_camera_source_choose">Choisir le microphone</string>
+    <string name="phone_camera_source_auto">Micro : sélection automatique</string>
+    <string name="phone_camera_source_selected">Micro WAV : %1$s</string>
+    <string name="phone_camera_source_wav_only">Activez WAV séparé et arrêtez la vidéo pour choisir une entrée.</string>
+    <string name="phone_camera_source_enable_bluetooth">Autoriser les micros Bluetooth (facultatif)</string>
+    <string name="phone_camera_source_bluetooth_denied">Bluetooth refusé. Les micros du téléphone et USB restent disponibles.</string>
+    <string name="phone_camera_source_built_in">Micro du téléphone</string>
+    <string name="phone_camera_source_wired">Micro filaire</string>
+    <string name="phone_camera_source_usb">Micro USB</string>
+    <string name="phone_camera_source_bluetooth">Micro Bluetooth</string>
+    <string name="phone_camera_source_external">Micro externe</string>
 </resources>
