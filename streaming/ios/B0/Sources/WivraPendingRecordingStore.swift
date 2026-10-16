@@ -165,6 +165,29 @@ enum WivraPendingRecordingStore {
         return (marker, stored)
     }
 
+    /**
+     * Review is read-only and local. The editor and Photos gallery remain
+     * unavailable until the user explicitly chooses Keep.
+     *
+     * Never trust unchecked filenames from a JSON ticket, including symlinks.
+     * Video chunks may be viewed independently; they are NOT one merged movie.
+     */
+    static func previewVideoURLs(_ entry: WivraPendingRecording) throws -> [URL] {
+        let (_, stored) = try verifiedTicket(entry)
+        let folder = try directory()
+        var clips: [URL] = []
+        for name in stored.files.sorted() where name.lowercased().hasSuffix(".mov") {
+            let url = try checkedURL(folder.appendingPathComponent(name), in: folder)
+            guard FileManager.default.fileExists(atPath: url.path),
+                  !name.hasSuffix(".writing.mov"),
+                  let metadata = try? FileManager.default.attributesOfItem(atPath: url.path),
+                  let size = metadata[.size] as? NSNumber,
+                  size.int64Value > 0 else { continue }
+            clips.append(url)
+        }
+        return clips
+    }
+
     /** Save means keep existing files in Wivra; it does NOT upload to iCloud/Photos. */
     static func keep(_ entry: WivraPendingRecording) throws {
         let (marker, stored) = try verifiedTicket(entry)
