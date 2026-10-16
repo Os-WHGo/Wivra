@@ -21,6 +21,11 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      # Bundle Claude's actual single-file editor, not a second generated UI.
+      # This path is relative to streaming/ios/B0/project.yml.
+      - path: ../../../app/dist/agentcut.html
+        type: file
+        buildPhase: resources
     info:
       path: Info.plist
     settings:
