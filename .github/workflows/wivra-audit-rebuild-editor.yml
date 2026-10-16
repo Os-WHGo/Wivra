@@ -32,8 +32,8 @@ jobs:
       - name: Rebuild deterministic editor and run regression suite
         run: |
           node app/build.mjs
-          node --test app/tests/*.test.mjs
           (cd core && npm test)
+          node --test app/tests/*.test.mjs
       - name: Commit generated HTML only on audit integration branch
         run: |
           test "$GITHUB_REF_NAME" = "chatgpt/wivra-unified-owner-20261016"
