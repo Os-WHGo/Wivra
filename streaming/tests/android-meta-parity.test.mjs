@@ -21,7 +21,8 @@ test('Android Meta SDK telemetry defaults to opted out; no fabricated Meta accou
 });
 test('Android keeps Claude shared editor; DAT declared does not imply connection completed',()=>{
   assert.match(sharedEditor,/file:\/\/\/android_asset\/agentcut\.html/);
-  assert.match(policy,/conexi[oó]n PENDIENTE/);
+  assert.match(policy,/No est[aá] probado en hardware/);
+  assert.match(policy,/preview visual\/recording PENDIENTES/);
   assert.match(policy,/igualdad de objetivos/i);
 });
 
