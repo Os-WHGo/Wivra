@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'streaming/android/**'
+      - 'app/**'
+      - 'core/**'
       - 'app/dist/agentcut.html'
       - 'app/packs/**'
       - '.github/workflows/unified-android-build.yml'
@@ -37,6 +39,11 @@ jobs:
         run: node --test streaming/tests/android-meta-visual-preview.test.mjs
       - name: Check Android six-language translation parity
         run: node --test streaming/tests/android-native-i18n.test.mjs
+      - name: Require reproducible Claude editor HTML before native packaging
+        run: |
+          set -eu
+          node app/build.mjs
+          git diff --exit-code -- app/dist/agentcut.html
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
