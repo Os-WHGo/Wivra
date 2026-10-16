@@ -144,11 +144,13 @@ const handlers = {
     if (f) c.filter = f; else delete c.filter;
     return { ok: true };
   },
-  set_format(p, { aspect, fit }) {
-    if (aspect === undefined && fit === undefined) return err('bad_format', 'Indica aspect y/o fit');
+  set_format(p, { aspect, fit, safe }) {
+    if (aspect === undefined && fit === undefined && safe === undefined) return err('bad_format', 'Indica aspect, fit y/o safe');
+    if (safe !== undefined && typeof safe !== 'boolean') return err('bad_format', 'safe debe ser verdadero o falso (zona segura para textos en 9:16)');
     if (aspect !== undefined && !FORMATS.includes(aspect)) return err('bad_format', `aspect debe ser uno de ${FORMATS.join(', ')}`);
     if (fit !== undefined && !FITS.includes(fit)) return err('bad_format', `fit debe ser uno de ${FITS.join(', ')}`);
-    p.format = { aspect: aspect ?? p.format?.aspect ?? 'original', fit: fit ?? p.format?.fit ?? 'cover' };
+    const keep = safe === undefined ? p.format?.safe === true : safe;      // la zona segura se guarda solo si está activa
+    p.format = { aspect: aspect ?? p.format?.aspect ?? 'original', fit: fit ?? p.format?.fit ?? 'cover', ...(keep ? { safe: true } : {}) };
     return { ok: true };
   },
   trim_clip(p, { clip_id, in: tin, out }) {

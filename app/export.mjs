@@ -1,7 +1,7 @@
 // Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
-import { TEXT_POS, TEXT_SIZES, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
+import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -178,14 +178,14 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
     g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r, t); g.restore();
   }
-  drawTexts(g, textsAt(project, t), W, H);
+  drawTexts(g, textsAt(project, t), W, H, textZoneOf(project.format));
 }
 
 /**
  * Dibuja los textos del instante: arriba, al centro o abajo, con su tamaño, color y (si tiene) caja de fondo. Misma regla que la vista previa (app/template.html).
  * Dentro de una posición los textos se apilan en el orden en que se crearon; abajo, el último queda más abajo y todo crece hacia arriba. — Claude
  */
-export function drawTexts(g, list, W, H) {
+export function drawTexts(g, list, W, H, zone = TEXT_ZONES.normal) {
   if (!list.length) return;
   const base = Math.min(W, H) * 0.06, groups = groupTextsByPos(list);
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
@@ -193,22 +193,23 @@ export function drawTexts(g, list, W, H) {
     const blocks = groups[pos].map((tx) => {
       const st = textStyleOf(tx), size = Math.round(base * TEXT_SIZES[st.size]), lineH = size * 1.2, pad = st.box === 'none' ? 0 : size * 0.28;
       g.font = `800 ${size}px -apple-system, system-ui, sans-serif`;
-      const lines = wrapLines(tx.text, W * 0.86 - pad * 2, (x) => g.measureText(x).width), tw = Math.max(...lines.map((l) => g.measureText(l).width));
+      const lines = wrapLines(tx.text, W * zone.width - pad * 2, (x) => g.measureText(x).width), tw = Math.max(...lines.map((l) => g.measureText(l).width));
       return { st, size, lineH, pad, lines, tw, h: lines.length * lineH + pad * 2 };
     });
     if (!blocks.length) continue;
     const gap = base * 0.3, total = blocks.reduce((a, b) => a + b.h, 0) + gap * (blocks.length - 1);
-    let y = pos === 'top' ? H * 0.07 : pos === 'middle' ? (H - total) / 2 : H * 0.89 - total;
+    const cx = W * (zone.left + (1 - zone.right)) / 2;      // centro horizontal de la zona
+    let y = pos === 'top' ? H * zone.top : pos === 'middle' ? H * zone.mid - total / 2 : H * zone.bottom - total;
     for (const b of blocks) {
       g.font = `800 ${b.size}px -apple-system, system-ui, sans-serif`;
       if (b.st.box !== 'none') {
-        const bw = b.tw + b.pad * 2, bx = (W - bw) / 2, r = b.size * 0.3;
+        const bw = b.tw + b.pad * 2, bx = cx - bw / 2, r = b.size * 0.3;
         g.fillStyle = b.st.box; g.beginPath();
         if (g.roundRect) g.roundRect(bx, y, bw, b.h, r); else g.rect(bx, y, bw, b.h);
         g.fill();
       } else { g.lineWidth = Math.max(2, b.size / 6); g.strokeStyle = 'rgba(0,0,0,.85)'; }
       g.fillStyle = b.st.color;
-      b.lines.forEach((line, i) => { const ly = y + b.pad + (i + 0.5) * b.lineH; if (b.st.box === 'none') g.strokeText(line, W / 2, ly); g.fillText(line, W / 2, ly); });
+      b.lines.forEach((line, i) => { const ly = y + b.pad + (i + 0.5) * b.lineH; if (b.st.box === 'none') g.strokeText(line, cx, ly); g.fillText(line, cx, ly); });
       y += b.h + gap;
     }
   }

@@ -28,7 +28,7 @@ export function describeOperation(o, { T = (s, ...a) => fillTemplate(s, a), f = 
     case 'set_audio_clip': return T('Pista de audio {1}: {2}', o.clip_id, list([o.track !== undefined ? T('fila {1}', o.track) : '', o.role ? T('papel {1}', o.role) : '']));
     case 'set_clip_fx': return T('Efecto de {1}: {2}', o.clip_id, list([o.intro ? T('entrada {1}', o.intro) : '', o.outro ? T('salida {1}', o.outro) : '', o.dur ? T('{1} s', o.dur) : '']));
     case 'set_clip_filter': return (o.reset || o.look === 'none') ? T('Quitar filtro de {1}', o.clip_id) : T('Filtro de {1}: {2}', o.clip_id, o.look ? T(lookName(o.look)) : T('ajustes de color'));
-    case 'set_format': return T('Formato: {1}', list([o.aspect ? T('cuadro {1}', o.aspect) : '', o.fit ? T(o.fit === 'cover' ? 'rellenar' : 'barras negras') : '']));
+    case 'set_format': return T('Formato: {1}', list([o.aspect ? T('cuadro {1}', o.aspect) : '', o.fit ? T(o.fit === 'cover' ? 'rellenar' : 'barras negras') : '', o.safe === true ? T('zona segura de textos') : (o.safe === false ? T('sin zona segura de textos') : '')]));
     default: return JSON.stringify(o);
   }
 }

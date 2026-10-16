@@ -28,6 +28,14 @@ export function applyTextStyle(t, st) {
     if (v === TEXT_DEFAULT[k]) delete t[k]; else t[k] = v;
   }
 }
+/**
+ * Zona de los textos como fracción del cuadro. «Normal» = la de siempre. «Segura» (opción, solo 9:16): deja libre lo que tapan los botones y el pie de Reels/TikTok/Shorts.
+ * Medidas en un cuadro de 1080×1920 (estilo editorial de Wivra, NO una norma de las apps): x de 90 a 950, y de 240 a 1470.
+ */
+export const TEXT_ZONES = { normal: { top: 0.07, mid: 0.5, bottom: 0.89, width: 0.86, left: 0.04, right: 0.04 }, safe: { top: 240 / 1920, mid: (240 + 1470) / 2 / 1920, bottom: 1470 / 1920, width: 0.8, left: 90 / 1080, right: 130 / 1080 } };
+/** ¿Está activa la zona segura? Solo cuenta en 9:16. */
+export const safeZoneOn = (format) => !!format && format.safe === true && format.aspect === '9:16';
+export const textZoneOf = (format) => (safeZoneOn(format) ? TEXT_ZONES.safe : TEXT_ZONES.normal);
 /** Agrupa textos por posición, en el orden en que aparecen. → { top:[…], middle:[…], bottom:[…] } */
 export function groupTextsByPos(list) {
   const g = { top: [], middle: [], bottom: [] };
