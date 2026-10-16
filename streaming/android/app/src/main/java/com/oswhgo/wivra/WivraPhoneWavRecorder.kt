@@ -30,7 +30,6 @@ class WivraPhoneWavRecorder(
         val channels: Int,
         val bytesWritten: Long,
         val estimatedFirstReadElapsedRealtimeNs: Long,
-        val audioInputSource: String,
         val error: String?
     ) {
         val usable get() = bytesWritten > 0L && error == null
@@ -41,18 +40,6 @@ class WivraPhoneWavRecorder(
         private const val WAV_HEADER_BYTES = 44L
         private const val MAX_DATA_BYTES = 2_000_000_000L
         private const val CHANNELS = 1
-
-        /** Coarse provenance only: never store a device name, MAC, or ID. */
-        private fun audioSource(type: Int?): String = when (type) {
-            AudioDeviceInfo.TYPE_BUILTIN_MIC -> "android-phone-mic"
-            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "android-wired-mic"
-            AudioDeviceInfo.TYPE_USB_DEVICE,
-            AudioDeviceInfo.TYPE_USB_HEADSET,
-            AudioDeviceInfo.TYPE_USB_ACCESSORY -> "android-usb-mic"
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-            AudioDeviceInfo.TYPE_BLE_HEADSET -> "android-bluetooth-mic"
-            else -> "android-input-unknown"
-        }
 
         private fun putU16(wav: RandomAccessFile, number: Int) {
             wav.write(number and 0xff)
@@ -127,9 +114,6 @@ class WivraPhoneWavRecorder(
             var firstReadNs = 0L
             var failure: String? = null
             var written = 0L
-            var firstRouteId: Int? = null
-            var firstRouteType: Int? = null
-            var routeChanged = false
             try {
                 RandomAccessFile(file, "rw").use { wav ->
                     wav.setLength(0L)
@@ -147,19 +131,12 @@ class WivraPhoneWavRecorder(
                         // input may disappear midway through a long recording.
                         // A single start-time check silently mislabels later
                         // audio from Android's fallback microphone.
-                        val routed = record.routedDevice
-                        if (preferredDevice != null &&
-                            (routed == null || routed.id != preferredDevice.id)) {
-                            failure = "Selected microphone was not the active input"
-                            break
-                        }
-                        if (firstReadNs == 0L) {
-                            firstRouteId = routed?.id
-                            firstRouteType = routed?.type
-                        } else if (routed?.id != firstRouteId) {
-                            // In automatic mode, Android may switch inputs.
-                            // Keep the recording, but do not mislabel its source.
-                            routeChanged = true
+                        if (preferredDevice != null) {
+                            val routed = record.routedDevice
+                            if (routed == null || routed.id != preferredDevice.id) {
+                                failure = "Selected microphone was not the active input"
+                                break
+                            }
                         }
                         if (firstReadNs == 0L) {
                             // This is an approximate read-completion clock,
@@ -185,11 +162,7 @@ class WivraPhoneWavRecorder(
                 record.release()
                 input = null
                 stopped.set(true)
-                val source = if (routeChanged) "android-mixed-input"
-                    else audioSource(firstRouteType)
-                val result = Result(
-                    file, SAMPLE_RATE, CHANNELS, written, firstReadNs, source, failure
-                )
+                val result = Result(file, SAMPLE_RATE, CHANNELS, written, firstReadNs, failure)
                 ui.post { completed?.invoke(result) }
             }
         }, "Wivra-Phone-WAV").apply { isDaemon = true; start() }
