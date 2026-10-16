@@ -9,6 +9,8 @@ struct WivraStoredCapture: Identifiable {
     let source: String
     let manifestURL: URL
     let videoURL: URL?
+    // If both original and combined MOV exist, provide a playback fallback.
+    let alternateVideoURL: URL?
     let audioURLs: [URL]
     let missing: [String]
 }
@@ -62,6 +64,8 @@ enum WivraLocalCaptureScanner {
                     let combined = m.muxedVideoFile.map { folder.appendingPathComponent($0) }
                     let video = fm.fileExists(atPath: original.path) ? original :
                         (combined.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil })
+                    let alternateVideoURL = video == original && combined != nil &&
+                        fm.fileExists(atPath: combined!.path) ? combined : nil
                     let audio = Set(m.tracks.map(\.file)).sorted()
                     let audioURLs = audio.compactMap { name -> URL? in
                         let url = folder.appendingPathComponent(name)
@@ -77,6 +81,7 @@ enum WivraLocalCaptureScanner {
                         id: m.captureID, recordedAt: date,
                         source: m.cameraSource == "iphone-avfoundation" ? "iPhone" : "Ray-Ban Meta",
                         manifestURL: manifestURL, videoURL: video,
+                        alternateVideoURL: alternateVideoURL,
                         audioURLs: audioURLs, missing: missing
                     ))
                 } catch {
