@@ -31,6 +31,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
     func firstVideoSampleUptime() -> Double? {
         queue.sync { videoStartUptime }
     }
+    var writtenFrames: Int { queue.sync { appendedCount } }
     private var appendedCount = 0
     private var droppedCount = 0
     private let defaultFrameDuration = CMTime(value: 1, timescale: 24)
