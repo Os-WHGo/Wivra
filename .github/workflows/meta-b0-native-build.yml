@@ -19,6 +19,8 @@ jobs:
         run: brew install xcodegen
       - name: Check unified Claude editor bridge and local capture picker
         run: node --test streaming/tests/unified-ios-bridge-source.test.mjs streaming/tests/unified-ios-capture-picker.test.mjs
+      - name: Verify iOS native translations and placeholders
+        run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
       - name: Generate iOS test application
         working-directory: streaming/ios/B0
         run: xcodegen generate
@@ -56,6 +58,10 @@ jobs:
           test -s "$app_path/agentcut.html"
           grep -q 'id="sAI"' "$app_path/agentcut.html"
           test -s "$app_path/packs/catalog.json"
+          # Confirm all six localized UI dictionaries are in the app bundle.
+          for language in es en fr de it ja; do
+            test -s "$app_path/${language}.lproj/Localizable.strings"
+          done
           echo "Wivra embedded Editor and color packs verified in unsigned iOS app"
       - name: Package unsigned iPhone test build for later owner-side signing
         working-directory: streaming/ios/B0

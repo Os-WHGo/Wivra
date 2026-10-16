@@ -1,0 +1,25 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "Import into Wivra";
+"ios.picker.message" = "Choose files or a completed recording stored in Wivra.";
+"ios.picker.browse" = "Browse Files";
+"ios.picker.cancel" = "Cancel";
+"ios.editor.missing" = "Editor not included";
+"ios.editor.missing_description" = "The app bundle is missing app/dist/agentcut.html.";
+"ios.editor.title" = "Wivra Editor";
+"ios.editor.back" = "Back to camera";
+"ios.app.editor" = "Editor";
+"ios.app.captures" = "My captures";
+"ios.app.handoff" = "Finishing recording and releasing the camera…";
+"ios.library.intro" = "Local recordings organized by day. Originals are preserved; automatic import into the editor is still in development.";
+"ios.library.rejected" = "Could not safely read %d manifest(s).";
+"ios.library.empty" = "No indexed recordings";
+"ios.library.empty_description" = "Finished recordings will appear here once Wivra saves their manifest.";
+"ios.library.day" = "Day %d · %s";
+"ios.library.share_video" = "Share video";
+"ios.library.video_missing" = "Video unavailable: this capture needs attention.";
+"ios.library.share_audio" = "Share %s";
+"ios.library.share_manifest" = "Share manifest";
+"ios.library.pending_files" = "Missing files: %s";
+"ios.library.title" = "My captures";
+"ios.library.close" = "Close";
+"ios.library.refresh" = "Refresh";

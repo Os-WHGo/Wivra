@@ -1,0 +1,25 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "Wivra に読み込む";
+"ios.picker.message" = "ファイルまたは完了したローカル録画を選択してください。";
+"ios.picker.browse" = "ファイルを参照";
+"ios.picker.cancel" = "キャンセル";
+"ios.editor.missing" = "エディターが含まれていません";
+"ios.editor.missing_description" = "アプリ内に app/dist/agentcut.html がありません。";
+"ios.editor.title" = "Wivra エディター";
+"ios.editor.back" = "カメラに戻る";
+"ios.app.editor" = "エディター";
+"ios.app.captures" = "マイキャプチャ";
+"ios.app.handoff" = "録画を終了し、カメラを解放しています…";
+"ios.library.intro" = "ローカル録画を日付別に表示します。元ファイルは保持されます。エディターへの自動読み込みは開発中です。";
+"ios.library.rejected" = "%d 件のマニフェストを安全に読み込めませんでした。";
+"ios.library.empty" = "録画がありません";
+"ios.library.empty_description" = "録画が完了し、Wivra がマニフェストを保存するとここに表示されます。";
+"ios.library.day" = "%d 日目 · %s";
+"ios.library.share_video" = "動画を共有";
+"ios.library.video_missing" = "動画を利用できません。録画を確認してください。";
+"ios.library.share_audio" = "%s を共有";
+"ios.library.share_manifest" = "マニフェストを共有";
+"ios.library.pending_files" = "不足しているファイル: %s";
+"ios.library.title" = "マイキャプチャ";
+"ios.library.close" = "閉じる";
+"ios.library.refresh" = "更新";

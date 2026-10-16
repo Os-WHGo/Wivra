@@ -1,0 +1,25 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "Importar a Wivra";
+"ios.picker.message" = "Elige medios de Archivos o una grabación local terminada.";
+"ios.picker.browse" = "Buscar en Archivos";
+"ios.picker.cancel" = "Cancelar";
+"ios.editor.missing" = "Editor no incluido";
+"ios.editor.missing_description" = "Falta app/dist/agentcut.html en los recursos del binario.";
+"ios.editor.title" = "Wivra Editor";
+"ios.editor.back" = "Volver a cámara";
+"ios.app.editor" = "Editor";
+"ios.app.captures" = "Mis capturas";
+"ios.app.handoff" = "Finalizando grabación y liberando cámara…";
+"ios.library.intro" = "Grabaciones locales organizadas por día. Se conservan los originales; la importación automática al editor aún está en desarrollo.";
+"ios.library.rejected" = "No se pudieron leer %d manifiesto(s) con seguridad.";
+"ios.library.empty" = "Sin grabaciones indexadas";
+"ios.library.empty_description" = "Cuando Wivra termine una grabación y guarde su manifiesto, aparecerá aquí.";
+"ios.library.day" = "Día %d · %s";
+"ios.library.share_video" = "Compartir video";
+"ios.library.video_missing" = "Video no disponible: la captura necesita revisión.";
+"ios.library.share_audio" = "Compartir %s";
+"ios.library.share_manifest" = "Compartir manifiesto";
+"ios.library.pending_files" = "Archivos pendientes: %s";
+"ios.library.title" = "Mis capturas";
+"ios.library.close" = "Cerrar";
+"ios.library.refresh" = "Actualizar";

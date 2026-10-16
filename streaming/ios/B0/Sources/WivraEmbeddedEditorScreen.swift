@@ -42,8 +42,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let ready = all.filter { $0.videoURL != nil }
             .sorted { $0.recordedAt > $1.recordedAt }
         let sheet = UIAlertController(
-            title: "Importar a Wivra",
-            message: "Elige medios de Archivos o una grabación local terminada.",
+            title: NSLocalizedString("ios.picker.title", comment: ""),
+            message: NSLocalizedString("ios.picker.message", comment: ""),
             preferredStyle: .actionSheet
         )
 
@@ -63,14 +63,14 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                 })
             }
         }
-        sheet.addAction(UIAlertAction(title: "Buscar en Archivos", style: .default) { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
             guard let self else { return }
             let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
             picker.allowsMultipleSelection = parameters.allowsMultipleSelection
             picker.delegate = self
             presenter.present(picker, animated: true)
         })
-        sheet.addAction(UIAlertAction(title: "Cancelar", style: .cancel) { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.cancel", comment: ""), style: .cancel) { [weak self] _ in
             self?.finishSelection(nil)
         })
         if let popover = sheet.popoverPresentationController {
@@ -165,17 +165,17 @@ struct WivraEmbeddedEditorScreen: View {
                         .accessibilityIdentifier("wivra_unified_embedded_editor")
                 } else {
                     ContentUnavailableView(
-                        "Editor no incluido",
+                        "ios.editor.missing",
                         systemImage: "film",
-                        description: Text("Falta app/dist/agentcut.html en los recursos del binario.")
+                        description: Text("ios.editor.missing_description")
                     )
                 }
             }
-            .navigationTitle("Wivra Editor")
+            .navigationTitle("ios.editor.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Volver a cámara") { dismiss() }
+                    Button("ios.editor.back") { dismiss() }
                 }
             }
         }

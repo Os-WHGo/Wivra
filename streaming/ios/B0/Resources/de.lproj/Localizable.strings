@@ -1,0 +1,25 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "In Wivra importieren";
+"ios.picker.message" = "Dateien oder eine abgeschlossene lokale Aufnahme auswählen.";
+"ios.picker.browse" = "Dateien durchsuchen";
+"ios.picker.cancel" = "Abbrechen";
+"ios.editor.missing" = "Editor nicht enthalten";
+"ios.editor.missing_description" = "app/dist/agentcut.html fehlt im App-Paket.";
+"ios.editor.title" = "Wivra Editor";
+"ios.editor.back" = "Zurück zur Kamera";
+"ios.app.editor" = "Editor";
+"ios.app.captures" = "Meine Aufnahmen";
+"ios.app.handoff" = "Aufnahme wird abgeschlossen und Kamera freigegeben…";
+"ios.library.intro" = "Lokale Aufnahmen nach Tagen sortiert. Originale bleiben erhalten; der automatische Import in den Editor ist noch in Entwicklung.";
+"ios.library.rejected" = "%d Manifest(e) konnten nicht sicher gelesen werden.";
+"ios.library.empty" = "Keine Aufnahmen indiziert";
+"ios.library.empty_description" = "Abgeschlossene Aufnahmen erscheinen hier, sobald Wivra das Manifest speichert.";
+"ios.library.day" = "Tag %d · %s";
+"ios.library.share_video" = "Video teilen";
+"ios.library.video_missing" = "Video nicht verfügbar: Aufnahme muss überprüft werden.";
+"ios.library.share_audio" = "%s teilen";
+"ios.library.share_manifest" = "Manifest teilen";
+"ios.library.pending_files" = "Fehlende Dateien: %s";
+"ios.library.title" = "Meine Aufnahmen";
+"ios.library.close" = "Schließen";
+"ios.library.refresh" = "Aktualisieren";
