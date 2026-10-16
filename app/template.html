@@ -2161,7 +2161,13 @@ function renderShootPlan(){
   return;
  }
  const p=progress(shootPlan);
- $('dirPlanInfo').textContent=p.done+' de '+p.total+' tomas completadas ('+p.percent+' %). '+(p.readyToEdit?'Lista lista para revisar tus videos.':'Marca las tomas que hayas grabado.');
+ const nRetry=shootPlan.shots.filter(s=>s.state==='retry').length,nSkip=shootPlan.shots.filter(s=>s.state==='skipped').length;
+ const info=$('dirPlanInfo');info.replaceChildren();
+ const infoLine=txt=>{const d=document.createElement('div');d.textContent=txt;info.append(d)};
+ infoLine(p.done+' de '+p.total+' tomas hechas.');
+ if(nRetry)infoLine('Por repetir: '+nRetry);
+ if(nSkip)infoLine('Saltadas: '+nSkip+' (no cuentan como grabadas)');
+ infoLine(p.readyToEdit?'Lista lista para revisar tus videos.':p.remaining===0?'Todas las tomas están saltadas: no hay nada que editar.':'Marca las tomas que hayas grabado.');
  const sub=document.createElement('p');sub.className='m';
  sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
  places.append(sub);
@@ -2181,7 +2187,25 @@ function renderShootPlan(){
   const label=document.createElement('span');label.textContent=shot.title+' · '+shot.durationSeconds+' s';
   title.append(check,label);
   const body=document.createElement('p');body.className='m';body.style.margin='4px 0';body.textContent=shot.direction;
+  const stateLabel={todo:'Pendiente',done:'Hecha',retry:'Por repetir',skipped:'Saltada'}[shot.state]||'Pendiente';
+  const badge=document.createElement('small');badge.className='shotstate';badge.dataset.state=shot.state;badge.textContent=stateLabel;
+  if(shot.state==='skipped')label.style.textDecoration='line-through';
+  if(shot.state==='skipped'||shot.state==='retry')card.style.opacity='.85';
   const row=document.createElement('div');row.className='row';
+  const setState=(state,confirmText)=>{
+   if(confirmText&&!confirm(confirmText))return;
+   try{
+    shootPlan=updateShot(shootPlan,shot.id,state==='todo'?{state}:{state,assetId:null});
+    saveShootPlan();renderShootPlan();
+   }catch(e){say(e.message,'bad')}
+  };
+  const mkBtn=(txt,fn)=>{const b=document.createElement('button');b.className='btn sec';b.style.marginTop='4px';b.textContent=txt;b.onclick=fn;return b};
+  const stateBtns=[];
+  if(shot.state==='retry'||shot.state==='skipped')stateBtns.push(mkBtn('Volver a pendiente',()=>setState('todo')));
+  else{
+   stateBtns.push(mkBtn('Repetir esta toma',()=>setState('retry',(shot.state==='done'||shot.assetId)?aiT('Esta toma ya está hecha. ¿Repetirla? Se quita el video asociado a la toma (el video sigue en el proyecto).'):null)));
+   stateBtns.push(mkBtn('Saltar esta toma',()=>setState('skipped',aiT('La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla?',shot.title))));
+  }
   const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
   const choose=document.createElement('select');
@@ -2201,10 +2225,11 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
+  const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.assetId){
     const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
-    card.append(title,body,linked,row);
-  }else card.append(title,body,row);
+    card.append(title,badge,body,linked,row,row2);
+  }else card.append(title,badge,body,row,row2);
   list.append(card);
  }
 }
