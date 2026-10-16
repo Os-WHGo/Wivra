@@ -188,7 +188,7 @@ export class DesktopBridgeSession {
     return Object.freeze({
       requestedLayout:layout,
       effectiveLayout:visible.length===0?'no-video':
-        visible.length===1?'single-camera':layout,
+        visible.length===1?(wanted.length===1?layout:'single-camera'):layout,
       visibleSourceIDs:freezeList(visible),
       fallbackUsed:visible.length<wanted.length,
       liveStarted:false,
