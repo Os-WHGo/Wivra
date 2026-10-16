@@ -94,7 +94,9 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
      */
     fun finishToPending(): File? = synchronized(lock) {
         val local = file
-        val valid = started && !failed && writtenSamples >= 2
+        // A later malformed sample must not erase previously written valid frames.
+        // MediaMuxer.stop() is still required to succeed before offering a file.
+        val valid = started && writtenSamples >= 2
         val finalized = try {
             if (started) muxer?.stop()
             valid
