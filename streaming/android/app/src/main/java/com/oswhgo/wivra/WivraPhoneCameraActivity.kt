@@ -50,7 +50,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private lateinit var micButton: Button
     private lateinit var switchButton: Button
 
-    private val mainExecutor: Executor by lazy { ContextCompat.getMainExecutor(this) }
+    private val captureExecutor: Executor by lazy { ContextCompat.getMainExecutor(this) }
     private var provider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
     private var videoCapture: VideoCapture<Recorder>? = null
@@ -194,7 +194,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                 message(R.string.phone_camera_start_failed)
                 refreshControls()
             }
-        }, mainExecutor)
+        }, captureExecutor)
     }
 
     private fun changeLens() {
@@ -241,7 +241,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             WivraPhoneMediaStore.photoCaptureValues()
         ).build()
-        capture.takePicture(output, mainExecutor, object : ImageCapture.OnImageSavedCallback {
+        capture.takePicture(output, captureExecutor, object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                 photoButton.isEnabled = true
                 message(R.string.phone_camera_photo_saved)
@@ -291,7 +291,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             )
             val configured = if (micEnabled) pending.withAudioEnabled() else pending
             recordingFinishing = false
-            activeRecording = configured.start(mainExecutor) { event ->
+            activeRecording = configured.start(captureExecutor) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
                         message(if (micEnabled) R.string.phone_camera_recording_audio
