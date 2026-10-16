@@ -36,6 +36,7 @@ const GOLDEN = [
   [{ op: 'add_clip', asset_id: 'a1', start: 4 }, 'Agregar a1 en 4 s'],
   [{ op: 'set_text', text_id: 't1', text: 'Hola' }, 'Texto t1: «Hola»'],
   [{ op: 'set_text', text_id: 't2', start: 1.5, duration: 2 }, 'Texto t2: desde 1.5 s, por 2 s'],
+  [{ op: 'set_text', text_id: 't3', pos: 'top', box: '#000000' }, 'Texto t3: estilo'],
   [{ op: 'delete_text', text_id: 't3' }, 'Borrar texto t3'],
   [{ op: 'add_photo_clip', asset_id: 'a3' }, 'Foto a3 en 0 s por 3 s'],
   [{ op: 'add_photo_clip', asset_id: 'a3', start: 12, duration: 4.5 }, 'Foto a3 en 12 s por 4.5 s'],
@@ -78,8 +79,8 @@ test('fillTemplate: rellena en orden, en una sola pasada, y deja la marca si fal
   assert.equal(fillTemplate('sin marcas', ['x']), 'sin marcas');
 });
 
-test('en español cada operación sale EXACTAMENTE como antes de traducir (43 casos)', () => {
-  assert.equal(GOLDEN.length, 43);
+test('en español cada operación sale EXACTAMENTE como antes de traducir (44 casos)', () => {
+  assert.equal(GOLDEN.length, 44);
   for (const [o, es] of GOLDEN) assert.equal(describeOperation(o, { lookName }), es, JSON.stringify(o));
 });
 

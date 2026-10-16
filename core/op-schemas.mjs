@@ -3,6 +3,7 @@
 // un test falla si una operación del motor no tiene esquema aquí (o al revés). — Claude
 import { SHAPE_IDS, FX, FORMATS, FITS, MAX_TRACKS, AUDIO_ROLES } from './operations.mjs';
 import { LOOK_IDS, FILTER_RANGES } from './filters.mjs';
+import { TEXT_POS, TEXT_SIZES } from './text-style.mjs';
 
 const osT = { type: 'number', minimum: 0, description: 'segundos' };
 const osUnit = (d) => ({ type: 'number', minimum: 0, maximum: 1, description: d });
@@ -12,6 +13,8 @@ const osP = {
   start: osT, in: osT, out: osT, at: osT, duration: { type: 'number', exclusiveMinimum: 0, description: 'segundos' },
   muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '0 a 2; 1 = original' },
   text: { type: 'string', maxLength: 120 },
+  pos: { type: 'string', enum: TEXT_POS, description: 'posición del texto: arriba, centro o abajo (por defecto bottom)' }, size: { type: 'string', enum: Object.keys(TEXT_SIZES), description: 'tamaño del texto (por defecto m)' },
+  color: { type: 'string', description: 'color del texto #rrggbb (por defecto #ffffff)' }, box: { type: 'string', description: "caja de fondo del texto: un color #rrggbb, o 'none' (por defecto)" },
   role: { type: 'string', enum: AUDIO_ROLES }, track: { type: 'integer', minimum: 1, maximum: MAX_TRACKS, description: `fila 1 a ${MAX_TRACKS} (mayor = más arriba)` },
   x: osUnit('centro horizontal, 0 a 1 del cuadro'), y: osUnit('centro vertical, 0 a 1 del cuadro'), scale: { type: 'number', minimum: 0.05, maximum: 1, description: 'ancho, 0.05 a 1 del cuadro' },
   shape: { type: 'string', enum: SHAPE_IDS }, zoom: { type: 'number', minimum: 1, maximum: 4 }, px: osUnit('posición del video dentro de la forma'), py: osUnit('posición del video dentro de la forma'),
@@ -36,8 +39,8 @@ export const OP_SCHEMAS = {
   move_clip: { desc: 'mueve un clip a otro instante de la línea de tiempo', required: ['clip_id', 'start'], props: ['clip_id', 'start'] },
   set_clip_audio: { desc: 'silencia o cambia el volumen del audio de un clip', required: ['clip_id'], props: ['clip_id', 'muted', 'volume'] },
   delete_clip: { desc: 'borra un clip', required: ['clip_id'], props: ['clip_id'] },
-  add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration'] },
-  set_text: { desc: 'cambia el texto y/o los tiempos de un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id', 'text', 'start', 'duration'] },
+  add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration', 'pos', 'size', 'color', 'box'] },
+  set_text: { desc: 'cambia el texto, los tiempos y/o el estilo (posición, tamaño, color, caja) de un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id', 'text', 'start', 'duration', 'pos', 'size', 'color', 'box'] },
   delete_text: { desc: 'borra un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id'] },
 };
 export const OP_SCHEMA_NAMES = Object.keys(OP_SCHEMAS);

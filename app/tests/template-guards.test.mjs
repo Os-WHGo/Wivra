@@ -14,6 +14,8 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['el estilo de los textos en la vista previa', 'function renderTexts()'],
+  ['la hoja de estilo de texto (acoplada abajo, sin tapar el video)', "const DOCKS = ['sFilt', 'sFx', 'sOver', 'sTxStyle'];"],
   ['el audio del video se pausa al llegar a una foto o hueco', "cur = null; if (!$('v').paused) $('v').pause();"],
   ['el «+» de la pista de Video agrega a la pista principal', "ln.id === 'vtrack' ? 'main'"],
   ['el «+» de Capas y el botón «Video o foto encima (capa)»', 'Video o foto encima (capa)'],
