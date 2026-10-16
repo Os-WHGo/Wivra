@@ -9,6 +9,8 @@ android {
         targetSdk 35
         versionCode 1
         versionName '0.1.0-dev'
+        // DAT developer-mode values only. Production registration is separate.
+        manifestPlaceholders = [mwdat_application_id: '0', mwdat_client_token: '0']
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -33,4 +35,6 @@ tasks.named('preBuild') { dependsOn 'syncWivraAssets' }
 dependencies {
     implementation 'com.meta.wearable:mwdat-core:1.0.1'
     implementation 'com.meta.wearable:mwdat-camera:1.0.1'
+    implementation 'androidx.activity:activity-ktx:1.10.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 }
