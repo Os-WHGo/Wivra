@@ -41,3 +41,17 @@ Revisión estática de archivos reales de GitHub en la rama `chatgpt/wivra-unifi
 7. Cero fusiones a main sin autorización.
 
 **Estado:** auditoría iniciada y documentada, con bloqueos P0/P1. No declarar finalizada.
+
+## Correcciones efectuadas después del primer registro
+- `app/export.mjs` commit `c4c131d`: si existe imagen/video principal, la exportación acaba en el final de esa línea, sin añadir cola negra por audio o overlays más largos. Los proyectos sin línea principal conservan duración calculada para diagnóstico, pero `recordProject` aún exige clips principales.
+- `app/tests/export.test.mjs` commit `5fbb8d3`: pruebas de 9 s video + 30 s música, overlay largo y audio-only.
+- `app/tests/speed.test.mjs` commit `f28e2a6`: expectativa de duración de exportación actualizada de 16 s a 13 s cuando música excede imagen.
+- `app/tests/speed.test.mjs` commit `895851b`: regresión de música dentro de un video sin alterar velocidad.
+**Advertencia:** cambios no verificados por CI verde ni sincronizados en `app/dist/agentcut.html`. No fusionar.
+
+## Verificación cruzada de arquitectura
+- `README.md` reconoce explícitamente que ningún iPhone ni Android real está validado.
+- `streaming/README.md` declara receptor Swift inicial sin compilación en ese documento y ningún LIVE real comprobado.
+- `.github/workflows/wivra-complete-beta-assembly.yml` exige HTML reproducible antes de compilar APK debug e IPA sin firmar; falla antes de esos jobs si dist difiere.
+- No confundir APK debug instalable con lanzamiento, ni IPA sin firmar con instalador iPhone utilizable.
+- **Limitación del procedimiento:** revisión por API de GitHub y Actions; sin checkout local ni dispositivos conectados en esta ejecución. El código puede corregirse, pero pruebas ejecutadas y reconstrucción reproducible siguen pendientes.
