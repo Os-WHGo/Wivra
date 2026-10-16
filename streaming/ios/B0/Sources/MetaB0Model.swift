@@ -61,7 +61,8 @@ final class MetaB0Model {
     var showPendingRecordingChoice = false
     var showPendingRecordingDeletionConfirmation = false
     var isCurrentRecordingPending: Bool {
-        lastRecordedURL.map { WivraPendingRecordingStore.isPendingVideo($0) } ?? false
+        [lastRecordedURL, lastSeparateAudioURL].compactMap { $0 }
+            .contains { WivraPendingRecordingStore.isPendingVideo($0) }
     }
     var selectedAudioDeviceName: String?
     var selectedAudioSourceKind: String?
@@ -321,15 +322,32 @@ final class MetaB0Model {
                     error.localizedDescription
             }
         case .noFrames:
-            if let sound { lastSeparateAudioURL = sound.url }
             recordingStatus = "No se creó video: faltaron cuadros clave HEVC."
+            offerAudioOnlyRecovery(sound)
         case .failed(let message):
-            if let sound { lastSeparateAudioURL = sound.url }
             recordingStatus = "La grabación de video falló: " + message
+            offerAudioOnlyRecovery(sound)
         }
         recordingFinishing = false
         if endSessionAfterRecording {
             endSession()
+        }
+    }
+
+    /**
+     * If the glasses never supplied a decodable movie, preserve the real CAF
+     * as its own consent-pending recording. Never pretend it has video.
+     */
+    private func offerAudioOnlyRecovery(_ sound: WivraAudioResult?) {
+        guard let sound else { return }
+        lastSeparateAudioURL = sound.url
+        do {
+            pendingRecording = try WivraPendingRecordingStore.stageAudio(sound.url)
+            recordingStatus += " Se recuperó la pista de audio; decide si conservarla."
+            showPendingRecordingChoice = true
+        } catch {
+            recordingStatus += " La pista CAF sigue en Wivra, pero no pudo indexarse: " +
+                error.localizedDescription
         }
     }
 
@@ -338,6 +356,7 @@ final class MetaB0Model {
               !showPendingRecordingChoice && !showPendingRecordingDeletionConfirmation
         else { return }
         _ = WivraPendingRecordingStore.recoverUnstagedCheckpoints()
+        _ = WivraPendingRecordingStore.recoverOrphanedAudio()
         pendingRecording = WivraPendingRecordingStore.pending().first
         showPendingRecordingChoice = pendingRecording != nil
     }
@@ -368,7 +387,9 @@ final class MetaB0Model {
                 }
             }
             try WivraPendingRecordingStore.keep(entry)
-            recordingStatus = "Grabación guardada en Wivra. Puedes compartirla desde la biblioteca."
+            recordingStatus = entry.id.hasSuffix(".caf")
+                ? "Audio CAF recuperado y conservado en Wivra. Puedes compartirlo desde Mis capturas."
+                : "Grabación guardada en Wivra. Puedes compartirla desde la biblioteca."
             pendingRecording = nil
             showPendingRecordingChoice = false
             refreshPendingRecordingChoice()
@@ -387,7 +408,8 @@ final class MetaB0Model {
         guard let entry = pendingRecording else { return }
         do {
             try WivraPendingRecordingStore.discardConfirmed(entry)
-            if lastRecordedURL?.lastPathComponent == entry.id {
+            if lastRecordedURL?.lastPathComponent == entry.id ||
+               lastSeparateAudioURL?.lastPathComponent == entry.id {
                 lastRecordedURL = nil
                 lastSeparateAudioURL = nil
                 lastCombinedVideoURL = nil
