@@ -101,9 +101,52 @@ enum WivraPendingRecordingStore {
     static func isPendingVideo(_ videoURL: URL) -> Bool {
         guard let folder = try? directory(),
               let url = try? checkedURL(videoURL, in: folder) else { return false }
-        return FileManager.default.fileExists(
-            atPath: ticketURL(videoName: url.lastPathComponent, folder: folder).path
-        )
+        // Grouped checkpoints share ONE decision ticket. All video segments
+        // must remain hidden from the editor until that decision is resolved.
+        return pending().contains { $0.files.contains(url.lastPathComponent) }
+    }
+
+    /**
+     * Recovery on app relaunch: discover only finalized, specifically named
+     * MOV checkpoints which have no complete manifest set and no pending ticket.
+     * Never offer a partial *.writing.mov as completed video. No files deleted.
+     */
+    @discardableResult
+    static func recoverUnstagedCheckpoints() -> Int {
+        guard let folder = try? directory(),
+              let urls = try? FileManager.default.contentsOfDirectory(
+                  at: folder, includingPropertiesForKeys: nil
+              ) else { return 0 }
+        let segmentPattern = #"^Wivra_Meta_[0-9a-f]{32}_part[0-9]{4}\\.mov$"#
+        let candidates = urls.filter {
+            $0.lastPathComponent.range(of: segmentPattern, options: .regularExpression) != nil &&
+            !((try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
+        }
+        let existing = pending()
+        let groups = Dictionary(grouping: candidates) {
+            String($0.lastPathComponent.dropLast("_part0001.mov".count))
+        }
+        var recovered = 0
+        for (_, files) in groups {
+            let sorted = files.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            guard let first = sorted.first,
+                  !existing.contains(where: { $0.files.contains(first.lastPathComponent) })
+            else { continue }
+            // If every part already has its capture manifest, the user
+            // previously chose Keep. Never start questioning it again.
+            let allManifested = sorted.allSatisfy {
+                FileManager.default.fileExists(atPath:
+                    $0.deletingPathExtension().appendingPathExtension("wivra.json").path)
+            }
+            if allManifested { continue }
+            let related = sorted.flatMap {
+                [$0, $0.deletingPathExtension().appendingPathExtension("wivra.json")]
+            }
+            if (try? stage(videoURL: first, related: related)) != nil {
+                recovered += 1
+            }
+        }
+        return recovered
     }
 
     private static func verifiedTicket(_ entry: WivraPendingRecording) throws -> (URL, WivraPendingRecording) {
