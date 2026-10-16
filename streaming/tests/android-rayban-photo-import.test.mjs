@@ -38,7 +38,8 @@ test('Claude shared editor image chooser offers only recent app-owned Ray-Ban ph
  assert.match(editorHost,/WivraMetaPhotoStore\.latestCapturedPhoto\(MainActivity\.this\)/);
  assert.match(editorHost,/accept\.contains\("image\/"\)/);
  assert.match(editorHost,/pendingFilePicker = null;/);
- assert.match(editorHost,/new Uri\[\]\{recent\}/);
+ assert.match(editorHost,/choices.add\(recent\)/);
+ assert.match(editorHost,/new Uri\[\]\{choices.get\(item\)\}/);
  assert.match(editorHost,/launchSystemPicker\(params\)/);
  assert.match(store,/PHOTO_DIRECTORY, "\$FILE_PREFIX%"/);
  assert.match(store,/MediaStore.Images.Media.DATE_ADDED/);
