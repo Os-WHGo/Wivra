@@ -18,7 +18,7 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Check unified Claude editor bridge and local capture picker
-        run: node --test streaming/tests/unified-ios-bridge-source.test.mjs streaming/tests/unified-ios-capture-picker.test.mjs
+        run: node --test streaming/tests/unified-ios-bridge-source.test.mjs streaming/tests/unified-ios-capture-picker.test.mjs streaming/tests/unified-ios-locale-bootstrap.test.mjs
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
       - name: Generate iOS test application
