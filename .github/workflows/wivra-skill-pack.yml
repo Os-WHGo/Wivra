@@ -23,5 +23,33 @@ jobs:
         run: python3 -m unittest discover -s wivra-skill-pack/tests -v
       - name: Confirm mobile source-QA checklist without hardware claims
         run: python3 wivra-skill-pack/tools/mobile_qa.py --repo . --json
+      - name: Smoke-test read-only inspector on a synthetic local WAV (if ffprobe is installed)
+        run: |
+          python3 - <<'PY'
+          import json, math, shutil, struct, subprocess, sys, tempfile, wave
+          from pathlib import Path
+          if shutil.which("ffprobe") is None:
+              print("SKIP: ffprobe not installed, synthetic mock tests already passed")
+              sys.exit(0)
+          with tempfile.TemporaryDirectory() as temporary:
+              source = Path(temporary) / "synthetic.wav"
+              with wave.open(str(source), "wb") as wav:
+                  wav.setnchannels(1)
+                  wav.setsampwidth(2)
+                  wav.setframerate(8000)
+                  samples = [int(6000 * math.sin(2 * math.pi * 440 * t/8000)) for t in range(800)]
+                  wav.writeframes(struct.pack("<" + "h" * len(samples), *samples))
+              result = subprocess.run(
+                  [sys.executable, "wivra-skill-pack/tools/media_inspect.py",
+                   str(source), "--json"],
+                  check=True, capture_output=True, text=True
+              )
+              summary = json.loads(result.stdout)
+              assert summary["file"] == "synthetic.wav"
+              assert len(summary["audio"]) == 1
+              assert summary["video"] == []
+              assert source.stat().st_size > 44
+              print("PASS: local ffprobe read-only WAV probe, one audio stream")
+          PY
       - name: Check diagnostic tool availability without installing software
         run: python3 wivra-skill-pack/tools/media_inspect.py --doctor
