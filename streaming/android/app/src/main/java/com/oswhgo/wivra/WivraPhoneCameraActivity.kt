@@ -93,6 +93,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private lateinit var recordingButton: Button
     private lateinit var pendingButton: Button
     private lateinit var micButton: Button
+    private lateinit var audioSourceButton: Button
     private lateinit var switchButton: Button
 
     private val captureExecutor: Executor by lazy { ContextCompat.getMainExecutor(this) }
@@ -105,6 +106,10 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private var cameraFront = false
     // 0 = silent MP4; 1 = MP4 with embedded mic; 2 = video-only MP4 + mono WAV
     private var micMode = 0
+    // A specific route is only meaningful for WAV/AudioRecord; CameraX uses
+    // the OS-selected MP4 mic. Never claim control over embedded CameraX audio.
+    private var selectedAudioInputId: Int? = null
+    private var selectedAudioInputName = ""
     private var wavRecorder: WivraPhoneWavRecorder? = null
     private var videoStartNs = 0L
     private var videoFinalized = false
@@ -126,6 +131,12 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         micMode = if (accepted) 1 else 0
         updateMicLabel()
         if (!accepted) message(R.string.phone_camera_mic_denied)
+    }
+    private val bluetoothPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { accepted ->
+        if (!accepted) message(R.string.phone_camera_source_bluetooth_denied)
+        showAudioInputs()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -152,8 +163,10 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         controls.addView(secondRow)
 
         micButton = button(R.string.phone_camera_mic_off) { toggleMic() }
+        audioSourceButton = button(R.string.phone_camera_source_choose) { showAudioInputs() }
         pendingButton = button(R.string.phone_camera_review_pending) { choosePendingVideo() }
         controls.addView(micButton)
+        controls.addView(audioSourceButton)
         controls.addView(pendingButton)
 
         status = TextView(this).apply {
@@ -360,6 +373,46 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             2 -> R.string.phone_camera_mic_wav
             else -> R.string.phone_camera_mic_off
         })
+        updateAudioSourceLabel()
+    }
+
+    private fun updateAudioSourceLabel() {
+        if (!::audioSourceButton.isInitialized) return
+        audioSourceButton.isEnabled = micMode == 2 &&
+            activeRecording == null && !recordingFinishing
+        audioSourceButton.text = if (selectedAudioInputId == null)
+            getString(R.string.phone_camera_source_auto)
+        else getString(R.string.phone_camera_source_selected, selectedAudioInputName)
+    }
+
+    private fun showAudioInputs() {
+        if (micMode != 2 || activeRecording != null || recordingFinishing) {
+            message(R.string.phone_camera_source_wav_only)
+            return
+        }
+        val sources = WivraPhoneAudioInputs.available(this)
+        val needsBluetooth = !WivraPhoneAudioInputs.hasBluetoothPermission(this)
+        val labels = mutableListOf(getString(R.string.phone_camera_source_auto))
+        labels.addAll(sources.map { WivraPhoneAudioInputs.label(this, it) })
+        if (needsBluetooth) labels.add(getString(R.string.phone_camera_source_enable_bluetooth))
+        AlertDialog.Builder(this)
+            .setTitle(R.string.phone_camera_source_choose)
+            .setItems(labels.toTypedArray()) { _, choice ->
+                if (choice == 0) {
+                    selectedAudioInputId = null
+                    selectedAudioInputName = ""
+                    updateAudioSourceLabel()
+                } else if (choice <= sources.size) {
+                    val chosen = sources[choice - 1]
+                    selectedAudioInputId = chosen.id
+                    selectedAudioInputName = WivraPhoneAudioInputs.label(this, chosen)
+                    updateAudioSourceLabel()
+                } else if (needsBluetooth) {
+                    bluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun capturePhoto() {
@@ -474,7 +527,13 @@ class WivraPhoneCameraActivity : ComponentActivity() {
 
     private fun startSidecarWav(video: File) {
         try {
-            val recorder = WivraPhoneWavRecorder(WivraPhoneMediaStore.privateWav(this, video))
+            val chosen = selectedAudioInputId?.let { id ->
+                WivraPhoneAudioInputs.resolve(this, id)
+                    ?: throw IllegalStateException("Chosen microphone disconnected")
+            }
+            val recorder = WivraPhoneWavRecorder(
+                WivraPhoneMediaStore.privateWav(this, video), chosen
+            )
             wavRecorder = recorder
             recorder.start { result ->
                 wavFinalized = true
@@ -525,6 +584,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             switchButton.isEnabled = activeRecording == null && !recordingFinishing
         if (::micButton.isInitialized)
             micButton.isEnabled = activeRecording == null && !recordingFinishing
+        updateAudioSourceLabel()
         if (::pendingButton.isInitialized) {
             pendingButton.isEnabled = activeRecording == null && !recordingFinishing
         }
