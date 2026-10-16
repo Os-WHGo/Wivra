@@ -509,3 +509,20 @@ Verde || Verde
 Lugar || Posizione
 Color || Colore
 Caja || Riquadro
+Quitar silencios || Rimuovi i silenzi
+Busca las pausas largas de tus clips y las corta. Mide el volumen (no entiende palabras) y todo pasa en tu teléfono: no se envía nada. Revisa el resultado. Se puede deshacer. || Trova le pause lunghe nelle tue clip e le taglia. Misura il volume (non capisce le parole) e tutto avviene sul tuo telefono: non viene inviato nulla. Controlla il risultato. Si può annullare.
+Suave || Leggero
+Fuerte || Forte
+Buscar pausas || Cerca le pause
+Toca «Buscar pausas» para ver cuánto se puede quitar. || Tocca «Cerca le pause» per vedere quanto si può togliere.
+Quitar las pausas || Rimuovi le pause
+Ningún video tiene sonido que se pueda leer. || Nessun video ha un audio leggibile.
+No encontré pausas para quitar con esta sensibilidad. || Non ho trovato pause da rimuovere con questa sensibilità.
+Algún video no tiene sonido o es demasiado grande para leerlo aquí: ese no se toca. || Qualche video non ha audio o è troppo grande per essere letto qui: non viene toccato.
+Pausas quitadas. Puedes deshacerlo. || Pause rimosse. Puoi annullare.
+El audio que iba con cada video se cortó igual. || L'audio che accompagnava ogni video è stato tagliato allo stesso modo.
+Los textos se corrieron con el video. || I testi si sono spostati insieme al video.
+Algún texto quedó dentro de una pausa y se borró. || Un testo era dentro una pausa ed è stato eliminato.
+Las capas y los audios aparte (música) no se mueven: revisa su tiempo. || I livelli e gli audio separati (musica) non si spostano: controlla i loro tempi.
+Pausas encontradas: {1} ({2} s). El video pasaría de {3} s a {4} s. || Pause trovate: {1} ({2} s). Il video passerebbe da {3} s a {4} s.
+Buscando pausas… {1} de {2} || Ricerca delle pause… {1} di {2}
