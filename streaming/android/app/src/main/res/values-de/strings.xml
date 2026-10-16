@@ -31,4 +31,11 @@
     <string name="stream_failed">Videofehler: %1$s</string>
     <string name="stream_start_failed">Video konnte nicht gestartet werden: %1$s</string>
     <string name="disconnected">Getrennt; Editor unverändert.</string>
+    <string name="capture_photo">4. Ray-Ban-Foto aufnehmen</string>
+    <string name="photo_requires_stream">Warte auf das Livevideo der Brille, bevor du ein Foto machst.</string>
+    <string name="photo_capture_progress">Foto wird mit der Brille aufgenommen…</string>
+    <string name="photo_saved">Foto unter Bilder/Wivra gespeichert (%1$s). Im Editor das letzte Foto auswählen.</string>
+    <string name="photo_save_failed">Foto konnte nicht gespeichert werden: %1$s</string>
+    <string name="picker_last_photo">Letztes Wivra-Ray-Ban-Foto verwenden</string>
+    <string name="picker_browse_files">Dateien durchsuchen</string>
 </resources>
