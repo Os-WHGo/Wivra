@@ -280,3 +280,24 @@ Aplicar montaje || Apply assembly || Aplicar montagem || Appliquer le montage ||
 Quedaría en {} s; se acortan {} clips. || It would end up at {} s; {} clips get shortened. || Ficaria com {} s; {} clipes são encurtados. || Cela ferait {} s ; {} clips sont raccourcis. || Es würde {} s lang; {} Clips werden gekürzt. || {}秒になります。{}個のクリップが短くなります。 || 结果为 {} 秒；{} 个片段会被缩短。
 Montaje rápido aplicado. Puedes deshacerlo. || Quick assembly applied. You can undo it. || Montagem rápida aplicada. Você pode desfazer. || Montage rapide appliqué. Vous pouvez l'annuler. || Schnellmontage angewendet. Du kannst sie rückgängig machen. || クイック編集を適用しました。元に戻せます。 || 已应用快速剪辑。你可以撤销。
 Elige una duración para ver cómo quedaría. || Choose a length to see how it would look. || Escolha uma duração para ver como ficaria. || Choisissez une durée pour voir le résultat. || Wähle eine Dauer, um zu sehen, wie es aussähe. || 長さを選ぶと仕上がりを確認できます。 || 选择时长即可预览效果。
+Plantillas || Templates || Modelos || Modèles || Vorlagen || テンプレート || 模板
+Elige una plantilla y se arma formato, duración, color y título de una vez. Se puede deshacer. || Choose a template and format, length, color and title are set up at once. It can be undone. || Escolha um modelo e formato, duração, cor e título são definidos de uma vez. Dá para desfazer. || Choisissez un modèle : format, durée, couleur et titre sont réglés d'un coup. On peut l'annuler. || Wähle eine Vorlage: Format, Dauer, Farbe und Titel werden auf einmal eingestellt. Rückgängig möglich. || テンプレートを選ぶと、形式・長さ・色・タイトルがまとめて設定されます。元に戻せます。 || 选择模板，格式、时长、色彩和标题会一次设置好。可以撤销。
+Título (opcional) || Title (optional) || Título (opcional) || Titre (facultatif) || Titel (optional) || タイトル（任意） || 标题（可选）
+Aplicar plantilla || Apply template || Aplicar modelo || Appliquer le modèle || Vorlage anwenden || テンプレートを適用 || 应用模板
+Plantilla aplicada. Puedes deshacerla. || Template applied. You can undo it. || Modelo aplicado. Você pode desfazer. || Modèle appliqué. Vous pouvez l'annuler. || Vorlage angewendet. Du kannst sie rückgängig machen. || テンプレートを適用しました。元に戻せます。 || 已应用模板。你可以撤销。
+Elige una plantilla para ver qué cambia. || Choose a template to see what changes. || Escolha um modelo para ver o que muda. || Choisissez un modèle pour voir ce qui change. || Wähle eine Vorlage, um zu sehen, was sich ändert. || テンプレートを選ぶと変更内容を確認できます。 || 选择模板即可查看会发生什么变化。
+Reel vertical || Vertical reel || Reel vertical || Reel vertical || Vertikales Reel || 縦型リール || 竖版短片
+Historia corta || Short story || História curta || Story courte || Kurze Story || ショートストーリー || 短故事
+Cuadrado || Square || Quadrado || Carré || Quadrat || 正方形 || 方形
+Horizontal || Landscape || Horizontal || Paysage || Querformat || 横型 || 横版
+Recuerdo || Memory || Lembrança || Souvenir || Erinnerung || 思い出 || 回忆
+Vertical 9:16 de 30 s, con un toque de película. || Vertical 9:16, 30 s, with a film touch. || Vertical 9:16 de 30 s, com um toque de cinema. || Vertical 9:16 de 30 s, avec une touche de film. || Hochformat 9:16, 30 s, mit Filmlook. || 縦9:16・30秒、フィルム風の仕上げ。 || 竖屏 9:16，30 秒，带一点胶片感。
+Vertical 9:16 de 15 s, colores intensos. || Vertical 9:16, 15 s, vivid colors. || Vertical 9:16 de 15 s, cores intensas. || Vertical 9:16 de 15 s, couleurs intenses. || Hochformat 9:16, 15 s, kräftige Farben. || 縦9:16・15秒、鮮やかな色。 || 竖屏 9:16，15 秒，色彩浓烈。
+Cuadrado 1:1 de 30 s, sin cambiar los colores. || Square 1:1, 30 s, colors unchanged. || Quadrado 1:1 de 30 s, sem mudar as cores. || Carré 1:1 de 30 s, sans changer les couleurs. || Quadrat 1:1, 30 s, Farben unverändert. || 正方形1:1・30秒、色は変えません。 || 方形 1:1，30 秒，不改变色彩。
+Horizontal 16:9 de 60 s, sin recortar los bordes. || Landscape 16:9, 60 s, edges not cropped. || Horizontal 16:9 de 60 s, sem cortar as bordas. || Paysage 16:9 de 60 s, sans rogner les bords. || Querformat 16:9, 60 s, Ränder nicht beschnitten. || 横16:9・60秒、端を切り取りません。 || 横屏 16:9，60 秒，不裁切边缘。
+Vertical 9:16 de 45 s, cálido y con grano suave. || Vertical 9:16, 45 s, warm with soft grain. || Vertical 9:16 de 45 s, quente e com grão suave. || Vertical 9:16 de 45 s, chaleureux avec un grain doux. || Hochformat 9:16, 45 s, warm mit weichem Korn. || 縦9:16・45秒、暖かい色合いと柔らかいグレイン。 || 竖屏 9:16，45 秒，暖色调，带柔和颗粒。
+Formato {} || Format {} || Formato {} || Format {} || Format {} || 形式 {} || 格式 {}
+Duración {} s (se acortan {} clips) || Length {} s ({} clips shortened) || Duração {} s ({} clipes encurtados) || Durée {} s ({} clips raccourcis) || Dauer {} s ({} Clips gekürzt) || 長さ {}秒（{}個のクリップを短縮） || 时长 {} 秒（缩短 {} 个片段）
+Duración: ya cabe en {} s || Length: already fits in {} s || Duração: já cabe em {} s || Durée : tient déjà en {} s || Dauer: passt bereits in {} s || 長さ：すでに{}秒以内です || 时长：已在 {} 秒以内
+Color «{}» || Color “{}” || Cor “{}” || Couleur « {} » || Farbe „{}“ || 色「{}」 || 色彩“{}”
+Título «{}» los primeros {} s || Title “{}” for the first {} s || Título “{}” nos primeiros {} s || Titre « {} » pendant les {} premières s || Titel „{}“ in den ersten {} s || タイトル「{}」を最初の{}秒表示 || 标题“{}”显示前 {} 秒

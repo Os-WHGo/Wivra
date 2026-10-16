@@ -84,6 +84,7 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
   .hd { position:absolute; top:0; width:22px; height:100%; background:#ffc53dcc; touch-action:none; display:none; } .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
   .hd::after { content:''; position:absolute; top:35%; bottom:35%; left:9px; width:3px; border-radius:2px; background:#12141a; }
+  #tpList { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; } #tpList .btn { margin:0; padding:10px 6px; width:auto; } #tpList .btn[aria-pressed="true"] { outline:2px solid var(--tx); } #tpInfo .ln::before { content:'• '; } #tpInfo { white-space:normal; }
   #qaChips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; } #qaChips .btn { margin:0; padding:10px 0; width:auto; } #qaChips .btn[aria-pressed="true"] { outline:2px solid var(--tx); }
   .txb { background:#3b2f66; border-color:var(--tx); font-size:12px; padding:5px 8px; white-space:nowrap; }
   #head { position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px; background:#fff; pointer-events:none; box-shadow:0 0 6px #000; z-index:3; }
@@ -259,6 +260,13 @@ body.dock .back{pointer-events:none;background:transparent}
 
 <div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
   <div id="vlist"></div>
+  <details id="tpBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Plantillas</summary>
+    <p class="m">Elige una plantilla y se arma formato, duración, color y título de una vez. Se puede deshacer.</p>
+    <div id="tpList"></div>
+    <div id="tpTitleBox" style="display:none"><label for="tpTitle" style="display:block;margin-top:8px">Título (opcional)</label><input id="tpTitle" maxlength="60" style="width:100%" autocomplete="off"></div>
+    <div id="tpInfo" class="m" role="status" aria-live="polite">Elige una plantilla para ver qué cambia.</div>
+    <button class="btn" id="tpApply" type="button" disabled>Aplicar plantilla</button>
+  </details>
   <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
     <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
     <div id="qaChips"><button class="btn sec" type="button" data-s="15">15 s</button><button class="btn sec" type="button" data-s="30">30 s</button><button class="btn sec" type="button" data-s="45">45 s</button><button class="btn sec" type="button" data-s="60">60 s</button></div>
@@ -1105,7 +1113,31 @@ $('directorCamera').addEventListener('change',async()=>{
 
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
 /* Montaje rápido (app/quick-assembly.mjs): propuesta a la duración elegida; al aplicar se recalcula con el proyecto de ese momento. */
-let qaTarget = 0;
+let qaTarget = 0, tpSel = '';
+function tpRender() {      // la lista de plantillas (nombres traducibles: cada botón es un texto propio)
+  const l = $('tpList'); l.replaceChildren();
+  for (const t of TPL_CATALOG) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.dataset.id = t.id; b.textContent = t.name; b.setAttribute('aria-pressed', String(t.id === tpSel)); l.appendChild(b); }
+}
+function tpPreview() {
+  const info = $('tpInfo'), btn = $('tpApply'); info.replaceChildren(); btn.disabled = true; $('tpTitleBox').style.display = 'none';
+  for (const b of document.querySelectorAll('#tpList button')) b.setAttribute('aria-pressed', String(b.dataset.id === tpSel));
+  const t = TPL_CATALOG.find(x => x.id === tpSel); if (!t) { info.textContent = 'Elige una plantilla para ver qué cambia.'; return; }
+  $('tpTitleBox').style.display = t.title ? 'block' : 'none';
+  const add = (txt, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = txt; info.appendChild(d); };
+  add(t.desc);
+  const pl = session ? planTemplate(session.project, t.id, { title: t.title ? $('tpTitle').value : '' }) : { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if (!pl.ok) { add(pl.error, 'bad'); return; }
+  for (const x of pl.lines) add(x, 'ln'); for (const w of pl.warnings) add(w); btn.disabled = !pl.ops.length;
+}
+$('tpList').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) { tpSel = b.dataset.id; tpPreview(); } });
+$('tpTitle').addEventListener('input', tpPreview);
+$('tpApply').onclick = () => {
+  if (!session || !tpSel) return; const t = TPL_CATALOG.find(x => x.id === tpSel); const pl = planTemplate(session.project, tpSel, { title: t && t.title ? $('tpTitle').value : '' });
+  if (!pl.ok || !pl.ops.length) { tpPreview(); return; }
+  const r = edit(pl.ops, { ripple: false }); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+  say('Plantilla aplicada. Puedes deshacerla.', 'ok'); renderVids(); tpPreview();
+};
+tpRender();
 function qaPreview(sec) {
   qaTarget = sec; const info = $('qaInfo'), btn = $('qaApply');
   for (const b of document.querySelectorAll('#qaChips button')) b.setAttribute('aria-pressed', String(Number(b.dataset.s) === sec));
