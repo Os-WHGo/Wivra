@@ -62,7 +62,13 @@ export function buildMessages(request, project, history = [], directorContext = 
 }
 
 export function buildRequest({ base, key, model, request, project, history = [], directorContext = null, fetchOptions = {} }) {
-  const url = String(base).replace(/\/+$/, '') + '/chat/completions';
+  // The bearer key is sent to this host. Reject cleartext, embedded credentials,
+  // fragments and query strings instead of leaking a user-provided API key.
+  let endpoint;
+  try { endpoint = new URL(String(base)); } catch { throw new Error('La dirección del proveedor de IA no es válida.'); }
+  if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash)
+    throw new Error('La IA requiere una dirección HTTPS segura, sin credenciales ni parámetros.');
+  const url = endpoint.href.replace(/\/+$/, '') + '/chat/completions';
   return { url, init: { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({ model, messages: buildMessages(request, project, history, directorContext), tools: [EDIT_TOOL], tool_choice: 'auto', temperature: 0.2 }), ...fetchOptions } };
 }
