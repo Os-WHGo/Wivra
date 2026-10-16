@@ -460,3 +460,24 @@ Aplicar montaje || Applica montaggio
 Quedaría en {} s; se acortan {} clips. || Durerebbe {} s; {} clip vengono accorciate.
 Montaje rápido aplicado. Puedes deshacerlo. || Montaggio rapido applicato. Puoi annullarlo.
 Elige una duración para ver cómo quedaría. || Scegli una durata per vedere il risultato.
+Plantillas || Modelli
+Elige una plantilla y se arma formato, duración, color y título de una vez. Se puede deshacer. || Scegli un modello e formato, durata, colore e titolo vengono impostati insieme. Si può annullare.
+Título (opcional) || Titolo (facoltativo)
+Aplicar plantilla || Applica modello
+Plantilla aplicada. Puedes deshacerla. || Modello applicato. Puoi annullarlo.
+Elige una plantilla para ver qué cambia. || Scegli un modello per vedere cosa cambia.
+Reel vertical || Reel verticale
+Historia corta || Storia breve
+Cuadrado || Quadrato
+Horizontal || Orizzontale
+Recuerdo || Ricordo
+Vertical 9:16 de 30 s, con un toque de película. || Verticale 9:16, 30 s, con un tocco di pellicola.
+Vertical 9:16 de 15 s, colores intensos. || Verticale 9:16, 15 s, colori intensi.
+Cuadrado 1:1 de 30 s, sin cambiar los colores. || Quadrato 1:1, 30 s, colori invariati.
+Horizontal 16:9 de 60 s, sin recortar los bordes. || Orizzontale 16:9, 60 s, bordi non tagliati.
+Vertical 9:16 de 45 s, cálido y con grano suave. || Verticale 9:16, 45 s, caldo con grana morbida.
+Formato {} || Formato {}
+Duración {} s (se acortan {} clips) || Durata {} s ({} clip accorciate)
+Duración: ya cabe en {} s || Durata: rientra già in {} s
+Color «{}» || Colore «{}»
+Título «{}» los primeros {} s || Titolo «{}» per i primi {} s
