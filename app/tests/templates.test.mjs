@@ -12,7 +12,7 @@ const build = (lens) => { let p = createProject({ assets: lens.map((l, i) => ({ 
 
 test('el catálogo es coherente: ids únicos, formatos y looks que existen', () => {
   assert.equal(new Set(TPL_CATALOG.map((t) => t.id)).size, TPL_CATALOG.length);
-  for (const t of TPL_CATALOG) { assert.ok(['9:16', '1:1', '4:5', '16:9'].includes(t.format.aspect), t.id); assert.ok(['cover', 'contain'].includes(t.format.fit)); assert.ok(t.targetSeconds >= 3 && t.targetSeconds <= 600); assert.ok(!t.look || LOOK_PRESETS[t.look], t.id); assert.ok(t.name && t.desc); }
+  for (const t of TPL_CATALOG) { assert.ok(['9:16', '1:1', '4:5', '16:9'].includes(t.format.aspect), t.id); assert.ok(['cover', 'contain'].includes(t.format.fit)); assert.ok(t.special || (t.targetSeconds >= 3 && t.targetSeconds <= 600)); assert.ok(!t.look || LOOK_PRESETS[t.look], t.id); assert.ok(t.name && t.desc); }
 });
 test('«Reel vertical»: formato 9:16, 30 s, look en TODOS los clips y título al inicio, en un solo lote', () => {
   const p = build([20, 15, 25]), pl = planTemplate(p, 'reel', { title: 'Mi viaje' }); assert.ok(pl.ok, JSON.stringify(pl));

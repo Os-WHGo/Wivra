@@ -61,7 +61,7 @@ export function readSnapshot(raw) {
   p.revision = pzNum(p.revision) ? p.revision : 0;
   p.assets = Array.isArray(p.assets) ? p.assets.filter((a) => a && typeof a.id === 'string' && pzNum(a.duration)) : [];
   const f = p.format && typeof p.format === 'object' ? p.format : {};
-  p.format = { aspect: typeof f.aspect === 'string' ? f.aspect : 'original', fit: typeof f.fit === 'string' ? f.fit : 'cover' };
+  p.format = { aspect: typeof f.aspect === 'string' ? f.aspect : 'original', fit: typeof f.fit === 'string' ? f.fit : 'cover', ...(f.safe === true ? { safe: true } : {}) };
   for (const g of [...PZ_GROUPS, 'texts']) if (!Array.isArray(p[g])) { if (p[g] !== undefined) warnings.push(`Se reparó la lista “${g}”.`); p[g] = []; }
 
   // Quita clips imposibles (números rotos, fuera de duración, sin archivo conocido) en vez de abrir un proyecto corrupto.

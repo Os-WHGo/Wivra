@@ -34,6 +34,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   #frame > #v { position:absolute; inset:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; object-fit:var(--fit, contain); }
   #ov { position:absolute; inset:0; padding:7% 4% 11%; display:flex; flex-direction:column; text-align:center; font-weight:800; font-size:22px; line-height:1.2; pointer-events:none; }
   #ov .tz { display:flex; flex-direction:column; align-items:center; gap:.3em; } #ov .tzm { flex:1; justify-content:center; } #ov .tzb { justify-content:flex-end; } #ov .tzt, #ov .tzb { flex:0 0 auto; } #ov .tzb { margin-top:auto; }
+  #ov.safe { padding:calc(12.5% / var(--ar, .5625)) 12% calc(23.44% / var(--ar, .5625)) 8.33%; }
+  #safeGuide { display:none; position:absolute; top:12.5%; bottom:23.44%; left:8.33%; right:12%; border:1.5px dashed rgba(255,255,255,.6); border-radius:6px; pointer-events:none; z-index:4; box-shadow:0 0 0 1px rgba(0,0,0,.4); }
+  #frame.safeon #safeGuide { display:block; } #safeGuide span { position:absolute; left:6px; top:3px; font:600 10px/1 system-ui; color:#fff; text-shadow:0 0 3px #000; }
   #ov .tx { max-width:100%; text-shadow:0 0 8px #000, 0 0 2px #000; } #ov .tx.bx { text-shadow:none; padding:.28em; border-radius:.3em; }
   .empty { position:absolute; inset:14px; border:1.5px dashed var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--mut); padding:20px; }
   .stage.on .empty { display:none; }
@@ -202,7 +205,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="shapeDefs"></defs></svg>
-<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"><canvas id="ovGhost" aria-hidden="true"></canvas></div><div id="ov"></div><div id="ovHandle"></div><div id="ovModes" role="group" aria-label="Qué mover"><button type="button" data-m="all" class="on" title="Mueve y cambia el tamaño de todo el recuadro">Todo</button><button type="button" data-m="video" title="Mueve y agranda el video por dentro de la forma">Video</button><button type="button" data-m="shape" title="Mueve y cambia el tamaño de la forma sin mover el video">Forma</button></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"><canvas id="ovGhost" aria-hidden="true"></canvas></div><div id="ov"></div><div id="safeGuide" aria-hidden="true"><span>Zona segura</span></div><div id="ovHandle"></div><div id="ovModes" role="group" aria-label="Qué mover"><button type="button" data-m="all" class="on" title="Mueve y cambia el tamaño de todo el recuadro">Todo</button><button type="button" data-m="video" title="Mueve y agranda el video por dentro de la forma">Video</button><button type="button" data-m="shape" title="Mueve y cambia el tamaño de la forma sin mover el video">Forma</button></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
@@ -303,6 +306,8 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sFormat"><h2>Formato del video</h2><p class="m">La forma del cuadro del resultado. Lo que sobra se recorta solo, centrado.</p>
   <div class="chips" id="fmtAspect"><button data-a="original">Original</button><button data-a="9:16">9:16 Reels</button><button data-a="1:1">1:1</button><button data-a="4:5">4:5</button><button data-a="16:9">16:9</button></div>
   <div class="chips" id="fmtFit"><button data-f="cover">Rellenar (recorta)</button><button data-f="contain">Entero (barras)</button></div>
+  <label class="m" style="display:flex;gap:10px;align-items:center;margin-top:10px"><input type="checkbox" id="fmtSafe"> Zona segura para los textos (solo 9:16)</label>
+  <p class="m" id="fmtSafeNote">Deja libres los bordes que tapan los botones y el pie de Reels, TikTok y Shorts. Es una guía de Wivra, no una regla de esas apps. La línea punteada se ve solo al editar; no sale en el video.</p>
   <p class="m" id="fmtNote"></p><button id="fmtDone" class="btn">Listo</button></div>
 <div class="sheet" id="sFx"><h2>Efectos</h2><p class="m more" id="fxInfo">Elige un video en la línea de tiempo.</p>
   <div class="chips" id="fxScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
@@ -436,6 +441,12 @@ body.dock .back{pointer-events:none;background:transparent}
     <textarea id="dirAssetDescription" rows="2" aria-label="Descripción de este material" placeholder="Ej.: aquí caminé por Granville y grabé el teatro Vogue."></textarea>
     <button id="dirSaveAsset" class="btn sec">Guardar explicación de este video</button>
     <p class="m" id="dirAssetStatus"></p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px" id="rhBox">
+    <h3 style="font-size:16px;margin:0 0 6px">Revisar el ritmo de tu video</h3>
+    <p class="m">Cuenta tiempos (huecos, cortes, textos, final) y te avisa. No ve ni oye el video. Los consejos son una guía: puedes ignorarlos. No cambia nada por sí solo.</p>
+    <button class="btn sec" id="rhGo" type="button">Revisar el ritmo</button>
+    <div id="rhOut" role="status" aria-live="polite" style="margin-top:8px"></div>
   </div>
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
     <h3 style="font-size:16px;margin:0 0 6px">Guía de grabación en Wivra</h3>
@@ -633,6 +644,24 @@ $('auVol').oninput = () => { $('auVolTxt').textContent = $('auVol').value + '%';
 $('auVol').onchange = () => auApply({ volume: Number($('auVol').value) / 100 });
 $('bText').onclick = () => { selText = null; textEditorSync(); openSheet('sText'); }; $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
 $('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
+/* Revisión de ritmo (app/rhythm.mjs): solo lee tiempos del proyecto y propone; arreglar es decisión del usuario. */
+const RH_LABEL = { warn: 'Aviso', tip: 'Consejo', ok: 'Bien' };
+function rhRender() {
+  const out = $('rhOut'); out.replaceChildren();
+  const r = session ? analyzeRhythm(session.project) : { ok: false, error: 'Primero agrega videos a la línea de tiempo.' };
+  if (!r.ok) { out.textContent = r.error; return; }
+  const head = document.createElement('div'); head.className = 'm'; head.textContent = `${r.stats.shots} ${r.stats.shots === 1 ? 'plano' : 'planos'} · ${r.stats.seconds} s · ${r.stats.avgShot} s por plano en promedio`; out.appendChild(head);
+  for (const it of r.items) {
+    const row = document.createElement('div'); row.className = 'rhrow ' + it.level; row.style.cssText = 'border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0';
+    const tag = document.createElement('b'); tag.textContent = RH_LABEL[it.level]; tag.style.cssText = 'font-size:12px;margin-right:6px;color:' + (it.level === 'warn' ? '#ffb15c' : it.level === 'ok' ? '#6ee7a1' : '#9ec1ff');
+    const txt = document.createElement('span'); txt.textContent = it.text; row.append(tag, txt);
+    const bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:8px;margin-top:6px;flex-wrap:wrap';
+    if (it.code !== 'clean') { const go = document.createElement('button'); go.type = 'button'; go.className = 'btn sec'; go.style.cssText = 'margin:0;width:auto;padding:6px 12px'; go.textContent = 'Ir ahí'; go.onclick = () => { closeSheets(); tlTime = Math.min(it.at, Math.max(0, timelineEnd(session.project) - 0.01)); showFrame(); syncScroll(); render(); }; bar.appendChild(go); }
+    if (it.action === 'safe') { const fix = document.createElement('button'); fix.type = 'button'; fix.className = 'btn sec'; fix.style.cssText = 'margin:0;width:auto;padding:6px 12px'; fix.textContent = 'Activar zona segura'; fix.onclick = () => { const e = edit([{ op: 'set_format', safe: true }]); if (!e.ok) say('No se pudo: ' + e.message, 'bad'); else { say('Zona segura activada. Puedes deshacerla.', 'ok'); fmtSync(); rhRender(); } }; bar.appendChild(fix); }
+    if (bar.childNodes.length) row.appendChild(bar); out.appendChild(row);
+  }
+}
+$('rhGo').onclick = rhRender;
 
 function render() {
   const p = session?.project, on = !!p;
@@ -853,11 +882,13 @@ function updateFrame() {
   let ar = ASPECTS[f && f.aspect] ? ASPECTS[f.aspect][0] / ASPECTS[f.aspect][1] : 0;
   if (!ar && p) { const first = sortedClips(p)[0], m = first && media[first.asset_id]; if (m && m.w > 0 && m.h > 0) ar = m.w / m.h; }
   $('frame').style.setProperty('--ar', String(ar || 9 / 16)); $('frame').style.setProperty('--fit', effectiveFit(f));
+  { const on = safeZoneOn(f); $('frame').classList.toggle('safeon', on); $('ov').classList.toggle('safe', on); $('ov').dataset.k = ''; renderTexts(); }
 }
 function fmtSync() {
   const f = (session && session.project.format) || { aspect: 'original', fit: 'cover' };
   document.querySelectorAll('#fmtAspect button').forEach(b => b.classList.toggle('on', b.dataset.a === f.aspect));
   document.querySelectorAll('#fmtFit button').forEach(b => { b.classList.toggle('on', b.dataset.f === f.fit); b.disabled = f.aspect === 'original'; });
+  $('fmtSafe').checked = f.safe === true; $('fmtSafe').disabled = f.aspect !== '9:16';
   $('fmtNote').textContent = f.aspect === 'original' ? 'Original: el cuadro sigue la forma de tu primer video y no se recorta nada.' : (f.fit === 'cover' ? 'Rellenar: el video llena el cuadro y se recorta lo que sobra, centrado.' : 'Entero: se ve todo el video y quedan barras negras.');
 }
 $('bAdd').onclick = () => openSheet('sTrack');
@@ -895,6 +926,7 @@ $('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDu
 $('fxDur').addEventListener('change', () => fxCommit({ dur: Number($('fxDur').value) }));
 $('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').onclick = closeSheets;
 $('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
+$('fmtSafe').addEventListener('change', () => { if (!session) return; const r = edit([{ op: 'set_format', safe: $('fmtSafe').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 $('fmtFit').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled || !session) return; const r = edit([{ op: 'set_format', fit: b.dataset.f }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 // ---- Controles del video superpuesto ----
 const OV_POS = [['0.2,0.12', 'Arriba izq.'], ['0.8,0.12', 'Arriba der.'], ['0.5,0.5', 'Centro'], ['0.2,0.88', 'Abajo izq.'], ['0.8,0.88', 'Abajo der.'], ['full', 'Pantalla']];
