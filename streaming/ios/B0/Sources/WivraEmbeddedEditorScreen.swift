@@ -23,6 +23,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     // input#capFile. Use the native file chooser to provide those exact local
     // file URLs, never clone media bytes into JS or invent a second asset format.
     // The same delegate continues to support the normal system Files picker.
+    @available(iOS 18.4, *)
     func webView(
         _ webView: WKWebView,
         runOpenPanelWith parameters: WKOpenPanelParameters,
