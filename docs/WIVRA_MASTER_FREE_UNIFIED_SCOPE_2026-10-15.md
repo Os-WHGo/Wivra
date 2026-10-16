@@ -55,3 +55,10 @@ Aclaraciones que el resumen anterior no explicitaba suficientemente:
 - Experiencia: chat y micrófono visibles sin configuración técnica obligatoria, interfaz más cuidada, consentimiento comercial separado y sin exigir login o mapas/IA pagados.
 
 La matriz es una lista de obligaciones para el plan de trabajo, NO una declaración de que esas funciones están implementadas. No crear módulos redundantes con Claude para intentar cumplirla.
+
+## Resolución de revisión cruzada con Claude (15 octubre)
+El PR #73 originalmente creó un segundo formato de checklist. **Corregido:** ahora core/director-production-plan.mjs usa la estructura de core/shoot-checklist.mjs (agentcut-shoot-plan-v0.1) como autoridad y emplea sus funciones de validación, actualización y progreso; solo añade los datos de guion, lugares y formato. El checklist existente se extendió para distinguir retry y skipped de tomas realmente grabadas. No es todavía una interfaz integrada.
+
+Costo iPhone oficial: con Xcode y cuenta personal es posible probar gratis con perfiles temporales de 7 días; TestFlight y App Store requieren normalmente membresía Apple Developer de 99 USD anuales o tarifa local. Wivra seguirá sin activar pagos ni contratar esta membresía. Referencias: https://developer.apple.com/programs y https://developer.apple.com/la/help/account/basics/about-your-developer-account .
+
+Estado actualizado: #71 figura fusionado en GitHub; #70 y #72 siguen pendientes, y la aplicación nativa única aún no está integrada. Mantener los requisitos de la matriz de trazabilidad.
