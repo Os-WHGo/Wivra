@@ -67,16 +67,16 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private val bluetoothLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
             if (allowed) initializeSdk()
-            else show("Bluetooth denegado. El editor funciona sin gafas.")
+            else show(getString(R.string.bluetooth_denied))
         }
 
     private val cameraPermissionLauncher =
         registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
             result.onSuccess { permission ->
                 if (permission == PermissionStatus.Granted) startStream()
-                else show("Permiso de cámara denegado; no se inicia video.")
+                else show(getString(R.string.camera_denied))
             }.onFailure { error, _ ->
-                show("Error permiso DAT: " + error.description)
+                show(getString(R.string.permission_error, error.description))
             }
         }
 
@@ -87,17 +87,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             setPadding(28, 24, 28, 24)
         }
         root.addView(TextView(this).apply {
-            text = "Wivra · Ray-Ban Meta"
+            text = getString(R.string.screen_title)
             textSize = 23f
         })
         status = TextView(this).apply {
-            text = "Esperando permiso…"
+            text = getString(R.string.waiting_permission)
             textSize = 16f
             setPadding(0, 20, 0, 20)
         }
         root.addView(status)
         imagePreview = ImageView(this).apply {
-            contentDescription = "Vista previa de la cámara Ray-Ban"
+            contentDescription = getString(R.string.preview_accessibility)
             scaleType = ImageView.ScaleType.FIT_CENTER
             setBackgroundColor(0xFF151515.toInt())
         }
@@ -105,15 +105,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             (300 * resources.displayMetrics.density).toInt()
         ))
-        registerButton = button(root, "1. Vincular mediante Meta AI") { registerMeta() }
-        connectButton = button(root, "2. Conectar gafas") { beginSession() }
-        previewButton = button(root, "3. Activar video") { checkCameraPermission() }
-        button(root, "Desconectar") { stopAll() }
-        button(root, "Volver al editor") { stopAll(); finish() }
+        registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
+        connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
+        previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
+        button(root, getString(R.string.disconnect)) { stopAll() }
+        button(root, getString(R.string.back_editor)) { stopAll(); finish() }
         root.addView(TextView(this).apply {
-            text = "\nVista previa local (hasta 6 FPS, YUV I420 provisional). " +
-                "No graba ni transmite; la calidad y los colores exigen prueba real. " +
-                "LIVE y audio independiente siguen pendientes."
+            text = getString(R.string.preview_disclaimer)
         })
         setContentView(ScrollView(this).apply { addView(root) })
         refreshButtons()
@@ -147,16 +145,16 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         Wearables.initialize(applicationContext)
             .onSuccess {
                 sdkReady = true
-                show("Meta DAT preparado. Registra Wivra en Meta AI.")
+                show(getString(R.string.sdk_ready))
                 refreshButtons()
             }
-            .onFailure { error, _ -> show("DAT: " + error.description) }
+            .onFailure { error, _ -> show(getString(R.string.sdk_error, error.description)) }
     }
 
     private fun registerMeta() {
         if (!sdkReady) return
         Wearables.startRegistration(this)
-        show("Autoriza Wivra en Meta AI y vuelve a la aplicación.")
+        show(getString(R.string.authorize_meta))
     }
 
     private fun beginSession() {
@@ -164,30 +162,30 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         Wearables.createSession(AutoDeviceSelector())
             .onSuccess { created ->
                 session = created
-                show("Iniciando sesión de gafas…")
+                show(getString(R.string.starting_session))
                 refreshButtons()
                 sessionJob = scope.launch {
                     created.state.collect { state ->
                         if (state == DeviceSessionState.STOPPED) {
                             cleanup()
-                            show("Sesión finalizada.")
+                            show(getString(R.string.session_finished))
                         } else {
-                            show("Gafas: " + state.toString())
+                            show(getString(R.string.session_state, state.toString()))
                             refreshButtons()
                         }
                     }
                 }
                 errorJob = scope.launch {
-                    created.errors.collect { error -> show("Sesión: " + error.description) }
+                    created.errors.collect { error -> show(getString(R.string.session_error, error.description)) }
                 }
                 created.start()
             }
-            .onFailure { error, _ -> show("Sin conexión: " + error.description) }
+            .onFailure { error, _ -> show(getString(R.string.connection_failed, error.description)) }
     }
 
     private fun checkCameraPermission() {
         if (session?.state?.value != DeviceSessionState.STARTED || camera != null) {
-            show("Espera la conexión STARTED antes de activar video.")
+            show(getString(R.string.wait_session))
             return
         }
         scope.launch {
@@ -196,7 +194,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     if (permission == PermissionStatus.Granted) startStream()
                     else cameraPermissionLauncher.launch(Permission.CAMERA)
                 }
-                .onFailure { error, _ -> show("Permiso: " + error.description) }
+                .onFailure { error, _ -> show(getString(R.string.permission_check_failed, error.description)) }
         }
     }
 
@@ -226,7 +224,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                                 imagePreview.setImageBitmap(bitmap)
                             } else if (!warnedUnsupportedLayout) {
                                 warnedUnsupportedLayout = true
-                                show("Formato YUV no compatible; conserva conexión, sin imagen.")
+                                show(getString(R.string.yuv_unsupported))
                             }
                         }
                     }
@@ -236,8 +234,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     active.videoStream.collect { frame ->
                         frames += 1
                         if (frames == 1L || frames % 24L == 0L) {
-                            show("Ray-Ban: " + frames + " cuadros · " +
-                                frame.width + "×" + frame.height + " · vista previa local")
+                            show(getString(R.string.frames_status, frames, frame.width, frame.height))
                         }
                         // Limit JPEG preview workload to roughly 6 images/sec. The full
                         // capture stream is never saved or shared with the WebView here.
@@ -258,26 +255,26 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                                 incoming.trySend(LocalPreviewFrame(bytes, frame.width, frame.height))
                             } else if (!warnedUnsupportedLayout) {
                                 warnedUnsupportedLayout = true
-                                show("Video recibido, pero su formato no coincide con I420. Sin imagen.")
+                                show(getString(R.string.yuv_mismatch))
                             }
                         }
                     }
                 }
                 streamJob = scope.launch {
                     active.state.collect { state ->
-                        if (state == StreamState.PAUSED) show("Video pausado por las gafas.")
-                        if (state == StreamState.CLOSED) show("Stream cerrado.")
+                        if (state == StreamState.PAUSED) show(getString(R.string.video_paused))
+                        if (state == StreamState.CLOSED) show(getString(R.string.stream_closed))
                     }
                 }
                 streamErrorJob = scope.launch {
-                    active.errorStream.collect { error -> show("Video: " + error.description) }
+                    active.errorStream.collect { error -> show(getString(R.string.stream_failed, error.description)) }
                 }
                 active.start().onFailure { error, _ ->
-                    show("Stream falló: " + error.description)
+                    show(getString(R.string.stream_start_failed, error.description))
                     stopAll()
                 }
             }
-            .onFailure { error, _ -> show("Cámara: " + error.description) }
+            .onFailure { error, _ -> show(getString(R.string.camera_failed, error.description)) }
     }
 
     private fun cleanup() {
@@ -298,7 +295,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun stopAll() {
         session?.stop()
         cleanup()
-        show("Desconectado; editor sin cambios.")
+        show(getString(R.string.disconnected))
     }
 
     override fun onDestroy() {

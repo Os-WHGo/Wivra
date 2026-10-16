@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_title">Wivra · Ray-Ban Meta</string>
+    <string name="waiting_permission">En attente de l\'autorisation…</string>
+    <string name="preview_accessibility">Aperçu de la caméra Ray-Ban</string>
+    <string name="connect_meta">1. Associer via Meta AI</string>
+    <string name="connect_glasses">2. Connecter les lunettes</string>
+    <string name="activate_video">3. Démarrer la vidéo</string>
+    <string name="disconnect">Déconnecter</string>
+    <string name="back_editor">Retour à l\'éditeur</string>
+    <string name="preview_disclaimer">Aperçu local (jusqu\'à 6 i/s, YUV I420 provisoire). Aucun enregistrement ni diffusion. Qualité et couleurs à vérifier sur appareil. LIVE et audio séparé non disponibles.</string>
+    <string name="bluetooth_denied">Bluetooth refusé. L\'éditeur reste disponible.</string>
+    <string name="camera_denied">Accès à la caméra refusé ; vidéo non démarrée.</string>
+    <string name="permission_error">Erreur d\'autorisation DAT : %1$s</string>
+    <string name="sdk_ready">Meta DAT prêt. Enregistrez Wivra dans Meta AI.</string>
+    <string name="sdk_error">Erreur DAT : %1$s</string>
+    <string name="authorize_meta">Autorisez Wivra dans Meta AI, puis revenez à l\'application.</string>
+    <string name="starting_session">Connexion aux lunettes…</string>
+    <string name="session_finished">Session terminée.</string>
+    <string name="session_state">Lunettes : %1$s</string>
+    <string name="session_error">Erreur de session : %1$s</string>
+    <string name="connection_failed">Échec de connexion : %1$s</string>
+    <string name="wait_session">Attendez l\'état STARTED avant de lancer la vidéo.</string>
+    <string name="permission_check_failed">Vérification de l\'autorisation impossible : %1$s</string>
+    <string name="camera_failed">Erreur caméra : %1$s</string>
+    <string name="yuv_unsupported">Format YUV non pris en charge. Connexion maintenue sans image.</string>
+    <string name="yuv_mismatch">Vidéo reçue, mais format différent d\'I420. Pas d\'image.</string>
+    <string name="frames_status">Ray-Ban : %1$d images · %2$d×%3$d · aperçu local</string>
+    <string name="video_paused">Vidéo mise en pause par les lunettes.</string>
+    <string name="stream_closed">Flux fermé.</string>
+    <string name="stream_failed">Erreur vidéo : %1$s</string>
+    <string name="stream_start_failed">Démarrage vidéo impossible : %1$s</string>
+    <string name="disconnected">Déconnecté ; éditeur inchangé.</string>
+</resources>

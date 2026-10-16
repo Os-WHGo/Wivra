@@ -35,6 +35,8 @@ jobs:
         run: node --test streaming/tests/android-meta-parity.test.mjs
       - name: Check local Ray-Ban preview bounds and permissions
         run: node --test streaming/tests/android-meta-visual-preview.test.mjs
+      - name: Check Android six-language translation parity
+        run: node --test streaming/tests/android-native-i18n.test.mjs
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)

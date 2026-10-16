@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_title">Wivra · Ray-Ban Meta</string>
+    <string name="waiting_permission">Waiting for permission…</string>
+    <string name="preview_accessibility">Ray-Ban camera preview</string>
+    <string name="connect_meta">1. Connect via Meta AI</string>
+    <string name="connect_glasses">2. Connect glasses</string>
+    <string name="activate_video">3. Start video</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="back_editor">Back to editor</string>
+    <string name="preview_disclaimer">Local preview (up to 6 FPS, provisional I420 YUV). No recording or broadcasting. Picture quality and colors require device testing. LIVE and separate audio are not ready.</string>
+    <string name="bluetooth_denied">Bluetooth permission denied. You can still use the editor.</string>
+    <string name="camera_denied">Camera permission denied; video will not start.</string>
+    <string name="permission_error">DAT permission error: %1$s</string>
+    <string name="sdk_ready">Meta DAT ready. Register Wivra using Meta AI.</string>
+    <string name="sdk_error">DAT error: %1$s</string>
+    <string name="authorize_meta">Authorize Wivra in Meta AI, then return to the app.</string>
+    <string name="starting_session">Starting glasses session…</string>
+    <string name="session_finished">Session ended.</string>
+    <string name="session_state">Glasses: %1$s</string>
+    <string name="session_error">Session error: %1$s</string>
+    <string name="connection_failed">Connection failed: %1$s</string>
+    <string name="wait_session">Wait for STARTED connection state before video.</string>
+    <string name="permission_check_failed">Could not check permission: %1$s</string>
+    <string name="camera_failed">Camera error: %1$s</string>
+    <string name="yuv_unsupported">Unsupported YUV format; connection stays active without a picture.</string>
+    <string name="yuv_mismatch">Video arrived, but its layout is not I420. No picture.</string>
+    <string name="frames_status">Ray-Ban: %1$d frames · %2$d×%3$d · local preview</string>
+    <string name="video_paused">Video paused by glasses.</string>
+    <string name="stream_closed">Stream closed.</string>
+    <string name="stream_failed">Video error: %1$s</string>
+    <string name="stream_start_failed">Could not start video: %1$s</string>
+    <string name="disconnected">Disconnected; editor unchanged.</string>
+</resources>
