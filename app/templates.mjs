@@ -1,6 +1,6 @@
 // Plantillas de Wivra: recetas de formato + duración + look + título, hechas SOLO con operaciones normales del editor (un paso en «deshacer»).
 // Son recetas propias de estructura (no copian plantillas de otras apps ni usan su material). Lógica pura, sin DOM. — Claude
-import { clipLength } from '../core/project.mjs';
+import { clipLength, speedOf } from '../core/project.mjs';
 import { planQuickAssembly } from './quick-assembly.mjs';
 import { LOOK_PRESETS } from '../core/filters.mjs';
 import { MAX_TRACKS } from '../core/operations.mjs';
@@ -32,7 +32,7 @@ export function planTemplate(project, id, { title = '' } = {}) {
     ops.push({ op: 'set_format', aspect: t.format.aspect, fit: t.format.fit, ...(t.format.safe ? { safe: true } : {}) }); lines.push(`Formato ${t.format.aspect}${t.format.safe ? ' con zona segura para textos' : ''}`);
   }
   if (t.special === 'collage') { const cl = planCollage(project); if (!cl.ok) return cl; ops.length = 0; lines.length = 0; ops.push(...cl.formatOps, ...cl.ops); lines.push(...cl.lines); warnings.push(...cl.warnings); return { ok: true, ops, lines, warnings, template: t, after: cl.after }; }
-  if (t.special === 'slots') { const sl = planSlots(project, t, tr); if (!sl.ok) return sl; ops.length = 0; lines.length = 0; ops.push(...sl.formatOps, ...sl.ops); lines.push(...sl.lines); warnings.push(...sl.warnings); return { ok: true, ops, lines, warnings, template: t, after: sl.after }; }
+  if (t.special === 'slots') { const sl = planSlots(project, t, (x) => x); if (!sl.ok) return sl; ops.length = 0; lines.length = 0; ops.push(...sl.formatOps, ...sl.ops); lines.push(...sl.lines); warnings.push(...sl.warnings); return { ok: true, ops, lines, warnings, template: t, after: sl.after }; }
   if (t.special === 'screenface') { const sf = planScreenFace(project); if (!sf.ok) return sf; ops.push(...sf.ops); lines.push(...sf.lines); warnings.push(...sf.warnings); return { ok: true, ops, lines, warnings, template: t, after: sf.after }; }
   const qa = planQuickAssembly(project, { targetSeconds: t.targetSeconds });
   if (!qa.ok) return qa;
