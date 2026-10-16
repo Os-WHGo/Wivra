@@ -18,7 +18,7 @@ jobs:
       - name: Test state transitions and consent gates
         run: node --test streaming/tests/*.test.mjs
       - name: Validate source syntax
-        run: node --check streaming/live-preflight.mjs && node --check streaming/hybrid-link-policy.mjs && node --check streaming/irl-resilience.mjs
+        run: node --check streaming/live-preflight.mjs && node --check streaming/hybrid-link-policy.mjs && node --check streaming/irl-resilience.mjs && node --check streaming/audio-routing.mjs
 
       - name: Swift B0 syntax grammar (NOT SDK compile)
         run: |
