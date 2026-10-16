@@ -30,7 +30,8 @@ test('WAV and MP4 modes are exclusive, never double-claim the phone mic',()=>{
   assert.match(camera,/micMode = \(micMode \+ 1\) % 3/);
   assert.match(camera,/if \(micMode == 1\) pending\.withAudioEnabled\(\) else pending/);
   assert.match(camera,/wavWasRequested = micMode == 2/);
-  assert.match(camera,/if \(wavWasRequested\) startSidecarWav\(privateVideo\)/);
+  assert.match(camera,/if \(wavWasRequested && !recordingFinishing\)/);
+  assert.match(camera,/startSidecarWav\(privateVideo\)/);
   assert.match(camera,/wavRecorder\?\.stop\(\)/);
   assert.match(camera,/R\.string\.phone_camera_mic_wav/);
   assert.match(camera,/if \(!videoFinalized \|\| !wavFinalized\) return/);
