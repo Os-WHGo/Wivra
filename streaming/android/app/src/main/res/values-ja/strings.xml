@@ -31,4 +31,11 @@
     <string name="stream_failed">映像エラー: %1$s</string>
     <string name="stream_start_failed">映像を開始できません: %1$s</string>
     <string name="disconnected">接続を解除しました。エディターは変更されていません。</string>
+    <string name="capture_photo">4. Ray-Ban で写真撮影</string>
+    <string name="photo_requires_stream">写真を撮る前にメガネからの映像を待ってください。</string>
+    <string name="photo_capture_progress">メガネで写真を撮影しています…</string>
+    <string name="photo_saved">写真を Pictures/Wivra に保存しました（%1$s）。エディターに戻り、最近の写真を選択してください。</string>
+    <string name="photo_save_failed">写真を保存できません: %1$s</string>
+    <string name="picker_last_photo">最新の Wivra Ray-Ban 写真を使用</string>
+    <string name="picker_browse_files">ファイルを参照</string>
 </resources>
