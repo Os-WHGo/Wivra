@@ -105,17 +105,49 @@ object WivraPhoneMediaStore {
         return File(directory(context), video.name.removeSuffix(".mp4") + ".wav")
     }
 
+    /**
+     * A valid RIFF prefix is NOT proof that the WAV capture succeeded.
+     * In particular, AudioRecord may write seconds of sound and then lose the
+     * explicitly chosen USB/Bluetooth route. Only a finalized matching timing
+     * manifest (written on a successful recorder callback) can certify a pair.
+     * This accepts version-2 sidecars created by the previous beta.
+     */
     fun hasUsableWav(context: Context, video: File): Boolean {
         val wav = privateWav(context, video)
-        if (!wav.isFile || wav.length() <= 44L) return false
+        val timing = File(directory(context), video.name.removeSuffix(".mp4") + ".wivra.json")
+        if (!wav.isFile || !timing.isFile || wav.length() <= 44L) return false
         return try {
-            wav.inputStream().buffered().use { input ->
-                val header = ByteArray(12)
-                input.read(header) == 12 &&
-                    String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
-                    String(header, 8, 4, Charsets.US_ASCII) == "WAVE"
+            val metadata = org.json.JSONObject(timing.readText())
+            val dataBytes = wav.length() - 44L
+            if (metadata.optInt("schemaVersion") < 2 ||
+                metadata.optString("audioStatus", "ready") != "ready" ||
+                metadata.optString("originalVideoFile") != video.name ||
+                metadata.optString("originalAudioFile") != wav.name ||
+                metadata.optString("audioFormat") != "pcm16-48000-mono-wav" ||
+                metadata.optLong("audioBytes", -1L) != dataBytes ||
+                metadata.optString("timebase") != "elapsedRealtimeNanos" ||
+                dataBytes <= 0L || dataBytes > 2_000_000_000L ||
+                dataBytes % 2L != 0L) return false
+
+            java.io.RandomAccessFile(wav, "r").use { input ->
+                val header = ByteArray(44)
+                input.readFully(header)
+                fun tag(at: Int, text: String) =
+                    String(header, at, 4, Charsets.US_ASCII) == text
+                fun u16(at: Int): Int =
+                    (header[at].toInt() and 255) or
+                        ((header[at + 1].toInt() and 255) shl 8)
+                fun u32(at: Int): Long =
+                    (0..3).fold(0L) { n, i ->
+                        n or ((header[at + i].toLong() and 255L) shl (i * 8))
+                    }
+                tag(0, "RIFF") && tag(8, "WAVE") && tag(12, "fmt ") &&
+                    tag(36, "data") && u32(4) == wav.length() - 8L &&
+                    u32(16) == 16L && u16(20) == 1 && u16(22) == 1 &&
+                    u32(24) == 48_000L && u32(28) == 96_000L &&
+                    u16(32) == 2 && u16(34) == 16 && u32(40) == dataBytes
             }
-        } catch (_: IOException) { false }
+        } catch (_: Exception) { false }
     }
 
     private fun insertPending(
@@ -243,7 +275,9 @@ object WivraPhoneMediaStore {
             put("originalVideoFile", video.name)
             put("originalAudioFile", privateWav(context, video).name)
             put("audioFormat", "pcm16-48000-mono-wav")
+            put("audioStatus", "ready")
             put("audioBytes", audioBytes)
+            put("audioDurationSeconds", audioBytes.toDouble() / 96_000.0)
             put("timebase", "elapsedRealtimeNanos")
             put("audioStartOffsetSeconds", if (videoStartNs > 0L && audioReadNs > 0L)
                 (audioReadNs - videoStartNs) / 1_000_000_000.0
