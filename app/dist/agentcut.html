@@ -1059,16 +1059,18 @@ function createShootPlan({
 }
 function progress(plan){
  const completed=plan.shots.filter(x=>x.state==='done').length;
- return {done:completed,total:plan.shots.length,remaining:plan.shots.length-completed,
-   percent:Math.round(completed*100/Math.max(1,plan.shots.length)),
-   readyToEdit:completed===plan.shots.length && completed>0};
+ const remaining=plan.shots.filter(x=>x.state==='todo'||x.state==='retry').length;
+ // Skipped shots are terminal for the checklist, but never count as recorded.
+ return {done:completed,total:plan.shots.length,remaining,
+   percent:Math.round((plan.shots.length-remaining)*100/Math.max(1,plan.shots.length)),
+   readyToEdit:completed>0 && remaining===0};
 }
 function updateShot(plan,shotId,changes,{project=null}={}){
  if(!plan?.shots?.some(s=>s.id===shotId))throw new Error('Unknown shot');
  if(!changes||typeof changes!=='object')throw new Error('Invalid update');
  const permitted=['state','assetId','note','direction','title','durationSeconds'];
  if(Object.keys(changes).some(k=>!permitted.includes(k)))throw new Error('Unsupported shot field');
- if('state' in changes&&!['todo','done'].includes(changes.state))throw new Error('Invalid shot state');
+ if('state' in changes&&!['todo','done','retry','skipped'].includes(changes.state))throw new Error('Invalid shot state');
  if('title' in changes)clean(changes.title,130,'shot title');
  if('direction' in changes)clean(changes.direction,1200,'shot direction');
  if('note' in changes&&(typeof changes.note!=='string'||changes.note.length>1000))throw new Error('Invalid note');
