@@ -30,5 +30,7 @@ test('read-only bridge exposes safe metadata and explicitly denies paths, raw me
  assert.match(bridge,/captureId/);
  assert.doesNotMatch(bridge,/replyHandler\(\s*\[\s*"filePath"/);
  assert.doesNotMatch(bridge,/case "live\.start"/);
- assert.match(swift,/url\.isFileURL \? \.allow : \.cancel/);
+ assert.match(swift,/approved\?\.standardizedFileURL == url\.standardizedFileURL/);
+ assert.match(swift,/decisionHandler\(isBundledEditor \? \.allow : \.cancel\)/);
+ assert.match(bridge,/approved\?\.standardizedFileURL ==/);
 });
