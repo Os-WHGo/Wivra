@@ -47,7 +47,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     if (type in 16..21) syncFrame = true
                 }
                 if (!started && sets.keys.containsAll(setOf(32, 33, 34)) && syncFrame) {
-                    val output = File.createTempFile("wivra_rayban_", ".mp4", pendingDir(context))
+                    val output = File.createTempFile("wivra_rayban_", ".writing", pendingDir(context))
                     val writer = MediaMuxer(output.absolutePath,
                         MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
                     val videoFormat = MediaFormat.createVideoFormat(
@@ -109,7 +109,12 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
             local?.delete()
             return@synchronized null
         }
-        local
+        // Only ready-to-review, fully finalized files get the .mp4 extension.
+        // A process killed before MediaMuxer.stop() leaves .writing instead of
+        // a misleading, apparently completed movie in the recovery list.
+        val ready = File(local.parentFile, local.name.removeSuffix(".writing") + ".mp4")
+        if (!local.renameTo(ready)) return@synchronized null
+        ready
     }
 
     // Kept for existing instrumentation callers; recording UI uses the explicit
