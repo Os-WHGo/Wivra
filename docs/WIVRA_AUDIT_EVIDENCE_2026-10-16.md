@@ -132,3 +132,10 @@ GitHub Actions en commit `ab3e0a3`: run App Tests `38977996441`, job `1172319436
 Run UI Smoke `38977996566` también falla al comparar bundle HTML obsoleto contra fuentes; diferencia mostrada incluye UI de velocidad. La reconstrucción automática **no está confirmada**.
 **Intento de reparación:** escritura completa de `app/template.html` (~260 KB) para conectar biblioteca musical mediante `addTrackFile` y rol `music` fue bloqueada por herramienta antes de commit. **Ninguna edición de interfaz fue publicada**. Reintentar por mecanismo de parche seguro, no fingir integración UI.
 **Prioridad:** corregir `spAll`, fallo i18n, reconstruir `app/dist/agentcut.html`, ejecutar CI y recién entonces conectar biblioteca musical y Whisper.
+
+## Reparación CI · 16 octubre, bloque siguiente
+Logs run `38978834240` de App Tests muestran fallos adicionales tras recuperar pruebas de Claude: `speedOf is not defined` en collage, `tr is not defined` en slots, y dos mensajes de validación HTTPS no traducidos a siete idiomas. `app/dist/agentcut.html` todavía no tiene `id="spAll"`, aunque `app/template.html` sí lo tiene: **bundle generado obsoleto**.
+- Corregido `app/templates.mjs`: importar `speedOf` y entregar traductor identidad al planificador de slots, commit `d9cb612`.
+- Corregidas tablas `app/i18n/strings-it.tsv` y `app/i18n/strings-3.tsv` para dos errores HTTPS, commits `8a92364` y `4d7f29a`. No se debilitó la validación de URLs.
+- Aún sin confirmación de nuevas pruebas: no reportar CI verde.
+- Bloqueador P0: ejecutar `node app/build.mjs` en runner con permisos de commit, sincronizar `app/dist/agentcut.html`, luego ejecutar `node --test app/tests/*.test.mjs` y ensamblaje móvil. El workflow de reconstrucción existe pero su ejecución efectiva no está demostrada; no sustituir evidencia de compilación con inspección estática.
