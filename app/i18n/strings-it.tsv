@@ -453,3 +453,10 @@ Dura {} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos {
 Es un video largo: para que el archivo no sea enorme, se baja un poco la calidad. || È un video lungo: per evitare un file enorme, la qualità viene abbassata un po'.
 La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida. || L'esportazione si è fermata perché sei uscito dall'app o lo schermo si è spento. Esporta di nuovo con Wivra aperto e lo schermo acceso.
 Elegiste {} archivos; se cargan los primeros {} para no sobrecargar el teléfono. Agrega el resto después. || Hai scelto {} file; vengono caricati i primi {} per non sovraccaricare il telefono. Aggiungi il resto dopo.
+Montaje rápido || Montaggio rapido
+Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer. || Accorcia le clip per far durare il video quanto vuoi. Ogni clip contribuisce con la parte centrale e le foto durano 2 s. Non analizza il contenuto: controlla il risultato. Si può annullare.
+Otra duración (s) || Altra durata (s)
+Aplicar montaje || Applica montaggio
+Quedaría en {} s; se acortan {} clips. || Durerebbe {} s; {} clip vengono accorciate.
+Montaje rápido aplicado. Puedes deshacerlo. || Montaggio rapido applicato. Puoi annullarlo.
+Elige una duración para ver cómo quedaría. || Scegli una durata per vedere il risultato.
