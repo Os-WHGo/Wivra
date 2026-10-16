@@ -149,4 +149,7 @@
     <string name="phone_camera_source_usb">USBマイク</string>
     <string name="phone_camera_source_bluetooth">Bluetoothマイク</string>
     <string name="phone_camera_source_external">外部マイク</string>
+    <string name="phone_camera_wav_salvage_explanation">WAVを検証できませんでした。動画のみ保存できます。不完全な音声は復旧に備えて非公開のまま保持されます。</string>
+    <string name="phone_camera_save_video_only">動画だけ保存</string>
+    <string name="phone_camera_video_only_saved">動画を保存しました。不完全なWAVは非公開のままです。</string>
 </resources>
