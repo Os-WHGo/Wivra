@@ -27,6 +27,17 @@ jobs:
         run: node --test streaming/tests/unified-ios-rayban-checkpoint-recovery.test.mjs
       - name: Check read-only pending MOV review with strict file validation
         run: node --test streaming/tests/unified-ios-pending-video-review.test.mjs
+      - name: Verify recoverable CAF-only recording and consent contracts
+        run: node --test streaming/tests/unified-ios-audio-orphan-recovery.test.mjs
+      - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraPendingRecordingStore.swift \
+            streaming/tests/WivraAudioRecoverySmoke.swift \
+            -o /tmp/wivra-audio-recovery-smoke
+          /tmp/wivra-audio-recovery-smoke
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
       - name: Require reproducible Claude editor HTML before native packaging

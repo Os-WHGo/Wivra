@@ -1,5 +1,6 @@
 // Wivra Meta B0: field-test UI for receiving Ray-Ban Meta video.
 // B0 verifies frames/throughput only. NOT a production broadcast.
+import AVFoundation
 import AVKit
 import MWDATCore
 import SwiftUI
@@ -555,6 +556,18 @@ private struct WivraPendingRecordingReviewScreen: View {
     @State private var clips: [URL] = []
     @State private var partIndex = 0
     @State private var player: AVPlayer?
+    @State private var audioPlayer: AVAudioPlayer?
+    @State private var audioIsPlaying = false
+
+    private func toggleAudio() {
+        guard let audioPlayer else { return }
+        if audioPlayer.isPlaying {
+            audioPlayer.pause()
+            audioIsPlaying = false
+        } else {
+            audioIsPlaying = audioPlayer.play()
+        }
+    }
 
     private func selectPart(_ newIndex: Int) {
         guard clips.indices.contains(newIndex) else { return }
@@ -589,6 +602,15 @@ private struct WivraPendingRecordingReviewScreen: View {
                         }
                         .buttonStyle(.bordered)
                     }
+                } else if audioPlayer != nil {
+                    Label("ios.record.audio_only_notice", systemImage: "waveform")
+                        .font(.headline)
+                    Button(audioIsPlaying ? "ios.record.audio_pause" : "ios.record.audio_play",
+                           systemImage: audioIsPlaying ? "pause.circle.fill" : "play.circle.fill") {
+                        toggleAudio()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("meta_pending_caf_preview")
                 } else {
                     ContentUnavailableView("ios.record.preview_unavailable",
                                            systemImage: "exclamationmark.video")
@@ -608,11 +630,19 @@ private struct WivraPendingRecordingReviewScreen: View {
             .onAppear {
                 // Reject edited JSON ticket paths and symlinked files.
                 clips = (try? WivraPendingRecordingStore.previewVideoURLs(entry)) ?? []
-                if !clips.isEmpty { selectPart(0) }
+                if !clips.isEmpty {
+                    selectPart(0)
+                } else if let url = try? WivraPendingRecordingStore.previewAudioURLs(entry).first {
+                    audioPlayer = try? AVAudioPlayer(contentsOf: url)
+                    audioPlayer?.prepareToPlay()
+                }
             }
             .onDisappear {
                 player?.pause()
                 player = nil
+                audioPlayer?.stop()
+                audioPlayer = nil
+                audioIsPlaying = false
             }
         }
     }

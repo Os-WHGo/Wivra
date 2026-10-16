@@ -41,3 +41,9 @@
 "ios.record.preview_disclaimer" = "L’aperçu est privé. Aucune vidéo n’est conservée ou supprimée sans votre choix.";
 "ios.record.preview_previous" = "Précédent";
 "ios.record.preview_next" = "Suivant";
+"ios.record.audio_only_notice" = "Audio récupéré sans vidéo. Écoutez-le avant de décider de le garder.";
+"ios.record.audio_play" = "Lire l’audio";
+"ios.record.audio_pause" = "Mettre en pause";
+"ios.library.recovered_audio_title" = "Audio récupéré";
+"ios.library.recovered_audio_note" = "Pistes audio conservées sans vidéo. Vous pouvez les partager depuis Wivra.";
+"ios.library.share_recovered_audio" = "Partager le CAF récupéré";

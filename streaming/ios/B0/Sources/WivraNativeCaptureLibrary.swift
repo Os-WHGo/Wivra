@@ -113,11 +113,13 @@ struct WivraNativeCaptureLibraryScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var days: [WivraStoredCaptureDay] = []
     @State private var rejected = 0
+    @State private var recoveredAudio: [URL] = []
 
     private func refresh() {
         let result = WivraLocalCaptureScanner.read()
         days = result.days
         rejected = result.rejected
+        recoveredAudio = WivraPendingRecordingStore.savedAudioOnlyURLs()
     }
 
     var body: some View {
@@ -133,9 +135,23 @@ struct WivraNativeCaptureLibraryScreen: View {
                             .foregroundStyle(.orange)
                     }
                 }
-                if days.isEmpty {
+                if days.isEmpty && recoveredAudio.isEmpty {
                     ContentUnavailableView("ios.library.empty", systemImage: "film.stack",
                                            description: Text("ios.library.empty_description"))
+                }
+                if !recoveredAudio.isEmpty {
+                    Section {
+                        Text("ios.library.recovered_audio_note")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        ForEach(recoveredAudio, id: \.absoluteString) { url in
+                            ShareLink(item: url) {
+                                Label("ios.library.share_recovered_audio", systemImage: "waveform")
+                            }
+                        }
+                    } header: {
+                        Text("ios.library.recovered_audio_title")
+                    }
                 }
                 ForEach(days) { day in
                     Section(String(format: NSLocalizedString("ios.library.day", comment: ""), day.ordinal, day.id.formatted(date: .abbreviated, time: .omitted))) {
