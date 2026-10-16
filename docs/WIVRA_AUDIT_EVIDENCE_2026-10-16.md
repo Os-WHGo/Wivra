@@ -98,3 +98,16 @@ Revisión estática de archivos reales de GitHub en la rama `chatgpt/wivra-unifi
 - **Evidencia histórica:** `streaming/ios/B0/README.md` registra builds iOS simulator y ARM64 unsigned previos en runs 38459815766 y 38480299219; esos runs **no validan** HEAD actual, iPhone físico ni Ray-Ban.
 
 **Conclusión de este bloque:** el contenedor iOS es una integración parcial con un editor único, no dos editores. La unión captura → biblioteca → importación real → exportación es la brecha principal; no certificar beta hasta E2E firmado.
+
+## Hallazgo prioritario · trabajo de Claude interrumpido / rama divergente
+Comparación GitHub **`chatgpt/wivra-unified-owner-20261016...claude/beta-editor-integration`**: estado `diverged`, **7 commits propios de Claude**, 91 de integración no incluidos en Claude y **28 archivos diferentes** (incluyendo dist masivo). **NO fusionar a ciegas**: se perderían correcciones de exportación, velocidad, seguridad BYOK o integridad del bundle.
+
+**Trabajo de Claude realmente publicado en esa rama, NO presente aún en la beta auditada:** `app/music-lib.mjs` (seis pistas sintetizadas originales, WAV), `app/whisper-engine.mjs` + `app/transcribe.mjs` (transcripción local WASM), `app/vendor/whisper/libmain.mjs` y avisos de licencia, nuevas plantillas `collage`, `burst`, `beforeafter`, `top3`, y pruebas `music-lib`, `collage`, `slots`, `transcribe`. La rama contiene también una versión propia de `planSpeedAll`, exportación y `app/dist/agentcut.html`; NO sustituir por estos archivos sin comparación semántica. El último commit de `claude/a11y-basics` sí es ancestro de nuestra rama: **no falta ese trabajo**.
+
+**Bloqueadores detectados en la implementación de Claude:**
+- `app/whisper-engine.mjs` declara expresamente que **no hay hash SHA256 verificado** de los modelos remotos: comprobar cabecera ggml y tamaño ±40 % no es integridad criptográfica. No habilitar descarga de modelos sin verificación fuerte/procedencia y consentimiento.
+- `app/build.mjs` en Claude añade la biblioteca WASM mediante `/*__WHISPER_LIB__*/` y agrega tres módulos. Sin reconciliarlo, importar solo UI o JS deja el editor roto.
+- `app/templates.mjs` reimplementa transformaciones de timeline/audio: revisar casos música no ligada, clips ya acelerados y posiciones/recortes antes de integrar.
+- Tests de Claude son **código publicado, no ejecución verde en nuestra rama**. Requieren Node, reproducibilidad de HTML, E2E WebView y QA real.
+- Comparación de `claude/test-merge-54-20261015` también divergente, pero sus archivos no demuestran una versión más reciente o completa; revisar precedencia por contenido y ancestros, no por nombre.
+**Decisión de auditoría:** preservar rama de Claude intacta y preparar integración selectiva, conservando fixes de ChatGPT y un solo editor; no tocar `main`.
