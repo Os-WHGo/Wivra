@@ -66,3 +66,20 @@ Revisión estática de archivos reales de GitHub en la rama `chatgpt/wivra-unifi
 - `.github/workflows/wivra-audit-rebuild-editor.yml` commit `a8f7a1b`: workflow acotado exclusivamente a rama de auditoría, intenta regenerar dist y ejecutar pruebas antes de guardar el HTML. **No hay confirmación de ejecución** en las consultas de workflows de estos commits. Si las Actions no arrancan o token no puede escribir, reconstruir en un checkout con Node.
 - Se inspeccionó `app/tests/ai-client.test.mjs` y matriz de beta del editor; pruebas de seguridad añadidas sin ejecutar.
 - **Auditoría de nativo y hardware todavía abierta:** revisar fuente Swift/Kotlin completo, compilación real, permisos, grabación larga, RTMP, integración de librería y QA.
+
+## Auditoría nativa Android, bloque 3
+**Archivos examinados directamente:** `streaming/android/settings.gradle`, `streaming/android/app/build.gradle`, `streaming/android/app/src/main/AndroidManifest.xml`, `streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt` (~716 líneas), `WivraMetaPreviewActivity.kt` (~686 líneas). Inspección focalizada en inicialización, permisos, grabación, WAV, lifecycle, DAT y finalización, no compilación.
+
+| Nivel | Hallazgo y evidencia | Tratamiento |
+| --- | --- | --- |
+| P1 / limitación | `WivraMetaPreviewActivity` tiene sesión DAT, preview, foto y grabación HEVC segmentada, pero su encabezado histórico dice «no recording»; las capacidades evolucionaron. | No atribuir LIVE/RTMP a la preview; revisar segmentos reales, recuperación y empaquetado en dispositivo |
+| P1 / continuidad | `WivraMetaPreviewActivity.onDestroy` realiza `finishToPending()` best-effort en coroutine no supervisada; el propio código advierte que Android puede matar proceso sin `onDestroy`. | No declarar grabación larga recuperable ante muerte del proceso; probar corte de energía, kill y reconstrucción de segmentos |
+| P1 / continuidad | `WivraPhoneCameraActivity.onStop` detiene video y WAV al ir a segundo plano, por diseño explícito; no existe grabación background. | Informar usuario y probar bloqueo pantalla/llamada/otras apps; no confundir con LIVE IRL en segundo plano |
+| P1 / sincronía | `VideoRecordEvent.Start` registra `elapsedRealtimeNanos` y luego inicia WAV; sidecar usa primer read aproximado, no PTS real del primer frame. | Medir desfase y drift en videos largos; mostrar offset estimado, no sincronización sample-accurate |
+| P1 / pérdida de audio | `VideoRecordEvent.Finalize` espera WAV y `completeRecordingWhenReady` avisa fallo si WAV no usable. | Pruebas de fallos/espacio/micrófono desconectado, confirmar que video permanece recuperable |
+| P2 / capacidades | Cámara Android usa CameraX FHD y fallback; en dispositivos sin combinación preview+photo+video, deshabilita foto en sesión. | Foto durante grabación es condicionada por hardware; no prometer en todos |
+| P2 / dependencia | Gradle fija Meta DAT 1.0.1, CameraX 1.5.3, AndroidX y minSdk 31; Meta requiere registro real. | Verificar resolución de dependencias, licencia, restricciones de Meta, targetSdk y binarios con CI |
+| P2 / seguridad | Manifest: `allowBackup=false`, `usesCleartextTraffic=false`, Meta analytics/crash opt-out; Internet y Bluetooth declarados. | Auditar permisos en runtime y ausencia de endpoints no consentidos |
+| P2 / trazabilidad | `docs/WIVRA_IDEAS_TRACEABILITY_2026-10-15.md` aún describe fotos principales como solo capas; `docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md` sí dice fotos principales disponibles. | Conservar ambos documentos como evidencia histórica; consolidar matriz actual tras CI |
+
+**Estado verificable:** hay implementación Android de cámara de teléfono, selector de micrófono para WAV, DAT y teleprompter sobre preview. No hay demostración de dispositivos físicos, streaming LIVE ni grabación background. Inspección iOS Swift sigue pendiente.
