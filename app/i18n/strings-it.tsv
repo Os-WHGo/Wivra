@@ -627,3 +627,5 @@ Elige un video, una capa o un audio en la línea de tiempo. || Scegli un video, 
 Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip. || Sotto 0.5× o sopra 2× il suono può risultare strano o senza voce naturale, soprattutto su iPhone (non verificato). Se non ti piace, silenzia quella clip.
 Transición en todos los cortes entre clips: || Transizione su ogni taglio tra le clip:
 Transición en los cortes || Transizione sui tagli
+La dirección del proveedor de IA no es válida. || L'indirizzo del fornitore IA non è valido.
+La IA requiere una dirección HTTPS segura, sin credenciales ni parámetros. || L'IA richiede un indirizzo HTTPS sicuro, senza credenziali o parametri.
