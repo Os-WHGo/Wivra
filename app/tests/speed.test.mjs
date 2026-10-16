@@ -116,3 +116,18 @@ test('velocidad a todos: un lote único, video principal y voz ligada, música s
   assert.equal(planSpeedAll(q, 2).ops.length, 0, 'idempotente');
   assert.equal(planSpeedAll(p, 9).ok, false);
 });
+
+test('regresión: música completamente dentro de un video no se acelera por coincidencia temporal', () => {
+  const p = base();
+  const r = applyBatch(p, [{ op: 'move_clip', clip_id: 'u4', start: 2 }]);
+  assert.ok(r.ok);
+  const plan = planSpeed(r.project, 'c1', 2);
+  assert.ok(plan.ok);
+  const applied = applyBatch(r.project, plan.ops);
+  assert.ok(applied.ok, JSON.stringify(applied));
+  const music = applied.project.audioClips.find(c => c.id === 'u4');
+  assert.equal(music.speed, undefined, 'la música no cambia de velocidad');
+  assert.equal(music.start, 2, 'la música interior mantiene su posición');
+  const voice = applied.project.audioClips.find(c => c.id === 'u3');
+  assert.equal(voice.speed, 2, 'la voz asociada sí acompaña al video');
+});
