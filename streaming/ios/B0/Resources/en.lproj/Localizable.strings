@@ -33,3 +33,11 @@
 "ios.record.delete_confirm" = "Yes, delete recording";
 "ios.record.pending_notice" = "Recording pending your decision. Not available in the editor.";
 "ios.record.review_pending" = "Review pending recordings";
+"ios.record.review_video" = "Review video";
+"ios.record.preview_title" = "Review pending recording";
+"ios.record.preview_unavailable" = "Temporary video is unavailable for preview.";
+"ios.record.preview_part" = "Segment %1$d of %2$d";
+"ios.record.preview_close" = "Close review";
+"ios.record.preview_disclaimer" = "Review stays private. No video is permanently kept or deleted until you choose.";
+"ios.record.preview_previous" = "Previous";
+"ios.record.preview_next" = "Next";
