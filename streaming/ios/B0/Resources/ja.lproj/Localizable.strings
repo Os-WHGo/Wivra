@@ -41,3 +41,9 @@
 "ios.record.preview_disclaimer" = "確認は非公開です。保存または削除を選択するまで動画は変更されません。";
 "ios.record.preview_previous" = "前へ";
 "ios.record.preview_next" = "次へ";
+"ios.record.audio_only_notice" = "映像なしで音声を復元しました。聴いてから保存するか決められます。";
+"ios.record.audio_play" = "音声を再生";
+"ios.record.audio_pause" = "音声を一時停止";
+"ios.library.recovered_audio_title" = "復元した音声";
+"ios.library.recovered_audio_note" = "映像なしで保存した音声です。Wivra から共有できます。";
+"ios.library.share_recovered_audio" = "復元した CAF を共有";
