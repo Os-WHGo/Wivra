@@ -14,6 +14,9 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['el audio del video se pausa al llegar a una foto o hueco', "cur = null; if (!$('v').paused) $('v').pause();"],
+  ['el «+» de la pista de Video agrega a la pista principal', "ln.id === 'vtrack' ? 'main'"],
+  ['el «+» de Capas y el botón «Video o foto encima (capa)»', 'Video o foto encima (capa)'],
   ['volver a Inicio quitando el «#…» (navegación real)', 'function pzGoHome()'],
   ['la barra de arriba por encima del fondo oscuro de las hojas', 'position:relative; z-index:31;'],
   ['el traductor en vivo', 'function i18nApply('],

@@ -64,3 +64,38 @@ test('es repetible: aplicar dos veces el mismo montaje no cambia el resultado', 
   const p = build([10, 8, 12]), a = applyBatch(p, planQuickAssembly(p, { targetSeconds: 15 }).ops).project, pl2 = planQuickAssembly(a, { targetSeconds: 15 });
   assert.equal(pl2.trimmed, 0); assert.deepEqual(pl2.ops, []);
 });
+
+// ── Audios que van con cada video (p. ej. el micrófono de «Captura»): se recortan y se mueven junto con su video ──
+const withAudio = (extra = []) => {
+  const assets = [{ id: 'a1', duration: 20, name: 'v1.mov' }, { id: 'a2', duration: 20, name: 'v2.mov' }, { id: 'p1', duration: 3600, name: 'f.jpg', kind: 'image' }, { id: 'm1', duration: 20, name: 'mic1.m4a', kind: 'audio' }, { id: 'm2', duration: 20, name: 'mic2.m4a', kind: 'audio' }, { id: 'mus', duration: 120, name: 'musica.mp3', kind: 'audio' }];
+  let p = createProject({ assets });
+  p = applyBatch(p, [{ op: 'add_clip', asset_id: 'a1', start: 0 }, { op: 'add_photo_clip', asset_id: 'p1', start: 20, duration: 4 }, { op: 'add_clip', asset_id: 'a2', start: 24 }]).project;
+  p = applyBatch(p, [{ op: 'add_audio_clip', asset_id: 'm1', start: 0, in: 0, out: 20, role: 'voice_primary' }, { op: 'add_audio_clip', asset_id: 'm2', start: 24, in: 0, out: 20, role: 'voice_primary' }, ...extra]).project;
+  return p;
+};
+const sync = (p, a, c) => (a.in - a.start) - (c.in - c.start);      // desfase entre el audio y su video: no debe cambiar al recortar y mover
+test('el audio que va con cada video se recorta y se mueve junto con él (no suena sobre la foto ni el siguiente video)', () => {
+  const p = withAudio(), pl = planQuickAssembly(p, { targetSeconds: 12 });
+  assert.ok(pl.ok && pl.trimmed > 0, JSON.stringify(pl.warnings));
+  const r = applyBatch(p, pl.ops); assert.ok(r.ok, JSON.stringify(r)); const q = r.project;
+  const vids = q.clips.filter((c) => !['p1'].includes(c.asset_id)), photo = q.clips.find((c) => c.asset_id === 'p1');
+  for (const [mic, vid0] of [['m1', 'a1'], ['m2', 'a2']]) {
+    const a = q.audioClips.find((k) => k.asset_id === mic), c = vids.find((k) => k.asset_id === vid0), a0 = p.audioClips.find((k) => k.asset_id === mic), c0 = p.clips.find((k) => k.asset_id === vid0);
+    assert.ok(a.start >= c.start - 0.01 && a.start + (a.out - a.in) <= c.start + (c.out - c.in) + 0.01, `${mic}: el audio queda dentro de su video (${a.start}–${a.start + a.out - a.in} vs ${c.start}–${c.start + c.out - c.in})`);
+    assert.ok(Math.abs(sync(q, a, c) - sync(p, a0, c0)) < 0.011, `${mic}: sigue en sincronía con su video`);
+    assert.ok(a.start + (a.out - a.in) <= photo.start + 0.01 || a.start >= photo.start + (photo.out - photo.in) - 0.01, `${mic}: no pisa la foto`);
+  }
+  assert.ok(pl.warnings.some((w) => /audio que iba con cada video/.test(w)));
+  assert.ok(!pl.warnings.some((w) => /audios aparte/.test(w)), 'sin audios sueltos no se avisa de ellos');
+});
+test('una música que cruza varios clips no se toca; sí se avisa', () => {
+  const p = withAudio([{ op: 'add_audio_clip', asset_id: 'mus', start: 0, in: 0, out: 60, role: 'music' }]), pl = planQuickAssembly(p, { targetSeconds: 12 });
+  const r = applyBatch(p, pl.ops); assert.ok(r.ok, JSON.stringify(r));
+  const mus0 = p.audioClips.find((k) => k.asset_id === 'mus'), mus = r.project.audioClips.find((k) => k.asset_id === 'mus');
+  assert.deepEqual([mus.start, mus.in, mus.out], [mus0.start, mus0.in, mus0.out]); assert.ok(pl.warnings.some((w) => /audios aparte/.test(w)));
+});
+test('un audio que solo cubría el tramo recortado se quita; si el video no cambia, el audio tampoco', () => {
+  const p0 = withAudio([{ op: 'add_audio_clip', asset_id: 'm1', start: 0, in: 0, out: 1, role: 'other' }]), pl = planQuickAssembly(p0, { targetSeconds: 12 });
+  const r = applyBatch(p0, pl.ops); assert.ok(r.ok, JSON.stringify(r)); assert.equal(r.project.audioClips.length, p0.audioClips.length - 1, 'el audio de 1 s del inicio (recortado) se borra');
+  const ok = planQuickAssembly(withAudio(), { targetSeconds: 600 }); assert.deepEqual(ok.ops, []);
+});
