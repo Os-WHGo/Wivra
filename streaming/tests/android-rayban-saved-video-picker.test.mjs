@@ -31,8 +31,9 @@ test('chooser is explicitly user-triggered and remains one Claude editor',()=>{
   assert.match(host,/WivraSavedRayBanVideos.latestSaved\(MainActivity.this\)/);
   assert.match(host,/WivraMetaPhotoStore.latestCapturedPhoto\(MainActivity.this\)/);
   assert.match(host,/setItems\(labels.toArray\(new String\[0\]\)/);
-  assert.match(host,/new Uri\[\]\{videos.get\(videoIndex\).getUri\(\)\}/);
-  assert.match(host,/new Uri\[\]\{recent\}/);
+  assert.match(host,/choices.add\(video.getUri\(\)\)/);
+  assert.match(host,/choices.add\(recent\)/);
+  assert.match(host,/new Uri\[\]\{choices.get\(item\)\}/);
   assert.match(host,/getString\(R.string.picker_browse_files\)/);
   assert.match(host,/clearPendingPicker\(\)/);
   assert.match(host,/editor.loadUrl\("file:\/\/\/android_asset\/agentcut.html"\)/);
