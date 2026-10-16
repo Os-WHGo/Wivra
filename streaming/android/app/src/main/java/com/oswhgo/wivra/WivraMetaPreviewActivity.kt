@@ -414,7 +414,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         pendingDialogVisible = true
         val explanation = getString(R.string.recording_pending_explanation) +
             if (pending.parts.size > 1) {
-                "\\n\\n" + getString(R.string.recording_pending_multiple_parts, pending.parts.size)
+                "\n\n" + getString(R.string.recording_pending_multiple_parts, pending.parts.size)
             } else ""
         AlertDialog.Builder(this)
             .setTitle(R.string.recording_save_question)
@@ -452,7 +452,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .setTitle(R.string.recording_discard_confirm_title)
             .setMessage(getString(R.string.recording_discard_confirm_message) +
                 if (pending.parts.size > 1) {
-                    "\\n\\n" + getString(R.string.recording_pending_multiple_parts,
+                    "\n\n" + getString(R.string.recording_pending_multiple_parts,
                         pending.parts.size)
                 } else "")
             .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
