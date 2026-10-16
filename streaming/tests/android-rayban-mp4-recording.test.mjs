@@ -12,7 +12,7 @@ test('recording uses compressed DAT HEVC only in explicit video-only mode',()=>{
  assert.match(activity,/compressVideo = recording/);
  assert.match(activity,/frame\.isCompressed/);
  assert.match(activity,/frame\.presentationTimeUs/);
- assert.match(activity,/WivraHevcMp4Recorder\(applicationContext\)/);
+ assert.match(activity,/WivraSegmentedHevcRecorder\(applicationContext\)/);
  assert.match(activity,/Dispatchers\.IO/);
  assert.match(activity,/stop_save_recording/);
  assert.match(activity,/finishToPending\(\)/);
