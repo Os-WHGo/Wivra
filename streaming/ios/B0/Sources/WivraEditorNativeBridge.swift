@@ -8,10 +8,15 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage,
-        replyHandler: @escaping (Any?, String?) -> Void
+        replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void
     ) {
+        // Only the exact bundled HTML may request capture metadata.
+        // A random file:// document is NOT a trusted native bridge client.
+        let approved = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard message.frameInfo.isMainFrame,
               message.frameInfo.request.url?.isFileURL == true,
+              approved?.standardizedFileURL ==
+                message.frameInfo.request.url?.standardizedFileURL,
               let body = message.body as? [String: Any],
               body["version"] as? Int == 1,
               let method = body["method"] as? String else {
