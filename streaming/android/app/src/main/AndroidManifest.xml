@@ -5,6 +5,10 @@
     <application android:allowBackup="false" android:label="Wivra Dev"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
+        <!-- Privacy-first defaults documented by Meta DAT Android. -->
+        <meta-data android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT" android:value="true" />
+        <meta-data android:name="com.meta.wearable.mwdat.CRASH_REPORTING_OPT_OUT" android:value="true" />
+        <!-- APPLICATION_ID deliberately NOT fabricated: register a real Meta app first. -->
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
