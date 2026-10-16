@@ -11,6 +11,10 @@ export const TPL_CATALOG = [
   { id: 'square', name: 'Cuadrado', desc: 'Cuadrado 1:1 de 30 s, sin cambiar los colores.', format: { aspect: '1:1', fit: 'cover' }, targetSeconds: 30, look: null, title: true },
   { id: 'wide', name: 'Horizontal', desc: 'Horizontal 16:9 de 60 s, sin recortar los bordes.', format: { aspect: '16:9', fit: 'contain' }, targetSeconds: 60, look: null, title: true },
   { id: 'screenface', name: 'Pantalla + cara', desc: 'Vertical 9:16: el 1.er video es tu pantalla y el 2.º tu cara, en un círculo abajo a la izquierda.', format: { aspect: '9:16', fit: 'cover', safe: true }, targetSeconds: 0, look: null, title: false, special: 'screenface' },
+  { id: 'collage', name: 'Collage', desc: 'Los primeros 2, 3 o 4 clips (videos o fotos) a la vez, en cuadros. Con 2 o 3: vertical 9:16, uno sobre otro; con 4: cuadrado 1:1, en cuadrícula.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'collage' },
+  { id: 'burst', name: 'Ráfaga', desc: '6 huecos de 1,5 s en vertical 9:16: tus primeros 6 clips (videos o fotos), uno tras otro, rápidos.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [1.5, 1.5, 1.5, 1.5, 1.5, 1.5], labels: [] },
+  { id: 'beforeafter', name: 'Antes y después', desc: '2 huecos de 4 s en vertical 9:16: el 1.er clip es el «Antes» y el 2.º el «Después», cada uno con su rótulo.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [4, 4], labels: ['Antes', 'Después'] },
+  { id: 'top3', name: 'Top 3', desc: '3 huecos de 4 s en vertical 9:16, en cuenta regresiva: el 1.er clip es el N.º 3, el 2.º el N.º 2 y el 3.º el N.º 1.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [4, 4, 4], labels: ['N.º 3', 'N.º 2', 'N.º 1'] },
   { id: 'memory', name: 'Recuerdo', desc: 'Vertical 9:16 de 45 s, cálido y con grano suave.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 45, look: 'vintage', title: true },
 ];
 export const TPL_TITLE_MAX = 60, TPL_TITLE_SECONDS = 3;
@@ -27,6 +31,8 @@ export function planTemplate(project, id, { title = '' } = {}) {
   if (fmt.aspect !== t.format.aspect || fmt.fit !== t.format.fit || (t.format.safe === true && fmt.safe !== true)) {
     ops.push({ op: 'set_format', aspect: t.format.aspect, fit: t.format.fit, ...(t.format.safe ? { safe: true } : {}) }); lines.push(`Formato ${t.format.aspect}${t.format.safe ? ' con zona segura para textos' : ''}`);
   }
+  if (t.special === 'collage') { const cl = planCollage(project); if (!cl.ok) return cl; ops.length = 0; lines.length = 0; ops.push(...cl.formatOps, ...cl.ops); lines.push(...cl.lines); warnings.push(...cl.warnings); return { ok: true, ops, lines, warnings, template: t, after: cl.after }; }
+  if (t.special === 'slots') { const sl = planSlots(project, t, tr); if (!sl.ok) return sl; ops.length = 0; lines.length = 0; ops.push(...sl.formatOps, ...sl.ops); lines.push(...sl.lines); warnings.push(...sl.warnings); return { ok: true, ops, lines, warnings, template: t, after: sl.after }; }
   if (t.special === 'screenface') { const sf = planScreenFace(project); if (!sf.ok) return sf; ops.push(...sf.ops); lines.push(...sf.lines); warnings.push(...sf.warnings); return { ok: true, ops, lines, warnings, template: t, after: sf.after }; }
   const qa = planQuickAssembly(project, { targetSeconds: t.targetSeconds });
   if (!qa.ok) return qa;
@@ -93,4 +99,108 @@ export function planScreenFace(project) {
   warnings.push('Si tu voz suena en los dos videos, silencia uno: toca el clip y elige Audio.');
   const after = Math.max(0, ...project.clips.filter((c) => c.id !== face.id).map((c) => (c.start >= faceEnd - 0.01 ? c.start - len(face) : c.start) + len(c)));
   return { ok: true, ops, lines, warnings, after: sfR(after) };
+}
+
+/** Cuadros del collage (centros y ancho como fracción del cuadro de salida). Todos son cuadrados: con 2 o 3 en 9:16 llenan el alto; con 4 en 1:1 llenan el cuadro. */
+export const COLLAGE_LAYOUTS = {
+  2: { aspect: '9:16', scale: 0.8889, cells: [[0.5, 0.25], [0.5, 0.75]] },
+  3: { aspect: '9:16', scale: 0.5926, cells: [[0.5, 1 / 6], [0.5, 0.5], [0.5, 5 / 6]] },
+  4: { aspect: '1:1', scale: 0.5, cells: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]] },
+};
+const clR = (x) => Math.round(x * 1000) / 1000;
+
+/**
+ * planCollage(project) → { ok, formatOps, ops, lines, warnings, after } | { ok:false, error }
+ * Los primeros N (2 a 4) clips de la línea principal pasan a verse a la vez, cada uno en su cuadro (una capa cuadrada por clip). El 1.º se queda en la línea principal
+ * (lleva el sonido) y además tiene su cuadro; los demás se quitan de la línea principal. Duran lo que dura el VIDEO más corto. Solo suena el 1.º: el resto queda silenciado.
+ * Lo que venga después en la línea principal se corre para no dejar un hueco.
+ */
+export function planCollage(project) {
+  const kind = new Map((project.assets || []).map((a) => [a.id, a])), clips = [...project.clips].sort((a, b) => a.start - b.start);
+  const n = Math.min(4, clips.length); if (n < 2) return { ok: false, error: 'Esta plantilla necesita al menos dos clips (videos o fotos) en la línea de tiempo.' };
+  const cells = clips.slice(0, n), base = Math.max(0, ...(project.overlayClips || []).map((o) => o.track || 1));
+  if (base + n > MAX_TRACKS) return { ok: false, error: `Ya hay ${base} capa(s): el collage de ${n} necesita ${n} filas libres (máximo ${MAX_TRACKS}). Borra o junta capas primero.` };
+  const lay = COLLAGE_LAYOUTS[n], isImg = (c) => (kind.get(c.asset_id) || {}).kind === 'image';
+  const vids = cells.filter((c) => !isImg(c)), pool = vids.length ? vids : cells;
+  const L = clR(Math.min(60, ...pool.map((c) => clipLength(c)))), S0 = cells[0].start, oldEnd = Math.max(...cells.map((c) => c.start + clipLength(c)));
+  const ops = [], lines = [], warnings = [], fmtOps = [];
+  const f = project.format || {};
+  if (f.aspect !== lay.aspect || f.fit !== 'cover') fmtOps.push({ op: 'set_format', aspect: lay.aspect, fit: 'cover' });
+  // 1) el 1.º se recorta a L; 2) cada clip (incluido el 1.º) genera su cuadro; 3) los clips 2..N salen de la línea principal.
+  const srcLen = (c) => clR(L * speedOf(c)), maxOut = (c) => (kind.get(c.asset_id) || {}).duration ?? Infinity;
+  const first = cells[0]; if (clipLength(first) > L + 0.005) ops.push({ op: 'trim_clip', clip_id: first.id, in: first.in, out: clR(Math.min(maxOut(first), first.in + srcLen(first))) });
+  let oid = project.nextId ?? 1;
+  cells.forEach((c, i) => {
+    const out = clR(Math.min(maxOut(c), c.in + srcLen(c)));
+    ops.push({ op: 'add_overlay_clip', asset_id: c.asset_id, start: S0, in: c.in, out, track: base + i + 1, x: clR(lay.cells[i][0]), y: clR(lay.cells[i][1]), scale: lay.scale, muted: true });
+    const id = `o${oid++}`; ops.push({ op: 'set_overlay', clip_id: id, shape: 'square' });
+    if (c.speed) ops.push({ op: 'set_clip_speed', clip_id: id, speed: c.speed });
+  });
+  for (const c of cells.slice(1)) ops.push({ op: 'delete_clip', clip_id: c.id });
+  const delta = (S0 + L) - oldEnd;      // negativo: lo que sigue se corre hacia atrás
+  const shiftable = (st) => st >= oldEnd - 0.01;
+  for (const c of clips.slice(n)) ops.push({ op: 'move_clip', clip_id: c.id, start: Math.max(0, clR(c.start + delta)) });
+  // Audio aparte que iba con un clip: el del 1.º se recorta a L; el de los cuadros 2..N se silencia y se pone junto a su cuadro; el de lo que sigue se corre.
+  let linkedAudio = 0, otherAudio = 0;
+  for (const a of project.audioClips || []) {
+    const alen = clipLength(a); let home = null, best = 0;
+    for (const c of clips) { const ov = Math.min(a.start + alen, c.start + clipLength(c)) - Math.max(a.start, c.start); if (ov > best) { best = ov; home = c; } }
+    if (!home || alen <= 0 || best < 0.8 * alen) { otherAudio++; continue; }
+    const k = cells.indexOf(home);
+    if (k === -1) { if (shiftable(home.start)) { ops.push({ op: 'move_clip', clip_id: a.id, start: Math.max(0, clR(a.start + delta)) }); linkedAudio++; } continue; }
+    const ns = k === 0 ? a.start : clR(S0 + (a.start - home.start)), keep = clR(Math.min(alen, Math.max(0.05, L - (ns - S0))));
+    if (ns - S0 >= L - 0.05) { ops.push({ op: 'delete_clip', clip_id: a.id }); linkedAudio++; continue; }
+    if (keep < alen - 0.001) ops.push({ op: 'trim_clip', clip_id: a.id, in: a.in, out: clR(a.in + keep * speedOf(a)) });
+    if (Math.abs(ns - a.start) > 0.0005) ops.push({ op: 'move_clip', clip_id: a.id, start: ns });
+    if (k > 0) ops.push({ op: 'set_clip_audio', clip_id: a.id, muted: true });
+    linkedAudio++;
+  }
+  lines.push(lay.aspect === '9:16' ? `Collage de ${n} clips a la vez, uno sobre otro (9:16)` : `Collage de ${n} clips a la vez, en cuadrícula (1:1)`, `Duran ${L} s (lo que dura el video más corto)`, 'Suena el 1.er clip; los demás quedan silenciados');
+  if (linkedAudio) lines.push('El audio que iba con cada clip se recortó y se movió con él');
+  if (clips.length > n) warnings.push(`Solo entran los primeros ${n} clips; los demás siguen después, uno tras otro.`);
+  if (L < Math.max(...cells.map((c) => clipLength(c))) - 0.05) warnings.push('Los clips más largos se recortaron al final para que todos duren lo mismo.');
+  if (cells.some(isImg) && vids.length) warnings.push('Las fotos duran lo mismo que el video más corto.');
+  if (otherAudio || (project.texts || []).length || (project.overlayClips || []).length) warnings.push('Los textos, capas y audios que cruzan varios clips no se mueven: revisa su tiempo.');
+  warnings.push('Para oír otro cuadro: toca su capa y elige Audio.');
+  return { ok: true, formatOps: fmtOps, ops, lines, warnings, after: clR(Math.max(0, ...clips.slice(n).map((c) => c.start + delta + clipLength(c)), S0 + L)) };
+}
+
+/**
+ * planSlots(project, tpl) → { ok, formatOps, ops, lines, warnings, after } | { ok:false, error }
+ * Plantilla con HUECOS: cada hueco tiene una duración fija y se llena con el clip que le toca (1.º hueco = 1.er clip de la línea principal, etc.).
+ * Un clip más largo que su hueco aporta el tramo del CENTRO; uno más corto lo deja más corto (no se alarga, salvo una foto, que dura lo del hueco).
+ * Lo que sobre de clips sigue después, sin tocar, pegado al final. Cada hueco puede llevar un rótulo (texto) al inicio. El audio que iba con cada video se recorta y se mueve con él.
+ */
+export function planSlots(project, tpl, tr = (x) => x) {
+  const kind = new Map((project.assets || []).map((a) => [a.id, a])), clips = [...project.clips].sort((a, b) => a.start - b.start), slots = tpl.slots || [];
+  if (clips.length < 1) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if (clips.some((c) => c.speed) || (project.audioClips || []).some((c) => c.speed)) return { ok: false, error: 'Hay clips en cámara lenta o rápida. Vuelve su velocidad a 1× para usar esta función.' };
+  const n = Math.min(slots.length, clips.length), ops = [], items = [], lines = [], warnings = [], fmtOps = [], f = project.format || {};
+  if (f.aspect !== tpl.format.aspect || f.fit !== tpl.format.fit) fmtOps.push({ op: 'set_format', aspect: tpl.format.aspect, fit: tpl.format.fit });
+  const isImg = (c) => (kind.get(c.asset_id) || {}).kind === 'image', maxOut = (c) => (kind.get(c.asset_id) || {}).duration ?? Infinity;
+  let t = 0, short = 0; const labelAt = [];
+  clips.forEach((c, i) => {
+    const photo = isImg(c), len = clipLength(c), d = i < n ? slots[i] : len;
+    let nin = c.in, nout = c.out;
+    if (i < n) {
+      if (photo) nout = clR(Math.min(maxOut(c), c.in + d));
+      else if (len > d + 0.005) { nin = clR(c.in + (len - d) / 2); nout = clR(Math.min(c.out, nin + d)); }
+      else if (len < d - 0.05) short++;
+      labelAt.push({ i, start: clR(t) });
+    }
+    const start = clR(t); t += nout - nin;
+    if (nin !== c.in || nout !== c.out) ops.push({ op: 'trim_clip', clip_id: c.id, in: nin, out: nout });
+    if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
+    items.push({ id: c.id, from: [c.in, c.out], to: [nin, nout], start, photo });
+  });
+  const au = qaLinkedAudioOps(project, items); ops.push(...au.ops);
+  (tpl.labels || []).forEach((lab, i) => { const h = labelAt.find((x) => x.i === i); if (h) { const dur = clR(Math.min(2, Math.max(0.5, (items[i].to[1] - items[i].to[0]) - 0.3))); ops.push({ op: 'add_text', text: tr(lab), start: clR(h.start + 0.3), duration: dur }); } });
+  lines.push(`Huecos llenos: ${n} de ${slots.length}`, `Cada hueco dura ${String(slots[0]).replace('.', ',')} s`);
+  if ((tpl.labels || []).length) lines.push(`Rótulos: ${(tpl.labels || []).slice(0, n).map(tr).join(' · ')}`);
+  if (n < slots.length) warnings.push(slots.length - n === 1 ? 'Falta 1 clip para llenar todos los huecos: agrega más videos o fotos.' : `Faltan ${slots.length - n} clips para llenar todos los huecos: agrega más videos o fotos.`);
+  if (clips.length > n) warnings.push(clips.length - n === 1 ? 'Sobra 1 clip: sigue después de los huecos, sin cambios.' : `Sobran ${clips.length - n} clips: siguen después de los huecos, sin cambios.`);
+  if (short) warnings.push('Algún video dura menos que su hueco: queda más corto.');
+  if (au.linked) warnings.push('El audio que iba con cada video se recortó y se movió junto con él.');
+  if ((project.overlayClips || []).length || au.other || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos que ya había no se mueven: revisa su tiempo.');
+  return { ok: true, formatOps: fmtOps, ops, lines, warnings, after: clR(t) };
 }
