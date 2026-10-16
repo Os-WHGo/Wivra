@@ -14,6 +14,7 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['el volumen parejo al exportar', 'async function loudnessPlan('],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],
   ['la hoja de estilo de texto (acoplada abajo, sin tapar el video)', "const DOCKS = ['sFilt', 'sFx', 'sOver', 'sTxStyle'];"],
@@ -131,4 +132,17 @@ test('el archivo final se puede analizar sin nombres globales repetidos', () => 
   const scripts = [...dist.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   assert.ok(scripts.length >= 2, 'faltan los <script> del archivo final');
   scripts.forEach((s, i) => assert.doesNotThrow(() => new vm.Script(s, { filename: `agentcut.html#script${i}` }), `el script ${i} no se puede analizar`));
+});
+
+// 6) Accesibilidad básica: ningún botón de color ni campo de texto del HTML fijo se queda sin nombre para el lector de pantalla. — Claude
+test('los controles fijos del HTML tienen nombre accesible', () => {
+  const tpl = readFileSync(new URL('../template.html', import.meta.url), 'utf8');
+  const colores = tpl.match(/<div class="chips more" id="ovColors">[\s\S]*?<\/div>/)[0];
+  const botones = [...colores.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(botones.length >= 6); botones.forEach((b) => assert.match(b, /aria-label="[^"]+"/, `botón de color sin nombre: ${b}`));
+  for (const id of ['txt', 'dirAssetDescription', 'directorCamera', 'dirQuickEdit', 'tin', 'tout']) {
+    const tag = tpl.match(new RegExp(`<(?:input|textarea)\\b[^>]*\\bid="${id}"[^>]*>`))[0];
+    assert.match(tag, /aria-label="[^"]+"/, `el campo ${id} no tiene nombre accesible`);
+  }
+  assert.match(tpl, /<meta name="description" content="[^"]+">/); assert.match(tpl, /<link rel="icon" href=/);
 });

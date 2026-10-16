@@ -526,3 +526,18 @@ Algún texto quedó dentro de una pausa y se borró. || Un testo era dentro una 
 Las capas y los audios aparte (música) no se mueven: revisa su tiempo. || I livelli e gli audio separati (musica) non si spostano: controlla i loro tempi.
 Pausas encontradas: {1} ({2} s). El video pasaría de {3} s a {4} s. || Pause trovate: {1} ({2} s). Il video passerebbe da {3} s a {4} s.
 Buscando pausas… {1} de {2} || Ricerca delle pause… {1} di {2}
+Descripción de este material || Descrizione di questo materiale
+Grabar con la cámara || Registra con la fotocamera
+Edición rápida: escribe qué cambiar || Modifica rapida: scrivi cosa cambiare
+Volumen del video || Volume del video
+Como está || Così com'è
+Parejo y fuerte (para reels) || Uniforme e forte (per i reel)
+Parejo y suave || Uniforme e morbido
+Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales. || Misura l'audio di tutto il video e lo alza o abbassa in modo uniforme, senza deformare la voce. I tuoi originali non cambiano.
+Midiendo el volumen… || Misurazione del volume…
+No pude leer el sonido de algún video: se exporta con el volumen original. || Non sono riuscito a leggere l'audio di un video: viene esportato con il volume originale.
+No hay sonido que medir: se exporta con el volumen original. || Non c'è audio da misurare: viene esportato con il volume originale.
+No se pudo medir el volumen: se exporta con el volumen original. || Impossibile misurare il volume: viene esportato con il volume originale.
+Volumen: ya estaba cerca del objetivo, no se cambió. || Volume: era già vicino all'obiettivo, non è stato cambiato.
+No se pudo subir más sin que el sonido se rompa. || Non si poteva alzare di più senza che l'audio si distorcesse.
+Volumen ajustado {1} dB (de {2} a {3} LUFS). || Volume regolato di {1} dB (da {2} a {3} LUFS).
