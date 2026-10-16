@@ -13,6 +13,7 @@ const GROUPS = [['clips', 'c'], ['overlayClips', 'o'], ['audioClips', 'u']];
 const findClip = (p, id) => { for (const [g] of GROUPS) { const c = (p[g] || []).find((k) => k.id === id); if (c) return c; } return undefined; };
 const groupOf = (p, c) => GROUPS.find(([g]) => (p[g] || []).includes(c));
 export const MAX_TRACKS = 4;
+export const PHOTO_SECONDS = 3, MIN_PHOTO_SECONDS = 0.5;   // foto en la línea principal: duración por omisión y mínima
 export const AUDIO_ROLES = ['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other'];
 
 // Formato (forma del cuadro de salida): 'original' = la del primer video. fit: 'cover' rellena y recorta lo que sobra (centrado); 'contain' deja barras negras.
@@ -36,10 +37,21 @@ const handlers = {
   add_clip(p, { asset_id, start = 0 }) {
     const a = findAsset(p, asset_id);
     if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
-    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) solo se pueden poner como capa encima del video.');
+    if (a.kind === 'image') return err('image_not_allowed', 'Las imágenes (logos, fotos, GIF) se ponen como capa encima del video (add_overlay_clip) o como foto en la línea principal (add_photo_clip).');
     if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
     const id = `c${p.nextId++}`;
     p.clips.push({ id, asset_id, in: 0, out: a.duration, start });
+    return { ok: true, id };
+  },
+  // Una foto (o GIF) como clip de la línea principal: dura `duration` s (por omisión PHOTO_SECONDS), sin sonido propio. `add_clip` sigue siendo solo para videos.
+  add_photo_clip(p, { asset_id, start = 0, duration = PHOTO_SECONDS }) {
+    const a = findAsset(p, asset_id);
+    if (!a) return err('unknown_asset', `No existe el medio ${asset_id}`);
+    if (a.kind !== 'image') return err('not_a_photo', 'add_photo_clip es solo para imágenes; para un video usa add_clip.');
+    if (!num(start) || start < 0) return err('bad_time', 'start debe ser >= 0');
+    if (!num(duration) || duration < MIN_PHOTO_SECONDS || duration > a.duration + 1e-6) return err('out_of_range', `duration debe estar entre ${MIN_PHOTO_SECONDS} y ${a.duration} s`);
+    const id = `c${p.nextId++}`;
+    p.clips.push({ id, asset_id, in: 0, out: duration, start });
     return { ok: true, id };
   },
   // Pista de audio aparte (no cambia la duración del video). start puede ser el tiempo del video + el desfase medido; in/out recortan el medio.
