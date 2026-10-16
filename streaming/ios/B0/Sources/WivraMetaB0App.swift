@@ -71,7 +71,7 @@ struct WivraMetaB0App: App {
                     Button {
                         showingUnifiedEditor = true
                     } label: {
-                        Label("Editor", systemImage: "film.stack")
+                        Label("ios.app.editor", systemImage: "film.stack")
                     }
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
@@ -79,7 +79,7 @@ struct WivraMetaB0App: App {
                     Button {
                         showingCaptureLibrary = true
                     } label: {
-                        Label("Mis capturas", systemImage: "folder")
+                        Label("ios.app.captures", systemImage: "folder")
                     }
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
@@ -95,7 +95,7 @@ struct WivraMetaB0App: App {
             }
             .overlay(alignment: .top) {
                 if pendingCaptureTab != nil {
-                    Label("Finalizando grabación y liberando cámara…",
+                    Label("ios.app.handoff",
                           systemImage: "hourglass")
                         .font(.footnote.bold())
                         .padding(10)
