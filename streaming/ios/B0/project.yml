@@ -26,6 +26,10 @@ targets:
       - path: ../../../app/dist/agentcut.html
         type: file
         buildPhase: resources
+      # Color/filter packs are data, not downloaded executable plugins.
+      - path: ../../../app/packs
+        type: folder
+        buildPhase: resources
     info:
       path: Info.plist
     settings:
