@@ -582,3 +582,42 @@ Volver a pendiente || Torna da fare
 Grabar esta toma || Registra questa ripresa
 Esta toma ya está hecha. ¿Repetirla? Se quita el video asociado a la toma (el video sigue en el proyecto). || Questa ripresa è già fatta. Rifarla? Il video associato viene scollegato (il video resta nel progetto).
 La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla? || La ripresa «{1}» verrà saltata e non conta come registrata. Saltarla?
+Planear una producción (lugares y guion tuyos) || Pianifica una produzione (luoghi e copione tuoi)
+Tú pones los lugares y el guion; Wivra solo reparte el tiempo y arma las tomas. No inventa rutas, horarios ni datos del lugar, y todo queda en tu teléfono. || Tu indichi i luoghi e il copione; Wivra si limita a ripartire il tempo e a creare le riprese. Non inventa percorsi, orari o informazioni sul luogo, e tutto resta sul tuo telefono.
+Título || Titolo
+Reel || Reel
+Minidocumental vertical || Mini-documentario verticale
+Serie vertical || Serie verticale
+Película vertical || Film verticale
+Duración final (s) || Durata finale (s)
+Voz || Voce
+Hablo mientras grabo || Parlo mentre registro
+Pongo mi voz después || Aggiungo la mia voce dopo
+Mixta || Mista
+Sin voz || Senza voce
+Lugares, uno por línea (opcional: «lugar | cómo grabarlo | guion») || Luoghi, uno per riga (facoltativo: «luogo | come girarlo | copione»)
+Crear plan de producción || Crea il piano di produzione
+Ej.: Un día en Vancouver || Es.: Un giorno a Vancouver
+Granville Island | plano general y un detalle del mercado | Empezamos el día en el mercado… Stanley Park Gastown || Granville Island | campo largo e un dettaglio del mercato | Iniziamo la giornata al mercato… Stanley Park Gastown
+Dar una orden a la lista (escribe o dicta con el micrófono del teclado) || Dai un comando alla lista (scrivi o detta con il microfono della tastiera)
+Enviar orden || Invia comando
+Ej.: ya la hice · siguiente · repite · saltar || Es.: fatto · avanti · ripeti · salta
+Empezar || Avvia
+Lento || Lento
+Rápido || Veloce
+A− || A−
+A+ || A+
+Esto se ve en pantalla pero no se graba en el video. || Questo appare sullo schermo ma non viene registrato nel video.
+Teleprompter || Teleprompter
+Velocidad || Velocità
+Letra más pequeña || Testo più piccolo
+Letra más grande || Testo più grande
+Abrir teleprompter || Apri il teleprompter
+Pausar || Pausa
+Subir || Sposta su
+Bajar || Sposta giù
+Primero crea una lista de tomas. || Prima crea una lista di riprese.
+No entendí esa orden. Prueba con: ya la hice, siguiente, repite, repetir toma o saltar. || Non ho capito questo comando. Prova con: fatto, avanti, ripeti, rifare o salta.
+No quedan tomas pendientes. || Non ci sono più riprese da fare.
+Esta es la última toma pendiente. || Questa è l'ultima ripresa da fare.
+Toma marcada como hecha. || Ripresa segnata come fatta.

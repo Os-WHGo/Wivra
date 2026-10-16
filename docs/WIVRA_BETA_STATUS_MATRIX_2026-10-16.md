@@ -20,7 +20,10 @@ Rama de integración: `claude/beta-editor-integration` (PR #124, base `chatgpt/w
 | Volumen parejo al exportar (opcional, −14 / −16 LUFS) | EN RAMA (#119) | PENDIENTE | Medido en Chromium: −15,3 → −14,1 LUFS. Probar en iPhone/Android: el códec puede variar décimas |
 | Exportación 9:16 con audio, cancelable y avisos | EN RAMA (#94) | PENDIENTE | Va en tiempo real: 20 s de video tardan ~20 s |
 | Revisión de ritmo del Director | EN RAMA (#123) | PENDIENTE | Solo cuenta tiempos; no ve ni oye el video |
-| Director: idea, guion y lista de tomas guardados | EN RAMA | PENDIENTE | Plan por tomas aceptar/repetir/saltar: contrato (#73), **interfaz pendiente** |
+| Director: idea, guion y lista de tomas guardados | EN RAMA (#89) | PENDIENTE | |
+| Director: plan de producción con lugares y guion tuyos (reel, minidoc, serie, película vertical), reordenar tomas, estados Hecha/Por repetir/Saltada (saltar pide confirmación) | EN RAMA (contrato #73 + interfaz en #124) | PENDIENTE | No inventa rutas ni datos del lugar; el orden es el que pones |
+| Órdenes cortas a la lista de tomas (escritas o dictadas con el micrófono del teclado): «ya la hice», «siguiente», «repite», «repetir toma», «saltar» | EN RAMA | PENDIENTE | Frases fijas en 8 idiomas; **no es reconocimiento de voz propio** ni manos libres con AirPods/Siri (pendiente, depende del sistema) |
+| Teleprompter de prueba dentro del editor (guion de la toma, velocidad y tamaño; no se graba) | EN RAMA | PENDIENTE | **No se muestra todavía sobre la cámara**: eso es captura nativa (ChatGPT); el guion está en `shot.script` del plan |
 | Chat con IA: comandos locales básicos + IA por clave propia (opcional) | EN RAMA | PENDIENTE | Ver «IA y gratuidad» |
 | Accesibilidad básica (nombres de botones y campos) | EN RAMA (#119) | PENDIENTE | Sin prueba con VoiceOver/TalkBack |
 | 8 idiomas (es, en, pt, fr, de, ja, zh, it) | EN RAMA | — | Traducciones automáticas, **sin revisión de hablantes nativos** |
@@ -28,7 +31,7 @@ Rama de integración: `claude/beta-editor-integration` (PR #124, base `chatgpt/w
 ## Lo que el inventario #121 pide y el editor aún NO tiene (no es «hecho»)
 - **Transcripción / subtítulos automáticos locales y gratuitos** (issue #6): ❌ no implementado. Falta elegir y medir un modelo abierto en teléfono (licencia, tamaño, velocidad). Mientras tanto solo hay importar/editar .srt/.vtt.
 - **AutoCut editable a partir de clips reales** (C04): 🟡 v1 hecho (montaje a duración exacta eligiendo el tramo con más voz, en un solo paso reversible). Falta: elegir por contenido (imagen/palabras, necesita análisis o transcripción local), collage y duración exacta de un audio.
-- **Teleprompter** (D06) y **plan por tomas con aceptar/repetir/saltar** (D04/D08): ❌ interfaz pendiente (el núcleo de contrato existe). La parte de cámara es de ChatGPT.
+- **Teleprompter sobre la cámara** (D06): 🟡 la pantalla de lectura existe en el editor; falta mostrarla encima de la cámara de Wivra (nativo, ChatGPT) sin que salga en el archivo. **Manos libres** (Siri/AirPods, D08/E04): ❌ pendiente/condicionado al sistema.
 - **Transiciones entre clips**: ❌ no hay (`set_transition` espera decisión del propietario). **Velocidad** (cámara lenta/rápida): ❌ no implementada.
 - **Collage**, **plantillas con slots foto/video**, **máscaras**: ❌.
 - **Música**: se puede importar la del usuario y mezclarla; **no hay biblioteca de música** incluida (licencias pendientes).

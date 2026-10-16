@@ -17,6 +17,8 @@ const PIEZAS = [
   ['el volumen parejo al exportar', 'async function loudnessPlan('],
   ['la revisión de ritmo del Director', 'function rhRender('],
   ['AutoCut: elegir donde más se oye', 'async function qaPlan('],
+  ['plan de producción del Director', "$('dirProdCreate').onclick"],
+  ['teleprompter', 'function openPrompter('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],

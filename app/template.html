@@ -34,6 +34,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   #frame > #v { position:absolute; inset:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; object-fit:var(--fit, contain); }
   #ov { position:absolute; inset:0; padding:7% 4% 11%; display:flex; flex-direction:column; text-align:center; font-weight:800; font-size:22px; line-height:1.2; pointer-events:none; }
   #ov .tz { display:flex; flex-direction:column; align-items:center; gap:.3em; } #ov .tzm { flex:1; justify-content:center; } #ov .tzb { justify-content:flex-end; } #ov .tzt, #ov .tzb { flex:0 0 auto; } #ov .tzb { margin-top:auto; }
+  #tprm { display:none; position:fixed; inset:0; z-index:200; background:#000; color:#fff; flex-direction:column; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); } #tprm.on { display:flex; }
+  #tprBar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } #tprBar .btn { margin:0; width:auto; padding:8px 14px; } #tprBar select { font:inherit; background:#0d0f14; color:#fff; border:1px solid var(--line); border-radius:10px; padding:8px; }
+  #tprText { flex:1; overflow-y:auto; font-weight:700; line-height:1.45; white-space:pre-wrap; padding:30vh 4px; outline:none; }
   #ov.safe { padding:calc(12.5% / var(--ar, .5625)) 12% calc(23.44% / var(--ar, .5625)) 8.33%; }
   #safeGuide { display:none; position:absolute; top:12.5%; bottom:23.44%; left:8.33%; right:12%; border:1.5px dashed rgba(255,255,255,.6); border-radius:6px; pointer-events:none; z-index:4; box-shadow:0 0 0 1px rgba(0,0,0,.4); }
   #frame.safeon #safeGuide { display:block; } #safeGuide span { position:absolute; left:6px; top:3px; font:600 10px/1 system-ui; color:#fff; text-shadow:0 0 3px #000; }
@@ -411,6 +414,13 @@ body.dock .back{pointer-events:none;background:transparent}
     <button id="apply" class="btn sec" disabled>3. Revisar y aplicar al video</button><div id="msg"></div></details>
 </div>
 
+<div id="tprm" role="dialog" aria-label="Teleprompter" aria-hidden="true">
+  <div id="tprBar"><button type="button" id="tprClose" class="btn sec">Cerrar</button><button type="button" id="tprPlay" class="btn">Empezar</button>
+    <select id="tprSpeed" aria-label="Velocidad"><option value="slow">Lento</option><option value="normal" selected>Normal</option><option value="fast">Rápido</option></select>
+    <button type="button" id="tprSmaller" class="btn sec" aria-label="Letra más pequeña">A−</button><button type="button" id="tprBigger" class="btn sec" aria-label="Letra más grande">A+</button></div>
+  <div id="tprInfo" class="m"></div><div id="tprText" tabindex="0"></div>
+  <p class="m" id="tprNote">Esto se ve en pantalla pero no se graba en el video.</p>
+</div>
 <div class="sheet" id="sDirector">
   <h2>Director creativo (prototipo)</h2>
   <p class="m">Explica tu idea hablando con el micrófono del teclado o escribiendo. Prepara un briefing para tu IA, incluso si todavía no has grabado. No edita ni genera voz por sí solo.</p>
@@ -453,6 +463,19 @@ body.dock .back{pointer-events:none;background:transparent}
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
     <h3 style="font-size:16px;margin:0 0 6px">Guía de grabación en Wivra</h3>
     <p class="m">Genera un checklist sencillo y marca cada toma al grabarla. La plantilla es local, todavía no usa un modelo de IA ni inventa lugares cercanos.</p>
+    <details id="dirProd" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Planear una producción (lugares y guion tuyos)</summary>
+      <p class="m">Tú pones los lugares y el guion; Wivra solo reparte el tiempo y arma las tomas. No inventa rutas, horarios ni datos del lugar, y todo queda en tu teléfono.</p>
+      <label for="dirProdTitle">Título</label><input id="dirProdTitle" maxlength="150" placeholder="Ej.: Un día en Vancouver">
+      <div class="row">
+        <div><label for="dirProdFormat">Formato</label><select id="dirProdFormat" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"><option value="reel">Reel</option><option value="vertical_minidoc">Minidocumental vertical</option><option value="vertical_series">Serie vertical</option><option value="vertical_film">Película vertical</option></select></div>
+        <div><label for="dirProdLength">Duración final (s)</label><input id="dirProdLength" type="number" min="5" max="7200" value="60"></div>
+      </div>
+      <label for="dirProdNarr">Voz</label><select id="dirProdNarr" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"><option value="live">Hablo mientras grabo</option><option value="voiceover_later">Pongo mi voz después</option><option value="mixed">Mixta</option><option value="none">Sin voz</option></select>
+      <label for="dirProdPlaces">Lugares, uno por línea (opcional: «lugar | cómo grabarlo | guion»)</label>
+      <textarea id="dirProdPlaces" rows="5" placeholder="Granville Island | plano general y un detalle del mercado | Empezamos el día en el mercado…&#10;Stanley Park&#10;Gastown"></textarea>
+      <button id="dirProdCreate" class="btn" type="button">Crear plan de producción</button>
+      <p class="m" id="dirProdInfo" role="status" aria-live="polite"></p>
+    </details>
     <label for="dirSpot">Lugar o tema que quieres grabar</label><input id="dirSpot" placeholder="Ej.: el parque, una cafetería o el barrio">
     <div class="row">
       <div><label for="dirShotCount">Cantidad de tomas</label><input id="dirShotCount" type="number" min="3" max="12" value="5"></div>
@@ -460,6 +483,13 @@ body.dock .back{pointer-events:none;background:transparent}
     </div>
     <button id="dirGenerateChecklist" class="btn">Crear lista de tomas aquí</button>
     <div id="dirPlanInfo" class="m" role="status" aria-live="polite" style="margin:10px 0"></div>
+    <div id="dirCmdBox" style="margin:8px 0">
+      <label for="dirCmd">Dar una orden a la lista (escribe o dicta con el micrófono del teclado)</label>
+      <input id="dirCmd" list="dirCmdList" autocomplete="off" placeholder="Ej.: ya la hice · siguiente · repite · saltar">
+      <datalist id="dirCmdList"><option value="siguiente"><option value="repite"><option value="ya la hice"><option value="repetir toma"><option value="saltar"></datalist>
+      <button id="dirCmdGo" class="btn sec" type="button">Enviar orden</button>
+      <p class="m" id="dirCmdOut" role="status" aria-live="polite"></p>
+    </div>
     <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
     <input type="file" id="directorCamera" aria-label="Grabar con la cámara" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
     <p class="m">«Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma.</p>
@@ -2171,7 +2201,7 @@ function renderShootPlan(){
  const sub=document.createElement('p');sub.className='m';
  sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
  places.append(sub);
- for(const loc of shootPlan.shotLocations){
+ for(const loc of (shootPlan.shotLocations||[])){
   const hint=document.createElement('p');hint.className='m';hint.textContent='• '+loc.hint;places.append(hint);
  }
  for(const shot of shootPlan.shots){
@@ -2226,6 +2256,16 @@ function renderShootPlan(){
   };
   row.append(cam,choose);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
+  if(shot.script){
+   const sc=document.createElement('p');sc.className='m';sc.style.margin='4px 0';sc.textContent='Guion: '+(shot.script.length>140?shot.script.slice(0,140)+'…':shot.script)+' ('+tpSeconds(shot.script)+' s al leerlo)';
+   const tp=mkBtn('Abrir teleprompter',()=>openPrompter(shot));row2.append(tp);card.dataset.script='1';card.append(sc);
+  }
+  if(shootPlan.production){
+   const idx=shootPlan.shots.indexOf(shot),mv=(d)=>{const ids=shootPlan.shots.map(s=>s.id),j=idx+d;if(j<0||j>=ids.length)return;[ids[idx],ids[j]]=[ids[j],ids[idx]];
+    try{shootPlan=reorderOfflineProduction(shootPlan,ids);saveShootPlan();renderShootPlan()}catch(e){say(e.message,'bad')}};
+   const up=mkBtn('Subir',()=>mv(-1)),dn=mkBtn('Bajar',()=>mv(1));up.disabled=idx===0;dn.disabled=idx===shootPlan.shots.length-1;
+   up.setAttribute('aria-label','Subir la toma: '+shot.title);dn.setAttribute('aria-label','Bajar la toma: '+shot.title);row2.append(up,dn);
+  }
   if(shot.assetId){
     const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
     card.append(title,badge,body,linked,row,row2);
@@ -2233,6 +2273,57 @@ function renderShootPlan(){
   list.append(card);
  }
 }
+function dirParsePlaces(text){      // «lugar | cómo grabarlo | guion», una por línea
+ return String(text||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const [name,shootHint,...rest]=l.split('|').map(x=>x.trim());return {name,shootHint:shootHint||'',script:rest.join(' | ')}});
+}
+$('dirProdCreate').onclick=()=>{
+ const info=$('dirProdInfo');
+ try{
+  const places=dirParsePlaces($('dirProdPlaces').value);
+  shootPlan=createOfflineProduction({title:$('dirProdTitle').value,format:$('dirProdFormat').value,durationSeconds:Number($('dirProdLength').value),
+   locations:places,narrationMode:$('dirProdNarr').value,language:(i18nSaved()||'es')});
+  saveShootPlan();renderShootPlan();info.textContent='Plan creado: '+shootPlan.shots.length+' tomas. Está más abajo, en la lista de tomas.';
+ }catch(e){info.textContent='No se pudo crear el plan: '+(e instanceof RangeError?'revisa que haya entre 1 y 30 lugares y tiempo para cada uno.':'revisa el título y los datos.')}
+};
+/* Órdenes cortas para la lista de tomas (texto o dictado del teclado): «ya la hice», «siguiente», «repite», «repetir toma», «saltar». Saltar siempre pide confirmación. */
+function dirCurrentShot(){return shootPlan&&(shootPlan.shots.find(s=>s.id===selectedShootId&&(s.state==='todo'||s.state==='retry'))||shootPlan.shots.find(s=>s.state==='todo'||s.state==='retry')||null)}
+$('dirCmdGo').onclick=()=>{
+ const out=$('dirCmdOut');
+ if(!shootPlan){out.textContent='Primero crea una lista de tomas.';return}
+ const cmd=understandDirectorCommand($('dirCmd').value);
+ if(!cmd){out.textContent='No entendí esa orden. Prueba con: ya la hice, siguiente, repite, repetir toma o saltar.';return}
+ const cur=dirCurrentShot();
+ if(!cur){out.textContent='No quedan tomas pendientes.';return}
+ try{
+  if(cmd.action==='repeat'){out.textContent=cur.title+': '+cur.direction+(cur.script?' (Guion en el teleprompter.)':'');return}
+  if(cmd.action==='next'){const nxt=shootPlan.shots.find(s=>s.id!==cur.id&&(s.state==='todo'||s.state==='retry')&&shootPlan.shots.indexOf(s)>shootPlan.shots.indexOf(cur))||shootPlan.shots.find(s=>s.id!==cur.id&&(s.state==='todo'||s.state==='retry'));
+   if(!nxt){out.textContent='Esta es la última toma pendiente.';return}selectedShootId=nxt.id;out.textContent='Siguiente: '+nxt.title+'. '+nxt.direction;$('dirCmd').value='';return}
+  if(cmd.action==='skipped'&&!confirm(aiT('La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla?',cur.title)))return;
+  const st={accepted:'done',retry:'retry',skipped:'skipped'}[cmd.action];
+  shootPlan=updateShot(shootPlan,cur.id,st==='done'?{state:st}:{state:st,assetId:null});saveShootPlan();renderShootPlan();
+  const after=dirCurrentShot();out.textContent=({accepted:'Toma marcada como hecha.',retry:'Toma marcada para repetir.',skipped:'Toma saltada.'})[cmd.action]+(after?' Sigue: '+after.title+'.':' Ya no quedan tomas pendientes.');$('dirCmd').value='';
+ }catch(e){out.textContent=e.message}
+};
+$('dirCmd').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('dirCmdGo').click()}});
+/* Teleprompter (app/teleprompter.mjs): el guion de la toma se desplaza en pantalla; NO se graba ni se incrusta en ningún video. */
+let tprRaf=0,tprOn=false,tprSize=TP_DEFAULT_SIZE,tprLast=0;
+function tprStop(){tprOn=false;cancelAnimationFrame(tprRaf);$('tprPlay').textContent='Empezar'}
+function tprTick(ts){
+ if(!tprOn)return;const box=$('tprText'),words=tpWords(box.textContent),px=tpPxPerSecond(TP_SPEEDS[$('tprSpeed').value]||TP_SPEEDS.normal,box.scrollHeight-box.clientHeight*0.4,words);
+ const dt=tprLast?Math.min(0.1,(ts-tprLast)/1000):0;tprLast=ts;box.scrollTop+=px*dt;
+ if(box.scrollTop+box.clientHeight>=box.scrollHeight-1){tprStop();return}
+ tprRaf=requestAnimationFrame(tprTick);
+}
+function openPrompter(shot){
+ const box=$('tprText');box.textContent=tpClean(shot.script);box.style.fontSize=TP_SIZES[tprSize]+'px';box.scrollTop=0;
+ $('tprInfo').textContent=shot.title+' · '+tpWords(shot.script)+' palabras · ~'+tpSeconds(shot.script,TP_SPEEDS[$('tprSpeed').value])+' s';
+ $('tprm').classList.add('on');$('tprm').setAttribute('aria-hidden','false');tprStop();
+}
+$('tprPlay').onclick=()=>{if(tprOn){tprStop();return}tprOn=true;tprLast=0;$('tprPlay').textContent='Pausar';tprRaf=requestAnimationFrame(tprTick)};
+$('tprClose').onclick=()=>{tprStop();$('tprm').classList.remove('on');$('tprm').setAttribute('aria-hidden','true')};
+$('tprBigger').onclick=()=>{tprSize=Math.min(TP_SIZES.length-1,tprSize+1);$('tprText').style.fontSize=TP_SIZES[tprSize]+'px'};
+$('tprSmaller').onclick=()=>{tprSize=Math.max(0,tprSize-1);$('tprText').style.fontSize=TP_SIZES[tprSize]+'px'};
+$('tprSpeed').addEventListener('change',()=>{const t=$('tprText').textContent;$('tprInfo').textContent=$('tprInfo').textContent.replace(/~[\d.]+ s/,'~'+tpSeconds(t,TP_SPEEDS[$('tprSpeed').value])+' s')});
 $('dirGenerateChecklist').onclick=()=>{
  try{
   const subject=$('dirSpot').value.trim()||$('dirGoal').value.trim();
