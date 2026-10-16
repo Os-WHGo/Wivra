@@ -65,7 +65,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         }
         sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
             guard let self else { return }
-            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
             picker.allowsMultipleSelection = parameters.allowsMultipleSelection
             picker.delegate = self
             presenter.present(picker, animated: true)
@@ -81,8 +81,9 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     }
 
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        // Security-scoped file URLs from the document provider must be handled
-        // by the system; any inaccessible item is reported by the web editor.
+        // The document picker copies provider-owned media into the app sandbox.
+        // This avoids handing transient security-scoped provider URLs to WKWebView.
+        // Device QA must still confirm large MOV/CAF imports and disk quota.
         finishSelection(urls)
     }
 
