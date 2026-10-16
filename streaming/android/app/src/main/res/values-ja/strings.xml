@@ -69,4 +69,16 @@
     <string name="recording_review_previous">前へ</string>
     <string name="recording_review_next">次へ</string>
     <string name="recording_review_disclaimer">確認は端末内のみで行います。保存または削除を選択するまでファイルは変更されません。</string>
+    <string name="mobile_network_offline">オフライン</string>
+    <string name="mobile_network_wifi">Wi-Fi</string>
+    <string name="mobile_network_cellular">モバイル通信</string>
+    <string name="mobile_network_ethernet">Ethernet</string>
+    <string name="mobile_network_vpn">VPN</string>
+    <string name="mobile_network_other">その他</string>
+    <string name="mobile_network_system_validated">Android が確認済み</string>
+    <string name="mobile_network_unverified">Android が未確認</string>
+    <string name="mobile_network_summary">スマートフォンの回線: %1$s · %2$s</string>
+    <string name="mobile_network_disclaimer">速度、Ray-Ban 接続、LIVE の可用性は確認できません。</string>
+    <string name="mobile_network_checking">スマートフォンの回線を確認中…</string>
+    <string name="mobile_network_unavailable">スマートフォンの回線を確認できません。</string>
 </resources>
