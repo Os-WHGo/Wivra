@@ -15,9 +15,14 @@ export function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
     cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
-  if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
-  const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
+  // When a main picture exists, it determines export length. Music and
+  // overlays extending beyond the last picture must not append black frames.
+  // Audio/overlay-only projects retain their full duration for the planner.
+  if (!clips.length) {
+    const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
+    if (end > 0.05) { segments.push({ type: 'gap', dur: r2(end), start: 0 }); cursor = end; }
+  }
+  const textEnd = (project.texts || []).reduce((m, t) => Math.max(m, t.end), 0);
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
 }
 
