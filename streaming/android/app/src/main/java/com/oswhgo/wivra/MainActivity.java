@@ -63,10 +63,12 @@ public final class MainActivity extends Activity {
                 // Manual "Buscar en Archivos" remains available at all times.
                 boolean acceptsImage = false;
                 boolean acceptsVideo = false;
+                boolean acceptsAudio = false;
                 for (String accept : params.getAcceptTypes()) {
                     if (accept == null) continue;
                     if (accept.contains("image/")) acceptsImage = true;
                     if (accept.contains("video/")) acceptsVideo = true;
+                    if (accept.contains("audio/")) acceptsAudio = true;
                 }
                 Uri recent = acceptsImage
                     ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
@@ -94,6 +96,13 @@ public final class MainActivity extends Activity {
                             WivraPhoneMediaStore.latestSavedVideos(MainActivity.this)) {
                         labels.add(getString(R.string.picker_phone_video_named, video.getTitle()));
                         choices.add(video.getUri());
+                    }
+                }
+                if (acceptsAudio) {
+                    for (WivraPhoneMediaStore.SavedMedia audio :
+                            WivraPhoneMediaStore.latestSavedWav(MainActivity.this)) {
+                        labels.add(getString(R.string.picker_phone_audio_named, audio.getTitle()));
+                        choices.add(audio.getUri());
                     }
                 }
                 if (!choices.isEmpty()) {
