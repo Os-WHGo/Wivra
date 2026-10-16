@@ -69,4 +69,16 @@
     <string name="recording_review_previous">Anterior</string>
     <string name="recording_review_next">Siguiente</string>
     <string name="recording_review_disclaimer">Esta revisión es local. No se guarda ni se elimina ningún archivo hasta que lo decidas.</string>
+    <string name="mobile_network_offline">Sin conexión</string>
+    <string name="mobile_network_wifi">Wi-Fi</string>
+    <string name="mobile_network_cellular">Datos móviles</string>
+    <string name="mobile_network_ethernet">Ethernet</string>
+    <string name="mobile_network_vpn">VPN</string>
+    <string name="mobile_network_other">Otra ruta</string>
+    <string name="mobile_network_system_validated">Validada por Android</string>
+    <string name="mobile_network_unverified">Sin validar por Android</string>
+    <string name="mobile_network_summary">Red del teléfono: %1$s · %2$s</string>
+    <string name="mobile_network_disclaimer">Esto NO mide velocidad, ni verifica el enlace Ray-Ban ni garantiza LIVE.</string>
+    <string name="mobile_network_checking">Comprobando ruta de red del teléfono…</string>
+    <string name="mobile_network_unavailable">No se puede consultar la ruta de red del teléfono.</string>
 </resources>
