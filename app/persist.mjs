@@ -4,6 +4,7 @@
 // Qué se guarda: el proyecto (JSON), la lista de archivos (nombre, duración, tamaño) y, si cabe, los archivos mismos.
 // Qué NO se guarda: el historial de deshacer (al reabrir se empieza con el historial vacío).
 // Si el navegador no deja guardar un archivo (poco espacio), el proyecto igual se guarda y al reabrir pide ese archivo de nuevo.
+import { clipLength } from '../core/project.mjs';
 import { TEXT_STYLE_KEYS, textStyleProblem } from '../core/text-style.mjs';
 
 export const PERSIST_SCHEMA = 'wivra-project';
@@ -113,7 +114,7 @@ export function matchFiles(missing, files) {
 
 /** Resumen corto para la lista «Mis proyectos». */
 export function makeMeta({ id, name, project, now = Date.now() }) {
-  const end = [project.clips, project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  const end = [project.clips, project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
   return { id, name: String(name || '').slice(0, 60) || 'Proyecto', updatedAt: now, clips: project.clips.length + (project.overlayClips || []).length, duration: Math.round(end * 10) / 10 };
 }
 export const newProjectId = (now = Date.now(), rnd = Math.random()) => 'p' + now.toString(36) + Math.floor(rnd * 1296).toString(36);

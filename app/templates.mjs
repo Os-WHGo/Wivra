@@ -1,5 +1,6 @@
 // Plantillas de Wivra: recetas de formato + duración + look + título, hechas SOLO con operaciones normales del editor (un paso en «deshacer»).
 // Son recetas propias de estructura (no copian plantillas de otras apps ni usan su material). Lógica pura, sin DOM. — Claude
+import { clipLength } from '../core/project.mjs';
 import { planQuickAssembly } from './quick-assembly.mjs';
 import { LOOK_PRESETS } from '../core/filters.mjs';
 import { MAX_TRACKS } from '../core/operations.mjs';
@@ -56,9 +57,10 @@ const sfR = (x) => Math.round(x * 1000) / 1000;
  * Lo que venga después se corre para no dejar un hueco, y el audio que iba con la cara se va con ella.
  */
 export function planScreenFace(project) {
-  const kind = new Map((project.assets || []).map((a) => [a.id, a.kind])), len = (c) => c.out - c.in;
+  const kind = new Map((project.assets || []).map((a) => [a.id, a.kind])), len = clipLength;
   const vids = [...project.clips].sort((a, b) => a.start - b.start).filter((c) => kind.get(c.asset_id) !== 'image');
   if (vids.length < 2) return { ok: false, error: 'Esta plantilla necesita dos videos en la línea de tiempo: el 1.º es tu pantalla y el 2.º tu cara.' };
+  if (vids[0].speed || vids[1].speed) return { ok: false, error: 'Esta plantilla no funciona con clips en cámara lenta o rápida: vuelve la velocidad a 1× en los dos primeros videos.' };
   const screen = vids[0], face = vids[1], tracks = (project.overlayClips || []).map((o) => o.track || 1), track = Math.max(0, ...tracks) + 1;
   if (track > MAX_TRACKS) return { ok: false, error: `Ya hay ${MAX_TRACKS} capas: no cabe otra para la cara.` };
   const dur = sfR(Math.min(len(face), len(screen))), ops = [], warnings = [], lines = [];
@@ -71,7 +73,7 @@ export function planScreenFace(project) {
   // Audio que iba con un video: el de la cara se va con ella; el de los videos que se corren, también.
   let moved = 0;
   for (const a of project.audioClips || []) {
-    const alen = a.out - a.in; let home = null, best = 0;
+    const alen = clipLength(a); let home = null, best = 0;
     for (const c of project.clips) { const ov = Math.min(a.start + alen, c.start + len(c)) - Math.max(a.start, c.start); if (ov > best) { best = ov; home = c; } }
     if (!home || alen <= 0 || best < 0.8 * alen) continue;
     if (home.id === face.id) {
