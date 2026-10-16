@@ -22,7 +22,7 @@ test('a successfully closed CAF is recoverable even when HEVC has no video', () 
 test('orphan CAF stays private until explicit keep, even after relaunch', () => {
   assert.match(store, /private static let keptAudioSuffix = "\.wivra\.kept\.json"/);
   assert.match(store, /if stored\.id\.hasSuffix\("\.caf"\) \{/);
-  assert.match(store, /try Data\(\{?/); // keep marker atomic
+  assert.match(store, /try Data\(/); // kept decision marker is written atomically
   assert.match(store, /\.write\(to: kept, options: \[\.atomic\]\)/);
   assert.match(store, /folder\.appendingPathComponent\(name \+ keptAudioSuffix\)/);
   assert.match(store, /static func savedAudioOnlyURLs\(\) -> \[URL\]/);
