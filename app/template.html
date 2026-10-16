@@ -1202,6 +1202,61 @@ wrap().addEventListener('scroll', () => {
   if (Math.abs(t - tlTime) < 0.004) return;
   tlTime = t; showFrame(); labels();
 }, { passive: true });
+/* Línea de tiempo: con muchos clips cada redibujado crea miles de nodos. Las miniaturas (lo más pesado) solo se crean para lo que se ve
+   y un poco alrededor; al desplazarse se completan. Al recortar arrastrando un borde solo se rehace ese clip. — Claude */
+function tlWindow() { const w = wrap(), W = Math.max(w.clientWidth, 400); return [w.scrollLeft - W, w.scrollLeft + 2 * W]; }
+const inWindow = (b, win) => { const l = parseFloat(b.style.left), r = l + parseFloat(b.style.width); return r >= win[0] && l <= win[1]; };
+function fillThumbs(b, c) {
+  const mm = media[c.asset_id]; if (!mm || mm.kind === 'image' || b.dataset.th) return; b.dataset.th = '1'; const step = mm.step || 1, fr = document.createDocumentFragment();
+  for (const th of mm.thumbs) {
+    const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
+    if (left + w < 0 || left > (c.out - c.in) * pps) continue;
+    const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; fr.appendChild(im);
+  }
+  b.insertBefore(fr, b.firstChild);      // debajo de la etiqueta y de los bordes de recorte
+}
+function tlFillVisible() {
+  if (!session || tlPinch) return; const win = tlWindow();
+  for (const el of $('vtrack').children) { if (el.dataset.th || !el.dataset.id || !inWindow(el, win)) continue; const c = anyClip(el.dataset.id); if (c && !(drag && drag.id === c.id)) fillThumbs(el, c); }
+}
+let tlFillTimer = 0;
+$('tlwrap').addEventListener('scroll', () => { if (tlFillTimer) return; tlFillTimer = setTimeout(() => { tlFillTimer = 0; tlFillVisible(); }, 90); }, { passive: true });
+function buildMain(c0, L, win) {
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel mv' : ''); b.dataset.id = c.id;
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
+    const mm = media[c.asset_id], photo = !!mm && mm.kind === 'image';
+    if (photo && mm.photoThumb) { b.style.backgroundImage = `url(${mm.photoThumb})`; b.style.backgroundSize = 'auto 100%'; b.style.backgroundRepeat = 'repeat-x'; }
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (photo ? '▣ ' : '') + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('vtrack').appendChild(b);
+    if (!photo && inWindow(b, win)) fillThumbs(b, c);      // miniaturas solo de lo que se ve (y un poco alrededor); el resto se llena al desplazarse
+    if (photo) return;      // una foto no tiene pista de audio
+    // Pista de audio del clip: se ve debajo del video y se elige POR SEPARADO; el parlante la silencia o la activa.
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId && selPart === 'a' ? ' sel' : ''); ab.dataset.id = c.id;
+    ab.style.left = b.style.left; ab.style.width = b.style.width; const ln = document.createElement('span'); ln.className = 'ulb'; ln.textContent = c.muted ? 'sin audio' : 'audio'; ab.appendChild(ln);
+    $('atrack').appendChild(ab);
+}
+function buildOverlay(c0, nOv, L) {
+    if (c0.track > nOv) return;
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
+    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('otrack').appendChild(b);
+}
+/** Mientras se arrastra un borde de recorte solo cambia ESE clip: se rehace su bloque (y su audio) en vez de toda la línea. */
+let dragRaf = 0;
+function dragRender() {
+  if (dragRaf) return; dragRaf = requestAnimationFrame(() => {
+    dragRaf = 0; if (!drag || tlPinch || !session) return;
+    const id = drag.id, kind = kindOf(id), L = padL(), c0 = anyClip(id); if (!c0) return;
+    if (kind === 'main') { for (const tr of ['vtrack', 'atrack']) for (const el of [...$(tr).children]) if (el.dataset.id === id) el.remove(); buildMain(c0, L, tlWindow()); }
+    else if (kind === 'overlay') { for (const el of [...$('otrack').children]) if (el.dataset.id === id) el.remove(); buildOverlay(c0, nOvShown, L); }
+    else renderTimeline();
+  });
+}
 function renderTimeline() {
   if (tlPinch) { tlPinch.redo = true; if (performance.now() - tlPinch.t > 4000) tlPinchEnd(); return; }      // con dos dedos sobre la línea no se reemplaza nada (si no, el navegador deja de avisar de esos dedos); al soltar se dibuja todo. Si el gesto lleva 4 s sin señales (aviso perdido), se cierra solo
   const p = session?.project, inner = $('tlinner'), L = padL();
@@ -1244,36 +1299,10 @@ function renderTimeline() {
   const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
   for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (L + t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
   const spkBtn = (c, what) => { const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', (c.muted ? 'Activar ' : 'Silenciar ') + what); return sp; };
-  for (const c0 of sortedClips(p)) {
-    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
-    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel mv' : ''); b.dataset.id = c.id;
-    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
-    const mm = media[c.asset_id], step = mm ? mm.step : 1, photo = !!mm && mm.kind === 'image';
-    if (photo && mm.photoThumb) { b.style.backgroundImage = `url(${mm.photoThumb})`; b.style.backgroundSize = 'auto 100%'; b.style.backgroundRepeat = 'repeat-x'; }
-    for (const th of (photo ? [] : (mm ? mm.thumbs : []))) {
-      const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
-      if (left + w < 0 || left > (c.out - c.in) * pps) continue;
-      const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
-    }
-    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (photo ? '▣ ' : '') + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
-    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
-    $('vtrack').appendChild(b);
-    if (photo) continue;      // una foto no tiene pista de audio
-    // Pista de audio del clip: se ve debajo del video y se elige POR SEPARADO; el parlante la silencia o la activa.
-    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId && selPart === 'a' ? ' sel' : ''); ab.dataset.id = c.id;
-    ab.style.left = b.style.left; ab.style.width = b.style.width; const ln = document.createElement('span'); ln.className = 'ulb'; ln.textContent = c.muted ? 'sin audio' : 'audio'; ab.appendChild(ln);
-    $('atrack').appendChild(ab);
-  }
+  const win = tlWindow();
+  for (const c0 of sortedClips(p)) buildMain(c0, L, win);
   // Videos superpuestos: una fila por pista (la 1 arriba del todo en pantalla = la de más abajo en el cuadro de capas).
-  for (const c0 of (p.overlayClips || [])) {
-    if (c0.track > nOv) continue;
-    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
-    const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
-    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
-    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
-    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
-    $('otrack').appendChild(b);
-  }
+  for (const c0 of (p.overlayClips || [])) buildOverlay(c0, nOv, L);
   // Pistas de audio aparte (micrófono de una captura, música…): una barra por clip, con su parlante.
   for (const c of (p.audioClips || [])) {
     const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); ab.dataset.id = c.id;
@@ -1312,7 +1341,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
     const d = (ev.clientX - x0) / pps;
     if (side === 'l') drag.in = round2(Math.max(0, Math.min(c.in + d, c.out - 0.2)));
     else drag.out = round2(Math.min(a.duration, Math.max(c.out + d, c.in + 0.2)));
-    renderTimeline();
+    dragRender();
   };
   const up = () => {
     window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tlAborts.delete(abort);
