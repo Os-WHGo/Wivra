@@ -1,7 +1,7 @@
 // Plantillas de Wivra: recetas de formato + duración + look + título, hechas SOLO con operaciones normales del editor (un paso en «deshacer»).
 // Son recetas propias de estructura (no copian plantillas de otras apps ni usan su material). Lógica pura, sin DOM. — Claude
 import { clipLength, speedOf } from '../core/project.mjs';
-import { planQuickAssembly } from './quick-assembly.mjs';
+import { planQuickAssembly, qaLinkedAudioOps } from './quick-assembly.mjs';
 import { LOOK_PRESETS } from '../core/filters.mjs';
 import { MAX_TRACKS } from '../core/operations.mjs';
 
