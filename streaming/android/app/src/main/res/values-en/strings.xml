@@ -69,4 +69,16 @@
     <string name="recording_review_previous">Previous</string>
     <string name="recording_review_next">Next</string>
     <string name="recording_review_disclaimer">Review stays local. No file is permanently kept or deleted until you decide.</string>
+    <string name="mobile_network_offline">Offline</string>
+    <string name="mobile_network_wifi">Wi-Fi</string>
+    <string name="mobile_network_cellular">Cellular</string>
+    <string name="mobile_network_ethernet">Ethernet</string>
+    <string name="mobile_network_vpn">VPN</string>
+    <string name="mobile_network_other">Other route</string>
+    <string name="mobile_network_system_validated">Validated by Android</string>
+    <string name="mobile_network_unverified">Not validated by Android</string>
+    <string name="mobile_network_summary">Phone network: %1$s · %2$s</string>
+    <string name="mobile_network_disclaimer">This does NOT measure speed, verify the Ray-Ban connection or guarantee LIVE.</string>
+    <string name="mobile_network_checking">Checking phone network route…</string>
+    <string name="mobile_network_unavailable">Phone network route cannot be checked.</string>
 </resources>
