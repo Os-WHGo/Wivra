@@ -301,3 +301,6 @@ Duración {} s (se acortan {} clips) || Length {} s ({} clips shortened) || Dura
 Duración: ya cabe en {} s || Length: already fits in {} s || Duração: já cabe em {} s || Durée : tient déjà en {} s || Dauer: passt bereits in {} s || 長さ：すでに{}秒以内です || 时长：已在 {} 秒以内
 Color «{}» || Color “{}” || Cor “{}” || Couleur « {} » || Farbe „{}“ || 色「{}」 || 色彩“{}”
 Título «{}» los primeros {} s || Title “{}” for the first {} s || Título “{}” nos primeiros {} s || Titre « {} » pendant les {} premières s || Titel „{}“ in den ersten {} s || タイトル「{}」を最初の{}秒表示 || 标题“{}”显示前 {} 秒
+Agregar videos o fotos a la pista de video || Add videos or photos to the video track || Adicionar vídeos ou fotos à faixa de vídeo || Ajouter des vidéos ou des photos à la piste vidéo || Videos oder Fotos zur Videospur hinzufügen || ビデオトラックに動画や写真を追加 || 向视频轨道添加视频或照片
+Agregar otra capa de video encima || Add another video layer on top || Adicionar outra camada de vídeo por cima || Ajouter un autre calque vidéo au-dessus || Weitere Videoebene darüber hinzufügen || 上に動画レイヤーを追加 || 在上方再添加一个视频图层
+Video o foto encima (capa) || Video or photo on top (layer) || Vídeo ou foto por cima (camada) || Vidéo ou photo au-dessus (calque) || Video oder Foto darüber (Ebene) || 上に重ねる動画・写真（レイヤー） || 叠加在上方的视频或照片（图层）

@@ -327,7 +327,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <p class="m more">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="ovDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
-  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn" for="file" style="cursor:pointer">Video</label><label class="btn sec" for="ovFile" style="cursor:pointer">Video o foto encima (capa)</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
@@ -1357,14 +1357,14 @@ function renderTimeline() {
       b.textContent = allMuted ? '🔇' : '🔊'; b.setAttribute('aria-label', (allMuted ? 'Activar el sonido de toda la pista ' : 'Silenciar toda la pista ') + label); lh.appendChild(b);
     }
     if (!(plus && id)) { const sp = document.createElement('span'); sp.textContent = label; lh.appendChild(sp); }
-    if (plus) { const pb = document.createElement('button'); pb.className = 'lplus'; pb.type = 'button'; pb.dataset.add = plus; pb.textContent = '+'; pb.setAttribute('aria-label', plus === 'video' ? 'Agregar otra pista de video encima' : 'Agregar otra pista de audio'); lh.appendChild(pb); }
+    if (plus) { const pb = document.createElement('button'); pb.className = 'lplus'; pb.type = 'button'; pb.dataset.add = plus; pb.textContent = '+'; pb.setAttribute('aria-label', plus === 'main' ? 'Agregar videos o fotos a la pista de video' : plus === 'layer' ? 'Agregar otra capa de video encima' : 'Agregar otra pista de audio'); lh.appendChild(pb); }
     $('thead').appendChild(lh);
   };
   for (const ln of lanes) {
     const el = $(ln.id); el.style.top = top + 'px'; el.style.height = ln.h + 'px';
-    if (ln.id === 'otrack') for (let t = nOv; t >= 1; t--) addHead(top + (nOv - t) * OV_ROW, OV_ROW, 'Capa ' + t, 'otrack', t);
+    if (ln.id === 'otrack') for (let t = nOv; t >= 1; t--) addHead(top + (nOv - t) * OV_ROW, OV_ROW, 'Capa ' + t, 'otrack', t, t === nOv && nOv < UI_MAX_OVERLAY ? 'layer' : '');
     else if (ln.id === 'utrack') for (let t = 1; t <= nAu; t++) { const r0 = (p.audioClips || []).find(c => (c.track || 1) === t); addHead(top + (t - 1) * AU_ROW, AU_ROW, ({ voice_primary: 'Voz 1', voice_guest: 'Voz 2', music: 'Música' })[r0 && r0.role] || 'Aud. ' + t, 'utrack', t); }
-    else addHead(top, ln.h, ln.label, ln.id === 'atrack' ? ln.id : null, 0, ln.id === 'vtrack' ? 'video' : ln.id === 'atrack' ? 'audio' : '');
+    else addHead(top, ln.h, ln.label, ln.id === 'atrack' ? ln.id : null, 0, ln.id === 'vtrack' ? 'main' : ln.id === 'atrack' ? 'audio' : '');
     top += ln.h + 4;
   }
   const add = document.createElement('button'); add.id = 'addTrack'; add.type = 'button'; add.style.top = top + 'px'; add.textContent = '＋ Pista'; add.setAttribute('aria-label', 'Agregar pista de video o de audio');
@@ -1432,7 +1432,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
 });
 $('thead').addEventListener('click', (e) => {         // parlante de una pista completa, o + para agregar otra pista
-  const pl = e.target.closest('.lplus'); if (pl) { if (!session) return say('Primero elige el video principal.', 'bad'); $(pl.dataset.add === 'video' ? 'ovFile' : 'auFile').click(); return; }
+  const pl = e.target.closest('.lplus'); if (pl) { if (!session) return say('Primero elige el video principal.', 'bad'); $(pl.dataset.add === 'main' ? 'file' : pl.dataset.add === 'layer' ? 'ovFile' : 'auFile').click(); return; }      // «+» de la pista de Video: más videos y fotos EN la pista principal (en el corte más cercano); «+» de Capas: un video o imagen ENCIMA
   const b = e.target.closest('.tspk'); if (!b || b.disabled || !session) return;
   const p = session.project, track = Number(b.dataset.track);
   const g = b.dataset.lane === 'atrack' ? p.clips : b.dataset.lane === 'utrack' ? (p.audioClips || []).filter(c => (c.track || 1) === track) : (p.overlayClips || []).filter(c => c.track === track);
@@ -1769,7 +1769,7 @@ $('play').onclick = () => {
     const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
     if (!hit) {                                   // hueco: la imagen queda en negro, pero el audio y los superpuestos siguen sonando
       const now = performance.now(), dt = Math.min(0.1, (now - (gapT || now)) / 1000); gapT = now;
-      if (cur !== null) { cur = null; $('v').pause(); }
+      cur = null; if (!$('v').paused) $('v').pause();   // siempre pausar: al llegar al final de un clip «cur» ya es null y, si no, el audio del video anterior seguía sonando sobre la foto o el hueco
       $('v').style.visibility = 'hidden';
       if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
       tlTime += dt; syncMedia();
@@ -1778,7 +1778,7 @@ $('play').onclick = () => {
     }
     if (isPhoto(hit.clip)) {                      // foto: no hay <video>; el tiempo corre con el reloj, como en un hueco, y la foto se dibuja en #fxMain
       const now = performance.now(), dt = Math.min(0.1, (now - (gapT || now)) / 1000); gapT = now;
-      if (cur !== null) { cur = null; $('v').pause(); }
+      cur = null; if (!$('v').paused) $('v').pause();   // siempre pausar: al llegar al final de un clip «cur» ya es null y, si no, el audio del video anterior seguía sonando sobre la foto o el hueco
       $('v').style.visibility = 'hidden'; photoOf(hit.clip);
       if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
       tlTime += dt; syncMedia();
