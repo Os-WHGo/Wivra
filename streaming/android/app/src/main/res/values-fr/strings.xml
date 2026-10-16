@@ -81,4 +81,6 @@
     <string name="mobile_network_disclaimer">Ne mesure PAS le débit et ne valide ni Ray-Ban ni LIVE.</string>
     <string name="mobile_network_checking">Vérification du réseau du téléphone…</string>
     <string name="mobile_network_unavailable">Impossible de vérifier le réseau du téléphone.</string>
+    <string name="picker_wivra_media_title">Choisir une photo ou vidéo Wivra</string>
+    <string name="picker_wivra_video_named">Vidéo Ray-Ban enregistrée : %1$s</string>
 </resources>
