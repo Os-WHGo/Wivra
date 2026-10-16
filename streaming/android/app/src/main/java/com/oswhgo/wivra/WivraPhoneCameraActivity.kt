@@ -167,6 +167,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
         viewfinder = PreviewView(this).apply {
+            // TextureView-based preview avoids device-specific SurfaceView Z order
+            // that could hide the native Director teleprompter overlay.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             contentDescription = getString(R.string.phone_camera_preview)
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
