@@ -48,6 +48,8 @@ jobs:
         run: node --test streaming/tests/android-rayban-photo-import.test.mjs
       - name: Check offline HEVC MP4 video-only recording contract
         run: node --test streaming/tests/android-rayban-mp4-recording.test.mjs
+      - name: Verify pending video decisions and explicit delete consent
+        run: node --test streaming/tests/android-rayban-pending-video.test.mjs
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
