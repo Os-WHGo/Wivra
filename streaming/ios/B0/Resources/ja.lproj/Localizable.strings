@@ -23,3 +23,13 @@
 "ios.library.title" = "マイキャプチャ";
 "ios.library.close" = "閉じる";
 "ios.library.refresh" = "更新";
+"ios.record.pending_title" = "この録画を保存しますか？";
+"ios.record.pending_description" = "動画と音声トラックは、選択するまで Wivra 内に保存されます。この画面を閉じても削除されません。";
+"ios.record.keep" = "Wivra に保存";
+"ios.record.dont_save" = "保存しない";
+"ios.record.later" = "後で決める";
+"ios.record.delete_confirm_title" = "この録画を削除しますか？";
+"ios.record.delete_confirm_description" = "確認した場合のみ関連するローカルファイルを削除します。配信プラットフォーム上のコピーは Wivra から削除できません。";
+"ios.record.delete_confirm" = "録画を削除";
+"ios.record.pending_notice" = "録画は保存確認待ちのため、エディターで利用できません。";
+"ios.record.review_pending" = "保留中の録画を確認";
