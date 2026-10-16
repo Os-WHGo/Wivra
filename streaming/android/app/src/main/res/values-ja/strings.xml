@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">削除する</string>
     <string name="recording_discarded">一時録画を削除しました。</string>
     <string name="recording_delete_failed">一時録画を削除できませんでした。ファイルは残っています。</string>
+    <string name="recording_frames_checkpoints">録画：%1$d フレーム、保護済み MP4 セグメント %2$d 個。</string>
+    <string name="recording_pending_multiple_parts">この録画には独立した MP4 セグメントが %1$d 個あります。まだ 1 つの動画に結合されていません。</string>
+    <string name="recording_partially_saved">%2$d 個のうち %1$d 個を保存しました。残りは保留中です。</string>
 </resources>
