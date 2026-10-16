@@ -138,4 +138,15 @@
     <string name="teleprompter_bigger">Testo +</string>
     <string name="teleprompter_hide">Nascondi / mostra</string>
     <string name="teleprompter_wpm">Lettura: %1$d parole al minuto</string>
+    <string name="phone_camera_source_choose">Scegli ingresso microfono</string>
+    <string name="phone_camera_source_auto">Microfono: automatico</string>
+    <string name="phone_camera_source_selected">Microfono WAV: %1$s</string>
+    <string name="phone_camera_source_wav_only">Scegli WAV separato e ferma la registrazione prima di selezionare il microfono.</string>
+    <string name="phone_camera_source_enable_bluetooth">Consenti microfoni Bluetooth (opzionale)</string>
+    <string name="phone_camera_source_bluetooth_denied">Bluetooth non consentito. Restano disponibili microfoni telefono e USB.</string>
+    <string name="phone_camera_source_built_in">Microfono telefono</string>
+    <string name="phone_camera_source_wired">Microfono con cavo</string>
+    <string name="phone_camera_source_usb">Microfono USB</string>
+    <string name="phone_camera_source_bluetooth">Microfono Bluetooth</string>
+    <string name="phone_camera_source_external">Microfono esterno</string>
 </resources>

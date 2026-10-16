@@ -1,5 +1,6 @@
 package com.oswhgo.wivra
 
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -19,7 +20,10 @@ import java.util.concurrent.atomic.AtomicLong
  * integrated + separate mic recording or sample-accurate first-frame sync.
  * Android native AudioRecord, offline, no cloud/SDK/account required.
  */
-class WivraPhoneWavRecorder(private val file: File) {
+class WivraPhoneWavRecorder(
+    private val file: File,
+    private val preferredDevice: AudioDeviceInfo? = null
+) {
     data class Result(
         val file: File,
         val sampleRateHz: Int,
@@ -86,6 +90,14 @@ class WivraPhoneWavRecorder(private val file: File) {
             record.release()
             throw IllegalStateException("Could not initialize WAV recorder")
         }
+        // A selected external mic must be accepted by Android routing before
+        // recording. Never fall back silently to an unintended microphone.
+        if (preferredDevice != null) {
+            if (!preferredDevice.isSource || !record.setPreferredDevice(preferredDevice)) {
+                record.release()
+                throw IllegalStateException("Selected microphone route unavailable")
+            }
+        }
         try {
             record.startRecording()
             check(record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -102,6 +114,7 @@ class WivraPhoneWavRecorder(private val file: File) {
             var firstReadNs = 0L
             var failure: String? = null
             var written = 0L
+            var routeChecked = false
             try {
                 RandomAccessFile(file, "rw").use { wav ->
                     wav.setLength(0L)
@@ -115,6 +128,14 @@ class WivraPhoneWavRecorder(private val file: File) {
                             break
                         }
                         if (count == 0) continue
+                        if (!routeChecked && preferredDevice != null) {
+                            val routed = record.routedDevice
+                            if (routed == null || routed.id != preferredDevice.id) {
+                                failure = "Selected microphone was not the active input"
+                                break
+                            }
+                            routeChecked = true
+                        }
                         if (firstReadNs == 0L) {
                             // This is an approximate read-completion clock,
                             // NOT a hardware-verified first-sample timestamp.
