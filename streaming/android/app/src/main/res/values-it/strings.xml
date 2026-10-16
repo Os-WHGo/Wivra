@@ -31,4 +31,11 @@
     <string name="stream_failed">Errore video: %1$s</string>
     <string name="stream_start_failed">Impossibile avviare il video: %1$s</string>
     <string name="disconnected">Disconnesso; editor invariato.</string>
+    <string name="capture_photo">4. Scatta foto con Ray-Ban</string>
+    <string name="photo_requires_stream">Attendi il video degli occhiali prima di scattare una foto.</string>
+    <string name="photo_capture_progress">Scatto foto dagli occhiali…</string>
+    <string name="photo_saved">Foto salvata in Immagini/Wivra (%1$s). Torna all’editor e scegli la foto recente.</string>
+    <string name="photo_save_failed">Impossibile salvare la foto: %1$s</string>
+    <string name="picker_last_photo">Usa l’ultima foto Ray-Ban Wivra</string>
+    <string name="picker_browse_files">Sfoglia File</string>
 </resources>
