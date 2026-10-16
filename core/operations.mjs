@@ -2,9 +2,11 @@
 // — Claude
 import { clipLength, totalDuration } from './project.mjs';
 import { LOOK_IDS, filterProblem, mergeFilter, FILTER_KEYS } from './filters.mjs';
+import { TEXT_STYLE_KEYS, textStyleProblem, applyTextStyle } from './text-style.mjs';
 
-const MAX_TEXT = 120;
+export const MAX_TEXT = 120;
 const err = (code, message) => ({ ok: false, code, message });
+const styleProblem = (st) => { for (const k of Object.keys(st)) { const b = textStyleProblem(k, st[k]); if (b) return b; } return null; };      // solo pos, size, color y box (cualquier otra propiedad sobrante se rechaza)
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
 // Los clips de audio (pistas aparte, p. ej. el micrófono de una captura) viven en p.audioClips y comparten operaciones con los de video.
@@ -201,14 +203,37 @@ const handlers = {
     }
     return err('unknown_clip', `No existe el clip ${clip_id}`);
   },
-  add_text(p, { text, start, duration }) {
+  // Opcional: pos (top|middle|bottom), size (s|m|l|xl), color (#rrggbb) y box (color de caja de fondo o 'none').
+  add_text(p, { text, start, duration, ...style }) {
     if (typeof text !== 'string' || !text.trim() || text.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
     if (!num(start) || !num(duration) || start < 0 || duration <= 0) return err('bad_time', 'start >= 0 y duration > 0');
+    const bad = styleProblem(style); if (bad) return err('bad_text_style', bad);
     const total = totalDuration(p);
     if (start >= total) return err('out_of_range', `El video dura ${total} s; el texto empieza en ${start}`);
-    const id = `t${p.nextId++}`;
-    p.texts.push({ id, text, start, end: Math.min(start + duration, total) });
+    const id = `t${p.nextId++}`, t = { id, text, start, end: Math.min(start + duration, total) };
+    applyTextStyle(t, style); p.texts.push(t);
     return { ok: true, id };
+  },
+  // Cambia el texto y/o los tiempos de un texto en pantalla (subtítulo). Mismas reglas que add_text; `duration` mueve el final.
+  set_text(p, { text_id, text, start, duration, ...style }) {
+    const t = (p.texts || []).find((k) => k.id === text_id);
+    if (!t) return err('unknown_text', `No existe el texto ${text_id}`);
+    if (text === undefined && start === undefined && duration === undefined && !TEXT_STYLE_KEYS.some((k) => style[k] !== undefined)) return err('bad_text', 'Indica text, start, duration y/o estilo (pos, size, color, box)');
+    const bad = styleProblem(style); if (bad) return err('bad_text_style', bad);
+    if (text === undefined && start === undefined && duration === undefined) { applyTextStyle(t, style); return { ok: true }; }      // solo estilo: no se revisan los tiempos
+    const nt = text === undefined ? t.text : text, ns = start === undefined ? t.start : start, nd = duration === undefined ? t.end - t.start : duration;
+    if (typeof nt !== 'string' || !nt.trim() || nt.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
+    if (!num(ns) || !num(nd) || ns < 0 || nd <= 0) return err('bad_time', 'start >= 0 y duration > 0');
+    const total = totalDuration(p);
+    if (ns >= total) return err('out_of_range', `El video dura ${total} s; el texto empieza en ${ns}`);
+    t.text = nt; t.start = ns; t.end = Math.min(ns + nd, total); applyTextStyle(t, style);
+    return { ok: true };
+  },
+  delete_text(p, { text_id }) {
+    const i = (p.texts || []).findIndex((k) => k.id === text_id);
+    if (i < 0) return err('unknown_text', `No existe el texto ${text_id}`);
+    p.texts.splice(i, 1);
+    return { ok: true };
   },
 };
 

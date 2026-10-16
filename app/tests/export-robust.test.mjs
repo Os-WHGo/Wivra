@@ -1,0 +1,36 @@
+// Exportación más robusta: tamaño/calidad según duración, esperas con tiempo límite y cancelables. — Claude
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { exportBitrate, exportSizeMB, waitEvent, EXPORT_BPS, EXPORT_MIN_BPS, STALL_SECONDS } from '../export.mjs';
+
+test('bitrate: pleno hasta 2 min, baja después y nunca menos de 3 Mbps', () => {
+  assert.equal(exportBitrate(10), EXPORT_BPS); assert.equal(exportBitrate(120), EXPORT_BPS);
+  assert.equal(exportBitrate(240), 4_000_000); assert.equal(exportBitrate(3600), EXPORT_MIN_BPS);
+  assert.equal(exportBitrate(0), EXPORT_BPS); assert.equal(exportBitrate(NaN), EXPORT_BPS);
+});
+test('el tamaño estimado nunca pasa de ~120 MB hasta 5 min y crece con la duración corta', () => {
+  assert.equal(exportSizeMB(10), 10); assert.equal(exportSizeMB(120), 120); assert.ok(exportSizeMB(300) <= 120 + 1, String(exportSizeMB(300)));
+  assert.equal(exportSizeMB(0), 1);
+});
+const fake = () => { const l = {}; return { addEventListener: (e, f) => { (l[e] ||= new Set()).add(f); }, removeEventListener: (e, f) => l[e] && l[e].delete(f), fire: (e) => [...(l[e] || [])].forEach((f) => f()), n: () => Object.values(l).reduce((a, s) => a + s.size, 0) }; };
+test('waitEvent: resuelve con el evento y limpia sus oyentes', async () => {
+  const el = fake(); const p = waitEvent(el, 'seeked', { ms: 1000 }); el.fire('seeked'); await p; assert.equal(el.n(), 0);
+});
+test('waitEvent: error del medio → mensaje claro; tiempo límite → mensaje claro', async () => {
+  const el = fake(); const p = waitEvent(el, 'loadedmetadata', { ms: 1000, what: 'Un video' }); el.fire('error'); await assert.rejects(p, /No se pudo leer un video para exportar/); assert.equal(el.n(), 0);
+  await assert.rejects(waitEvent(fake(), 'seeked', { ms: 30, what: 'Un video' }), /tardó demasiado en responder \(más de 0 s\)/);
+});
+test('waitEvent: cancelar mientras espera termina la espera (antes quedaba colgada)', async () => {
+  let c = false; const el = fake(); const p = waitEvent(el, 'seeked', { ms: 5000, isCancelled: () => c }); setTimeout(() => { c = true; }, 50); const t = Date.now(); await p; assert.ok(Date.now() - t < 1500); assert.equal(el.n(), 0);
+});
+test('recordProject: avisa si la app pasa a segundo plano, se traba un video o falla la grabación', () => {
+  const src = readFileSync(new URL('../export.mjs', import.meta.url), 'utf8');
+  assert.match(src, /addEventListener\('visibilitychange', onVis\)/); assert.match(src, /removeEventListener\('visibilitychange', onVis\)/); assert.match(src, /if \(interrupted\) return \{ interrupted: true \}/);
+  assert.match(src, /El video se trabó y no avanzó/); assert.match(src, /rec\.onerror/); assert.match(src, /No se grabó nada/);
+  assert.ok(STALL_SECONDS >= 5 && STALL_SECONDS <= 15);
+});
+test('la plantilla y el archivo final muestran el tamaño, el aviso de video largo y el de interrupción', () => {
+  for (const f of ['../template.html', '../dist/agentcut.html']) { const h = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.match(h, /id="expLong"/, f); assert.match(h, /exportSizeMB\(plan\.total\)/, f); assert.match(h, /if \(r\.interrupted\)/, f); }
+});
