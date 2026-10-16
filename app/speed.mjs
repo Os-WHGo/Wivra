@@ -1,7 +1,8 @@
 // Velocidad de un clip (cámara lenta / rápida). Solo lógica pura, sin DOM. — Claude
 // `in`/`out` siguen siendo segundos del medio original; la velocidad solo cambia cuánto dura el clip en la línea de tiempo: (out − in) / velocidad.
 // Al cambiarla en el video PRINCIPAL, lo que viene después se corre (como al recortar), y el audio que iba con ese video cambia igual.
-import { clipLength, speedOf, SPEED_MIN, SPEED_MAX } from '../core/project.mjs';
+import { clipLength, speedOf, totalDuration, SPEED_MIN, SPEED_MAX } from '../core/project.mjs';
+import { applyBatch } from '../core/operations.mjs';
 
 export const SPEED_CHOICES = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 export const SPEED_SAFE_MIN = 0.5, SPEED_SAFE_MAX = 2;      // fuera de este rango el navegador puede dejar el sonido raro o mudo (en iPhone: sin verificar)
@@ -51,4 +52,25 @@ export function planSpeed(project, clipId, speed) {
     if (linked) warnings.push('El audio que iba con este video cambió de velocidad igual.');
   }
   return { ok: true, ops, before: spR2(before), after, linked, warnings };
+}
+
+/**
+ * planSpeedAll(project, speed) → { ok, ops, before, after, count, skipped, warnings } | { ok:false, error }
+ * La misma velocidad para TODOS los videos de la línea principal (las fotos no tienen velocidad y se saltan). Se planea de a un clip sobre una copia del proyecto,
+ * para que cada clip corra lo que sigue con su duración ya cambiada. Un solo paso en «deshacer».
+ */
+export function planSpeedAll(project, speed) {
+  if (!project) return { ok: false, error: 'No hay proyecto.' };
+  const kind = new Map((project.assets || []).map((a) => [a.id, a.kind]));
+  const vids = [...(project.clips || [])].sort((a, b) => a.start - b.start).filter((c) => kind.get(c.asset_id) !== 'image');
+  if (!vids.length) return { ok: false, error: 'No hay videos en la línea principal.' };
+  let cur = project; const ops = [], warnings = new Set(); let count = 0;
+  for (const c of vids) {
+    const pl = planSpeed(cur, c.id, speed); if (!pl.ok) return pl;
+    if (!pl.ops.length) continue;
+    const r = applyBatch(cur, pl.ops); if (!r.ok) return { ok: false, error: r.message || 'No se pudo cambiar la velocidad.' };
+    cur = r.project; ops.push(...pl.ops); count++; pl.warnings.forEach((w) => warnings.add(w));
+  }
+  const skipped = (project.clips || []).length - vids.length;
+  return { ok: true, ops, before: spR2(totalDuration(project)), after: spR2(totalDuration(cur)), count, skipped, warnings: [...warnings] };
 }

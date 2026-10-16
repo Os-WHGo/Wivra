@@ -702,3 +702,9 @@ Sobra 1 clip: sigue después de los huecos, sin cambios. || Avanza 1 clip: segue
 Sobran {} clips: siguen después de los huecos, sin cambios. || Avanzano {} clip: seguono dopo gli slot, senza modifiche.
 Algún video dura menos que su hueco: queda más corto. || Un video dura meno del suo slot: resta più corto.
 Las capas, los audios aparte y los textos que ya había no se mueven: revisa su tiempo. || Livelli, audio separati e testi già presenti non vengono spostati: controlla i loro tempi.
+Todos los videos || Tutti i video
+Todos los videos de la línea principal van a la misma velocidad (las fotos no cambian). || Tutti i video della linea principale vanno alla stessa velocità (le foto non cambiano).
+No hay videos en la línea principal. || Non ci sono video nella linea principale.
+Ya tienen esa velocidad. || Hanno già quella velocità.
+Ahora dura {1} s (antes {2} s). || Ora dura {1} s (prima {2} s).
+{1} videos cambiados. El video ahora dura {2} s (antes {3} s). || {1} video modificati. Il video ora dura {2} s (prima {3} s).

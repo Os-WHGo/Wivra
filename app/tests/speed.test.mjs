@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, clipLength, speedOf, srcTime, totalDuration, timelineEnd } from '../../core/project.mjs';
 import { applyBatch } from '../../core/operations.mjs';
-import { planSpeed, SPEED_CHOICES } from '../speed.mjs';
+import { planSpeed, planSpeedAll, SPEED_CHOICES } from '../speed.mjs';
 import { clipAt, splitAt, planEdit, rippleOps } from '../timeline.mjs';
 import { exportPlan, audioStartAt, overlayAt, fxAt } from '../export.mjs';
 import { buildMix } from '../loudness.mjs';
@@ -97,4 +97,21 @@ test('ritmo: usa la duración con velocidad', () => {
 test('rippleOps/planEdit cierran huecos con la duración real', () => {
   const p = applyBatch(base(), [{ op: 'set_clip_speed', clip_id: 'c1', speed: 2 }]).project;
   const ops = rippleOps(p); assert.deepEqual(ops, [{ op: 'move_clip', clip_id: 'c2', start: 5 }]);
+});
+
+test('velocidad a todos los videos: cada uno cambia, lo que sigue se corre y el audio ligado cambia igual; un solo lote', () => {
+  const p = base(), pl = planSpeedAll(p, 2); assert.ok(pl.ok, JSON.stringify(pl)); assert.equal(pl.count, 2); assert.equal(pl.before, 18); assert.equal(pl.after, 9);
+  const r = applyBatch(p, pl.ops); assert.ok(r.ok, JSON.stringify(r)); const q = r.project;
+  assert.deepEqual(q.clips.map((c) => [c.id, c.speed, c.start, clipLength(c)]), [['c1', 2, 0, 5], ['c2', 2, 5, 4]]);
+  assert.equal(q.audioClips.find((a) => a.id === 'u3').speed, 2);          // el audio que iba con c1
+  assert.equal(totalDuration(q), 9);
+  assert.equal(planSpeedAll(q, 2).ops.length, 0);                          // ya están a 2×: no hay nada que hacer
+  const back = applyBatch(q, planSpeedAll(q, 1).ops); assert.ok(back.ok); assert.equal(totalDuration(back.project), 18); assert.ok(back.project.clips.every((c) => c.speed === undefined));
+});
+test('velocidad a todos: saltan las fotos y falla con claridad sin videos o fuera de rango', () => {
+  let p = createProject({ assets: [{ id: 'p', kind: 'image', name: 'f.jpg', duration: 3600 }, { id: 'a1', kind: 'video', name: 'a', duration: 20 }] });
+  p = applyBatch(p, [{ op: 'add_photo_clip', asset_id: 'p', start: 0, duration: 3 }, { op: 'add_clip', asset_id: 'a1', start: 3 }, { op: 'trim_clip', clip_id: 'c2', in: 0, out: 8 }]).project;
+  const pl = planSpeedAll(p, 4); assert.ok(pl.ok); assert.equal(pl.count, 1); assert.equal(pl.skipped, 1); const q = applyBatch(p, pl.ops).project; assert.equal(q.clips[0].speed, undefined); assert.equal(q.clips[1].speed, 4); assert.equal(totalDuration(q), 5);
+  assert.equal(planSpeedAll(applyBatch(createProject({ assets: [{ id: 'p', kind: 'image', name: 'f', duration: 3600 }] }), [{ op: 'add_photo_clip', asset_id: 'p', start: 0, duration: 3 }]).project, 2).ok, false);
+  assert.equal(planSpeedAll(p, 9).ok, false);
 });

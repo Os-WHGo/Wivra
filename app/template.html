@@ -326,6 +326,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sSpeed"><h2>Velocidad</h2><p class="m" id="spInfo">Elige un video, una capa o un audio en la línea de tiempo.</p>
+  <div class="chips" id="spScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los videos</button></div>
   <div class="chips" id="spChips" role="group" aria-label="Velocidad"></div>
   <p class="m more">1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre.</p>
   <p class="m more" id="spNote" style="display:none">Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip.</p>
@@ -976,22 +977,26 @@ function fxCommit(args) {
 }
 // ---- Velocidad (cámara lenta / rápida): planSpeed arma todas las operaciones (clip, audio ligado y lo que sigue) y se aplican de una vez ----
 $('spChips').innerHTML = SPEED_CHOICES.map(v => `<button type="button" data-v="${v}">${speedLabel(v)}</button>`).join('');
+let spAll = false;
 function spSync() {
-  const c = anyClip(selId), ok = !!c && (media[c.asset_id] || {}).kind !== 'image', cur = ok ? speedOf(c) : 1;
-  $('spInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : kindOf(c.id) === 'audio' ? 'Audio' : 'Video'} · ${(media[c.asset_id] || {}).name || ''} · ${fmt(clipLength(c))} s` : 'Elige un video, una capa o un audio en la línea de tiempo.';
-  document.querySelectorAll('#spChips button').forEach(b => { b.disabled = !ok; b.classList.toggle('on', ok && Math.abs(Number(b.dataset.v) - cur) < 0.0005); });
-  $('spNote').style.display = ok && (cur < SPEED_SAFE_MIN || cur > SPEED_SAFE_MAX) ? '' : 'none';
+  const c = anyClip(selId), ok = !!c && (media[c.asset_id] || {}).kind !== 'image', cur = ok ? speedOf(c) : 1, haveVid = !!session && session.project.clips.some(k => (media[k.asset_id] || {}).kind !== 'image');
+  document.querySelectorAll('#spScope button').forEach(b => b.classList.toggle('on', (b.dataset.s === 'all') === spAll));
+  $('spInfo').textContent = spAll ? (haveVid ? 'Todos los videos de la línea principal van a la misma velocidad (las fotos no cambian).' : 'No hay videos en la línea principal.') : ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : kindOf(c.id) === 'audio' ? 'Audio' : 'Video'} · ${(media[c.asset_id] || {}).name || ''} · ${fmt(clipLength(c))} s` : 'Elige un video, una capa o un audio en la línea de tiempo.';
+  const can = spAll ? haveVid : ok;
+  document.querySelectorAll('#spChips button').forEach(b => { b.disabled = !can; b.classList.toggle('on', !spAll && ok && Math.abs(Number(b.dataset.v) - cur) < 0.0005); });
+  $('spNote').style.display = !spAll && ok && (cur < SPEED_SAFE_MIN || cur > SPEED_SAFE_MAX) ? '' : 'none';
 }
 $('bSpeed').onclick = () => { $('spOut').textContent = ''; spSync(); openSheet('sSpeed'); };
 $('spDone').onclick = closeSheets;
+$('spScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; spAll = b.dataset.s === 'all'; $('spOut').textContent = ''; spSync(); });
 $('spChips').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b || b.disabled || !selId) return;
-  const plan = planSpeed(session.project, selId, Number(b.dataset.v));
+  const b = e.target.closest('button'); if (!b || b.disabled || (!spAll && !selId)) return;
+  const v = Number(b.dataset.v), plan = spAll ? planSpeedAll(session.project, v) : planSpeed(session.project, selId, v);
   if (!plan.ok) { $('spOut').textContent = plan.error; say(plan.error, 'bad'); return; }
-  if (!plan.ops.length) { $('spOut').textContent = plan.warnings[0] || ''; return; }
+  if (!plan.ops.length) { $('spOut').textContent = plan.warnings[0] || 'Ya tienen esa velocidad.'; return; }
   stopPlayIfAny(); const r = edit(plan.ops, { ripple: false });
   if (!r.ok) { $('spOut').textContent = 'No se pudo: ' + r.message; say('No se pudo: ' + r.message, 'bad'); return; }
-  $('spOut').textContent = `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).` + (plan.warnings.length ? ' ' + plan.warnings.join(' ') : '');
+  $('spOut').textContent = (spAll ? aiT('{1} videos cambiados. El video ahora dura {2} s (antes {3} s).', plan.count, fmt(plan.after), fmt(plan.before)) : aiT('Ahora dura {1} s (antes {2} s).', fmt(plan.after), fmt(plan.before))) + (plan.warnings.length ? ' ' + plan.warnings.join(' ') : '');
   spSync(); syncMedia();
 });
 $('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
