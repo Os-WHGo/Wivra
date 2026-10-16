@@ -61,4 +61,12 @@
     <string name="recording_frames_checkpoints">録画：%1$d フレーム、保護済み MP4 セグメント %2$d 個。</string>
     <string name="recording_pending_multiple_parts">この録画には独立した MP4 セグメントが %1$d 個あります。まだ 1 つの動画に結合されていません。</string>
     <string name="recording_partially_saved">%2$d 個のうち %1$d 個を保存しました。残りは保留中です。</string>
+    <string name="recording_review_video">動画を確認</string>
+    <string name="recording_review_title">保留中の録画を確認</string>
+    <string name="recording_review_part">セグメント %1$d / %2$d</string>
+    <string name="recording_review_close">確認を終了</string>
+    <string name="recording_review_unavailable">このセグメントは再生できません。</string>
+    <string name="recording_review_previous">前へ</string>
+    <string name="recording_review_next">次へ</string>
+    <string name="recording_review_disclaimer">確認は端末内のみで行います。保存または削除を選択するまでファイルは変更されません。</string>
 </resources>
