@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -67,7 +69,21 @@ public final class MainActivity extends Activity {
                 }
             }
         });
-        setContentView(editor);
+        // A single native app: same Claude editor plus explicit Meta glasses entry.
+        // Returning from the glasses diagnostics keeps this editor WebView instance.
+        LinearLayout shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        Button glasses = new Button(this);
+        glasses.setText("Ray-Ban Meta");
+        glasses.setContentDescription("Conectar gafas Ray-Ban Meta");
+        glasses.setOnClickListener(v -> startActivity(
+            new Intent(this, WivraMetaPreviewActivity.class)));
+        shell.addView(glasses, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+        shell.addView(editor, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        setContentView(shell);
         editor.loadUrl("file:///android_asset/agentcut.html");
     }
 
