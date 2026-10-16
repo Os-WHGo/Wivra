@@ -124,6 +124,11 @@ private struct WivraEditorWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        // Seed only if there is no stored preference. The editor itself owns
+        // future language changes; never overwrite its existing selection.
+        configuration.userContentController.addUserScript(
+            WivraEditorLocaleBootstrap.makeFirstLaunchScript()
+        )
         // Main-frame-only, fixed method list. JS gets metadata, never a file URL.
         let script = WKUserScript(source: """
             window.WivraHost = Object.freeze({
