@@ -45,4 +45,17 @@
     <string name="recording_finalizing">MP4 ファイルを保存しています…</string>
     <string name="recording_saved">MP4 を Movies/Wivra に保存しました。接続は終了しました。</string>
     <string name="recording_no_video">MP4 を保存できませんでした。映像フレーム不足または HEVC データが無効です。</string>
+    <string name="recording_pending_ready">MP4 の準備ができました。保存するか選んでください。</string>
+    <string name="recording_save_question">この録画を保存しますか？</string>
+    <string name="recording_pending_explanation">保存または削除を確定するまで、動画は Wivra 内で非公開のまま保持されます。この画面を閉じても削除されません。</string>
+    <string name="recording_keep">動画を保存</string>
+    <string name="recording_discard">保存しない</string>
+    <string name="recording_later">後で決める</string>
+    <string name="recording_remains_pending">録画は一時保存されたままです。</string>
+    <string name="recording_keep_failed">Movies/Wivra に保存できませんでした。保留中の動画は残っています。</string>
+    <string name="recording_discard_confirm_title">この録画を削除しますか？</string>
+    <string name="recording_discard_confirm_message">削除されるのは Wivra の一時コピーだけです。配信プラットフォーム側の動画には影響しません。</string>
+    <string name="recording_discard_confirm">削除する</string>
+    <string name="recording_discarded">一時録画を削除しました。</string>
+    <string name="recording_delete_failed">一時録画を削除できませんでした。ファイルは残っています。</string>
 </resources>
