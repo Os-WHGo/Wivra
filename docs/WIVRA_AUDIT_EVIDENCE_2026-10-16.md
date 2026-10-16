@@ -111,3 +111,10 @@ Comparación GitHub **`chatgpt/wivra-unified-owner-20261016...claude/beta-editor
 - Tests de Claude son **código publicado, no ejecución verde en nuestra rama**. Requieren Node, reproducibilidad de HTML, E2E WebView y QA real.
 - Comparación de `claude/test-merge-54-20261015` también divergente, pero sus archivos no demuestran una versión más reciente o completa; revisar precedencia por contenido y ancestros, no por nombre.
 **Decisión de auditoría:** preservar rama de Claude intacta y preparar integración selectiva, conservando fixes de ChatGPT y un solo editor; no tocar `main`.
+
+## Integración selectiva ejecutada · música Claude
+- `app/music-lib.mjs` importado **sin reemplazar** los módulos de exportación, velocidad, plantillas ni captura: commit `a77b1d9`.
+- `app/tests/music-lib.test.mjs` recuperado: commit `dab769b`. Verifica catálogo, duración, amplitud, determinismo, RIFF PCM16 y casos inválidos; **pendiente resultado de CI en esta rama**.
+- `app/build.mjs` incluye el módulo de música para que el HTML de editor pueda usarlo: commit `1102143`. La interfaz de selección de pistas **aún no está conectada**. No afirmar que la música ya está disponible al usuario.
+- Workflow existente `wivra-audit-rebuild-editor.yml` reconstruye el HTML y ejecuta pruebas en push a la rama; confirmar que el bot haya podido actualizar `app/dist/agentcut.html` y que el ensamblaje integral pase antes de anunciar beta.
+- La rama de Claude se conserva intacta. Whisper y plantillas especiales permanecen pendientes de integración y revisión.
