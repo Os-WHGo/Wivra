@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
                     }
                 }
                 Uri recent = acceptsImage
-                    ? WivraMetaPhotoStore.INSTANCE.latestCapturedPhoto(MainActivity.this)
+                    ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
                     : null;
                 if (recent != null) {
                     new AlertDialog.Builder(MainActivity.this)
