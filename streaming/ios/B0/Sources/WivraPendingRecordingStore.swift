@@ -25,6 +25,7 @@ enum WivraPendingRecordingError: LocalizedError {
 
 enum WivraPendingRecordingStore {
     private static let suffix = ".wivra.pending.json"
+    private static let keptAudioSuffix = ".wivra.kept.json"
 
     private static func directory() throws -> URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -129,6 +130,8 @@ enum WivraPendingRecordingStore {
                 of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                 options: .regularExpression
             ) != nil, !claimed.contains(name), !usedByVideo.contains(name),
+            !FileManager.default.fileExists(atPath:
+                folder.appendingPathComponent(name + keptAudioSuffix).path),
             (try? checkedURL(url, in: folder)) != nil,
             (try? stageAudio(url)) != nil else { continue }
             count += 1
@@ -156,6 +159,8 @@ enum WivraPendingRecordingStore {
             guard name.range(of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                              options: .regularExpression) != nil,
                   !claimed.contains(name), !linked.contains(name),
+                  FileManager.default.fileExists(atPath:
+                    folder.appendingPathComponent(name + keptAudioSuffix).path),
                   (try? checkedURL(url, in: folder)) != nil,
                   let caf = try? AVAudioFile(forReading: url), caf.length > 0
             else { return false }
@@ -297,6 +302,12 @@ enum WivraPendingRecordingStore {
         guard FileManager.default.fileExists(
             atPath: folder.appendingPathComponent(stored.id).path
         ) else { throw WivraPendingRecordingError.missingVideo }
+        if stored.id.hasSuffix(".caf") {
+            // Publish explicit user consent before removing the pending ticket.
+            // An orphaned CAF without this marker must never appear as "kept".
+            let kept = folder.appendingPathComponent(stored.id + keptAudioSuffix)
+            try Data("{\"decision\":\"keep\"}".utf8).write(to: kept, options: [.atomic])
+        }
         try FileManager.default.removeItem(at: marker)
     }
 
