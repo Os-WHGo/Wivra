@@ -25,3 +25,12 @@ tasks.register('syncWivraAssets', Sync) {
     into(layout.buildDirectory.dir('generated/wivra-assets'))
 }
 tasks.named('preBuild') { dependsOn 'syncWivraAssets' }
+
+// Official Meta Wearables DAT Android artifacts (developer preview).
+// Dependency resolution is free via Maven Central. Integration requires
+// Meta registration and hardware permissions before any runtime connection.
+// Do not enable experimental audio/photo endpoints for public publishing.
+dependencies {
+    implementation 'com.meta.wearable:mwdat-core:1.0.1'
+    implementation 'com.meta.wearable:mwdat-camera:1.0.1'
+}
