@@ -113,6 +113,7 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   #sOver { }      /* al elegir forma y tamaño se ve la pantalla */
   .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
   input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
+  .btn[hidden], progress[hidden] { display:none; }
   .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
   .row { display:flex; gap:8px; } .row > * { flex:1; }
   #msg { white-space:pre-wrap; font-size:14px; margin-top:8px; } .item { padding:8px 0; border-top:1px solid var(--line); font-size:14px; } .ok { color:var(--ok); } .bad { color:var(--bad); }
@@ -369,7 +370,16 @@ body.dock .back{pointer-events:none;background:transparent}
   <input id="txt" placeholder="Vancouver" aria-label="Texto en pantalla"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
-  <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
+  <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div>
+  <details id="asrBox"><summary>Subtítulos automáticos (en el teléfono, gratis)</summary>
+    <p class="m">Escribe lo que se dice en tus videos. Todo pasa en el teléfono: ni el audio ni el video salen de él. La primera vez baja un modelo de voz (una sola vez; queda guardado).</p>
+    <label class="m">Calidad <select id="asrModel"><option value="fast">Rápido (31 MB)</option><option value="balanced">Mejor (57 MB)</option></select></label>
+    <label class="m">Idioma del audio <select id="asrLang"><option value="auto">Detectar</option><option value="es" data-notr>Español</option><option value="en" data-notr>English</option><option value="pt" data-notr>Português</option><option value="fr" data-notr>Français</option><option value="de" data-notr>Deutsch</option><option value="ja" data-notr>日本語</option><option value="zh" data-notr>中文</option><option value="it" data-notr>Italiano</option></select></label>
+    <div class="row"><button id="asrGo" class="btn" type="button">Crear subtítulos</button><button id="asrCancel" class="btn sec" type="button" hidden>Cancelar</button></div>
+    <progress id="asrBar" max="100" value="0" hidden style="width:100%"></progress>
+    <p class="m" id="asrOut" role="status"></p><div id="asrList" class="m" data-notr></div>
+    <div class="row"><button id="asrApply" class="btn" type="button" hidden>Poner los subtítulos</button><button id="asrDel" class="btn sec" type="button" disabled>Borrar el modelo guardado</button></div>
+  </details></div>
 
 <div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
   <div id="txEdit">
@@ -1835,6 +1845,54 @@ function saveSubtitles(kind) {
   say(aiT('Subtítulos guardados ({1}).', texts.length), 'ok');
 }
 $('subSrt').onclick = () => saveSubtitles('srt'); $('subVtt').onclick = () => saveSubtitles('vtt');
+/* Subtítulos automáticos (app/whisper-engine.mjs + app/transcribe.mjs): Whisper en el teléfono, dentro de un Worker. Solo se baja el MODELO, una vez y con permiso; el audio y el video no salen. */
+let whisperFactory = createWhisperEngine;       // las pruebas pueden cambiarlo por un motor falso
+let asrBusy = false, asrEngine = null, asrAbort = null, asrCues = [], asrAsked = null;
+const asrModelSel = () => WHISPER_MODELS[$('asrModel').value] || WHISPER_MODELS.fast;
+const asrLibText = () => { const e = document.getElementById('whisperLib'); return e ? e.textContent : ''; };
+function asrSay(t, bad) { $('asrOut').textContent = t; $('asrOut').style.color = bad ? 'var(--bad,#ff8a80)' : ''; }
+function asrUi(busy) { asrBusy = busy; $('asrGo').disabled = busy; $('asrCancel').hidden = !busy; $('asrBar').hidden = !busy; if (!busy) $('asrBar').value = 0; asrSync(); }
+async function asrSync() { const has = await modelCacheHas(asrModelSel().id); $('asrDel').disabled = !has || asrBusy; return has; }
+async function asrRun() {
+  if (asrBusy) return;
+  if (!session || !session.project.clips.length) { asrSay(aiT('Primero elige el video principal.'), true); return; }
+  const jobs = transcriptionJobs(session.project); if (!jobs.length) { asrSay(aiT('No hay voz que transcribir: los videos están silenciados o son fotos.'), true); return; }
+  if (typeof Worker === 'undefined' || typeof WebAssembly === 'undefined') { asrSay(aiT('Este navegador no puede crear subtítulos automáticos (falta WebAssembly o Worker).'), true); return; }
+  const model = asrModelSel(); let bytes = await modelCacheGet(model.id);
+  if (!bytes && asrAsked !== model.id) { asrAsked = model.id; asrSay(aiT('Va a bajar un modelo de voz de {1} MB (una sola vez; queda en tu teléfono). Tu audio y tu video no salen del teléfono. Toca «Crear subtítulos» otra vez para seguir.', model.mb)); return; }
+  asrUi(true); asrCues = []; $('asrApply').hidden = true; $('asrList').textContent = '';
+  try {
+    if (!bytes) {
+      asrAbort = new AbortController();
+      bytes = await downloadModel(model, { signal: asrAbort.signal, onProgress: (f) => { $('asrBar').value = Math.round(f * 100); asrSay(aiT('Bajando el modelo… {1} %', Math.round(f * 100))); } });
+    }
+    asrSay(aiT('Preparando el motor de voz…')); $('asrBar').removeAttribute('value');
+    asrEngine = whisperFactory({ libText: asrLibText(), model: bytes.slice(0) }); await asrEngine.ready;
+    const totalAudio = jobs.reduce((s, j) => s + (j.to - j.from), 0); let doneAudio = 0, spent = 0; const all = [];
+    for (const j of jobs) {
+      const pcm = await loadPcm16(j.assetId); if (!pcm) { asrSay(aiT('El audio de este video no se pudo leer.'), true); continue; }
+      const audio = windowAudio(monoOf(pcm), pcm.rate, j.from, j.to), jobLen = j.to - j.from;
+      const res = await asrEngine.run(audio, { lang: $('asrLang').value, onSegment: (sg) => { const f = Math.min(1, (doneAudio + sg.endMs / 1000) / totalAudio); $('asrBar').value = Math.round(f * 100); asrSay(aiT('Escribiendo lo que se dice… {1} %', Math.round(f * 100))); } });
+      spent += res.ms / 1000; doneAudio += jobLen; all.push(...jobCues(j, res.segments));
+    }
+    const plan = planSubtitles(session.project, all, timelineEnd(session.project)); asrCues = plan.cues;
+    if (!plan.ops.length) { asrSay(aiT('No encontré voz en el audio. Prueba con otro idioma o con la calidad «Mejor».'), true); return; }
+    $('asrList').textContent = plan.cues.slice(0, 5).map(c => `${fmt(c.start)}  ${c.text}`).join('\n') + (plan.cues.length > 5 ? `\n… +${plan.cues.length - 5}` : ''); $('asrList').style.whiteSpace = 'pre-wrap';
+    $('asrApply').textContent = aiT('Poner {1} subtítulos', plan.ops.length); $('asrApply').hidden = false;
+    asrSay(aiT('Listo: {1} subtítulos. Tardó {2} s para {3} s de audio.', plan.ops.length, Math.round(spent * 10) / 10, Math.round(totalAudio * 10) / 10));
+  } catch (e) { asrSay(e && e.name === 'AbortError' || /Cancelado/.test(e && e.message) ? aiT('Cancelado.') : aiT('No pude crear los subtítulos: {1}', e && e.message || e), true); }
+  finally { if (asrEngine) { asrEngine.dispose(); asrEngine = null; } asrAbort = null; asrUi(false); }
+}
+$('asrGo').onclick = asrRun;
+$('asrCancel').onclick = () => { if (asrAbort) asrAbort.abort(); if (asrEngine) asrEngine.dispose(); };
+$('asrModel').onchange = () => { asrAsked = null; asrSync(); };
+$('asrBox').addEventListener('toggle', () => { if ($('asrBox').open) asrSync(); });
+$('asrApply').onclick = () => {
+  if (!session || !asrCues.length) return; const plan = planSubtitles(session.project, asrCues, timelineEnd(session.project));
+  const r = run(plan.ops); if (!r.ok) { asrSay('No se pudo: ' + r.message, true); return; }
+  asrCues = []; $('asrApply').hidden = true; $('asrList').textContent = ''; asrSay(aiT('Subtítulos puestos: {1}.', plan.ops.length)); say(aiT('Subtítulos puestos: {1}.', plan.ops.length), 'ok');
+};
+$('asrDel').onclick = async () => { try { await modelCacheDelete(asrModelSel().id); } catch {} asrAsked = null; asrSay(aiT('Modelo borrado.')); asrSync(); };
 $('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
 $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
 function run_after() { if (!anyClip(selId)) selId = null; tlTime = Math.min(tlTime, timelineEnd(session.project)); render(); syncScroll(); }
@@ -2715,5 +2773,6 @@ restoreDirectorDraft();
 
 render();
 </script>
+<script type="text/plain" id="whisperLib">/*__WHISPER_LIB__*/</script>
 </body>
 </html>

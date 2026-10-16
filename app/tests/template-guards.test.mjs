@@ -21,6 +21,7 @@ const PIEZAS = [
   ['teleprompter', 'function openPrompter('],
   ['velocidad', 'function spSync('],
   ['transiciones', 'planCutTransitions('],
+  ['subtítulos automáticos', 'async function asrRun('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],

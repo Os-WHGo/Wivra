@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createShootPlan, updateShot, progress } from '../../core/shoot-checklist.mjs';
 
 const tpl = readFileSync(new URL('../template.html', import.meta.url), 'utf8');
-const dist = readFileSync(new URL('../dist/agentcut.html', import.meta.url), 'utf8');
+const dist = readFileSync(new URL('../dist/agentcut.html', import.meta.url), 'utf8').replace(/<script type="text\/plain" id="whisperLib">[\s\S]*?<\/script>/, '');      // sin el motor de voz (código de otro autor, no es del editor)
 const tsv = (f) => readFileSync(new URL('../i18n/' + f, import.meta.url), 'utf8').split('\n').filter(Boolean).map((l) => l.split(' || '));
 const keys = new Set([...tsv('strings-3.tsv'), ...tsv('strings-it.tsv')].map((r) => r[0]));
 

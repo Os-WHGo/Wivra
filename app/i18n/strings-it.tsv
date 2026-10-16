@@ -627,3 +627,27 @@ Elige un video, una capa o un audio en la línea de tiempo. || Scegli un video, 
 Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip. || Sotto 0.5× o sopra 2× il suono può risultare strano o senza voce naturale, soprattutto su iPhone (non verificato). Se non ti piace, silenzia quella clip.
 Transición en todos los cortes entre clips: || Transizione su ogni taglio tra le clip:
 Transición en los cortes || Transizione sui tagli
+Subtítulos automáticos (en el teléfono, gratis) || Sottotitoli automatici (sul telefono, gratis)
+Escribe lo que se dice en tus videos. Todo pasa en el teléfono: ni el audio ni el video salen de él. La primera vez baja un modelo de voz (una sola vez; queda guardado). || Scrive ciò che viene detto nei tuoi video. Tutto avviene sul telefono: né l'audio né il video ne escono. La prima volta scarica un modello vocale (una sola volta; resta salvato).
+Calidad || Qualità
+Rápido (31 MB) || Veloce (31 MB)
+Mejor (57 MB) || Migliore (57 MB)
+Idioma del audio || Lingua dell'audio
+Detectar || Rileva
+Crear subtítulos || Crea sottotitoli
+Poner los subtítulos || Inserisci i sottotitoli
+Borrar el modelo guardado || Elimina il modello salvato
+No hay voz que transcribir: los videos están silenciados o son fotos. || Non c'è voce da trascrivere: i video sono silenziati o sono foto.
+Este navegador no puede crear subtítulos automáticos (falta WebAssembly o Worker). || Questo browser non può creare sottotitoli automatici (mancano WebAssembly o Worker).
+Va a bajar un modelo de voz de {1} MB (una sola vez; queda en tu teléfono). Tu audio y tu video no salen del teléfono. Toca «Crear subtítulos» otra vez para seguir. || Verrà scaricato un modello vocale da {1} MB (una sola volta; resta sul telefono). Il tuo audio e il tuo video non lasciano il telefono. Tocca di nuovo «Crea sottotitoli» per continuare.
+Bajando el modelo… {1} % || Download del modello… {1} %
+Preparando el motor de voz… || Preparazione del motore vocale…
+El audio de este video no se pudo leer. || Non è stato possibile leggere l'audio di questo video.
+Escribiendo lo que se dice… {1} % || Trascrizione in corso… {1} %
+No encontré voz en el audio. Prueba con otro idioma o con la calidad «Mejor». || Non ho trovato voce nell'audio. Prova un'altra lingua o la qualità «Migliore».
+Poner {1} subtítulos || Inserisci {1} sottotitoli
+Listo: {1} subtítulos. Tardó {2} s para {3} s de audio. || Fatto: {1} sottotitoli. Ci sono voluti {2} s per {3} s di audio.
+Cancelado. || Annullato.
+No pude crear los subtítulos: {1} || Non sono riuscito a creare i sottotitoli: {1}
+Subtítulos puestos: {1}. || Sottotitoli inseriti: {1}.
+Modelo borrado. || Modello eliminato.
