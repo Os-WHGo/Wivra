@@ -14,6 +14,8 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['volver a Inicio quitando el «#…» (navegación real)', 'function pzGoHome()'],
+  ['la barra de arriba por encima del fondo oscuro de las hojas', 'position:relative; z-index:31;'],
   ['el traductor en vivo', 'function i18nApply('],
   ['la traducción de lo que aparece después', 'r.addedNodes.forEach(i18nWalk)'],
   ['guardar el idioma elegido', "localStorage.setItem('wivra.lang'"],
