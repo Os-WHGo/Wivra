@@ -84,6 +84,7 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
   .hd { position:absolute; top:0; width:22px; height:100%; background:#ffc53dcc; touch-action:none; display:none; } .blk.sel .hd { display:block; } .hd.l { left:0; } .hd.r { right:0; }
   .hd::after { content:''; position:absolute; top:35%; bottom:35%; left:9px; width:3px; border-radius:2px; background:#12141a; }
+  #qaChips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; } #qaChips .btn { margin:0; padding:10px 0; width:auto; } #qaChips .btn[aria-pressed="true"] { outline:2px solid var(--tx); }
   .txb { background:#3b2f66; border-color:var(--tx); font-size:12px; padding:5px 8px; white-space:nowrap; }
   #head { position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px; background:#fff; pointer-events:none; box-shadow:0 0 6px #000; z-index:3; }
   #head::before { content:''; position:absolute; top:0; left:-4px; border:5px solid transparent; border-top:7px solid #fff; border-bottom:0; }
@@ -258,6 +259,13 @@ body.dock .back{pointer-events:none;background:transparent}
 
 <div class="sheet" id="sVids"><h2>Tus videos, en orden</h2><p class="m">Arrastra el ≡ (o usa ▲ ▼) para cambiar el orden. El video se arma en ese orden.</p>
   <div id="vlist"></div>
+  <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
+    <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
+    <div id="qaChips"><button class="btn sec" type="button" data-s="15">15 s</button><button class="btn sec" type="button" data-s="30">30 s</button><button class="btn sec" type="button" data-s="45">45 s</button><button class="btn sec" type="button" data-s="60">60 s</button></div>
+    <label for="qaOther" style="display:block;margin-top:8px">Otra duración (s)</label><input id="qaOther" type="number" min="3" max="600" step="1" inputmode="numeric" style="width:100%">
+    <p class="m" id="qaInfo" role="status" aria-live="polite">Elige una duración para ver cómo quedaría.</p>
+    <button class="btn" id="qaApply" type="button" disabled>Aplicar montaje</button>
+  </details>
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
   <button id="vdone" class="btn">Listo</button></div>
 <div class="sheet" id="sMiss"><h2>Faltan archivos</h2><p class="m">Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar.</p>
@@ -1096,6 +1104,23 @@ $('directorCamera').addEventListener('change',async()=>{
 });
 
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
+/* Montaje rápido (app/quick-assembly.mjs): propuesta a la duración elegida; al aplicar se recalcula con el proyecto de ese momento. */
+let qaTarget = 0;
+function qaPreview(sec) {
+  qaTarget = sec; const info = $('qaInfo'), btn = $('qaApply');
+  for (const b of document.querySelectorAll('#qaChips button')) b.setAttribute('aria-pressed', String(Number(b.dataset.s) === sec));
+  const pl = session ? planQuickAssembly(session.project, { targetSeconds: sec }) : { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if (!pl.ok) { info.textContent = pl.error; btn.disabled = true; return; }
+  info.textContent = `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
+}
+$('qaChips').addEventListener('click', (e) => { const b = e.target.closest('button[data-s]'); if (b) { $('qaOther').value = ''; qaPreview(Number(b.dataset.s)); } });
+$('qaOther').addEventListener('input', () => { const v = Number($('qaOther').value); if ($('qaOther').value.trim() !== '') qaPreview(v); });
+$('qaApply').onclick = () => {
+  if (!session || !qaTarget) return; const pl = planQuickAssembly(session.project, { targetSeconds: qaTarget });
+  if (!pl.ok || !pl.ops.length) { qaPreview(qaTarget); return; }
+  const r = edit(pl.ops, { ripple: false }); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+  say('Montaje rápido aplicado. Puedes deshacerlo.', 'ok'); renderVids(); qaPreview(qaTarget);
+};
 function renderVids() {
   const L = $('vlist'); L.replaceChildren(); if (!session) return;
   const clips = sortedClips(session.project);
