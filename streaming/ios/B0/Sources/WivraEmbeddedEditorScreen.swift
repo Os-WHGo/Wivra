@@ -102,9 +102,16 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         }
         // Only app-bundled local pages may replace the main editor document.
         if navigationAction.targetFrame?.isMainFrame != false {
-            decisionHandler(url.isFileURL ? .allow : .cancel)
+            // Never navigate away from the exact shipped Claude editor into a
+            // different local file that would inherit the native message handler.
+            let approved = Bundle.main.url(forResource: "agentcut", withExtension: "html")
+            let isBundledEditor = url.isFileURL &&
+                approved?.standardizedFileURL == url.standardizedFileURL
+            decisionHandler(isBundledEditor ? .allow : .cancel)
         } else {
-            decisionHandler(.allow)
+            // The offline editor may load local resources, but embedded remote
+            // documents must not be able to reach the native file bridge.
+            decisionHandler(url.isFileURL || url.scheme == "about" ? .allow : .cancel)
         }
     }
 }
