@@ -22,6 +22,7 @@ const PIEZAS = [
   ['velocidad', 'function spSync('],
   ['transiciones', 'planCutTransitions('],
   ['subtítulos automáticos', 'async function asrRun('],
+  ['música original de Wivra', 'function musRender('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],

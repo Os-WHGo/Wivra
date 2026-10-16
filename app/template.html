@@ -364,6 +364,10 @@ body.dock .back{pointer-events:none;background:transparent}
   <label class="btn" for="file" style="cursor:pointer">Video</label><label class="btn sec" for="ovFile" style="cursor:pointer">Video o foto encima (capa)</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
+  <details id="musBox"><summary>Música de Wivra (gratis, sin conexión)</summary>
+    <p class="m">Pistas originales de Wivra, hechas por código: sin derechos de terceros, sin internet y sin cuentas. Se agregan como pista de audio donde está la línea blanca.</p>
+    <div id="musList"></div><div id="musInfo" class="m" role="status" aria-live="polite"></div>
+  </details>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
   <button id="trkDone" class="btn sec">Cerrar</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
@@ -1092,6 +1096,39 @@ async function addTrackFile(file, kind) {
 }
 $('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
 $('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+/* ---------- Música de Wivra (app/music-lib.mjs): se genera aquí mismo, sin red ---------- */
+const musCache = new Map(); let musAudio = null, musPlaying = '';
+function musStop() { if (musAudio) { try { musAudio.pause(); } catch (e) {} musAudio = null; } musPlaying = ''; for (const b of document.querySelectorAll('#musList button[data-play]')) b.textContent = 'Escuchar'; }
+async function musGet(id) {
+  if (musCache.has(id)) return musCache.get(id);
+  $('musInfo').textContent = 'Creando la música…'; await new Promise((r) => setTimeout(r, 30));
+  const w = musicWav(id); musCache.set(id, w); $('musInfo').textContent = ''; return w;
+}
+function musRender() {
+  const l = $('musList'); l.replaceChildren();
+  for (const t of MUSIC_TRACKS) {
+    const row = document.createElement('div'); row.className = 'row'; row.style.cssText = 'align-items:center;gap:6px;margin:6px 0';
+    const name = document.createElement('div'); name.style.cssText = 'flex:1;min-width:0'; const b = document.createElement('b'); b.textContent = t.name; const m = document.createElement('div'); m.className = 'm'; m.textContent = t.mood;
+    const dur = document.createElement('span'); dur.className = 'm'; dur.textContent = ' ' + musicClock(musicSeconds(t)); b.appendChild(dur); name.append(b, m);
+    const pl = document.createElement('button'); pl.type = 'button'; pl.className = 'btn sec'; pl.style.cssText = 'width:auto;margin:0;padding:10px 12px'; pl.dataset.play = t.id; pl.textContent = 'Escuchar';
+    const ad = document.createElement('button'); ad.type = 'button'; ad.className = 'btn'; ad.style.cssText = 'width:auto;margin:0;padding:10px 12px'; ad.dataset.add = t.id; ad.textContent = 'Agregar';
+    row.append(name, pl, ad); l.appendChild(row);
+  }
+}
+$('musList').addEventListener('click', async (e) => {
+  const pl = e.target.closest('button[data-play]'), ad = e.target.closest('button[data-add]');
+  try {
+    if (pl) {
+      const id = pl.dataset.play; if (musPlaying === id) { musStop(); return; } musStop(); stopPlayIfAny();
+      const w = await musGet(id), url = URL.createObjectURL(new Blob([w.bytes], { type: 'audio/wav' })); musAudio = new Audio(url); musPlaying = id; pl.textContent = 'Parar';
+      musAudio.onended = () => { musStop(); URL.revokeObjectURL(url); }; await musAudio.play();
+    } else if (ad) {
+      if (!session) { say('Primero elige el video principal.', 'bad'); return; }
+      musStop(); const w = await musGet(ad.dataset.add); await addTrackFile(new File([w.bytes], w.fileName, { type: 'audio/wav' }), 'audio');
+    }
+  } catch (err) { musStop(); $('musInfo').textContent = 'No se pudo reproducir aquí. Usa «Agregar» y escúchala en la línea de tiempo.'; }
+});
+musRender();
 // Los canales pedidos de un audio (p. ej. dos micrófonos grabados en un estéreo) → un WAV mono por canal. Decodifica el archivo entero UNA vez (por eso hay tope de tamaño). Ver app/channel-split.mjs.
 async function decodeChannelWavs(file, channelIndexes) {
   if (file.size > SPLIT_MAX_BYTES) throw new Error(`pesa demasiado para separar sus canales aquí (máximo ${Math.round(SPLIT_MAX_BYTES / 1048576)} MB)`);
