@@ -81,4 +81,6 @@
     <string name="mobile_network_disclaimer">速度、Ray-Ban 接続、LIVE の可用性は確認できません。</string>
     <string name="mobile_network_checking">スマートフォンの回線を確認中…</string>
     <string name="mobile_network_unavailable">スマートフォンの回線を確認できません。</string>
+    <string name="picker_wivra_media_title">Wivraの写真・動画を選択</string>
+    <string name="picker_wivra_video_named">保存済みRay-Ban動画: %1$s</string>
 </resources>
