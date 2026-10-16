@@ -81,7 +81,7 @@ test('Photo during video is attempted only with device-supported binding',()=>{
   assert.match(activity,/current\.bindToLifecycle\(this, chosen, preview, video\)/);
   assert.match(activity,/imageCapture = null/);
   assert.match(activity,/photoButton.isEnabled = imageCapture != null/);
-  assert.match(activity,/capture\.takePicture\(output, mainExecutor/);
+  assert.match(activity,/capture\.takePicture\(output, captureExecutor/);
 });
 test('Six native languages include camera permission, audio and chooser strings',()=>{
   for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja']){
