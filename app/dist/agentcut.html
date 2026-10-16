@@ -2602,6 +2602,31 @@ function qaLevel(lens, budget) {
 }
 
 /**
+ * Audios que «van con» un video de la línea principal (p. ej. el micrófono de una captura): son pistas aparte (audioClips) y, si solo se recorta o se mueve
+ * el video, siguen sonando en su sitio de antes (encima de la foto o del siguiente video). Un audio está ligado a un clip de VIDEO si al menos el 80 % de
+ * su duración cae dentro de ese clip; una música que cruza varios clips NO está ligada y no se toca.
+ * Devuelve las operaciones (recortar, mover o borrar) que dejan cada audio ligado dentro de la ventana que se conserva del video y pegado a él.
+ */
+function qaLinkedAudioOps(project, items) {
+  const ops = []; let linked = 0, other = 0;
+  const byId = new Map(items.map((it) => [it.id, it])), mains = (project.clips || []).filter((c) => byId.has(c.id) && !byId.get(c.id).photo);
+  for (const a of project.audioClips || []) {
+    const alen = a.out - a.in, as = a.start, ae = a.start + alen; let home = null, best = 0;
+    for (const c of mains) { const ov = Math.min(ae, c.start + (c.out - c.in)) - Math.max(as, c.start); if (ov > best) { best = ov; home = c; } }
+    if (!home || alen <= 0 || best < 0.8 * alen) { other++; continue; }
+    linked++;
+    const it = byId.get(home.id), wS = home.start + (it.to[0] - it.from[0]), wE = home.start + (it.to[1] - it.from[0]), shift = it.start - wS;
+    const ns = Math.max(as, wS), ne = Math.min(ae, wE);
+    if (ne - ns < 0.02) { ops.push({ op: 'delete_clip', clip_id: a.id }); continue; }
+    const nin = qa3(a.in + (ns - as)), nout = Math.min(a.out, qa3(nin + (ne - ns))), nstart = Math.max(0, qa3(ns + shift));
+    if (Math.abs(nin - a.in) > 0.0005 || Math.abs(nout - a.out) > 0.0005) ops.push({ op: 'trim_clip', clip_id: a.id, in: nin, out: nout });
+    if (Math.abs(nstart - a.start) > 0.0005) ops.push({ op: 'move_clip', clip_id: a.id, start: nstart });
+  }
+  return { ops, linked, other };
+}
+const qa3 = (x) => Math.round(x * 1000) / 1000;
+
+/**
  * planQuickAssembly(project, { targetSeconds, photoSeconds })
  * → { ok:true, ops, before, after, trimmed, items:[{id, from:[in,out], to:[in,out], start, photo}], warnings:[…] } | { ok:false, error }
  */
@@ -2644,10 +2669,12 @@ function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = QA_PHOT
     if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
     items.push({ id: c.id, from: [c.in, c.out], to: [nin, nout], start, photo });
   }
+  const au = qaLinkedAudioOps(project, items); ops.push(...au.ops);      // el audio que va con cada video se recorta y se mueve junto con él
   const after = qaR(t);
   if (after > T + 0.05) warnings.push(`No cabe todo en ${T} s: el video queda en ${after} s (hay muchos clips). Prueba con más tiempo o quita clips.`);
   if (!trimmed && before <= T + 0.05) warnings.push(`El video ya dura ${before} s, menos de ${T} s: no se recorta nada.`);
-  if ((project.overlayClips || []).length || (project.audioClips || []).length || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos no se mueven: revisa su tiempo.');
+  if (au.linked) warnings.push('El audio que iba con cada video se recortó y se movió junto con él.');
+  if ((project.overlayClips || []).length || au.other || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos no se mueven: revisa su tiempo.');
   return { ok: true, ops, before, after, trimmed, items, warnings };
 }
 
