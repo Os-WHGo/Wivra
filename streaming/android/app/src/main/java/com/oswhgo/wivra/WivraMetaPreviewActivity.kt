@@ -4,11 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.meta.wearable.dat.camera.Camera
@@ -28,11 +30,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 /**
  * Wivra Android B1: DAT video stream connection diagnostics inside the one app.
- * No rendering, recording, audio, upload or public LIVE is claimed.
+ * Shows an explicitly throttled visual preview; no recording, audio, upload or LIVE.
  * Every Bluetooth, registration, session and camera action is user-initiated.
  * Based on Meta DAT Android 1.0.1 public APIs, with separate hardware QA.
  */
@@ -46,6 +50,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var framesJob: Job? = null
     private var streamJob: Job? = null
     private var streamErrorJob: Job? = null
+    private var decodeJob: Job? = null
+    private var frameChannel: Channel<LocalPreviewFrame>? = null
+    private var lastPreviewEnqueueMs = 0L
+    private var warnedUnsupportedLayout = false
+    private lateinit var imagePreview: ImageView
+
+    private data class LocalPreviewFrame(val bytes: ByteArray, val width: Int, val height: Int)
     private var sdkReady = false
     private var frames = 0L
     private lateinit var status: TextView
@@ -85,14 +96,23 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             setPadding(0, 20, 0, 20)
         }
         root.addView(status)
+        imagePreview = ImageView(this).apply {
+            contentDescription = "Vista previa de la cámara Ray-Ban"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(0xFF151515.toInt())
+        }
+        root.addView(imagePreview, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            (300 * resources.displayMetrics.density).toInt()
+        ))
         registerButton = button(root, "1. Vincular mediante Meta AI") { registerMeta() }
         connectButton = button(root, "2. Conectar gafas") { beginSession() }
         previewButton = button(root, "3. Activar video") { checkCameraPermission() }
         button(root, "Desconectar") { stopAll() }
         button(root, "Volver al editor") { stopAll(); finish() }
         root.addView(TextView(this).apply {
-            text = "\nEsta pantalla comprueba la llegada de cuadros de video. " +
-                "No muestra imágenes ni guarda videos todavía. " +
+            text = "\nVista previa local (hasta 6 FPS, YUV I420 provisional). " +
+                "No graba ni transmite; la calidad y los colores exigen prueba real. " +
                 "LIVE y audio independiente siguen pendientes."
         })
         setContentView(ScrollView(this).apply { addView(root) })
@@ -189,14 +209,58 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 val active = capability.stream
                 stream = active
                 frames = 0
+                lastPreviewEnqueueMs = 0L
+                warnedUnsupportedLayout = false
                 refreshButtons()
-                // Observe before start so no first frame is missed.
+                val incoming = Channel<LocalPreviewFrame>(Channel.CONFLATED)
+                frameChannel = incoming
+                // Separate decoder task: backpressure never grows unbounded and frames
+                // are copied while DAT still owns a valid buffer. No remote upload.
+                decodeJob = scope.launch(Dispatchers.Default) {
+                    for (raw in incoming) {
+                        val bitmap = WivraI420PreviewConverter.decode(raw.bytes, raw.width, raw.height)
+                        withContext(Dispatchers.Main.immediate) {
+                            if (stream !== active) {
+                                bitmap?.recycle()
+                            } else if (bitmap != null) {
+                                imagePreview.setImageBitmap(bitmap)
+                            } else if (!warnedUnsupportedLayout) {
+                                warnedUnsupportedLayout = true
+                                show("Formato YUV no compatible; conserva conexión, sin imagen.")
+                            }
+                        }
+                    }
+                }
+                // Subscribe before start so the first frame is not missed.
                 framesJob = scope.launch {
                     active.videoStream.collect { frame ->
                         frames += 1
-                        if (frames == 1L || frames % 24L == 0L)
+                        if (frames == 1L || frames % 24L == 0L) {
                             show("Ray-Ban: " + frames + " cuadros · " +
-                                frame.width + "×" + frame.height + " · SIN grabación.")
+                                frame.width + "×" + frame.height + " · vista previa local")
+                        }
+                        // Limit JPEG preview workload to roughly 6 images/sec. The full
+                        // capture stream is never saved or shared with the WebView here.
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastPreviewEnqueueMs >= 160L && !frame.isCompressed) {
+                            lastPreviewEnqueueMs = now
+                            val expectedPixels = frame.width.toLong() * frame.height.toLong()
+                            val expectedBytes = expectedPixels * 3 / 2
+                            val copied = frame.buffer.duplicate()
+                            // Never allocate an unbounded buffer, especially with corrupted
+                            // dimensions or an undocumented YUV plane layout.
+                            if (frame.width > 0 && frame.height > 0 &&
+                                frame.width % 2 == 0 && frame.height % 2 == 0 &&
+                                expectedPixels <= 1280L * 1920L &&
+                                copied.remaining().toLong() == expectedBytes) {
+                                val bytes = ByteArray(copied.remaining())
+                                copied.get(bytes)
+                                incoming.trySend(LocalPreviewFrame(bytes, frame.width, frame.height))
+                            } else if (!warnedUnsupportedLayout) {
+                                warnedUnsupportedLayout = true
+                                show("Video recibido, pero su formato no coincide con I420. Sin imagen.")
+                            }
+                        }
                     }
                 }
                 streamJob = scope.launch {
@@ -218,6 +282,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     private fun cleanup() {
         framesJob?.cancel(); framesJob = null
+        decodeJob?.cancel(); decodeJob = null
+        frameChannel?.close(); frameChannel = null
+        if (::imagePreview.isInitialized) imagePreview.setImageDrawable(null)
         streamJob?.cancel(); streamJob = null
         streamErrorJob?.cancel(); streamErrorJob = null
         sessionJob?.cancel(); sessionJob = null
