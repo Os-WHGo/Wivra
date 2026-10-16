@@ -1,0 +1,106 @@
+package com.oswhgo.wivra;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+
+/**
+ * Wivra's Android native shell for the very same offline Claude editor HTML.
+ * B0 only: native DAT Android/camera and verified media handoff will be added
+ * once the editor in WebView is proven on Android. No second editor project.
+ * No telemetry, account gate, SDK tokens or paid services.
+ */
+public final class MainActivity extends Activity {
+    private static final int PICK_FILES_REQUEST = 4207;
+    private ValueCallback<Uri[]> pendingFilePicker;
+    private WebView editor;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        editor = new WebView(this);
+        final WebSettings settings = editor.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setAllowFileAccess(true); // Required to load signed-in-APK assets.
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        editor.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                return url == null || !"file".equals(url.getScheme()) ||
+                    !"android_asset".equals(url.getAuthority()) &&
+                    !url.toString().startsWith("file:///android_asset/");
+            }
+        });
+        editor.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(
+                WebView webView,
+                ValueCallback<Uri[]> callback,
+                FileChooserParams params
+            ) {
+                if (pendingFilePicker != null) {
+                    pendingFilePicker.onReceiveValue(null);
+                }
+                pendingFilePicker = callback;
+                try {
+                    Intent picker = params.createIntent();
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);
+                    startActivityForResult(picker, PICK_FILES_REQUEST);
+                    return true;
+                } catch (Exception unavailable) {
+                    pendingFilePicker = null;
+                    callback.onReceiveValue(null);
+                    return false;
+                }
+            }
+        });
+        setContentView(editor);
+        editor.loadUrl("file:///android_asset/agentcut.html");
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_FILES_REQUEST || pendingFilePicker == null) {
+            return;
+        }
+        ValueCallback<Uri[]> completion = pendingFilePicker;
+        pendingFilePicker = null;
+        completion.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (editor != null && editor.canGoBack()) {
+            editor.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (pendingFilePicker != null) {
+            pendingFilePicker.onReceiveValue(null);
+            pendingFilePicker = null;
+        }
+        if (editor != null) {
+            editor.destroy();
+            editor = null;
+        }
+        super.onDestroy();
+    }
+}
