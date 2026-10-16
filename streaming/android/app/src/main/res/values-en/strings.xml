@@ -31,4 +31,11 @@
     <string name="stream_failed">Video error: %1$s</string>
     <string name="stream_start_failed">Could not start video: %1$s</string>
     <string name="disconnected">Disconnected; editor unchanged.</string>
+    <string name="capture_photo">4. Take Ray-Ban photo</string>
+    <string name="photo_requires_stream">Wait for live video from the glasses before taking a photo.</string>
+    <string name="photo_capture_progress">Taking photo with the glasses…</string>
+    <string name="photo_saved">Photo saved in Pictures/Wivra (%1$s). Return to the editor and choose the recent photo.</string>
+    <string name="photo_save_failed">Could not save photo: %1$s</string>
+    <string name="picker_last_photo">Use latest Wivra Ray-Ban photo</string>
+    <string name="picker_browse_files">Browse Files</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.oswhgo.wivra;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -57,16 +58,38 @@ public final class MainActivity extends Activity {
                     pendingFilePicker.onReceiveValue(null);
                 }
                 pendingFilePicker = callback;
-                try {
-                    Intent picker = params.createIntent();
-                    picker.addCategory(Intent.CATEGORY_OPENABLE);
-                    startActivityForResult(picker, PICK_FILES_REQUEST);
-                    return true;
-                } catch (Exception unavailable) {
-                    pendingFilePicker = null;
-                    callback.onReceiveValue(null);
-                    return false;
+                // Only offer Wivra's own most recent glasses photo when Claude's
+                // file input accepts images. The manifest/audio importer stays
+                // untouched, as do all unrelated photos on the device.
+                boolean acceptsImage = false;
+                for (String accept : params.getAcceptTypes()) {
+                    if (accept != null && accept.contains("image/")) {
+                        acceptsImage = true;
+                    }
                 }
+                Uri recent = acceptsImage
+                    ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
+                    : null;
+                if (recent != null) {
+                    new AlertDialog.Builder(MainActivity.this)
+                        .setItems(new String[] {
+                            getString(R.string.picker_last_photo),
+                            getString(R.string.picker_browse_files)
+                        }, (dialog, item) -> {
+                            if (item == 0) {
+                                ValueCallback<Uri[]> completion = pendingFilePicker;
+                                pendingFilePicker = null;
+                                if (completion != null) completion.onReceiveValue(new Uri[]{recent});
+                            } else {
+                                launchSystemPicker(params);
+                            }
+                        })
+                        .setOnCancelListener(dialog -> clearPendingPicker())
+                        .show();
+                    return true;
+                }
+                launchSystemPicker(params);
+                return true;
             }
         });
         // A single native app: same Claude editor plus explicit Meta glasses entry.
@@ -85,6 +108,24 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(shell);
         editor.loadUrl("file:///android_asset/agentcut.html");
+    }
+
+    private void launchSystemPicker(WebChromeClient.FileChooserParams params) {
+        try {
+            Intent picker = params.createIntent();
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(picker, PICK_FILES_REQUEST);
+        } catch (Exception unavailable) {
+            clearPendingPicker();
+        }
+    }
+
+    private void clearPendingPicker() {
+        if (pendingFilePicker != null) {
+            ValueCallback<Uri[]> completion = pendingFilePicker;
+            pendingFilePicker = null;
+            completion.onReceiveValue(null);
+        }
     }
 
     @Override

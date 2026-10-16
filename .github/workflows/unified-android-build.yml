@@ -44,6 +44,8 @@ jobs:
           set -eu
           node app/build.mjs
           git diff --exit-code -- app/dist/agentcut.html
+      - name: Check Ray-Ban photo to Claude Editor import and MediaStore privacy
+        run: node --test streaming/tests/android-rayban-photo-import.test.mjs
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
