@@ -118,7 +118,7 @@ def inspect(path, executable="ffprobe"):
         raise RuntimeError("ffprobe is not installed; install or configure it separately")
     command = [
         executable, "-v", "error", "-show_format", "-show_streams",
-        "-of", "json", "--", str(source.resolve())
+        "-of", "json", "-i", str(source.resolve())
     ]
     try:
         process = subprocess.run(
