@@ -628,7 +628,22 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                 try {
                     val wav = WivraPhoneMediaStore.privateWav(this, file)
                     if (wav.exists() && !WivraPhoneMediaStore.hasUsableWav(this, file)) {
-                        message(R.string.phone_camera_wav_unusable)
+                        // Never publish a partial WAV as a valid microphone track.
+                        // The owner may still deliberately rescue the video;
+                        // the failed WAV stays private for possible recovery.
+                        AlertDialog.Builder(this)
+                            .setTitle(R.string.phone_camera_wav_unusable)
+                            .setMessage(R.string.phone_camera_wav_salvage_explanation)
+                            .setPositiveButton(R.string.phone_camera_save_video_only) { _, _ ->
+                                try {
+                                    WivraPhoneMediaStore.publish(this, file)
+                                    message(R.string.phone_camera_video_only_saved)
+                                } catch (_: Exception) {
+                                    message(R.string.phone_camera_keep_failed)
+                                }
+                            }
+                            .setNegativeButton(R.string.phone_camera_later, null)
+                            .show()
                     } else {
                         if (WivraPhoneMediaStore.hasUsableWav(this, file)) {
                             WivraPhoneMediaStore.publishPair(this, file)

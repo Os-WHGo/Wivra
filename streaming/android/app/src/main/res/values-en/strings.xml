@@ -149,4 +149,7 @@
     <string name="phone_camera_source_usb">USB microphone</string>
     <string name="phone_camera_source_bluetooth">Bluetooth microphone</string>
     <string name="phone_camera_source_external">External microphone</string>
+    <string name="phone_camera_wav_salvage_explanation">The WAV could not be validated. You can save only the video; unfinished audio stays private for possible recovery. Or decide later.</string>
+    <string name="phone_camera_save_video_only">Save video only</string>
+    <string name="phone_camera_video_only_saved">Video saved. Unfinished WAV remains private.</string>
 </resources>

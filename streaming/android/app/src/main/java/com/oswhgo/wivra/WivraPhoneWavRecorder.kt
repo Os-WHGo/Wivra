@@ -114,7 +114,6 @@ class WivraPhoneWavRecorder(
             var firstReadNs = 0L
             var failure: String? = null
             var written = 0L
-            var routeChecked = false
             try {
                 RandomAccessFile(file, "rw").use { wav ->
                     wav.setLength(0L)
@@ -128,13 +127,16 @@ class WivraPhoneWavRecorder(
                             break
                         }
                         if (count == 0) continue
-                        if (!routeChecked && preferredDevice != null) {
+                        // Check on EVERY successful read: a wired/USB/Bluetooth
+                        // input may disappear midway through a long recording.
+                        // A single start-time check silently mislabels later
+                        // audio from Android's fallback microphone.
+                        if (preferredDevice != null) {
                             val routed = record.routedDevice
                             if (routed == null || routed.id != preferredDevice.id) {
                                 failure = "Selected microphone was not the active input"
                                 break
                             }
-                            routeChecked = true
                         }
                         if (firstReadNs == 0L) {
                             // This is an approximate read-completion clock,
