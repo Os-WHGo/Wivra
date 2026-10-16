@@ -60,4 +60,45 @@ class WivraPhoneMediaStoreTest {
             } finally { foreign.delete() }
         } finally { privateVideo.delete() }
     }
+
+    @Test fun wavRequiresValidManifestAndCompleteRiff() {
+        val video = WivraPhoneMediaStore.createPrivateVideo(context)
+        try {
+            // Synthetic 4-byte PCM only: never touches a real microphone.
+            video.writeText("synthetic MP4 placeholder")
+            val wav = WivraPhoneMediaStore.privateWav(context, video)
+            java.io.RandomAccessFile(wav, "rw").use { file ->
+                fun u16(n: Int) {
+                    file.write(n and 255)
+                    file.write((n ushr 8) and 255)
+                }
+                fun u32(n: Long) {
+                    for (shift in 0..24 step 8) file.write(((n ushr shift) and 255).toInt())
+                }
+                file.writeBytes("RIFF")
+                u32(40L)
+                file.writeBytes("WAVEfmt ")
+                u32(16L)
+                u16(1)
+                u16(1)
+                u32(48000L)
+                u32(96000L)
+                u16(2)
+                u16(16)
+                file.writeBytes("data")
+                u32(4L)
+                file.write(byteArrayOf(1, 2, 3, 4))
+            }
+            // A perfectly formed header alone cannot authenticate a track.
+            assertFalse(WivraPhoneMediaStore.hasUsableWav(context, video))
+            WivraPhoneMediaStore.saveSidecarTiming(
+                context, video, 1_000_000_000L, 1_050_000_000L, 4L
+            )
+            assertTrue(WivraPhoneMediaStore.hasUsableWav(context, video))
+            java.io.RandomAccessFile(wav, "rw").use { it.setLength(45L) }
+            assertFalse(WivraPhoneMediaStore.hasUsableWav(context, video))
+        } finally {
+            WivraPhoneMediaStore.discard(context, video)
+        }
+    }
 }
