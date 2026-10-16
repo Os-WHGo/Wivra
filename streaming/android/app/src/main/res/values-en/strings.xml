@@ -105,7 +105,7 @@
     <string name="phone_camera_preview_unavailable">This recording could not be previewed. The pending copy is preserved.</string>
     <string name="phone_camera_private_explanation">Private copy: Save publishes to Movies/Wivra; Later preserves it; Delete requires confirmation.</string>
     <string name="phone_camera_saved_to_editor">Video saved to Movies/Wivra. Return to the editor to add it.</string>
-    <string name="phone_camera_keep_failed">Could not publish. The original remains in Wivra's private folder.</string>
+    <string name="phone_camera_keep_failed">Could not publish. The original remains in Wivra private storage.</string>
     <string name="phone_camera_later">Decide later</string>
     <string name="phone_camera_confirm_delete">Delete this private copy? This cannot be undone.</string>
     <string name="phone_camera_no_lens">This camera is not available on the phone.</string>
