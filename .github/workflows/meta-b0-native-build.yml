@@ -38,6 +38,8 @@ jobs:
             streaming/tests/WivraAudioRecoverySmoke.swift \
             -o /tmp/wivra-audio-recovery-smoke
           /tmp/wivra-audio-recovery-smoke
+      - name: Verify mobile Wi-Fi uplink observers and privacy warnings
+        run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
       - name: Require reproducible Claude editor HTML before native packaging
