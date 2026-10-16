@@ -118,40 +118,40 @@ struct WivraNativeCaptureLibraryScreen: View {
         NavigationStack {
             List {
                 Section {
-                    Text("Grabaciones locales organizadas por día. Se conservan los originales; todavía no existe importación automática al editor.")
+                    Text("ios.library.intro")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     if rejected > 0 {
-                        Text("\(rejected) manifiesto(s) no se pudieron leer con seguridad.")
+                        Text(String(format: NSLocalizedString("ios.library.rejected", comment: ""), rejected))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
                 }
                 if days.isEmpty {
-                    ContentUnavailableView("Sin grabaciones indexadas", systemImage: "film.stack",
-                                           description: Text("Cuando Wivra termine una grabación y guarde su manifiesto, aparecerá aquí."))
+                    ContentUnavailableView("ios.library.empty", systemImage: "film.stack",
+                                           description: Text("ios.library.empty_description"))
                 }
                 ForEach(days) { day in
-                    Section("Día \(day.ordinal) · \(day.id.formatted(date: .abbreviated, time: .omitted))") {
+                    Section(String(format: NSLocalizedString("ios.library.day", comment: ""), day.ordinal, day.id.formatted(date: .abbreviated, time: .omitted))) {
                         ForEach(day.captures) { item in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(item.source).font(.headline)
                                 Text(item.recordedAt.formatted(date: .omitted, time: .shortened))
                                     .font(.caption).foregroundStyle(.secondary)
                                 if let video = item.videoURL {
-                                    ShareLink(item: video) { Label("Compartir video", systemImage: "square.and.arrow.up") }
+                                    ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
                                 } else {
-                                    Text("Video no disponible: la captura necesita revisión.")
+                                    Text("ios.library.video_missing")
                                         .font(.caption).foregroundStyle(.orange)
                                 }
                                 ForEach(item.audioURLs, id: \.absoluteString) { url in
-                                    ShareLink(item: url) { Label("Compartir \(url.lastPathComponent)", systemImage: "waveform") }
+                                    ShareLink(item: url) { Label(String(format: NSLocalizedString("ios.library.share_audio", comment: ""), url.lastPathComponent), systemImage: "waveform") }
                                 }
                                 ShareLink(item: item.manifestURL) {
-                                    Label("Compartir manifiesto", systemImage: "doc")
+                                    Label("ios.library.share_manifest", systemImage: "doc")
                                 }
                                 if !item.missing.isEmpty {
-                                    Text("Archivos pendientes: \(item.missing.joined(separator: ", "))")
+                                    Text(String(format: NSLocalizedString("ios.library.pending_files", comment: ""), item.missing.joined(separator: ", ")))
                                         .font(.caption).foregroundStyle(.orange)
                                 }
                             }
@@ -160,13 +160,13 @@ struct WivraNativeCaptureLibraryScreen: View {
                     }
                 }
             }
-            .navigationTitle("Mis capturas")
+            .navigationTitle("ios.library.title")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cerrar") { dismiss() }
+                    Button("ios.library.close") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Actualizar", systemImage: "arrow.clockwise") { refresh() }
+                    Button("ios.library.refresh", systemImage: "arrow.clockwise") { refresh() }
                 }
             }
             .onAppear { refresh() }
