@@ -149,4 +149,7 @@
     <string name="phone_camera_source_usb">Micro USB</string>
     <string name="phone_camera_source_bluetooth">Micro Bluetooth</string>
     <string name="phone_camera_source_external">Micro externe</string>
+    <string name="phone_camera_wav_salvage_explanation">Le WAV ne peut pas être validé. Vous pouvez garder seulement la vidéo. Le son incomplet reste privé pour une éventuelle récupération.</string>
+    <string name="phone_camera_save_video_only">Enregistrer la vidéo seule</string>
+    <string name="phone_camera_video_only_saved">Vidéo enregistrée. WAV incomplet conservé en privé.</string>
 </resources>
