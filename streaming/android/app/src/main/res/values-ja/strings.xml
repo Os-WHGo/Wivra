@@ -138,4 +138,15 @@
     <string name="teleprompter_bigger">文字 +</string>
     <string name="teleprompter_hide">表示 / 非表示</string>
     <string name="teleprompter_wpm">読み上げ目安：毎分%1$d語</string>
+    <string name="phone_camera_source_choose">マイク入力を選択</string>
+    <string name="phone_camera_source_auto">マイク：システム自動</string>
+    <string name="phone_camera_source_selected">WAVマイク：%1$s</string>
+    <string name="phone_camera_source_wav_only">録画を停止し、独立WAVモードにしてから入力を選んでください。</string>
+    <string name="phone_camera_source_enable_bluetooth">Bluetoothマイクを許可（任意）</string>
+    <string name="phone_camera_source_bluetooth_denied">Bluetoothは許可されませんでした。端末とUSBマイクは利用できます。</string>
+    <string name="phone_camera_source_built_in">スマホのマイク</string>
+    <string name="phone_camera_source_wired">有線マイク</string>
+    <string name="phone_camera_source_usb">USBマイク</string>
+    <string name="phone_camera_source_bluetooth">Bluetoothマイク</string>
+    <string name="phone_camera_source_external">外部マイク</string>
 </resources>
