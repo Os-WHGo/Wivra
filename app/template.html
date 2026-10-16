@@ -285,6 +285,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
     <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
     <div id="qaChips"><button class="btn sec" type="button" data-s="15">15 s</button><button class="btn sec" type="button" data-s="30">30 s</button><button class="btn sec" type="button" data-s="45">45 s</button><button class="btn sec" type="button" data-s="60">60 s</button></div>
+    <button class="btn sec" id="qaMusic" type="button" hidden style="margin-top:8px"></button>
     <label class="m" style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="qaVoice"> <span>Elegir el tramo de cada clip donde más se oye (en vez del centro)</span></label>
     <p class="m" id="qaVoiceNote">Usa el volumen del audio, en tu teléfono: no entiende palabras ni imágenes. Si un clip tiene volumen parejo, queda el centro.</p>
     <label for="qaOther" style="display:block;margin-top:8px">Otra duración (s)</label><input id="qaOther" type="number" min="3" max="600" step="1" inputmode="numeric" style="width:100%">
@@ -1331,12 +1332,21 @@ async function qaPlan(sec) {      // con «donde más se oye» se lee antes el v
 async function qaPreview(sec) {
   qaTarget = sec; const info = $('qaInfo'), btn = $('qaApply'), my = ++qaSeq;
   for (const b of document.querySelectorAll('#qaChips button')) b.setAttribute('aria-pressed', String(Number(b.dataset.s) === sec));
+  $('qaMusic').setAttribute('aria-pressed', String(!$('qaMusic').hidden && Number($('qaMusic').dataset.s) === sec));
   if ($('qaVoice').checked) { btn.disabled = true; info.textContent = 'Escuchando el volumen de tus videos…'; }
   const pl = await qaPlan(sec); if (my !== qaSeq) return;      // si se tocó otra opción mientras tanto, esa respuesta manda
   if (!pl.ok) { info.textContent = pl.error; btn.disabled = true; return; }
   info.textContent = `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
 }
 $('qaChips').addEventListener('click', (e) => { const b = e.target.closest('button[data-s]'); if (b) { $('qaOther').value = ''; qaPreview(Number(b.dataset.s)); } });
+function qaMusicSync() {      // «Como la música»: la duración exacta del audio más largo (música o voz) de la línea de tiempo
+  const au = (session && session.project.audioClips) || [], best = au.reduce((m, c) => (!m || clipLength(c) > clipLength(m) ? c : m), null), b = $('qaMusic');
+  const sec = best ? Math.round(clipLength(best) * 100) / 100 : 0;
+  if (!best || sec < QA_MIN_TARGET || sec > QA_MAX_TARGET) { b.hidden = true; b.dataset.s = ''; return; }
+  b.hidden = false; b.dataset.s = String(sec); b.textContent = aiT('Como el audio ({1} s)', fmt(sec));
+  b.setAttribute('aria-pressed', String(qaTarget === sec));
+}
+$('qaMusic').addEventListener('click', () => { const v = Number($('qaMusic').dataset.s); if (v) { $('qaOther').value = ''; qaPreview(v); } });
 $('qaOther').addEventListener('input', () => { const v = Number($('qaOther').value); if ($('qaOther').value.trim() !== '') qaPreview(v); });
 $('qaVoice').addEventListener('change', () => { if (qaTarget) qaPreview(qaTarget); });
 $('qaApply').onclick = async () => {
@@ -1401,6 +1411,7 @@ $('siApply').onclick = () => {
   say('Pausas quitadas. Puedes deshacerlo.', 'ok'); renderVids(); siPreview();
 };
 function renderVids() {
+  qaMusicSync();
   const L = $('vlist'); L.replaceChildren(); if (!session) return;
   const clips = sortedClips(session.project);
   clips.forEach((c, i) => {
