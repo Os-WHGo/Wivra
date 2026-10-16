@@ -142,6 +142,13 @@ test('assignAudioLanes: sin operaciones o con datos incompletos no falla', () =>
   assert.doesNotThrow(() => assignAudioLanes([{ op: 'add_audio_clip', asset_id: 'x' }, { op: 'add_audio_clip', asset_id: 'y' }]));
 });
 
+test('importCapture avisa cuando se eligen varios .json (se importa uno solo)', () => {
+  for (const [name, s] of [['plantilla', read('../template.html')], ['archivo final', read('../dist/agentcut.html')]]) {
+    assert.ok(s.includes("const otherJson = files.filter(f => f !== mf && /\\.json$/i.test(f.name));"), `${name}: falta la detección de otros .json`);
+    assert.ok(s.includes('se importó solo ${mf.name}. Importa cada captura por separado.'), `${name}: falta el aviso`);
+  }
+});
+
 test('el aviso de importación pone primero la causa y no repite «canal independiente sin extraer»', () => {
   const piece = "const all = [...notes, ...failed.filter(x => !/^falta /.test(x)), ...out.warnings, ...out.skipped.filter(x => x.reason !== 'canal independiente sin extraer').map(";
   for (const [name, s] of [['plantilla', read('../template.html')], ['archivo final', read('../dist/agentcut.html')]]) assert.ok(s.includes(piece), `${name}: cambió el armado del aviso`);

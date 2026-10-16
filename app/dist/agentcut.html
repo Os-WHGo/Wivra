@@ -2909,6 +2909,8 @@ async function importCapture(files) {
     const r = parseManifest(await mf.text());
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
     const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
+    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
+    if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
       if (assets[name]) return assets[name];
