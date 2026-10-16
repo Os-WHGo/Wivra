@@ -1792,21 +1792,37 @@ function importPlan(manifest, { useMuxed = false } = {}) {
   return { videoFile: muxed ? manifest.muxedVideoFile : manifest.videoFile, audioTracks: manifest.tracks.filter((t) => !inMux.has(t.id)), embeddedTrackIDs: [...inMux] };
 }
 
+// ¿Esta pista es UN canal de un archivo con varios? Un archivo de un solo canal (channelCount 1) ya ES ese canal: no hay nada que separar.
+const needsChannelSplit = (t) => t.channelIndex != null && t.channelCount !== 1;
+
 // Convierte el plan de importación en operaciones del editor (sin tocar archivos ni el navegador).
-// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } } } — el navegador llena `assets` tras abrir cada archivo.
+// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } }, splitChannelAssets: { [idDePista]: { id, duration } } }
+// El navegador llena `assets` tras abrir cada archivo y `splitChannelAssets` tras separar el canal de cada pista que lo pide (ver app/channel-split.mjs).
 // Desfase: offsetSeconds > 0 = el audio empezó DESPUÉS del video; < 0 = empezó antes (se recorta el inicio del audio, no se mueve a tiempo negativo).
 // Devuelve { ops, warnings, skipped }: `skipped` lista lo que no se pudo importar (archivo ausente, sin duración, pista que cae fuera del video).
 function planImportOps(plan, ctx) {
   if (!plan || !Array.isArray(plan.audioTracks)) throw new Error('planImportOps necesita el resultado de importPlan.');
   const videoStart = Number.isFinite(ctx?.videoStart) ? ctx.videoStart : 0, assets = ctx?.assets || {};
   const ops = [], warnings = [], skipped = [];
+  // A channelIndex is a request for one channel, not proof that the full file
+  // is already split. Never play the same stereo CAF twice as two voices.
+  // Only independently extracted/verified assets may be provided by the caller.
+  const splitChannelAssets = ctx?.splitChannelAssets || {};
+  const usedSplitIds = new Set();
   const v = assets[plan.videoFile];
   if (!v) skipped.push({ file: plan.videoFile, reason: 'video no abierto' }); else ops.push({ op: 'add_clip', asset_id: v.id, start: videoStart });
   for (const t of plan.audioTracks) {
-    const a = assets[t.file];
+    const indexed = needsChannelSplit(t);
+    const a = indexed ? splitChannelAssets[t.id] : assets[t.file];
+    // A full audio asset is never an acceptable replacement for an isolated channel.
+    if (indexed && (!a || !a.id || a.id === assets[t.file]?.id || usedSplitIds.has(a.id))) {
+      warnings.push(`${t.id}: canal ${t.channelIndex + 1} no separado; se omite para evitar audio duplicado.`);
+      skipped.push({ file: t.file, id: t.id, reason: 'canal independiente sin extraer' });
+      continue;
+    }
     if (!a) { skipped.push({ file: t.file, id: t.id, reason: 'archivo de audio no abierto' }); continue; }
     if (!(a.duration > 0)) { skipped.push({ file: t.file, id: t.id, reason: 'no se pudo medir la duración' }); continue; }
-    if (t.channelIndex != null && (t.channelCount ?? 0) > 1) warnings.push(`${t.id}: canal ${t.channelIndex} de ${t.channelCount}; el editor aún reproduce el archivo completo (separar canales no está implementado).`);
+    if (indexed) usedSplitIds.add(a.id);
     if (!t.offsetKnown) warnings.push(`${t.id}: desfase desconocido; se coloca al inicio del video. Ajústalo a mano.`);
     const off = t.offsetKnown ? t.offsetSeconds : 0;
     const at = videoStart + off;                       // dónde cae el inicio del audio en el timeline
@@ -2294,6 +2310,48 @@ function describeOperation(o, { T = (s, ...a) => fillTemplate(s, a), f = (n) => 
     case 'set_format': return T('Formato: {1}', list([o.aspect ? T('cuadro {1}', o.aspect) : '', o.fit ? T(o.fit === 'cover' ? 'rellenar' : 'barras negras') : '']));
     default: return JSON.stringify(o);
   }
+}
+
+// Voces que suenan a la vez en una captura (por ejemplo dos micrófonos grabados en un solo archivo estéreo). — Claude
+// Parte pura, sin navegador: el navegador decodifica el archivo (Web Audio) y esto empaqueta UN canal como WAV mono de 16 bits,
+// que entra al editor como un audio más. Los originales no se tocan; cada voz queda como pista independiente (ver PR #71)
+// y en su propia fila de la línea de tiempo (assignAudioLanes).
+
+/** Tope del archivo a separar: el navegador lo decodifica ENTERO en memoria y en el teléfono eso pesa. */
+const SPLIT_MAX_BYTES = 80 * 1024 * 1024;
+
+/** Nombre del archivo de un canal: «entrevista.wav», canal 1 → «entrevista.canal2.wav» (canal 0 = izquierdo = «canal1»). */
+const splitFileName = (name, channelIndex) => `${String(name).replace(/\.[^./\\]*$/, '') || 'audio'}.canal${channelIndex + 1}.wav`;
+
+/** Muestras (Float32, -1…1) → WAV PCM de 16 bits, mono. Devuelve un ArrayBuffer. Los valores fuera de rango se recortan; NaN queda en silencio. */
+function wavFromChannel(samples, sampleRate) {
+  const n = samples.length, rate = Math.round(sampleRate);
+  if (!(rate > 0)) throw new Error('frecuencia de muestreo inválida');
+  const bytes = 44 + n * 2, buf = new ArrayBuffer(bytes), v = new DataView(buf);
+  const tag = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  tag(0, 'RIFF'); v.setUint32(4, bytes - 8, true); tag(8, 'WAVE');
+  tag(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);        // PCM, 1 canal
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  tag(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return buf;
+}
+
+/**
+ * Fila (pista) de audio de cada `add_audio_clip` de un lote: la primera libre en ese tramo de tiempo, mirando lo que ya hay (`existing`)
+ * y lo que se agregó antes en el mismo lote. Sin esto, dos voces que suenan a la vez (los dos canales de un estéreo) quedarían una
+ * encima de la otra en la misma fila y no se podría tocar la de abajo. Igual que al agregar un audio a mano: la fila 1 es la de siempre
+ * (no se escribe `track`); si todas las filas hasta `max` están ocupadas se queda en la última. Devuelve operaciones nuevas, no modifica las de entrada.
+ */
+function assignAudioLanes(ops, existing = [], max = 3) {
+  const taken = existing.map((c) => ({ track: c.track || 1, a: c.start, b: c.start + (c.out - c.in) }));
+  return ops.map((o) => {
+    if (o.op !== 'add_audio_clip') return o;
+    const a = o.start ?? 0, b = a + ((o.out ?? 0) - (o.in ?? 0));
+    let t = 1; while (t < max && taken.some((x) => x.track === t && x.a < b && x.b > a)) t++;
+    taken.push({ track: t, a, b });
+    return t > 1 ? { ...o, track: t } : o;
+  });
 }
 
 // Wivra | Guarda la idea del Director sin videos ni permisos de archivos.
@@ -2827,6 +2885,20 @@ async function addTrackFile(file, kind) {
 }
 $('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
 $('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+// Los canales pedidos de un audio (p. ej. dos micrófonos grabados en un estéreo) → un WAV mono por canal. Decodifica el archivo entero UNA vez (por eso hay tope de tamaño). Ver app/channel-split.mjs.
+async function decodeChannelWavs(file, channelIndexes) {
+  if (file.size > SPLIT_MAX_BYTES) throw new Error(`pesa demasiado para separar sus canales aquí (máximo ${Math.round(SPLIT_MAX_BYTES / 1048576)} MB)`);
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) throw new Error('este navegador no puede separar canales de audio');
+  const ctx = new AC();
+  try {
+    const ab = await file.arrayBuffer();
+    const buf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
+    return channelIndexes.map((ch) => {
+      if (ch >= buf.numberOfChannels) throw new Error(`solo tiene ${buf.numberOfChannels} canal(es); no existe el canal ${ch + 1}`);
+      return wavFromChannel(buf.getChannelData(ch), buf.sampleRate);
+    });
+  } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch (e) { /* ya estaba cerrado */ } }
+}
 // Importa una captura: el .wivra.json elegido junto con sus archivos. Valida el manifiesto, abre lo que el navegador sepa leer y arma UN lote de operaciones (un solo deshacer).
 async function importCapture(files) {
   if (!files.length || loading) return;
@@ -2837,6 +2909,8 @@ async function importCapture(files) {
     const r = parseManifest(await mf.text());
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
     const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
+    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
+    if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
       if (assets[name]) return assets[name];
@@ -2852,18 +2926,39 @@ async function importCapture(files) {
     if (!videoFile) { say('No pude abrir el video de la captura. ' + failed.join(' · '), 'bad'); return; }
     if (usedMuxed && m.videoFile) notes.push(`Se usó ${m.muxedVideoFile} (el video original no se pudo abrir en este navegador).`);
     // Audio: con el video combinado, las pistas que ya trae no se importan dos veces. Si el usuario dio los audios sueltos y se abren todos, se importan aparte y se silencia el audio del video.
+    // Una pista que es UN canal de un archivo con varios (dos micrófonos en un estéreo) se separa a su propio audio mono; el archivo entero nunca suena dos veces.
+    const split = {}, splitTried = new Set();
+    const splitOf = async (t) => {
+      if (!splitTried.has(t.file)) {
+        splitTried.add(t.file);      // un solo intento por archivo: se decodifica una vez y se sacan todos sus canales
+        const f = byName.get(t.file), group = m.tracks.filter(x => x.file === t.file && needsChannelSplit(x));
+        if (!f) failed.push(`falta ${t.file}`);
+        else try {
+          const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
+          for (const [i, x] of group.entries()) {
+            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
+            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); session ||= new Session(createProject({ assets: [] }));
+            session.addAsset({ id, duration: pr.duration, name: nf.name }); split[x.id] = { id, duration: pr.duration };
+          }
+        } catch (e) { failed.push(`${t.file}: ${e.message}`); }
+      }
+      return split[t.id] || null;
+    };
+    const openTrack = (t) => needsChannelSplit(t) ? splitOf(t) : open(t.file, 'audio');
     const embedded = new Set(usedMuxed ? m.muxedFromTrackIDs : []);
     let tracks = m.tracks.filter(t => !embedded.has(t.id)), muteVideo = false;
     if (embedded.size) {
       const emb = m.tracks.filter(t => embedded.has(t.id)); let ok = emb.length > 0;
-      for (const t of emb) if (!byName.has(t.file) || !(await open(t.file, 'audio'))) ok = false;
+      for (const t of emb) if (!byName.has(t.file) || !(await openTrack(t))) ok = false;   // nunca se silencia un MOV con sonido si su audio suelto no se pudo abrir o separar
       if (ok) { tracks = m.tracks; muteVideo = true; notes.push('Las pistas de audio quedaron separadas y el audio del video se silenció (así no suena doble).'); }
+      else if (emb.some(needsChannelSplit)) notes.push('El MOV conserva su sonido: no se pudieron separar los canales L/R del audio suelto.');
       else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
     }
-    for (const t of tracks) await open(t.file, 'audio');
+    for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
     const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
-    const out = planImportOps(plan, { videoStart: startAt, assets });
+    const out = planImportOps(plan, { videoStart: startAt, assets, splitChannelAssets: split });
+    out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
     if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
     const first = !session.project.clips.length;
     $('stage').classList.add('on');
@@ -2874,7 +2969,9 @@ async function importCapture(files) {
     thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
     const na = (session.project.audioClips || []).length;
     $('info').textContent = `${session.project.clips.length} clip(s) · ${na} pista(s) de audio · ${fmt(totalDuration(session.project))} s`;
-    const all = [...notes, ...out.warnings, ...out.skipped.map(x => `no se importó ${x.file}: ${x.reason}`), ...failed.filter(x => !/^falta /.test(x))];
+    // Primero la causa (por qué no se pudo abrir o separar un archivo) y después lo que se omitió: el aviso corto de pantalla se corta a ~160 caracteres y lo que importa es el porqué.
+    // «canal independiente sin extraer» ya lo dice el aviso «canal N no separado», así que no se repite.
+    const all = [...notes, ...failed.filter(x => !/^falta /.test(x)), ...out.warnings, ...out.skipped.filter(x => x.reason !== 'canal independiente sin extraer').map(x => `no se importó ${x.file}: ${x.reason}`)];
     say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
   } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
   finally { loading = false; }
