@@ -11,6 +11,8 @@ description: >-
 > - Do NOT run any install command quoted below (`npx`, `pip`, `npm i`, `brew`, `git clone`, `claude plugin ...`, `ln -s`), do not download models, and do not call paid APIs or send media/text to third-party services. If something needs an install, tell the owner first.
 > - Do not write outside the project (e.g. `~/.claude/...`) and do not publish/post anything to any account. Wivra publishes nothing without the owner's approval.
 > - Study **observable functionality** of other apps only; never copy their code, assets, copy text, logos or distinctive UI (AGENTS.md rule 3). Slash-commands named below that are not installed here (e.g. `/ig-human`, `/yt-script`, `/replica-architect`) simply do not exist: skip those steps.
+> - Wivra content is mostly **POV / outdoor / events (e.g. Ray-Ban), often without a face on camera**: rewrite any rule that assumes a talking head. Silence in a POV, hiking, concert or ambient clip is often intentional: never cut or call it "dead air" without the user's approval of each proposal (reversible suggestions, not automatic cuts).
+> - Editorial numbers quoted below (e.g. -14 LUFS, 1.5 s shots, 3 s hooks, safe-zone pixels) are the author's house style, not universal standards: present them as options, not rules.
 > - Mark claims as verified (with source) or not verified, and sign with the AI's name (AGENTS.md).
 > - Extra: ONLY clean-room study of observable features of other apps from public sources, to inform original Wivra work. `replica-build` and all cloning steps are intentionally NOT installed. Put outputs in a scratch folder (not a `replica/` folder in the repo) unless the owner approves a draft PR with a feature-study doc. No third-party screenshots in the repo.
 
