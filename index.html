@@ -15,7 +15,7 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
   body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:var(--appH,100dvh); padding:calc(env(safe-area-inset-top) + var(--padTop,0px)) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
   button { font:inherit; color:inherit; background:none; border:0; padding:0; }
-  .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
+  .top { display:flex; align-items:center; gap:10px; padding:8px 14px; position:relative; z-index:31; }   /* por encima del fondo oscuro de las hojas: «Inicio» siempre responde */
   .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
   .top .pill { white-space:nowrap; flex:0 0 auto; }
   @media (max-width:430px) { .top { gap:6px; padding:8px 10px; } .top .pill { padding:0 10px; font-size:13px; gap:4px; } .top .pill svg { width:18px; height:18px; } }
@@ -4617,22 +4617,24 @@ new MutationObserver((recs) => {
   };
   $('setClearPacks').onclick = () => { pkInstalled = {}; pkSave(); try { fltLooksRender(); } catch {} say(i18nTr('Paquetes borrados.')); };
 })();
+// Volver a la pantalla de inicio SIEMPRE: quitar el «#…» entero fuerza una navegación real (no depende de que el navegador dispare «hashchange»).
+function pzGoHome() { pzReady = false; try { location.assign(location.href.split('#')[0]); } catch { location.hash = ''; } }
 $('hEditor').onclick = () => { location.hash = '#new'; };
 $('hDirector').onclick = () => { location.hash = '#new-director'; };
-$('bHome').onclick = () => { if (!session) { location.hash = ''; return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
+$('bHome').onclick = () => { if (!session) { pzGoHome(); return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
 $('exitStay').onclick = () => closeSheets();
-$('exitSave').onclick = async () => { const n = $('pzName').value.trim(); if (n) pzName = n.slice(0, 60); await pzFlush(); pzReady = false; location.hash = ''; };
+$('exitSave').onclick = async () => { const n = $('pzName').value.trim(); if (n) pzName = n.slice(0, 60); try { await Promise.race([pzFlush(), pzSleep(6000)]); } catch {} pzReady = false; pzGoHome(); };
 $('exitDiscard').onclick = async () => {
   if (!confirm(pzBase ? '¿Descartar lo que hiciste en esta sesión? El proyecto vuelve a como estaba al abrirlo.' : '¿Descartar este proyecto? Se borra lo que llevas.')) return;
   clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
   try { if (pzBase) { await pzSaveSnapshot(pzDb, pzPid, JSON.parse(pzBase.raw), pzBase.meta || makeMeta({ id: pzPid, name: pzName, project: readSnapshot(pzBase.raw).snapshot.project })); await pzDeleteBlobs(pzDb, pzPid, pzBase.ids); } else await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo descartar: ' + e.message, 'bad'); }
-  location.hash = '';
+  pzGoHome();
 };
 $('exitDelete').onclick = async () => {
   if (!confirm('¿Borrar “' + pzName + '” del teléfono? No se puede deshacer (tus videos originales no se tocan).')) return;
   clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
   try { await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo borrar: ' + e.message, 'bad'); }
-  location.hash = '';
+  pzGoHome();
 };
 $('relink').addEventListener('change', async () => {
   const files = [...$('relink').files]; $('relink').value = ''; if (!files.length || loading) return; loading = true;
