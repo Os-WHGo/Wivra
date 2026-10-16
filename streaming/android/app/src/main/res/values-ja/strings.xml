@@ -126,4 +126,16 @@
     <string name="phone_camera_wav_failed">WAV録音に失敗しました。保存前に非公開動画を確認してください。</string>
     <string name="phone_camera_wav_unusable">保留WAVが不完全なため、音声として公開できません。</string>
     <string name="picker_phone_audio_named">Wivra WAV音声: %1$s</string>
+    <string name="phone_camera_choose_shot">ディレクターのカットを選択</string>
+    <string name="phone_camera_without_script">台本なし</string>
+    <string name="phone_camera_unnamed_shot">カット %1$d</string>
+    <string name="teleprompter_accessible">カメラ表示上のプロンプター。動画には入りません。</string>
+    <string name="teleprompter_start">スクロール開始</string>
+    <string name="teleprompter_pause">一時停止</string>
+    <string name="teleprompter_slower">遅く</string>
+    <string name="teleprompter_faster">速く</string>
+    <string name="teleprompter_smaller">文字 −</string>
+    <string name="teleprompter_bigger">文字 +</string>
+    <string name="teleprompter_hide">表示 / 非表示</string>
+    <string name="teleprompter_wpm">読み上げ目安：毎分%1$d語</string>
 </resources>
