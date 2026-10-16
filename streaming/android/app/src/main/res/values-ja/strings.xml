@@ -120,4 +120,10 @@
     <string name="phone_camera_mic_off">マイク：オフ</string>
     <string name="picker_phone_photo_named">スマホ写真: %1$s</string>
     <string name="picker_phone_video_named">スマホ動画: %1$s</string>
+    <string name="phone_camera_mic_wav">マイク：独立WAV</string>
+    <string name="phone_camera_recording_wav">映像のみのMP4と独立WAV音声を録画しています。</string>
+    <string name="phone_camera_wav_unavailable">WAV録音を開始できません。動画は無音で続行します。</string>
+    <string name="phone_camera_wav_failed">WAV録音に失敗しました。保存前に非公開動画を確認してください。</string>
+    <string name="phone_camera_wav_unusable">保留WAVが不完全なため、音声として公開できません。</string>
+    <string name="picker_phone_audio_named">Wivra WAV音声: %1$s</string>
 </resources>
