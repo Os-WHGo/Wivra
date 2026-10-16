@@ -71,31 +71,41 @@ public final class MainActivity extends Activity {
                 Uri recent = acceptsImage
                     ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
                     : null;
-                java.util.List<WivraSavedRayBanVideos.SavedVideo> videos = acceptsVideo
-                    ? WivraSavedRayBanVideos.latestSaved(MainActivity.this)
-                    : java.util.Collections.emptyList();
-                if (recent != null || !videos.isEmpty()) {
-                    java.util.List<String> labels = new java.util.ArrayList<>();
-                    if (recent != null) labels.add(getString(R.string.picker_last_photo));
-                    for (WivraSavedRayBanVideos.SavedVideo video : videos) {
-                        labels.add(getString(R.string.picker_wivra_video_named, video.getTitle()));
+                java.util.List<String> labels = new java.util.ArrayList<>();
+                java.util.List<Uri> choices = new java.util.ArrayList<>();
+                if (recent != null) {
+                    labels.add(getString(R.string.picker_last_photo));
+                    choices.add(recent);
+                }
+                if (acceptsImage) {
+                    for (WivraPhoneMediaStore.SavedMedia photo :
+                            WivraPhoneMediaStore.latestSavedPhotos(MainActivity.this)) {
+                        labels.add(getString(R.string.picker_phone_photo_named, photo.getTitle()));
+                        choices.add(photo.getUri());
                     }
+                }
+                if (acceptsVideo) {
+                    for (WivraSavedRayBanVideos.SavedVideo video :
+                            WivraSavedRayBanVideos.latestSaved(MainActivity.this)) {
+                        labels.add(getString(R.string.picker_wivra_video_named, video.getTitle()));
+                        choices.add(video.getUri());
+                    }
+                    for (WivraPhoneMediaStore.SavedMedia video :
+                            WivraPhoneMediaStore.latestSavedVideos(MainActivity.this)) {
+                        labels.add(getString(R.string.picker_phone_video_named, video.getTitle()));
+                        choices.add(video.getUri());
+                    }
+                }
+                if (!choices.isEmpty()) {
                     labels.add(getString(R.string.picker_browse_files));
                     new AlertDialog.Builder(MainActivity.this)
                         .setTitle(R.string.picker_wivra_media_title)
                         .setItems(labels.toArray(new String[0]), (dialog, item) -> {
-                            if (recent != null && item == 0) {
-                                ValueCallback<Uri[]> completion = pendingFilePicker;
-                                pendingFilePicker = null;
-                                if (completion != null) completion.onReceiveValue(new Uri[]{recent});
-                                return;
-                            }
-                            int videoIndex = item - (recent != null ? 1 : 0);
-                            if (videoIndex >= 0 && videoIndex < videos.size()) {
+                            if (item >= 0 && item < choices.size()) {
                                 ValueCallback<Uri[]> completion = pendingFilePicker;
                                 pendingFilePicker = null;
                                 if (completion != null) completion.onReceiveValue(
-                                    new Uri[]{videos.get(videoIndex).getUri()});
+                                    new Uri[]{choices.get(item)});
                             } else {
                                 launchSystemPicker(params);
                             }
@@ -118,6 +128,19 @@ public final class MainActivity extends Activity {
         glasses.setOnClickListener(v -> startActivity(
             new Intent(this, WivraMetaPreviewActivity.class)));
         shell.addView(glasses, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Button phone = new Button(this);
+        phone.setText(R.string.phone_camera_open);
+        phone.setContentDescription(getString(R.string.phone_camera_open));
+        phone.setOnClickListener(v -> startActivity(
+            new Intent(this, WivraPhoneCameraActivity.class)));
+        // These are two capture sources feeding the same one-and-only editor.
+        LinearLayout sources = new LinearLayout(this);
+        sources.setOrientation(LinearLayout.HORIZONTAL);
+        sources.addView(glasses);
+        sources.addView(phone, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        shell.addView(sources, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
         shell.addView(editor, new LinearLayout.LayoutParams(
