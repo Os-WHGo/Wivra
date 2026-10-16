@@ -21,6 +21,8 @@ const PIEZAS = [
   ['la lista de idiomas dentro de Ajustes', 'id="setLangs"'],
   ['la pantalla de elegir idioma la primera vez', 'id="sLang"'],
   ['el botón ⚙ que abre Ajustes', 'id="hSet"'],
+  ['miniaturas de la línea de tiempo solo de lo visible', 'function tlFillVisible('],
+  ['recorte rápido: solo se rehace el clip arrastrado', 'function dragRender('],
 ];
 for (const [name, s] of [['plantilla', template], ['archivo final', dist]]) {
   test(`${name}: conserva los idiomas y el panel Ajustes`, () => {
