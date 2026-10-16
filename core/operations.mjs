@@ -3,7 +3,7 @@
 import { clipLength, totalDuration } from './project.mjs';
 import { LOOK_IDS, filterProblem, mergeFilter, FILTER_KEYS } from './filters.mjs';
 
-const MAX_TEXT = 120;
+export const MAX_TEXT = 120;
 const err = (code, message) => ({ ok: false, code, message });
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const findAsset = (p, id) => p.assets.find((a) => a.id === id);
@@ -209,6 +209,25 @@ const handlers = {
     const id = `t${p.nextId++}`;
     p.texts.push({ id, text, start, end: Math.min(start + duration, total) });
     return { ok: true, id };
+  },
+  // Cambia el texto y/o los tiempos de un texto en pantalla (subtítulo). Mismas reglas que add_text; `duration` mueve el final.
+  set_text(p, { text_id, text, start, duration }) {
+    const t = (p.texts || []).find((k) => k.id === text_id);
+    if (!t) return err('unknown_text', `No existe el texto ${text_id}`);
+    if (text === undefined && start === undefined && duration === undefined) return err('bad_text', 'Indica text, start y/o duration');
+    const nt = text === undefined ? t.text : text, ns = start === undefined ? t.start : start, nd = duration === undefined ? t.end - t.start : duration;
+    if (typeof nt !== 'string' || !nt.trim() || nt.length > MAX_TEXT) return err('bad_text', `Texto vacío o de más de ${MAX_TEXT} caracteres`);
+    if (!num(ns) || !num(nd) || ns < 0 || nd <= 0) return err('bad_time', 'start >= 0 y duration > 0');
+    const total = totalDuration(p);
+    if (ns >= total) return err('out_of_range', `El video dura ${total} s; el texto empieza en ${ns}`);
+    t.text = nt; t.start = ns; t.end = Math.min(ns + nd, total);
+    return { ok: true };
+  },
+  delete_text(p, { text_id }) {
+    const i = (p.texts || []).findIndex((k) => k.id === text_id);
+    if (i < 0) return err('unknown_text', `No existe el texto ${text_id}`);
+    p.texts.splice(i, 1);
+    return { ok: true };
   },
 };
 

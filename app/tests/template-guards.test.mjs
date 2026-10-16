@@ -113,3 +113,12 @@ test('CSS: ningún texto con palabras se dibuja con content:"…" (no se puede t
   const malos = [...css.matchAll(/content:\s*(["'])((?:(?!\1).)*)\1/g)].map((m) => m[2]).filter((t) => /[A-Za-zÁÉÍÓÚáéíóúñ]{3}/.test(t));
   assert.deepEqual(malos, [], 'Pasa ese texto a un elemento del HTML para que se pueda traducir.');
 });
+
+// 5) El archivo final es un solo <script> con todos los módulos pegados: si dos módulos declaran el mismo nombre global
+//    (p. ej. `const clean` dos veces) el navegador no ejecuta NADA y la app queda muerta. Aquí lo detectamos sin navegador. — Claude
+import vm from 'node:vm';
+test('el archivo final se puede analizar sin nombres globales repetidos', () => {
+  const scripts = [...dist.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 2, 'faltan los <script> del archivo final');
+  scripts.forEach((s, i) => assert.doesNotThrow(() => new vm.Script(s, { filename: `agentcut.html#script${i}` }), `el script ${i} no se puede analizar`));
+});
