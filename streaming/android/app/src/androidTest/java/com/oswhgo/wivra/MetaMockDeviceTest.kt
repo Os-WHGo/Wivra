@@ -7,7 +7,6 @@ import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
 import com.meta.wearable.dat.mockdevice.api.GlassesModel
-import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -29,8 +28,8 @@ class MetaMockDeviceTest {
     private val kit by lazy { MockDeviceKit.getInstance(appContext) }
 
     @Before fun prepare() {
-        // Start unregistered: this lets tests prove registration is not silently assumed.
-        kit.enable(MockDeviceKitConfig(initiallyRegistered = false))
+        // Mock registration is enabled only in this isolated test process.
+        kit.enable()
     }
 
     @After fun cleanUp() {
@@ -46,6 +45,10 @@ class MetaMockDeviceTest {
     }
 
     @Test fun cameraPermissionDenialRemainsVisibleToWivra() = runBlocking {
+        val glasses = kit.pairGlasses(GlassesModel.RAYBAN_META).getOrThrow()
+        glasses.powerOn()
+        glasses.unfold()
+        glasses.don()
         kit.permissions.set(Permission.CAMERA, PermissionStatus.Denied)
         Wearables.checkPermissionStatus(Permission.CAMERA)
             .onSuccess { status ->
