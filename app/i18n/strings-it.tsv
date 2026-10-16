@@ -651,3 +651,16 @@ Cancelado. || Annullato.
 No pude crear los subtítulos: {1} || Non sono riuscito a creare i sottotitoli: {1}
 Subtítulos puestos: {1}. || Sottotitoli inseriti: {1}.
 Modelo borrado. || Modello eliminato.
+Collage || Collage
+Los primeros 2, 3 o 4 clips (videos o fotos) a la vez, en cuadros. Con 2 o 3: vertical 9:16, uno sobre otro; con 4: cuadrado 1:1, en cuadrícula. || I primi 2, 3 o 4 clip (video o foto) contemporaneamente, in riquadri. Con 2 o 3: verticale 9:16, uno sopra l'altro; con 4: quadrato 1:1, a griglia.
+Collage de {} clips a la vez, uno sobre otro (9:16) || Collage di {} clip contemporaneamente, uno sopra l'altro (9:16)
+Collage de {} clips a la vez, en cuadrícula (1:1) || Collage di {} clip contemporaneamente, a griglia (1:1)
+Duran {} s (lo que dura el video más corto) || Durano {} s (quanto il video più corto)
+Suena el 1.er clip; los demás quedan silenciados || Si sente il 1° clip; gli altri sono silenziati
+El audio que iba con cada clip se recortó y se movió con él || L'audio che accompagnava ogni clip è stato tagliato e spostato con esso
+Solo entran los primeros {} clips; los demás siguen después, uno tras otro. || Entrano solo i primi {} clip; gli altri seguono dopo, uno dopo l'altro.
+Los clips más largos se recortaron al final para que todos duren lo mismo. || Le clip più lunghi sono stati tagliati alla fine perché durino tutti lo stesso.
+Las fotos duran lo mismo que el video más corto. || Le foto durano quanto il video più corto.
+Los textos, capas y audios que cruzan varios clips no se mueven: revisa su tiempo. || Testi, livelli e audio che attraversano più clip non vengono spostati: controlla i loro tempi.
+Para oír otro cuadro: toca su capa y elige Audio. || Per sentire un altro riquadro: tocca il suo livello e scegli Audio.
+Esta plantilla necesita al menos dos clips (videos o fotos) en la línea de tiempo. || Questo modello richiede almeno due clip (video o foto) nella timeline.
