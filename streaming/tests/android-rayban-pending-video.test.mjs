@@ -42,3 +42,9 @@ test('six localized choices and deletion warning exist', () => {
     ]) assert.match(xml, new RegExp(`name="${name}"`));
   }
 });
+
+test('late packet errors may retain an earlier finalized clip', () => {
+  assert.match(recorder, /val valid = started && writtenSamples >= 2/);
+  assert.doesNotMatch(recorder, /val valid = started && !failed && writtenSamples >= 2/);
+  assert.match(recorder, /if \(started\) muxer\?\.stop\(\)/);
+});
