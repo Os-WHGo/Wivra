@@ -10,6 +10,7 @@ import QuartzCore
 
 enum WivraRecordingResult: Sendable {
     case saved(URL, frames: Int, dropped: Int)
+    case savedSegments([URL], frames: Int, dropped: Int)
     case noFrames
     case failed(String)
 }
@@ -21,6 +22,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var fileURL: URL?
+    private var preferredName: String?
     private var armed = false
     private var finalizing = false
     private var sourceStartTime: CMTime?
@@ -29,13 +31,20 @@ final class WivraHEVCRecorder: @unchecked Sendable {
     func firstVideoSampleUptime() -> Double? {
         queue.sync { videoStartUptime }
     }
+    var writtenFrames: Int { queue.sync { appendedCount } }
     private var appendedCount = 0
     private var droppedCount = 0
     private let defaultFrameDuration = CMTime(value: 1, timescale: 24)
 
-    func arm() -> Bool {
+    func arm(fileName: String? = nil) -> Bool {
         queue.sync {
             guard !armed && !finalizing && writer == nil else { return false }
+            guard fileName.map({
+                $0.hasPrefix("Wivra_Meta_") && $0.hasSuffix(".mov") &&
+                !$0.contains("/") && !$0.contains("\\") &&
+                !$0.contains("..") && $0.count < 150
+            }) ?? true else { return false }
+            preferredName = fileName
             armed = true
             sourceStartTime = nil
             previousDTS = nil
@@ -61,7 +70,13 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                 guard Self.isHEVCKeyframe(buffer) else { return }
                 do {
                     let folder = try Self.recordingsDirectory()
-                    let url = folder.appendingPathComponent("Wivra_Meta_\(UUID().uuidString).mov")
+                    let finalName = preferredName ?? "Wivra_Meta_\(UUID().uuidString).mov"
+                    // A half-written file must never resemble a completed movie.
+                    let url = folder.appendingPathComponent(finalName + ".writing.mov")
+                    let finalURL = folder.appendingPathComponent(finalName)
+                    guard !FileManager.default.fileExists(atPath: url.path),
+                          !FileManager.default.fileExists(atPath: finalURL.path)
+                    else { armed = false; return }
                     let assetWriter = try AVAssetWriter(outputURL: url, fileType: .mov)
                     let input = AVAssetWriterInput(mediaType: .video, outputSettings: nil, sourceFormatHint: format)
                     input.expectsMediaDataInRealTime = true
@@ -164,9 +179,25 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                         self.reset()
                         let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
                         if successful && size > 0 {
-                            continuation.resume(returning: .saved(url, frames: count, dropped: dropped))
+                            let originalName = url.lastPathComponent
+                            let finalName = String(originalName.dropLast(".writing.mov".count))
+                            let ready = url.deletingLastPathComponent()
+                                .appendingPathComponent(finalName)
+                            do {
+                                // Same-volume rename publishes only fully finalized MOV.
+                                guard !FileManager.default.fileExists(atPath: ready.path) else {
+                                    throw CocoaError(.fileWriteFileExists)
+                                }
+                                try FileManager.default.moveItem(at: url, to: ready)
+                                continuation.resume(returning: .saved(ready, frames: count, dropped: dropped))
+                            } catch {
+                                // Preserve the completed source .writing.mov for manual recovery.
+                                continuation.resume(returning: .failed(
+                                    "No se pudo publicar MOV finalizado: " + error.localizedDescription))
+                            }
                         } else {
-                            try? FileManager.default.removeItem(at: url)
+                            // Keep unfinished .writing.mov private for diagnostics rather than
+                            // silently deleting user media; do not offer it as playable.
                             continuation.resume(returning: .failed(errorText))
                         }
                     }
@@ -180,6 +211,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
         writer = nil
         videoInput = nil
         fileURL = nil
+        preferredName = nil
         armed = false
         finalizing = false
         sourceStartTime = nil
@@ -196,7 +228,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
 
     // HEVC length-prefixed NAL units: IRAP NAL types 16...21. Even if the SDK
     // leaves sync flags empty, a real keyframe is required to start recording.
-    private static func isHEVCKeyframe(_ buffer: CMSampleBuffer) -> Bool {
+    static func isHEVCKeyframe(_ buffer: CMSampleBuffer) -> Bool {
         guard let block = CMSampleBufferGetDataBuffer(buffer) else { return false }
         let size = CMBlockBufferGetDataLength(block)
         var cursor = 0
