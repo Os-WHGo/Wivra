@@ -12,13 +12,30 @@ const pzNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const PZ_GROUPS = ['clips', 'overlayClips', 'audioClips'];
 
 /** Instantánea serializable. `stored` = ids de archivos que sí están guardados en el teléfono. */
-export function makeSnapshot({ project, media = {}, assetSeq = 0, tlTime = 0, stored = [], now = Date.now() }) {
+export const DIRECTOR_DRAFT_MAX = 50000, SHOOT_PLAN_MAX = 100000;      // topes de lo que el Director puede guardar dentro del proyecto
+/** Notas del Director de ESTE proyecto: la idea (texto JSON ya validado por el Director) y la lista de tomas. null si no hay nada que guardar. */
+export function cleanDirector(d) {
+  if (!d || typeof d !== 'object') return { director: null, warnings: [] };
+  const warnings = [], out = {};
+  if (d.draft !== undefined && d.draft !== null) {
+    if (typeof d.draft === 'string' && d.draft.length <= DIRECTOR_DRAFT_MAX) out.draft = d.draft; else warnings.push('Se descartó la idea del Director guardada (dañada o demasiado grande).');
+  }
+  if (d.shootPlan !== undefined && d.shootPlan !== null) {
+    const sp = d.shootPlan, big = (() => { try { return JSON.stringify(sp).length > SHOOT_PLAN_MAX; } catch { return true; } })();
+    if (sp && typeof sp === 'object' && sp.schema === 'agentcut-shoot-plan-v0.1' && Array.isArray(sp.shots) && sp.shots.length <= 50 && !big) out.shootPlan = JSON.parse(JSON.stringify(sp));
+    else warnings.push('Se descartó la lista de tomas del Director guardada (dañada o demasiado grande).');
+  }
+  return { director: out.draft !== undefined || out.shootPlan !== undefined ? out : null, warnings };
+}
+export function makeSnapshot({ project, media = {}, assetSeq = 0, tlTime = 0, stored = [], director = null, now = Date.now() }) {
   const ok = new Set(stored);
   const assets = (project.assets || []).map((a) => {
     const m = media[a.id] || {};
     return { id: a.id, name: m.name || a.name || '', duration: a.duration, w: m.w || 0, h: m.h || 0, size: m.size || 0, type: m.type || '', kind: m.kind || '', stored: ok.has(a.id) };
   });
-  return { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: now, assetSeq, tlTime, project: JSON.parse(JSON.stringify(project)), assets };
+  const snap = { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: now, assetSeq, tlTime, project: JSON.parse(JSON.stringify(project)), assets };
+  const cd = cleanDirector(director).director; if (cd) snap.director = cd;      // campo opcional: los proyectos viejos no lo tienen y siguen abriendo
+  return snap;
 }
 
 /**
@@ -66,7 +83,10 @@ export function readSnapshot(raw) {
   const assets = p.assets.map((a) => { const k = known.get(a.id) || {}; return { id: a.id, name: String(k.name || a.name || ''), duration: a.duration, w: pzNum(k.w) ? k.w : 0, h: pzNum(k.h) ? k.h : 0, size: pzNum(k.size) ? k.size : 0, type: String(k.type || ''), kind: String(k.kind || ''), stored: k.stored === true }; });
   let seq = pzNum(s.assetSeq) ? s.assetSeq : 0;
   for (const a of p.assets) { const n = parseInt(String(a.id).replace(/^\D+/, ''), 10); if (pzNum(n) && n > seq) seq = n; }
-  return { ok: true, warnings, snapshot: { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: pzNum(s.savedAt) ? s.savedAt : 0, assetSeq: seq, tlTime: pzNum(s.tlTime) && s.tlTime >= 0 ? s.tlTime : 0, project: p, assets } };
+  const cd = cleanDirector(s.director); warnings.push(...cd.warnings);
+  const snapshot = { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: pzNum(s.savedAt) ? s.savedAt : 0, assetSeq: seq, tlTime: pzNum(s.tlTime) && s.tlTime >= 0 ? s.tlTime : 0, project: p, assets };
+  if (cd.director) snapshot.director = cd.director;
+  return { ok: true, warnings, snapshot };
 }
 
 /** Archivos del proyecto que no están en el teléfono (hay que volver a elegirlos). */

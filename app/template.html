@@ -1712,24 +1712,30 @@ async function makeThumbs(id) {
 
 
 /* Creative Director context, complementary to Claude core. No model calls. */
-let directorBrief=null, aiDirectorContext=null;
+let directorBrief=null, aiDirectorContext=null, dirDraftRaw=null, dirRev=0;      // dirDraftRaw: última idea guardada (texto); dirRev sube con cada cambio del Director para que el proyecto se vuelva a guardar
 function directorProject(){return session?.project||createProject()}
-function saveDirectorDraft(){
+function saveDirectorDraft(quiet){
   try{
     const b=readDirectorBrief();
     const data=createDirectorDraftRecord(b);
-    localStorage.setItem(DIRECTOR_DRAFT_KEY,data);
+    dirDraftRaw=data;dirRev++;pzSchedule();
+    try{localStorage.setItem(DIRECTOR_DRAFT_KEY,data)}catch{}      // copia del navegador: solo sirve para empezar un proyecto nuevo con la misma idea
     directorBrief=b;
-    $('dirDraftStatus').textContent='Idea guardada en este navegador. No se guardaron medios ni grabaciones. Las descripciones de cada clip solo viven en esta sesión.';
+    $('dirDraftStatus').textContent='Idea guardada con este proyecto. No se guardaron medios ni grabaciones. Las descripciones de cada clip solo viven en esta sesión.';
     return true;
-  }catch(e){$('dirDraftStatus').textContent='No se pudo guardar en este dispositivo: '+e.message;return false;}
+  }catch(e){if(!quiet)$('dirDraftStatus').textContent='No se pudo guardar en este dispositivo: '+e.message;return false;}
 }
-function restoreDirectorDraft(){
+let dirAutoTimer=null;
+function flushDirectorAuto(){if(dirAutoTimer){clearTimeout(dirAutoTimer);dirAutoTimer=null;saveDirectorDraft(true)}}      // al salir o guardar a mano, no se pierde lo último que escribiste
+      // guarda solo mientras escribes (sin avisos si la idea aún está incompleta)
+$('sDirector').addEventListener("input",e=>{if(e.target.closest('#dirSpot,#dirShootLength,#dirShotCount,#dirAsset,#dirAssetDescription,#dirCorrection'))return;      // esos campos no son parte de la idea guardada
+  clearTimeout(dirAutoTimer);dirAutoTimer=setTimeout(()=>saveDirectorDraft(true),900)});
+function restoreDirectorDraft(fromProject){
   try{
-    const data=localStorage.getItem(DIRECTOR_DRAFT_KEY);
+    const data=fromProject||localStorage.getItem(DIRECTOR_DRAFT_KEY);
     if(!data)return;
     const b=restoreDirectorDraftRecord(data);
-    directorBrief=b;
+    directorBrief=b;dirDraftRaw=data;
     $('dirMode').value=b.mode;
     $('dirGoal').value=b.goal;
     $('dirPlatform').value=b.platforms[0]||'reels';
@@ -1738,7 +1744,7 @@ function restoreDirectorDraft(){
     $('dirOutputs').value=b.outputCount;
     $('dirNotes').value=b.notes;
     $('dirHistory').textContent=b.utterances.length+' instrucciones anteriores recuperadas.';
-    $('dirDraftStatus').textContent='Idea recuperada de este navegador. Vuelve a elegir tus videos para vincular escenas y tiempos.';
+    $('dirDraftStatus').textContent=fromProject?'Idea recuperada de este proyecto. Las descripciones de cada clip hay que escribirlas otra vez.':'Idea recuperada de este navegador. Vuelve a elegir tus videos para vincular escenas y tiempos.';
   }catch(e){$('dirDraftStatus').textContent='Hay un borrador ilegible; puedes borrarlo desde aquí.';}
 }
 function setDirectorAIContext(ctx){
@@ -1749,10 +1755,10 @@ function setDirectorAIContext(ctx){
 $('dirSaveDraft').onclick=saveDirectorDraft;
 $('dirForgetDraft').onclick=()=>{
   try{localStorage.removeItem(DIRECTOR_DRAFT_KEY);}catch{}
-  directorBrief=null;setDirectorAIContext(null);
+  directorBrief=null;dirDraftRaw=null;dirRev++;pzSchedule();setDirectorAIContext(null);
   for(const id of ['dirGoal','dirNotes','dirCorrection','dirAssetDescription','dirSeconds'])$(id).value='';
   $('dirMode').value='automatic';$('dirPlatform').value='reels';$('dirOtherFormats').value='';$('dirOutputs').value=1;
-  $('dirHistory').textContent='';$('dirDraftStatus').textContent='Idea guardada eliminada de este navegador. Los videos existentes no se borraron.';
+  $('dirHistory').textContent='';$('dirDraftStatus').textContent='Idea guardada eliminada. Los videos existentes no se borraron.';
 };
 $('dirUseInAI').onclick=()=>{
   if(!session||!session.project.assets.length){
@@ -1843,6 +1849,7 @@ $('dirCopy').addEventListener('click',async()=>{
 
 /* Director: checklist offline and validated quick edits, no hidden AI service. */
 function saveShootPlan(){
+ dirRev++;pzSchedule();
  try{if(shootPlan)localStorage.setItem(SHOOT_STORAGE_KEY,JSON.stringify(shootPlan))}
  catch{ /* private mode or file scheme may refuse local storage */ }
 }
@@ -2072,7 +2079,7 @@ const pzHashPid = () => { const m = /^#p=([\w-]+)$/.exec(location.hash); return 
 window.addEventListener('hashchange', () => location.reload());   // cambiar de pantalla = recargar limpio (sin restos del proyecto anterior)
 function pzSchedule() {
   if (!pzReady || !session) return;
-  const key = session.project.revision + ':' + session.project.assets.length + ':' + Object.keys(media).length;
+  const key = session.project.revision + ':' + session.project.assets.length + ':' + Object.keys(media).length + ':' + dirRev;
   if (key === pzKey) return; pzKey = key; clearTimeout(pzTimer); pzTimer = setTimeout(pzSave, 700);
 }
 async function pzSave() {
@@ -2084,7 +2091,7 @@ async function pzSave() {
       if (await pzPutBlob(pzDb, pzPid, a.id, mediaFiles[a.id])) pzStored.add(a.id);
       else if (!pzWarned) { pzWarned = true; say('El teléfono no tiene espacio para guardar “' + ((media[a.id] || {}).name || 'un archivo') + '”. El proyecto se guarda igual; al reabrir tendrás que elegir ese archivo otra vez.', 'bad'); }
     }
-    await pzSaveSnapshot(pzDb, pzPid, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored] }), makeMeta({ id: pzPid, name: pzName, project: session.project }));
+    await pzSaveSnapshot(pzDb, pzPid, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored], director: { draft: dirDraftRaw, shootPlan } }), makeMeta({ id: pzPid, name: pzName, project: session.project }));
     await pzDeleteBlobs(pzDb, pzPid, session.project.assets.map(a => a.id));
     if (location.hash !== '#p=' + pzPid) history.replaceState(null, '', '#p=' + pzPid);   // sin recargar: así un refresco vuelve a ESTE proyecto
     try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
@@ -2092,12 +2099,24 @@ async function pzSave() {
   } catch (e) { if (!pzWarned) { pzWarned = true; say('No se pudo guardar el proyecto en este teléfono: ' + e.message, 'bad'); } }
   pzBusy = false; if (pzAgain) { pzAgain = false; pzSchedule(); }
 }
-async function pzFlush() { clearTimeout(pzTimer); while (pzBusy) await pzSleep(40); pzKey = ''; await pzSave(); while (pzBusy) await pzSleep(40); }
-document.addEventListener('visibilitychange', () => { if (document.hidden && pzReady && session) { clearTimeout(pzTimer); pzSave(); } });   // iOS puede cerrar la pestaña en segundo plano
+async function pzFlush() { flushDirectorAuto(); clearTimeout(pzTimer); while (pzBusy) await pzSleep(40); pzKey = ''; await pzSave(); while (pzBusy) await pzSleep(40); }
+document.addEventListener('visibilitychange', () => { if (document.hidden && pzReady && session) { flushDirectorAuto(); clearTimeout(pzTimer); pzSave(); } });   // iOS puede cerrar la pestaña en segundo plano
 function pzShowMissing() {
   const l = $('missList'); l.replaceChildren();
   for (const a of pzMissing) { const d = document.createElement('div'); d.textContent = '• ' + (a.name || a.id) + (a.size ? ' (' + (a.size / 1048576).toFixed(1) + ' MB)' : ''); l.appendChild(d); }
   if (pzMissing.length) openSheet('sMiss'); else closeSheets();
+}
+/** Al reabrir un proyecto, el Director vuelve a ser el de ESE proyecto (no el borrador compartido del navegador). */
+function restoreDirectorOfProject(sn) {
+  try {
+    const d = sn.director || {}, known = new Set(sn.project.assets.map(a => a.id));
+    dirDraftRaw = null; directorBrief = null; setDirectorAIContext(null);
+    for (const id of ['dirGoal', 'dirNotes', 'dirCorrection', 'dirAssetDescription', 'dirSeconds']) $(id).value = '';
+    $('dirMode').value = 'automatic'; $('dirPlatform').value = 'reels'; $('dirOtherFormats').value = ''; $('dirOutputs').value = 1; $('dirHistory').textContent = '';
+    if (d.draft) restoreDirectorDraft(d.draft);
+    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => ({ ...s, assetId: known.has(s.assetId) ? s.assetId : null })) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
+    selectedShootId = null; renderShootPlan();
+  } catch (e) { say('No se pudieron recuperar las notas del Director: ' + e.message, 'bad'); }
 }
 async function pzRestore(pid) {
   try {
@@ -2113,6 +2132,7 @@ async function pzRestore(pid) {
     }
     pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
+    restoreDirectorOfProject(sn);
     pzMissing = missingAssets(sn, Object.keys(media));
     selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
     pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));
