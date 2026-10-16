@@ -23,3 +23,13 @@
 "ios.library.title" = "Le mie acquisizioni";
 "ios.library.close" = "Chiudi";
 "ios.library.refresh" = "Aggiorna";
+"ios.record.pending_title" = "Conservare questa registrazione?";
+"ios.record.pending_description" = "Il video e le tracce restano privati in Wivra finché non decidi. Chiudere il messaggio non li elimina.";
+"ios.record.keep" = "Conserva in Wivra";
+"ios.record.dont_save" = "Non salvare";
+"ios.record.later" = "Decidi più tardi";
+"ios.record.delete_confirm_title" = "Eliminare questa registrazione?";
+"ios.record.delete_confirm_description" = "I file locali associati vengono eliminati solo dopo la conferma. Wivra non può cancellare copie conservate da piattaforme LIVE.";
+"ios.record.delete_confirm" = "Sì, elimina";
+"ios.record.pending_notice" = "Registrazione in attesa di una decisione. Non disponibile nell'editor.";
+"ios.record.review_pending" = "Rivedi registrazioni in attesa";
