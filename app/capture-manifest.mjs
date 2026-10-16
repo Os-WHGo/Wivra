@@ -78,8 +78,12 @@ export function importPlan(manifest, { useMuxed = false } = {}) {
   return { videoFile: muxed ? manifest.muxedVideoFile : manifest.videoFile, audioTracks: manifest.tracks.filter((t) => !inMux.has(t.id)), embeddedTrackIDs: [...inMux] };
 }
 
+// ¿Esta pista es UN canal de un archivo con varios? Un archivo de un solo canal (channelCount 1) ya ES ese canal: no hay nada que separar.
+export const needsChannelSplit = (t) => t.channelIndex != null && t.channelCount !== 1;
+
 // Convierte el plan de importación en operaciones del editor (sin tocar archivos ni el navegador).
-// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } } } — el navegador llena `assets` tras abrir cada archivo.
+// ctx: { videoStart (s en el timeline), assets: { [nombreDeArchivo]: { id, duration } }, splitChannelAssets: { [idDePista]: { id, duration } } }
+// El navegador llena `assets` tras abrir cada archivo y `splitChannelAssets` tras separar el canal de cada pista que lo pide (ver app/channel-split.mjs).
 // Desfase: offsetSeconds > 0 = el audio empezó DESPUÉS del video; < 0 = empezó antes (se recorta el inicio del audio, no se mueve a tiempo negativo).
 // Devuelve { ops, warnings, skipped }: `skipped` lista lo que no se pudo importar (archivo ausente, sin duración, pista que cae fuera del video).
 export function planImportOps(plan, ctx) {
@@ -94,11 +98,11 @@ export function planImportOps(plan, ctx) {
   const v = assets[plan.videoFile];
   if (!v) skipped.push({ file: plan.videoFile, reason: 'video no abierto' }); else ops.push({ op: 'add_clip', asset_id: v.id, start: videoStart });
   for (const t of plan.audioTracks) {
-    const indexed = t.channelIndex != null;
+    const indexed = needsChannelSplit(t);
     const a = indexed ? splitChannelAssets[t.id] : assets[t.file];
     // A full audio asset is never an acceptable replacement for an isolated channel.
     if (indexed && (!a || !a.id || a.id === assets[t.file]?.id || usedSplitIds.has(a.id))) {
-      warnings.push(`${t.id}: canal ${t.channelIndex} no separado; se omite para evitar audio duplicado.`);
+      warnings.push(`${t.id}: canal ${t.channelIndex + 1} no separado; se omite para evitar audio duplicado.`);
       skipped.push({ file: t.file, id: t.id, reason: 'canal independiente sin extraer' });
       continue;
     }
