@@ -1,5 +1,6 @@
 // Wivra Meta B0: field-test UI for receiving Ray-Ban Meta video.
 // B0 verifies frames/throughput only. NOT a production broadcast.
+import AVKit
 import MWDATCore
 import SwiftUI
 import UIKit
@@ -493,6 +494,7 @@ struct MetaB0Screen: View {
 @MainActor
 private struct WivraPendingDecisionPrompts: View {
     @Bindable var model: MetaB0Model
+    @State private var showingReview = false
 
     var body: some View {
         ZStack {
@@ -504,6 +506,9 @@ private struct WivraPendingDecisionPrompts: View {
                 ) {
                     Button("ios.record.keep") {
                         model.keepPendingRecording()
+                    }
+                    Button("ios.record.review_video") {
+                        showingReview = true
                     }
                     Button("ios.record.dont_save", role: .destructive) {
                         model.requestPendingDiscard()
@@ -529,6 +534,86 @@ private struct WivraPendingDecisionPrompts: View {
                     Text("ios.record.delete_confirm_description")
                 }
         }
-        .allowsHitTesting(false)
+        // Review is view-only and does not change the pending decision ticket.
+        .sheet(isPresented: $showingReview, onDismiss: {
+            model.refreshPendingRecordingChoice()
+        }) {
+            if let entry = model.pendingRecording {
+                WivraPendingRecordingReviewScreen(entry: entry)
+            } else {
+                ContentUnavailableView("ios.record.preview_unavailable",
+                                       systemImage: "exclamationmark.video")
+            }
+        }
+    }
+}
+
+@MainActor
+private struct WivraPendingRecordingReviewScreen: View {
+    let entry: WivraPendingRecording
+    @Environment(\.dismiss) private var dismiss
+    @State private var clips: [URL] = []
+    @State private var partIndex = 0
+    @State private var player: AVPlayer?
+
+    private func selectPart(_ newIndex: Int) {
+        guard clips.indices.contains(newIndex) else { return }
+        player?.pause()
+        partIndex = newIndex
+        player = AVPlayer(url: clips[newIndex])
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+                if let player {
+                    VideoPlayer(player: player)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 280)
+                        .accessibilityIdentifier("meta_pending_mov_preview")
+                    Text(String(format: NSLocalizedString(
+                        "ios.record.preview_part", comment: ""
+                    ), partIndex + 1, clips.count))
+                        .font(.footnote.monospacedDigit())
+                    if clips.count > 1 {
+                        HStack {
+                            Button("ios.record.preview_previous") {
+                                selectPart(partIndex - 1)
+                            }
+                            .disabled(partIndex == 0)
+                            Spacer()
+                            Button("ios.record.preview_next") {
+                                selectPart(partIndex + 1)
+                            }
+                            .disabled(partIndex >= clips.count - 1)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                } else {
+                    ContentUnavailableView("ios.record.preview_unavailable",
+                                           systemImage: "exclamationmark.video")
+                }
+                Text("ios.record.preview_disclaimer")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            .padding()
+            .navigationTitle("ios.record.preview_title")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("ios.record.preview_close") { dismiss() }
+                }
+            }
+            .onAppear {
+                // Reject edited JSON ticket paths and symlinked files.
+                clips = (try? WivraPendingRecordingStore.previewVideoURLs(entry)) ?? []
+                if !clips.isEmpty { selectPart(0) }
+            }
+            .onDisappear {
+                player?.pause()
+                player = nil
+            }
+        }
     }
 }

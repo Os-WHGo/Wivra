@@ -33,3 +33,11 @@
 "ios.record.delete_confirm" = "録画を削除";
 "ios.record.pending_notice" = "録画は保存確認待ちのため、エディターで利用できません。";
 "ios.record.review_pending" = "保留中の録画を確認";
+"ios.record.review_video" = "動画を確認";
+"ios.record.preview_title" = "保留中の録画を確認";
+"ios.record.preview_unavailable" = "一時動画を再生できません。";
+"ios.record.preview_part" = "セグメント %1$d / %2$d";
+"ios.record.preview_close" = "確認を終了";
+"ios.record.preview_disclaimer" = "確認は非公開です。保存または削除を選択するまで動画は変更されません。";
+"ios.record.preview_previous" = "前へ";
+"ios.record.preview_next" = "次へ";

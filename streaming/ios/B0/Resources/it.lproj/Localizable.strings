@@ -33,3 +33,11 @@
 "ios.record.delete_confirm" = "Sì, elimina";
 "ios.record.pending_notice" = "Registrazione in attesa di una decisione. Non disponibile nell'editor.";
 "ios.record.review_pending" = "Rivedi registrazioni in attesa";
+"ios.record.review_video" = "Rivedi video";
+"ios.record.preview_title" = "Rivedi registrazione in attesa";
+"ios.record.preview_unavailable" = "Video temporaneo non disponibile per l’anteprima.";
+"ios.record.preview_part" = "Segmento %1$d di %2$d";
+"ios.record.preview_close" = "Chiudi anteprima";
+"ios.record.preview_disclaimer" = "L’anteprima è privata. Il video non viene conservato o eliminato senza una tua scelta.";
+"ios.record.preview_previous" = "Precedente";
+"ios.record.preview_next" = "Successivo";
