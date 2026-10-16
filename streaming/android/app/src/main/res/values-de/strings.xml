@@ -149,4 +149,7 @@
     <string name="phone_camera_source_usb">USB-Mikrofon</string>
     <string name="phone_camera_source_bluetooth">Bluetooth-Mikrofon</string>
     <string name="phone_camera_source_external">Externes Mikrofon</string>
+    <string name="phone_camera_wav_salvage_explanation">Die WAV-Datei konnte nicht geprüft werden. Du kannst nur das Video speichern. Unvollständiges Audio bleibt für mögliche Wiederherstellung privat.</string>
+    <string name="phone_camera_save_video_only">Nur Video speichern</string>
+    <string name="phone_camera_video_only_saved">Video gespeichert. Unvollständiges WAV bleibt privat.</string>
 </resources>
