@@ -11,6 +11,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.VideoView
+import android.widget.MediaController
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -416,9 +418,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             if (pending.parts.size > 1) {
                 "\n\n" + getString(R.string.recording_pending_multiple_parts, pending.parts.size)
             } else ""
-        AlertDialog.Builder(this)
+        val reviewButton = Button(this).apply {
+            text = getString(R.string.recording_review_video)
+        }
+        val decisionDialog = AlertDialog.Builder(this)
             .setTitle(R.string.recording_save_question)
             .setMessage(explanation)
+            .setView(reviewButton)
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 scope.launch {
                     val savedCount = withContext(Dispatchers.IO) {
@@ -444,7 +450,87 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 show(getString(R.string.recording_remains_pending))
             }
             .setOnDismissListener { pendingDialogVisible = false }
+            .create()
+        reviewButton.setOnClickListener {
+            decisionDialog.dismiss()
+            reviewPendingVideo(pending)
+        }
+        decisionDialog.show()
+    }
+
+    /**
+     * Review completed, app-owned MP4s ONLY. VideoView reads the private path
+     * inside Wivra; never exports a URI, invokes Claude's editor, or changes the
+     * pending decision. Each MP4 part is played separately.
+     */
+    private fun reviewPendingVideo(pending: WivraHevcMp4Recorder.PendingRecording) {
+        val clips = WivraHevcMp4Recorder.listPendingRecordings(applicationContext)
+            .firstOrNull { it.id == pending.id }?.parts.orEmpty()
+        if (clips.isEmpty()) {
+            show(getString(R.string.recording_review_unavailable))
+            return
+        }
+        val density = resources.displayMetrics.density
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 8, 16, 8)
+        }
+        val info = TextView(this)
+        layout.addView(info)
+        val player = VideoView(this)
+        layout.addView(player, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, (260 * density).toInt()
+        ))
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val previous = Button(this).apply {
+            text = getString(R.string.recording_review_previous)
+        }
+        val next = Button(this).apply {
+            text = getString(R.string.recording_review_next)
+        }
+        controls.addView(previous, LinearLayout.LayoutParams(0,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        controls.addView(next, LinearLayout.LayoutParams(0,
+            ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        layout.addView(controls)
+        layout.addView(TextView(this).apply {
+            text = getString(R.string.recording_review_disclaimer)
+        })
+        var index = 0
+        val display: () -> Unit = {
+            player.stopPlayback()
+            info.text = getString(R.string.recording_review_part, index + 1, clips.size)
+            previous.isEnabled = index > 0
+            next.isEnabled = index < clips.size - 1
+            player.setVideoPath(clips[index].absolutePath)
+            player.setMediaController(MediaController(this).also {
+                it.setAnchorView(player)
+            })
+            player.setOnPreparedListener { player.start() }
+            player.setOnErrorListener { _, _, _ ->
+                info.text = info.text.toString() + "\n" +
+                    getString(R.string.recording_review_unavailable)
+                true
+            }
+        }
+        previous.setOnClickListener {
+            if (index > 0) { index--; display() }
+        }
+        next.setOnClickListener {
+            if (index + 1 < clips.size) { index++; display() }
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.recording_review_title)
+            .setView(layout)
+            .setPositiveButton(R.string.recording_review_close, null)
+            .setOnDismissListener {
+                player.stopPlayback()
+                window.decorView.post { offerPendingVideo() }
+            }
             .show()
+        display()
     }
 
     private fun confirmDiscardPending(pending: WivraHevcMp4Recorder.PendingRecording) {
