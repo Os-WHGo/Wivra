@@ -149,4 +149,7 @@
     <string name="phone_camera_source_usb">Micrófono USB</string>
     <string name="phone_camera_source_bluetooth">Micrófono Bluetooth</string>
     <string name="phone_camera_source_external">Micrófono externo</string>
+    <string name="phone_camera_wav_salvage_explanation">El WAV no se pudo validar. Puedes guardar solo el video; el audio incompleto queda privado para posible recuperación. O decide más tarde.</string>
+    <string name="phone_camera_save_video_only">Guardar solo video</string>
+    <string name="phone_camera_video_only_saved">Video guardado. El WAV incompleto sigue privado.</string>
 </resources>
