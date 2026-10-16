@@ -266,9 +266,19 @@ object WivraPhoneMediaStore {
      */
     fun saveSidecarTiming(
         context: Context, video: File, videoStartNs: Long, audioReadNs: Long,
-        audioBytes: Long
+        audioBytes: Long,
+        observedInputSource: String = "android-input-unknown"
     ) {
         require(isWivraPrivate(context, video)) { "Invalid video path" }
+        // The manifest is not a promise that a named Bluetooth/Meta device
+        // works. It only records the coarse route Android actually reported.
+        // Never store device names, IDs, addresses or paired device details.
+        val knownSources = setOf(
+            "android-phone-mic", "android-wired-mic", "android-usb-mic",
+            "android-bluetooth-mic", "android-mixed-input", "android-input-unknown"
+        )
+        val source = observedInputSource.takeIf { it in knownSources }
+            ?: "android-input-unknown"
         val track = org.json.JSONObject().apply {
             put("schemaVersion", 2)
             put("cameraSource", "android-phone-camerax")
@@ -288,7 +298,7 @@ object WivraPhoneMediaStore {
                 put("id", "audio-1")
                 put("kind", "audio")
                 put("role", "voice_primary")
-                put("source", "android-phone-mic")
+                put("source", source)
                 put("file", privateWav(context, video).name)
                 put("channelCount", 1)
                 put("sampleRateHz", 48000)
