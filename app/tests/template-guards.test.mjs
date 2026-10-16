@@ -20,6 +20,7 @@ const PIEZAS = [
   ['plan de producción del Director', "$('dirProdCreate').onclick"],
   ['teleprompter', 'function openPrompter('],
   ['velocidad', 'function spSync('],
+  ['transiciones', 'planCutTransitions('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],

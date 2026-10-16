@@ -625,3 +625,5 @@ Velocidad de {1}: {2}× || Velocità di {1}: {2}×
 Elige un video, una capa o un audio en la línea de tiempo. || Scegli un video, un livello o un audio nella timeline.
 1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre. || 1× è la velocità normale: meno è slow motion e più è veloce. Cambia la durata della clip; quello che segue si sposta.
 Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip. || Sotto 0.5× o sopra 2× il suono può risultare strano o senza voce naturale, soprattutto su iPhone (non verificato). Se non ti piace, silenzia quella clip.
+Transición en todos los cortes entre clips: || Transizione su ogni taglio tra le clip:
+Transición en los cortes || Transizione sui tagli

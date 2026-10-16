@@ -320,6 +320,8 @@ body.dock .back{pointer-events:none;background:transparent}
   <div class="chips" id="fxTabs"><button type="button" data-t="fxIn" class="on">Al aparecer</button><button type="button" data-t="fxOut">Al desaparecer</button></div>
   <div class="fgrid" id="fxIn"></div>
   <div class="fgrid" id="fxOut" style="display:none"></div>
+  <p class="m" style="margin-bottom:0">Transición en todos los cortes entre clips:</p>
+  <div class="chips" id="fxCut" role="group" aria-label="Transición en los cortes"></div><p class="m" id="fxCutOut" role="status"></p>
   <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sSpeed"><h2>Velocidad</h2><p class="m" id="spInfo">Elige un video, una capa o un audio en la línea de tiempo.</p>
@@ -985,6 +987,14 @@ $('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'
 $('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
 $('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDur').value; });
 $('fxDur').addEventListener('change', () => fxCommit({ dur: Number($('fxDur').value) }));
+$('fxCut').innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}">${n}</button>`).join('');
+$('fxCut').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || !session) return;
+  const plan = planCutTransitions(session.project, b.dataset.v, Number($('fxDur').value));
+  if (!plan.ok) { $('fxCutOut').textContent = plan.error; say(plan.error, 'bad'); return; }
+  const r = edit(plan.ops, { ripple: false }); if (!r.ok) { $('fxCutOut').textContent = 'No se pudo: ' + r.message; return; }
+  $('fxCutOut').textContent = `Listo en ${plan.cuts} ${plan.cuts === 1 ? 'corte' : 'cortes'}. ` + plan.warnings.join(' '); fxSync(); syncOverlays();
+});
 $('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').onclick = closeSheets;
 $('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 $('fmtSafe').addEventListener('change', () => { if (!session) return; const r = edit([{ op: 'set_format', safe: $('fmtSafe').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
