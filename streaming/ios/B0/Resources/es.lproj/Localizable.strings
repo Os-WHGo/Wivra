@@ -33,3 +33,11 @@
 "ios.record.delete_confirm" = "Sí, eliminar grabación";
 "ios.record.pending_notice" = "Video pendiente de decisión. No está disponible para el editor.";
 "ios.record.review_pending" = "Revisar grabaciones pendientes";
+"ios.record.review_video" = "Revisar video";
+"ios.record.preview_title" = "Revisar grabación pendiente";
+"ios.record.preview_unavailable" = "Video temporal no disponible para revisar.";
+"ios.record.preview_part" = "Segmento %1$d de %2$d";
+"ios.record.preview_close" = "Cerrar revisión";
+"ios.record.preview_disclaimer" = "La revisión es privada. Ningún video se guarda definitivamente ni se elimina hasta que elijas qué hacer.";
+"ios.record.preview_previous" = "Anterior";
+"ios.record.preview_next" = "Siguiente";
