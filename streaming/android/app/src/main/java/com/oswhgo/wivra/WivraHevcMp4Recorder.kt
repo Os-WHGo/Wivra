@@ -126,7 +126,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
 
     companion object {
         private val partNamePattern =
-            Regex("""^(wivra_rayban_[0-9a-f]{32})_part[0-9]{4}\\.mp4$""")
+            Regex("""^(wivra_rayban_[0-9a-f]{32})_part[0-9]{4}\.mp4$""")
 
         /**
          * Group checkpointed files by recording session. Legacy single MP4s
