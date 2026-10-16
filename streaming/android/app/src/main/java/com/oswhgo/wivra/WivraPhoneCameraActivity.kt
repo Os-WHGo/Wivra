@@ -313,10 +313,17 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                 when (event) {
                     is VideoRecordEvent.Start -> {
                         videoStartNs = SystemClock.elapsedRealtimeNanos()
-                        if (wavWasRequested) startSidecarWav(privateVideo)
-                        message(when (micMode) {
-                            1 -> R.string.phone_camera_recording_audio
-                            2 -> R.string.phone_camera_recording_wav
+                        if (wavWasRequested && !recordingFinishing) {
+                            startSidecarWav(privateVideo)
+                        } else if (wavWasRequested) {
+                            wavFinalized = true
+                            wavFailed = true
+                        }
+                        message(when {
+                            wavWasRequested && wavFailed ->
+                                R.string.phone_camera_wav_unavailable
+                            micMode == 1 -> R.string.phone_camera_recording_audio
+                            micMode == 2 -> R.string.phone_camera_recording_wav
                             else -> R.string.phone_camera_recording_silent
                         })
                         refreshControls()
