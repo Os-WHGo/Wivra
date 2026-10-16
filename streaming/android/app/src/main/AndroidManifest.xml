@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Used only if the user explicitly connects an external AI provider. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Read default network type and OS validation; never inspect SSIDs or credentials. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <application android:allowBackup="false" android:label="Wivra Dev"

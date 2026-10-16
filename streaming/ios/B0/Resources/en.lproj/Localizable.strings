@@ -47,3 +47,14 @@
 "ios.library.recovered_audio_title" = "Recovered audio";
 "ios.library.recovered_audio_note" = "Audio tracks kept without video. You can share them from Wivra.";
 "ios.library.share_recovered_audio" = "Share recovered CAF";
+"ios.network.unknown" = "Checking";
+"ios.network.offline" = "No route";
+"ios.network.wifi" = "Wi-Fi";
+"ios.network.cellular" = "Cellular";
+"ios.network.ethernet" = "Ethernet";
+"ios.network.other" = "Other route";
+"ios.network.route" = "Phone network: %@";
+"ios.network.no_verified_uplink" = "iOS has not confirmed a network route.";
+"ios.network.constrained" = "Low Data Mode; upload speed has not been measured.";
+"ios.network.expensive" = "Network route may incur data charges.";
+"ios.network.disclaimer" = "Phone diagnostic only, not the Ray-Ban link or verified LIVE access.";

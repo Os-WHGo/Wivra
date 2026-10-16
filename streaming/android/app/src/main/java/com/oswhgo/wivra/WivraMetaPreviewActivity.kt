@@ -3,6 +3,10 @@ package com.oswhgo.wivra
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -76,6 +80,51 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var sdkReady = false
     private var frames = 0L
     private lateinit var status: TextView
+    private lateinit var phoneNetworkStatus: TextView
+    private val connectivityManager by lazy {
+        getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    }
+    private var networkObserverRegistered = false
+    private val networkObserver = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = refreshPhoneNetworkOnUiThread()
+        override fun onLost(network: Network) = refreshPhoneNetworkOnUiThread()
+        override fun onCapabilitiesChanged(
+            network: Network, capabilities: NetworkCapabilities
+        ) = refreshPhoneNetworkOnUiThread()
+    }
+
+    // Inspect the phone's default OS network; never infer Meta DAT transport,
+    // stream readiness or actual upload Mbps from this observation.
+    private fun refreshPhoneNetworkOnUiThread() {
+        runOnUiThread { if (::phoneNetworkStatus.isInitialized) updatePhoneNetworkStatus() }
+    }
+
+    private fun updatePhoneNetworkStatus() {
+        val capabilities = connectivityManager.getNetworkCapabilities(
+            connectivityManager.activeNetwork
+        )
+        val transport = when {
+            capabilities == null -> R.string.mobile_network_offline
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ->
+                R.string.mobile_network_vpn
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ->
+                R.string.mobile_network_wifi
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
+                R.string.mobile_network_cellular
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
+                R.string.mobile_network_ethernet
+            else -> R.string.mobile_network_other
+        }
+        val availability = if (capabilities?.hasCapability(
+            NetworkCapabilities.NET_CAPABILITY_VALIDATED
+        ) == true) R.string.mobile_network_system_validated
+            else R.string.mobile_network_unverified
+        phoneNetworkStatus.text = getString(
+            R.string.mobile_network_summary,
+            getString(transport), getString(availability)
+        ) + "\n" + getString(R.string.mobile_network_disclaimer)
+    }
+
     private lateinit var registerButton: Button
     private lateinit var connectButton: Button
     private lateinit var previewButton: Button
@@ -112,6 +161,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             setPadding(0, 20, 0, 20)
         }
         root.addView(status)
+        phoneNetworkStatus = TextView(this).apply {
+            text = getString(R.string.mobile_network_checking)
+            textSize = 13f
+            setPadding(0, 0, 0, 12)
+        }
+        root.addView(phoneNetworkStatus)
         imagePreview = ImageView(this).apply {
             contentDescription = getString(R.string.preview_accessibility)
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -140,6 +195,29 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         refreshButtons()
         checkBluetooth()
         window.decorView.post { offerPendingVideo() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        try {
+            if (!networkObserverRegistered) {
+                connectivityManager.registerDefaultNetworkCallback(networkObserver)
+                networkObserverRegistered = true
+            }
+            updatePhoneNetworkStatus()
+        } catch (_: SecurityException) {
+            if (::phoneNetworkStatus.isInitialized) {
+                phoneNetworkStatus.text = getString(R.string.mobile_network_unavailable)
+            }
+        }
+    }
+
+    override fun onStop() {
+        if (networkObserverRegistered) {
+            connectivityManager.unregisterNetworkCallback(networkObserver)
+            networkObserverRegistered = false
+        }
+        super.onStop()
     }
 
     private fun button(root: LinearLayout, label: String, action: () -> Unit): Button =

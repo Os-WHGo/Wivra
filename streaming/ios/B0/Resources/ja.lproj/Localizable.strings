@@ -47,3 +47,14 @@
 "ios.library.recovered_audio_title" = "復元した音声";
 "ios.library.recovered_audio_note" = "映像なしで保存した音声です。Wivra から共有できます。";
 "ios.library.share_recovered_audio" = "復元した CAF を共有";
+"ios.network.unknown" = "確認中";
+"ios.network.offline" = "経路なし";
+"ios.network.wifi" = "Wi-Fi";
+"ios.network.cellular" = "モバイル通信";
+"ios.network.ethernet" = "Ethernet";
+"ios.network.other" = "その他";
+"ios.network.route" = "スマートフォンの回線: %@";
+"ios.network.no_verified_uplink" = "iOS がネットワーク経路を確認できません。";
+"ios.network.constrained" = "省データモード。速度は測定していません。";
+"ios.network.expensive" = "データ料金が発生する可能性があります。";
+"ios.network.disclaimer" = "スマートフォンの診断です。Ray-Ban 接続や LIVE の動作保証ではありません。";

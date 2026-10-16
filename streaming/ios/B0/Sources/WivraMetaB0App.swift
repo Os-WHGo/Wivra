@@ -12,6 +12,7 @@ struct WivraMetaB0App: App {
     @State private var captureTab: WivraCaptureTab = .meta
     @State private var pendingCaptureTab: WivraCaptureTab?
     @State private var iPhoneCamera = WivraIPhoneCamera()
+    @State private var phoneNetwork = WivraPhoneNetworkStatus()
     @State private var showingCaptureLibrary = false
     @State private var showingUnifiedEditor = false
 
@@ -68,8 +69,9 @@ struct WivraMetaB0App: App {
                     .tag(WivraCaptureTab.iPhone)
             }
             .safeAreaInset(edge: .top) {
-                HStack {
-                    Spacer()
+                VStack(spacing: 4) {
+                    HStack {
+                        Spacer()
                     Button {
                         showingUnifiedEditor = true
                     } label: {
@@ -86,9 +88,24 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
+                        .padding(.horizontal)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(phoneNetwork.summary)
+                            .font(.footnote.bold())
+                            .accessibilityIdentifier("wivra_phone_network_route")
+                        Text(phoneNetwork.qualification)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("ios.network.disclaimer")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                 }
             }
+            .onAppear { phoneNetwork.start() }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
             }
