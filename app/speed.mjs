@@ -52,3 +52,24 @@ export function planSpeed(project, clipId, speed) {
   }
   return { ok: true, ops, before: spR2(before), after, linked, warnings };
 }
+
+/**
+ * Apply one speed to all eligible clips as a single undoable batch.
+ * Work from the end of the timeline backwards so ripple moves do not
+ * interfere with earlier clips. Exclude standalone audio by default:
+ * changing a music bed's pitch/speed is not equivalent to speeding video.
+ */
+export function planSpeedAll(project, speed, { includeOverlays = false } = {}) {
+  if (!project || !Array.isArray(project.clips)) return { ok: false, error: 'No hay proyecto.' };
+  if (!Number.isFinite(speed) || speed < SPEED_MIN || speed > SPEED_MAX)
+    return { ok: false, error: `La velocidad va de ${SPEED_MIN}× a ${SPEED_MAX}×.` };
+  const kinds = new Map((project.assets || []).map(a => [a.id, a.kind]));
+  const eligible = [...project.clips, ...(includeOverlays ? project.overlayClips || [] : [])]
+    .filter(c => kinds.get(c.asset_id) === 'video')
+    .sort((a, b) => b.start - a.start);
+  if (!eligible.length) return { ok: false, error: 'No hay videos para cambiar de velocidad.' };
+  // Each step must use the updated project. The normal editor operation engine
+  // is the source of truth for validation and moving linked tracks.
+  return { ok: true, clipIds: eligible.map(c => c.id), speed, count: eligible.length,
+    warnings: ['Aplica cada cambio sobre el proyecto actualizado y guarda todo en un único paso de deshacer.'] };
+}
