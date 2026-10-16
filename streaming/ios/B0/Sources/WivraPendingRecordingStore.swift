@@ -42,9 +42,12 @@ enum WivraPendingRecordingStore {
 
     private static func checkedURL(_ url: URL, in folder: URL) throws -> URL {
         let candidate = url.standardizedFileURL
+        let exists = FileManager.default.fileExists(atPath: candidate.path)
+        let isLink = exists
+            ? ((try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
+            : false // Expected manifest may not yet have been written.
         guard candidate.isFileURL, candidate.deletingLastPathComponent() == folder,
-              safeName(candidate.lastPathComponent),
-              !((try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
+              safeName(candidate.lastPathComponent), !isLink
         else { throw WivraPendingRecordingError.invalidPath }
         return candidate
     }
