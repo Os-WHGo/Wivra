@@ -43,7 +43,7 @@ const qa3 = (x) => Math.round(x * 1000) / 1000;
  * planQuickAssembly(project, { targetSeconds, photoSeconds })
  * → { ok:true, ops, before, after, trimmed, items:[{id, from:[in,out], to:[in,out], start, photo}], warnings:[…] } | { ok:false, error }
  */
-export function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = QA_PHOTO_SECONDS } = {}) {
+export function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = QA_PHOTO_SECONDS, pick = null } = {}) {
   const T = Number(targetSeconds);
   if (!project || !Array.isArray(project.clips) || !project.clips.length) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
   if (!Number.isFinite(T) || T < QA_MIN_TARGET || T > QA_MAX_TARGET) return { ok: false, error: `La duración debe estar entre ${QA_MIN_TARGET} y ${QA_MAX_TARGET} s.` };
@@ -72,11 +72,16 @@ export function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = 
       }
     }
   }
-  const items = []; const ops = []; let t = 0, trimmed = 0;
+  const items = []; const ops = []; let t = 0, trimmed = 0, picked = 0;
   for (const c of clips) {
     const len = c.out - c.in, photo = isPhoto(c), d = qaR(photo ? photoLen(c) : want.get(c.id));
     let nin = c.in, nout = c.out;
-    if (d < len - 0.005) { nin = qaR(c.in + (len - d) / 2); nout = Math.min(c.out, qaR(nin + d)); trimmed++; }
+    if (d < len - 0.005) {
+      nin = qaR(c.in + (len - d) / 2);                      // por omisión, el centro
+      const pk = !photo && pick ? pick(c, d) : null;          // con `pick` (AutoCut): el tramo donde más se oye, si hay evidencia
+      if (Number.isFinite(pk) && pk >= c.in - 1e-9 && pk + d <= c.out + 1e-9 && Math.abs(pk - nin) > 0.005) { nin = qaR(pk); picked++; }
+      nout = Math.min(c.out, qaR(nin + d)); trimmed++;
+    }
     const start = qaR(t); t += nout - nin;
     if (nin !== c.in || nout !== c.out) ops.push({ op: 'trim_clip', clip_id: c.id, in: nin, out: nout });
     if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
@@ -88,5 +93,6 @@ export function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = 
   if (!trimmed && before <= T + 0.05) warnings.push(`El video ya dura ${before} s, menos de ${T} s: no se recorta nada.`);
   if (au.linked) warnings.push('El audio que iba con cada video se recortó y se movió junto con él.');
   if ((project.overlayClips || []).length || au.other || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos no se mueven: revisa su tiempo.');
-  return { ok: true, ops, before, after, trimmed, items, warnings };
+  if (pick) warnings.push(picked ? `Elegí en ${picked} ${picked === 1 ? 'clip' : 'clips'} el tramo donde más se oye; los clips sin diferencias de volumen claras quedaron con el centro.` : 'Ningún clip tiene diferencias de volumen claras: quedó el centro de cada uno.');
+  return { ok: true, ops, before, after, trimmed, picked, items, warnings };
 }

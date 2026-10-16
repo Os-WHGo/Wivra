@@ -14,7 +14,7 @@ Rama de integración: `claude/beta-editor-integration` (PR #124, base `chatgpt/w
 | Texto con lugar, tamaño, color y caja | EN RAMA (#112) | PENDIENTE | |
 | Subtítulos: importar/guardar .srt y .vtt, editar y borrar | EN RAMA (#86) | PENDIENTE | **No hay transcripción automática** (ver abajo) |
 | Zona segura para textos (9:16) | EN RAMA (#123) | PENDIENTE | Medidas de Wivra, no una regla oficial de Reels/TikTok |
-| Montaje rápido a 15/30/45/60 s | EN RAMA (#99) | PENDIENTE | Elige el centro de cada clip; no entiende el contenido |
+| Montaje rápido a 15/30/45/60 s, con **AutoCut v1** opcional (elige el tramo donde más se oye) | EN RAMA (#99 + AutoCut en #124) | PENDIENTE | AutoCut usa solo el volumen: no entiende palabras ni imágenes; sin diferencias de volumen deja el centro |
 | Plantillas (reel, historia, cuadrado, horizontal, recuerdo, «Pantalla + cara») | EN RAMA (#100, #123) | PENDIENTE | Recetas propias; sin slots de foto/video ni animaciones |
 | Quitar silencios (por volumen, en el teléfono) | EN RAMA (#114) | PENDIENTE | No entiende palabras; no sirve con música o ruido continuo |
 | Volumen parejo al exportar (opcional, −14 / −16 LUFS) | EN RAMA (#119) | PENDIENTE | Medido en Chromium: −15,3 → −14,1 LUFS. Probar en iPhone/Android: el códec puede variar décimas |
@@ -27,7 +27,7 @@ Rama de integración: `claude/beta-editor-integration` (PR #124, base `chatgpt/w
 
 ## Lo que el inventario #121 pide y el editor aún NO tiene (no es «hecho»)
 - **Transcripción / subtítulos automáticos locales y gratuitos** (issue #6): ❌ no implementado. Falta elegir y medir un modelo abierto en teléfono (licencia, tamaño, velocidad). Mientras tanto solo hay importar/editar .srt/.vtt.
-- **AutoCut editable a partir de clips reales** (C04): 🟡 existe el montaje rápido y quitar silencios; falta elegir los mejores tramos con evidencia real (actividad de voz) en un solo paso reversible.
+- **AutoCut editable a partir de clips reales** (C04): 🟡 v1 hecho (montaje a duración exacta eligiendo el tramo con más voz, en un solo paso reversible). Falta: elegir por contenido (imagen/palabras, necesita análisis o transcripción local), collage y duración exacta de un audio.
 - **Teleprompter** (D06) y **plan por tomas con aceptar/repetir/saltar** (D04/D08): ❌ interfaz pendiente (el núcleo de contrato existe). La parte de cámara es de ChatGPT.
 - **Transiciones entre clips**: ❌ no hay (`set_transition` espera decisión del propietario). **Velocidad** (cámara lenta/rápida): ❌ no implementada.
 - **Collage**, **plantillas con slots foto/video**, **máscaras**: ❌.

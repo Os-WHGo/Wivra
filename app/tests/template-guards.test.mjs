@@ -16,6 +16,7 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 const PIEZAS = [
   ['el volumen parejo al exportar', 'async function loudnessPlan('],
   ['la revisión de ritmo del Director', 'function rhRender('],
+  ['AutoCut: elegir donde más se oye', 'async function qaPlan('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],
