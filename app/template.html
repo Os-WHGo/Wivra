@@ -317,7 +317,13 @@ body.dock .back{pointer-events:none;background:transparent}
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
   <button id="trkDone" class="btn sec">Cerrar</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
-  <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
+  <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
+  <div id="txEdit" style="display:none"><h3>Editar texto</h3><input id="txtE" maxlength="120" aria-label="Texto">
+    <div class="row"><label>Empieza (s)<input id="txtS" type="number" step="0.1" min="0" inputmode="decimal"></label><label>Dura (s)<input id="txtD" type="number" step="0.1" min="0.1" inputmode="decimal"></label></div>
+    <div class="row"><button id="txSave" class="btn">Guardar cambios</button><button id="txDel" class="btn sec">Borrar texto</button></div></div>
+  <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
+  <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
+  <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
 
 <div class="sheet ai-chat" id="sAI"><h2>Asistente Wivra</h2>
   <p class="m ai-intro">Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla.</p>
@@ -581,7 +587,7 @@ function auApply(args) { if (!selId) return; const r = edit([{ op: 'set_clip_aud
 $('auMute').onchange = () => auApply({ muted: $('auMute').checked });
 $('auVol').oninput = () => { $('auVolTxt').textContent = $('auVol').value + '%'; };
 $('auVol').onchange = () => auApply({ volume: Number($('auVol').value) / 100 });
-$('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
+$('bText').onclick = () => { selText = null; textEditorSync(); openSheet('sText'); }; $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
 $('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 
 function render() {
@@ -1277,11 +1283,13 @@ function renderTimeline() {
   }
   if (nOv && !(p.overlayClips || []).length) { const h = document.createElement('div'); h.className = 'ovhint'; h.textContent = 'Capas: arrastra un video aquí (abajo = capa)'; $('otrack').appendChild(h); }
   for (const t of p.texts) {
-    const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
+    const b = document.createElement('div'); b.className = 'blk txb' + (t.id === selText ? ' sel' : ''); b.dataset.tid = t.id; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
   }
+  $('subSrt').disabled = $('subVtt').disabled = !p.texts.length;
   labels(); syncOverlays();
 }
 $('tlinner').addEventListener('click', (e) => {
+  const tb = e.target.closest('.txb'); if (tb && tb.dataset.tid) { openTextEditor(tb.dataset.tid); return; }      // tocar un texto = editarlo
   const sp = e.target.closest('.spk');
   if (sp) {
     const c = anyClip(sp.dataset.id); if (!c) return;
@@ -1433,6 +1441,58 @@ $('addtxt').onclick = () => {
   const r = run([{ op: 'add_text', text: $('txt').value, start: Math.min(tlTime, Math.max(0, tot - 0.1)), duration: 3 }]);
   if (r.ok) closeSheets(); say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
+// Editar / borrar un texto y subtítulos SRT/VTT (lógica pura en app/subtitles.mjs).
+let selText = null;
+function textEditorSync() {
+  const t = selText && session && session.project.texts.find(k => k.id === selText); if (selText && !t) selText = null;
+  $('txEdit').style.display = t ? 'block' : 'none';
+  if (t) { $('txtE').value = t.text; $('txtS').value = String(round2(t.start)); $('txtD').value = String(round2(t.end - t.start)); }
+}
+function openTextEditor(id) {
+  selText = id; const t = session.project.texts.find(k => k.id === id); if (!t) return;
+  tlTime = Math.min(t.start, Math.max(0, timelineEnd(session.project) - 0.01)); showFrame(); syncScroll(); render(); textEditorSync(); openSheet('sText');
+}
+$('txSave').onclick = () => {
+  if (!selText) return;
+  const r = run([{ op: 'set_text', text_id: selText, text: $('txtE').value, start: parseFloat($('txtS').value.replace(',', '.')), duration: parseFloat($('txtD').value.replace(',', '.')) }]);
+  if (r.ok) { textEditorSync(); closeSheets(); }
+  say(r.ok ? aiT('Texto actualizado.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+$('txDel').onclick = () => {
+  if (!selText) return; const r = run([{ op: 'delete_text', text_id: selText }]);
+  if (r.ok) { selText = null; textEditorSync(); closeSheets(); render(); }
+  say(r.ok ? aiT('Texto borrado.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
+async function readSubtitleText(file) {      // UTF-8; si el archivo no lo es (muy común en .srt viejos), Windows-1252 con aviso
+  const buf = await file.arrayBuffer();
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), note: null }; }
+  catch { return { text: new TextDecoder('windows-1252').decode(buf), note: aiT('El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos.') }; }
+}
+$('subFile').addEventListener('change', async () => {
+  const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
+  if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
+  try {
+    const rd = await readSubtitleText(f), r = parseSubtitles(rd.text, { maxChars: MAX_TEXT });
+    if (!r.ok) { say(r.errors.join('\n'), 'bad'); return; }
+    const { ops, late } = cuesToOps(r.cues, totalDuration(session.project));
+    if (!ops.length) { say(aiT('Ningún subtítulo cabe dentro del video.'), 'bad'); return; }
+    const res = run(ops); if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    const notes = [aiT('Se importaron {1} subtítulos.', ops.length)];
+    if (r.stats.dropped) notes.push(aiT('{1} subtítulo(s) con tiempos o texto inválidos no se importaron.', r.stats.dropped));
+    if (r.stats.split) notes.push(aiT('{1} subtítulo(s) eran muy largos y se partieron en trozos de hasta {2} caracteres.', r.stats.split, MAX_TEXT));
+    if (late) notes.push(aiT('{1} subtítulo(s) empiezan después del final del video y no se importaron.', late));
+    if (rd.note) notes.push(rd.note);
+    closeSheets(); say(notes.join('\n'), notes.length > 1 ? 'bad' : 'ok');
+  } catch (e) { say(aiT('No pude leer ese archivo de subtítulos: {1}', e && e.message || e), 'bad'); }
+});
+function saveSubtitles(kind) {
+  const texts = session ? session.project.texts : []; if (!texts.length) { say(aiT('No hay textos para guardar como subtítulos.'), 'bad'); return; }
+  const body = kind === 'vtt' ? toVTT(texts) : toSRT(texts), base = ((typeof pzName === 'string' && pzName) || 'subtitulos').replace(/[\\/:*?"<>|\r\n]+/g, ' ').trim().slice(0, 60) || 'subtitulos';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([body], { type: kind === 'vtt' ? 'text/vtt;charset=utf-8' : 'application/x-subrip;charset=utf-8' })); a.download = base + '.' + kind;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  say(aiT('Subtítulos guardados ({1}).', texts.length), 'ok');
+}
+$('subSrt').onclick = () => saveSubtitles('srt'); $('subVtt').onclick = () => saveSubtitles('vtt');
 $('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
 $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
 function run_after() { if (!anyClip(selId)) selId = null; tlTime = Math.min(tlTime, timelineEnd(session.project)); render(); syncScroll(); }

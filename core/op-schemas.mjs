@@ -8,7 +8,7 @@ const osT = { type: 'number', minimum: 0, description: 'segundos' };
 const osUnit = (d) => ({ type: 'number', minimum: 0, maximum: 1, description: d });
 const osFilterProps = Object.fromEntries(Object.entries(FILTER_RANGES).map(([k, [lo, hi]]) => [k, { type: 'number', minimum: lo, maximum: hi, description: `${k} (${lo} a ${hi}; 0 = sin cambio)` }]));
 const osP = {
-  clip_id: { type: 'string' }, asset_id: { type: 'string' },
+  clip_id: { type: 'string' }, asset_id: { type: 'string' }, text_id: { type: 'string', description: 'id de un texto en pantalla (t1, t2…)' },
   start: osT, in: osT, out: osT, at: osT, duration: { type: 'number', exclusiveMinimum: 0, description: 'segundos' },
   muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '0 a 2; 1 = original' },
   text: { type: 'string', maxLength: 120 },
@@ -37,6 +37,8 @@ export const OP_SCHEMAS = {
   set_clip_audio: { desc: 'silencia o cambia el volumen del audio de un clip', required: ['clip_id'], props: ['clip_id', 'muted', 'volume'] },
   delete_clip: { desc: 'borra un clip', required: ['clip_id'], props: ['clip_id'] },
   add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration'] },
+  set_text: { desc: 'cambia el texto y/o los tiempos de un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id', 'text', 'start', 'duration'] },
+  delete_text: { desc: 'borra un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id'] },
 };
 export const OP_SCHEMA_NAMES = Object.keys(OP_SCHEMAS);
 const osPick = (names) => Object.fromEntries(names.map((k) => [k, osP[k]]));

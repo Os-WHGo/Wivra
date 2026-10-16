@@ -424,3 +424,28 @@ Operaciones locales básicas, sin modelo de IA || Operazioni locali di base, sen
 Foto {1} en {2} s por {3} s || Foto {1} a {2} s per {3} s
 Se cargaron {} archivos (videos y fotos). Revisa el orden. || {} file caricati (video e foto). Controlla l'ordine.
 Foto cargada (3 s). Alarga su bloque para que dure más. || Foto caricata (3 s). Allunga il suo blocco per farla durare di più.
+Texto {1}: {2} || Testo {1}: {2}
+«{1}» || «{1}»
+desde {1} s || da {1} s
+por {1} s || per {1} s
+Borrar texto {1} || Elimina il testo {1}
+Editar texto || Modifica testo
+Empieza (s) || Inizia (s)
+Dura (s) || Dura (s)
+Guardar cambios || Salva modifiche
+Borrar texto || Elimina testo
+Importa un archivo .srt o .vtt, o guarda los textos como subtítulos. || Importa un file .srt o .vtt, oppure salva i testi come sottotitoli.
+Importar subtítulos (.srt / .vtt) || Importa sottotitoli (.srt / .vtt)
+Guardar .srt || Salva .srt
+Guardar .vtt || Salva .vtt
+Texto actualizado. || Testo aggiornato.
+Texto borrado. || Testo eliminato.
+Se importaron {1} subtítulos. || Importati {1} sottotitoli.
+Ningún subtítulo cabe dentro del video. || Nessun sottotitolo rientra nel video.
+{1} subtítulo(s) con tiempos o texto inválidos no se importaron. || {1} sottotitolo/i con tempi o testo non validi non sono stati importati.
+{1} subtítulo(s) eran muy largos y se partieron en trozos de hasta {2} caracteres. || {1} sottotitolo/i erano troppo lunghi e sono stati divisi in parti di al massimo {2} caratteri.
+{1} subtítulo(s) empiezan después del final del video y no se importaron. || {1} sottotitolo/i iniziano dopo la fine del video e non sono stati importati.
+El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos. || Il file è stato letto come Windows-1252 (non era UTF-8). Controlla gli accenti.
+No pude leer ese archivo de subtítulos: {1} || Non sono riuscito a leggere quel file di sottotitoli: {1}
+Subtítulos guardados ({1}). || Sottotitoli salvati ({1}).
+No hay textos para guardar como subtítulos. || Non ci sono testi da salvare come sottotitoli.

@@ -11,6 +11,8 @@ Operaciones permitidas (tiempos en segundos):
 - {"op":"add_clip","asset_id":"a1","start":0}
 - {"op":"add_photo_clip","asset_id":"a2","start":0,"duration":3}  (foto o GIF en la línea principal; add_clip es solo para videos)
 - {"op":"add_text","text":"Hola","start":0,"duration":3}  (texto máx. 120 caracteres)
+- {"op":"set_text","text_id":"t1","text":"Hola","start":1,"duration":2}  (cambia un texto o subtítulo; todo opcional menos text_id)
+- {"op":"delete_text","text_id":"t1"}
 
 Si algo es imposible, responde [] y nada más.
 
