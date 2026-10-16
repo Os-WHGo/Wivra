@@ -132,3 +132,16 @@ test('el archivo final se puede analizar sin nombres globales repetidos', () => 
   assert.ok(scripts.length >= 2, 'faltan los <script> del archivo final');
   scripts.forEach((s, i) => assert.doesNotThrow(() => new vm.Script(s, { filename: `agentcut.html#script${i}` }), `el script ${i} no se puede analizar`));
 });
+
+// 6) Accesibilidad básica: ningún botón de color ni campo de texto del HTML fijo se queda sin nombre para el lector de pantalla. — Claude
+test('los controles fijos del HTML tienen nombre accesible', () => {
+  const tpl = readFileSync(new URL('../template.html', import.meta.url), 'utf8');
+  const colores = tpl.match(/<div class="chips more" id="ovColors">[\s\S]*?<\/div>/)[0];
+  const botones = [...colores.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(botones.length >= 6); botones.forEach((b) => assert.match(b, /aria-label="[^"]+"/, `botón de color sin nombre: ${b}`));
+  for (const id of ['txt', 'dirAssetDescription', 'directorCamera', 'dirQuickEdit', 'tin', 'tout']) {
+    const tag = tpl.match(new RegExp(`<(?:input|textarea)\\b[^>]*\\bid="${id}"[^>]*>`))[0];
+    assert.match(tag, /aria-label="[^"]+"/, `el campo ${id} no tiene nombre accesible`);
+  }
+  assert.match(tpl, /<meta name="description" content="[^"]+">/); assert.match(tpl, /<link rel="icon" href=/);
+});
