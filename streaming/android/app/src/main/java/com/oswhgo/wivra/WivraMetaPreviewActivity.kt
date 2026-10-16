@@ -54,6 +54,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var frameChannel: Channel<LocalPreviewFrame>? = null
     private var lastPreviewEnqueueMs = 0L
     private var warnedUnsupportedLayout = false
+    private var lastFrameReceivedMs = 0L
+    private var photoInProgress = false
+    private lateinit var photoButton: Button
     private lateinit var imagePreview: ImageView
 
     private data class LocalPreviewFrame(val bytes: ByteArray, val width: Int, val height: Int)
@@ -108,6 +111,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
         connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
+        photoButton = button(root, getString(R.string.capture_photo)) { captureGlassesPhoto() }
         button(root, getString(R.string.disconnect)) { stopAll() }
         button(root, getString(R.string.back_editor)) { stopAll(); finish() }
         root.addView(TextView(this).apply {
@@ -131,6 +135,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerButton.isEnabled = sdkReady
         connectButton.isEnabled = sdkReady && session == null
         previewButton.isEnabled = session?.state?.value == DeviceSessionState.STARTED && camera == null
+        photoButton.isEnabled = stream != null && !photoInProgress &&
+            lastFrameReceivedMs > 0L &&
+            SystemClock.elapsedRealtime() - lastFrameReceivedMs < 4_000L
     }
 
     private fun checkBluetooth() {
@@ -207,6 +214,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 val active = capability.stream
                 stream = active
                 frames = 0
+                lastFrameReceivedMs = 0L
                 lastPreviewEnqueueMs = 0L
                 warnedUnsupportedLayout = false
                 refreshButtons()
@@ -233,7 +241,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 framesJob = scope.launch {
                     active.videoStream.collect { frame ->
                         frames += 1
+                        lastFrameReceivedMs = SystemClock.elapsedRealtime()
                         if (frames == 1L || frames % 24L == 0L) {
+                            refreshButtons()
                             show(getString(R.string.frames_status, frames, frame.width, frame.height))
                         }
                         // Limit JPEG preview workload to roughly 6 images/sec. The full
@@ -277,10 +287,44 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .onFailure { error, _ -> show(getString(R.string.camera_failed, error.description)) }
     }
 
+    private fun captureGlassesPhoto() {
+        val active = stream ?: return
+        if (photoInProgress || lastFrameReceivedMs == 0L ||
+            SystemClock.elapsedRealtime() - lastFrameReceivedMs > 4_000L) {
+            show(getString(R.string.photo_requires_stream))
+            return
+        }
+        photoInProgress = true
+        refreshButtons()
+        show(getString(R.string.photo_capture_progress))
+        scope.launch {
+            try {
+                // Stable DAT in-stream snapshot, NOT experimental standalone HQ Photo.
+                val picture = active.capturePhoto().getOrThrow()
+                val saved = withContext(Dispatchers.IO) {
+                    WivraMetaPhotoStore.save(applicationContext, picture)
+                }
+                if (stream === active) {
+                    show(getString(R.string.photo_saved, saved.lastPathSegment ?: ""))
+                }
+            } catch (failure: Exception) {
+                if (stream === active) {
+                    show(getString(R.string.photo_save_failed,
+                        failure.localizedMessage ?: "unknown"))
+                }
+            } finally {
+                photoInProgress = false
+                refreshButtons()
+            }
+        }
+    }
+
     private fun cleanup() {
         framesJob?.cancel(); framesJob = null
         decodeJob?.cancel(); decodeJob = null
         frameChannel?.close(); frameChannel = null
+        lastFrameReceivedMs = 0L
+        photoInProgress = false
         if (::imagePreview.isInitialized) imagePreview.setImageDrawable(null)
         streamJob?.cancel(); streamJob = null
         streamErrorJob?.cancel(); streamErrorJob = null
