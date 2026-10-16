@@ -9,8 +9,14 @@ Este módulo usa el archivo generado app/dist/agentcut.html de Claude como fuent
 - Restricción de navegación externa dentro de WebView y acceso universal desde file URLs desactivado.
 - CI genera APK debug y comprueba recursos; no exige servicios de pago.
 
+## Integración SDK Meta Android
+- Se incluyen las dependencias oficiales `com.meta.wearable:mwdat-core:1.0.1` y `mwdat-camera:1.0.1` desde Maven Central, con compilación sin suscripción.
+- Se deshabilitan por defecto las analíticas y captura de crashes del SDK mediante opciones oficiales.
+- El SDK aún NO está conectado al ciclo de vida de `MainActivity`; registrar una aplicación Meta y comprobar dispositivos/consentimiento antes de realizar conexión. No inventar `APPLICATION_ID`.
+- La paridad Ray-Ban iOS/Android es obligatoria como **objetivo de producto**; limitaciones del SDK o hardware se mostrarán con precisión.
+
 ## Pendiente sin exagerar
-- Cámara nativa Android, Meta DAT Android, importación automática de manifiestos, LIVE y audio multipista: aún no conectados a este host.
+- Cámara nativa Android, la **conexión funcional de Meta DAT Android** (dependencias ya añadidas), importación automática de manifiestos, LIVE y audio multipista: aún no conectados a este host.
 - Persistencia real de IndexedDB, foto principal, exportación HEVC y archivos largos: pendientes de probar en Android real.
 - Modelos externos opcionales sujetos a consentimiento, CORS, licencias y autenticación oficialmente permitida.
 - DAT developer preview no implica autorización para distribuir funciones experimentales.
