@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject } from '../../core/project.mjs';
 import { Session } from '../../core/session.mjs';
-import { clipAt, rippleOps, planEdit, splitAt, fmtTime, reorderOps } from '../timeline.mjs';
+import { clipAt, rippleOps, planEdit, splitAt, fmtTime, reorderOps, PPS_MIN, PPS_MAX, clampPps, touchDistance, pinchPps } from '../timeline.mjs';
 
 const mk = () => { const s = new Session(createProject({ assets: [{ id: 'a1', duration: 22 }] })); s.apply([{ op: 'add_clip', asset_id: 'a1' }]); return s; };
 
@@ -50,4 +50,25 @@ test('reordenar clips: B, A queda B en 0 y A después, en un solo deshacer', () 
   assert.equal(get('c2').start, 0); assert.equal(get('c1').start, 5);
   s.undo(); assert.equal(get('c1').start, 0);
   assert.equal(reorderOps(s.project, ['c1']), null);          // lista incompleta: se rechaza
+});
+
+test('zoom: los límites de ＋/− y del pellizco son los mismos', () => {
+  assert.equal(PPS_MIN, 6); assert.equal(PPS_MAX, 400);
+  assert.equal(clampPps(1), 6); assert.equal(clampPps(1000), 400); assert.equal(clampPps(40), 40);
+});
+
+test('pellizco: dedos que se separan expanden, dedos que se juntan achican', () => {
+  const d = touchDistance({ clientX: 0, clientY: 0 }, { clientX: 30, clientY: 40 });
+  assert.equal(d, 50);
+  assert.equal(pinchPps(40, 100, 200), 80);           // el doble de separación → el doble de píxeles por segundo (la línea se expande)
+  assert.equal(pinchPps(40, 100, 50), 20);            // la mitad → la mitad (se achica)
+  assert.equal(pinchPps(40, 100, 100), 40);           // sin mover los dedos no cambia nada
+});
+
+test('pellizco: nunca pasa de los límites ni usa datos que no sirven', () => {
+  assert.equal(pinchPps(40, 100, 1e6), PPS_MAX);
+  assert.equal(pinchPps(40, 100, 0), PPS_MIN);
+  assert.equal(pinchPps(399, 100, 150), PPS_MAX);
+  assert.equal(pinchPps(7, 100, 60), PPS_MIN);
+  for (const bad of [[0, 100, 100], [-5, 100, 100], [NaN, 100, 100], [40, 4, 100], [40, 0, 100], [40, NaN, 100], [40, 100, NaN], [40, 100, -1], [40, 100, Infinity]]) assert.equal(pinchPps(...bad), null, JSON.stringify(bad));
 });

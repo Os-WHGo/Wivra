@@ -1,4 +1,4 @@
-# Arquitectura de AgentCut: recomendación técnica
+# Arquitectura de Wivra (antes AgentCut): recomendación técnica
 
 > **Propuesta de Claude, 13 oct 2026. La decisión final es del propietario del repo.**
 > Cada dato dice si es **[V] verificado** (leí la fuente o el código ese día) o **[NV] no verificado**. Nada de lo de abajo se probó en un iPhone ni en gafas reales.
@@ -68,7 +68,7 @@ Instrucción ─► IA (Claude / ChatGPT / Meta / otras) ─► plan ─► oper
 
 | Capacidad | Estado | Fuente |
 | --- | --- | --- |
-| Importar grabaciones ya hechas | **[V por ChatGPT, PR #12]** la app Meta AI las pasa a Fotos y de ahí se eligen en AgentCut. **[NV]** de punta a punta en AgentCut | Meta, PR #12 |
+| Importar grabaciones ya hechas | **[V por ChatGPT, PR #12]** la app Meta AI las pasa a Fotos y de ahí se eligen en Wivra. **[NV]** de punta a punta en AgentCut | Meta, PR #12 |
 | Video en vivo de las gafas a una app nativa | **[V]** documentado en DAT 1.0 | [CHANGELOG iOS](https://github.com/facebook/meta-wearables-dat-ios/blob/main/CHANGELOG.md) |
 | Calidad del video en vivo | **[V]** máximo 720×1280 (`high`), 504×896 (`medium`), 360×640 (`low`); 2, 7, 15, 24 o 30 cuadros/s; `raw` o HEVC (`hvc1`). Meta avisa que menos resolución y cuadros dan mejor imagen por la compresión Bluetooth | `AGENTS.md` del repo iOS |
 | Grabar a archivo con el SDK | **[V]** el ejemplo CameraAccess graba con `AVAssetWriter` (HEVC + AAC), y desde 0.9.0 sigue grabando con la app en segundo plano | repo iOS, `Media/VideoRecorder.swift`, CHANGELOG |
@@ -78,7 +78,7 @@ Instrucción ─► IA (Claude / ChatGPT / Meta / otras) ─► plan ─► oper
 | Modelos compatibles | **[V]** Ray-Ban Meta Gen 1 y 2, Ray-Ban Meta Display, Oakley Meta HSTN y Vanguard; "las capacidades varían por dispositivo" | [FAQ de Meta](https://developers.meta.com/wearables/faq/) |
 | Publicar en tiendas | **[V]** todavía no abierto ("pronto", sin fecha). El SDK se descarga en cualquier país, pero la funcionalidad completa solo en países con gafas compatibles | FAQ de Meta |
 | Probarlo uno mismo | **[V]** requiere gafas emparejadas con la app Meta AI y modo desarrollador; el SDK de Android está en Maven Central sin token (versión 1.0.1); el de iOS se instala con Swift Package Manager | READMEs |
-| Licencia del SDK | **[V]** Términos de Meta, **no** es software libre; no se copia dentro de AgentCut, se usa como dependencia | `LICENSE` |
+| Licencia del SDK | **[V]** Términos de Meta, **no** es software libre; no se copia dentro de Wivra, se usa como dependencia | `LICENSE` |
 | Reglas de uso | **[V]** la política de uso prohíbe tapar el LED de grabación y captar a otras personas de forma encubierta; no dice nada explícito sobre transmitir a plataformas | [Política de uso](https://wearables.developer.meta.com/acceptable-use-policy) |
 | Con hardware real | **Nada probado por nosotros.** Tampoco por los repos de ejemplo, según lo que leí | |
 

@@ -28,3 +28,23 @@ test('texto: activo solo dentro de su intervalo y se parte en líneas', () => {
   assert.equal(textsAt(p, 0.9).length, 0); assert.equal(textsAt(p, 1).length, 1); assert.equal(textsAt(p, 3).length, 0);
   assert.deepEqual(wrapLines('uno dos tres cuatro', 8, (s) => s.length), ['uno dos', 'tres', 'cuatro']);
 });
+
+import { contentRect, solveContent } from '../export.mjs';
+test('contentRect cubre la ventana y solveContent es su inverso (con zoom y desplazamiento en ambos ejes)', () => {
+  const win = { left: 10, top: 20, w: 200, h: 200 }, vw = 1920, vh = 1080;
+  for (const zoom of [1, 1.7, 3.2]) for (const px of [0, 0.3, 1]) for (const py of [0, 0.5, 1]) {
+    const r = contentRect(win.w, win.h, vw, vh, zoom, px, py);
+    assert.ok(r.x <= 1e-9 && r.y <= 1e-9 && r.x + r.w >= win.w - 1e-9 && r.y + r.h >= win.h - 1e-9, 'siempre cubre la ventana');
+    const s = solveContent(win, { X: win.left + r.x, Y: win.top + r.y, W: r.w, H: r.h }, vw, vh);
+    assert.ok(Math.abs(s.zoom - zoom) < 1e-9);
+    if (zoom > 1 || r.w > win.w) assert.ok(Math.abs(s.px - px) < 1e-9, `px ${px} zoom ${zoom}`);
+    assert.ok(Math.abs(s.py - py) < 1e-9 || r.h <= win.h + 1e-9);
+  }
+});
+test('solveContent limita zoom a 1..4 y deja el contenido cubriendo la ventana aunque se arrastre de más', () => {
+  const win = { left: 0, top: 0, w: 100, h: 100 };
+  assert.equal(solveContent(win, { X: 0, Y: 0, W: 10, H: 10 }, 100, 100).zoom, 1);
+  assert.equal(solveContent(win, { X: 0, Y: 0, W: 9999, H: 9999 }, 100, 100).zoom, 4);
+  const s = solveContent(win, { X: 500, Y: -500, W: 200, H: 200 }, 100, 100); assert.ok(s.px >= 0 && s.px <= 1 && s.py >= 0 && s.py <= 1);
+  assert.equal(contentRect(100, 100, 100, 100, 1, 0.2, 0.9).x, 0, 'sin sobrante a este zoom, px no mueve nada');
+});

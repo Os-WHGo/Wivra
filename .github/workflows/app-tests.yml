@@ -1,0 +1,22 @@
+# Corre TODAS las pruebas de app/tests. Hasta ahora ningún flujo ejecutaba las de idiomas (i18n.test.mjs), persistencia, paquetes ni GIF,
+# y una fusión mal resuelta borró los idiomas y el panel Ajustes con el CI en verde. Esta prueba lo habría detectado. — Claude
+name: App Tests
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - '.github/workflows/app-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: All app tests (languages, Settings guards, persistence, packs, export, timeline)
+        run: node --test app/tests/*.test.mjs

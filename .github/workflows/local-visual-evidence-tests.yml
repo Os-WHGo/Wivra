@@ -23,6 +23,8 @@ jobs:
         run: node --test app/tests/export.test.mjs
       - name: AI client (mock provider)
         run: node --test app/tests/ai-client.test.mjs
+      - name: Capture manifest reader (v1 real, v2 proposal)
+        run: node --test app/tests/capture-manifest.test.mjs
       - name: Verify existing core is still valid
         run: cd core && npm test
       - name: Rebuild single-file app and check committed output

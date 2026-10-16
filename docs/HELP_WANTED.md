@@ -1,6 +1,6 @@
 # Se buscan manos
 
-AgentCut es un proyecto cooperativo, gratuito y sin servidores propios. Estas tareas están **detenidas o necesitan a alguien con algo que hoy no tenemos** (un iPhone o Android, unas gafas, una Mac, conocimiento legal). Cada una es un issue con lo que se necesita. **No hace falta pedir permiso: comenta en el issue y abre un pull request en borrador.** Reglas del proyecto: [`AGENTS.md`](../AGENTS.md).
+Wivra es un proyecto cooperativo, gratuito y sin servidores propios. Estas tareas están **detenidas o necesitan a alguien con algo que hoy no tenemos** (un iPhone o Android, unas gafas, una Mac, conocimiento legal). Cada una es un issue con lo que se necesita. **No hace falta pedir permiso: comenta en el issue y abre un pull request en borrador.** Reglas del proyecto: [`AGENTS.md`](../AGENTS.md).
 
 | Issue | Qué falta | Quién puede ayudar |
 | --- | --- | --- |

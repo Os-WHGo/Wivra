@@ -3,23 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>/* ajuste de pantalla guardado (iPhone/Chrome: barras del navegador) */
+try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}; if (z.padTop) document.documentElement.style.setProperty('--padTop', z.padTop + 'px'); if (z.nocover) document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1'); } catch (e) {}
+</script>
 <meta name="theme-color" content="#12141a">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Wivra"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAEB0lEQVR42u3dPVIcMRRF4UHFCigiE7I9AkIiAiKHDrw9QvbhwAnlwjbMtKT3853MdnlaLR3d9zR0F1c3t99OwEcMUwBygBwgB8gBcoAcIAfIAXKAHAA5QA6QA+QAOUAO5OA64Jiefrz1XIzvj3ehxnMV4THBtjYEd2WnHJwIbskeOWiRQpHVctAikSLr5KBFOkUGMzKyZj4HM/ixp6zQInWJGcwQIavlYEYBPwYz+LFODmaU8WMwgx87j7JIygirLbavwmAGP+bKwYySfug5MFMOsVE1PCQHpskhNgqHh+TAHDnERu3wkBwgB1bKoaaUryySA+QAOUAOrODMVxOO7UZfHu7f//H552vPxZg6D2e8wXAdajre/2UrRWLOw4g2I5/81/JmRJiHEXNG+vgReR40pAgmx+e3Qu3wCD4PkgOZ5agaHvHvS3KAHMgiR9vvQHPNWI7kqNd2pLij0WoriA09B5rJUamyZLmXnXKoLMFnSVkBOZBOji9lZo2240t3sbfySg6QA+XlyF5Zco1/vxwOtGFnRlkBOZBUjiYH2kSHWMkBcqCVHBkrS8YxR/ld9s8/X/dOX6iXuYMc75WVj7d1nzd1yXFO4PMjkBzrD7QvD/f/fcP9qAulqymtk8P7uuRASzku2dBf/b8rr0WO6OXWDDQtK+dt5Yadh54DeeSYfaBd3D0kPcR2TI7LS0Or4qKsoK4c67/L6vPtWUQ5eh5oA951l7Jy7CZu0nnoOZBNjmMPtDM2+rEXjVlJ6yfHvBJQvrgoK3rh6nLsepqr9lNkwyb+44q7rkuOIt1Gk85Dz/HB9tV5JJDjkgPthSfJjZcmR7WoL1lclJW/7l3FpZQcv7fvrk289+od5Zi9ff/9+XuvTo5Stb9Y59G65/jMxu3ceYwaSzj1Y7cPgBwgR8406llcJAeSy3Hsxj3v0yKMgRwgR8IQ6tZ5jA6LeuCHBBkGOUCObF1tn+IiOVBCjji9ZJOuVnKgtxwzNmuHzmOUX+Z5qxhqMOQAOfKEf+3iIjlQSI7tT3AFH4/kADku2IIrt2nVB5WzJsfe903ij6d7WYn2GmO91yrPlOP7411MP6L9VscgZpy3Xten5ETbl5W++XBaATlADoSQI0hPinkrJTlADiyWQ2UpXFMkB2bKITyqxobkwGQ5hEfJ2JAcmC+H8KgXG0cmBz+KmXFwWeFHJTP0HFgoh/AoExtTkoMfNcyYVVb4UcCMiT0HP7KbMbch5UdqM06n09XN7bfZo3/68WYJM26/UeAemJFYDn4knc8VZUWJSbrNVstBkUTpu0cOiqQoyjvlYEnwRi2EHFyJ2bZHlANB8CN7kAPkADlADpAD5AA5QA6QA+QAyAFygBwgB8iBWPwCpbOki4mEkJcAAAAASUVORK5CYII=">
 <title>Wivra · editor</title>
 <style>
   :root { --bg:#12141a; --bar:#191c24; --line:#2a2f3b; --fg:#eceef4; --mut:#8c93a6; --ac:#8aa4ff; --sel:#ffc53d; --bad:#ff6b6b; --ok:#5fd4a0; --tx:#a78bfa; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); overflow:hidden; }
-  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:100dvh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
+  body { font:16px/1.35 -apple-system, system-ui, sans-serif; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto auto auto; height:var(--appH,100dvh); padding:calc(env(safe-area-inset-top) + var(--padTop,0px)) 0 env(safe-area-inset-bottom); max-width:560px; margin-inline:auto; }
   button { font:inherit; color:inherit; background:none; border:0; padding:0; }
   .top { display:flex; align-items:center; gap:10px; padding:8px 14px; }
   .top b { font-size:17px; letter-spacing:.2px; } .top .sp { flex:1; }
+  .top .pill { white-space:nowrap; flex:0 0 auto; }
+  @media (max-width:430px) { .top { gap:6px; padding:8px 10px; } .top .pill { padding:0 10px; font-size:13px; gap:4px; } .top .pill svg { width:18px; height:18px; } }
   .pill { height:36px; padding:0 14px; border-radius:18px; background:var(--bar); border:1px solid var(--line); display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:14px; }
   .pill.go { background:var(--ac); border-color:var(--ac); color:#0c1022; } .pill:disabled { opacity:.45; }
   #info { font-size:12px; color:var(--mut); padding:0 14px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:18px; }
+  body.big #tlbox, body.big .bar { display:none; }
+  #bBig { position:absolute; right:20px; top:6px; z-index:5; width:34px; height:34px; border-radius:17px; background:#000a; display:none; align-items:center; justify-content:center; } .stage.on #bBig { display:flex; } #bBig svg { width:18px; height:18px; }
   .stage { position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0 14px; }
   video { max-width:100%; max-height:100%; border-radius:6px; background:#000; display:none; }
   .stage.on video { display:block; }
-  #ov { position:absolute; left:14px; right:14px; bottom:10%; text-align:center; font-weight:800; font-size:22px; text-shadow:0 0 8px #000, 0 0 2px #000; pointer-events:none; }
+  #frame { position:relative; height:100%; max-width:100%; aspect-ratio:var(--ar, 9/16); background:#000; border-radius:6px; overflow:hidden; display:none; }
+  .stage.on #frame { display:block; }
+  #frame > #v { position:absolute; inset:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; object-fit:var(--fit, contain); }
+  #ov { position:absolute; left:4%; right:4%; bottom:10%; text-align:center; font-weight:800; font-size:22px; text-shadow:0 0 8px #000, 0 0 2px #000; pointer-events:none; }
   .empty { position:absolute; inset:14px; border:1.5px dashed var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--mut); padding:20px; }
   .stage.on .empty { display:none; }
   .empty .pill { font-size:16px; height:46px; padding:0 22px; }
@@ -29,12 +40,45 @@
   .ib { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; } .ib:active { background:var(--bar); } .ib:disabled { opacity:.35; }
   #play { width:54px; height:54px; border-radius:27px; background:var(--fg); color:#12141a; } #play:active { background:#fff; }
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; } #play svg { fill:currentColor; stroke:none; width:24px; height:24px; }
-  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); }
-  #tlwrap { overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; } #tlwrap::-webkit-scrollbar { display:none; }
-  #tlinner { position:relative; height:134px; }
+  #tlbox { position:relative; background:#0d0f14; border-block:1px solid var(--line); height:var(--tlh,auto); max-height:var(--tlmax,46dvh); overflow:hidden; touch-action:pan-x pan-y; }   /* pan-x pan-y: el navegador no hace zoom a la página con dos dedos aquí; el pellizco lo maneja la línea de tiempo */
+  #tlgrip { position:absolute; left:50%; top:0; transform:translateX(-50%); width:84px; height:20px; z-index:6; touch-action:none; display:flex; align-items:center; justify-content:center; cursor:ns-resize; } #tlgrip::before { content:''; width:44px; height:5px; border-radius:3px; background:#8d93a6; opacity:.75; }
+  #tlwrap { height:100%; max-height:var(--tlmax,46dvh); overflow-x:auto; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x pan-y; } #tlwrap::-webkit-scrollbar { display:none; }
+  #tlinner { position:relative; height:204px; min-height:204px; }
   #ruler { position:absolute; top:0; left:0; right:0; height:22px; font-size:10px; color:var(--mut); }
   #ruler i { position:absolute; top:0; height:100%; border-left:1px solid #2a2f3b; padding-left:3px; font-style:normal; line-height:20px; pointer-events:none; }
-  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #ttrack { top:94px; height:30px; }
+  .trk { position:absolute; left:0; right:0; } #vtrack { top:26px; height:62px; } #atrack { top:92px; height:30px; } #otrack { height:0; } #utrack { height:30px; } #ttrack { height:30px; }
+  .ablk { background:#1c3a33; border-color:#2f6b5c; cursor:pointer; }
+  .ablk::before { content:''; position:absolute; inset:5px 0 5px 28px; background:repeating-linear-gradient(90deg,#5fd3b0 0 2px,transparent 2px 5px); opacity:.55; -webkit-mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); mask:linear-gradient(0deg,transparent,#000 25%,#000 75%,transparent); pointer-events:none; }
+  .ablk.off { background:transparent; border:1px dashed #4a5263; } .ablk.off::before { display:none; } .ablk.off .ulb { color:#7d879a; }
+  .ablk .ulb, .oblk .ulb { left:8px; }
+  #thead { position:absolute; left:0; top:0; width:62px; z-index:3; background:#0d0f14f2; border-right:1px solid var(--line); pointer-events:none; }
+  #thead .lh { position:absolute; left:0; width:100%; display:flex; align-items:center; justify-content:flex-start; gap:2px; padding-left:3px; font-size:10px; color:var(--mut); box-sizing:border-box; }
+  #thead .tspk { pointer-events:auto; flex:0 0 auto; width:26px; height:26px; border-radius:13px; background:#232834; border:1px solid var(--line); font-size:13px; padding:0; display:flex; align-items:center; justify-content:center; } #thead .tspk.off { opacity:.55; }
+  .ovhint { position:absolute; left:8px; right:8px; top:0; height:30px; border:1px dashed #4a3c70; border-radius:6px; color:#8a78b8; font-size:11px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .blk.mv { touch-action:none; } .blk.moving { opacity:.85; z-index:5; box-shadow:0 4px 14px #000a; }
+  #thead .lplus { pointer-events:auto; flex:0 0 auto; width:22px; height:22px; border-radius:11px; background:var(--ac); color:#0c1022; font-weight:800; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; margin-left:auto; margin-right:4px; }
+  #thead #addTrack { pointer-events:auto; position:absolute; left:6px; width:50px; height:28px; border-radius:14px; background:var(--ac); color:#0c1022; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; gap:2px; padding:0; }
+  .oblk { background:#3a2a55; border-color:#7a5cc4; cursor:pointer; } .oblk.off .spk { opacity:.6; }
+  .oblk img { position:absolute; top:0; height:100%; object-fit:cover; opacity:.55; pointer-events:none; }
+  .oblk .ulb { color:#e6dcff; left:8px; }
+  #olay { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  #ovHandle::after { content:''; position:absolute; inset:-14px; }
+  #ovHandle { position:absolute; width:16px; height:16px; border-radius:8px; background:#ffd24a; border:2px solid #000; pointer-events:auto; touch-action:none; z-index:100; display:none; box-sizing:border-box; }
+  .ow svg.ofr { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  .ow { position:absolute; overflow:hidden; border-radius:4px; pointer-events:none; } .ow.sel { outline:2px solid #ffd24a; outline-offset:-2px; }
+  #ovModes { position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:101; display:none; gap:2px; padding:3px; border-radius:18px; background:#000b; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  #ovModes button { min-width:56px; min-height:34px; padding:0 10px; border-radius:15px; font-size:13px; font-weight:600; color:var(--fg); } #ovModes button.on { background:#ffd24a; color:#1a1400; }
+  #ovGhost { position:absolute; pointer-events:none; opacity:.4; outline:1.5px dashed #ffd24a; outline-offset:0; display:none; z-index:0; }
+  body.sheetopen:not(.sov) #ovHandle, body.sheetopen:not(.sov) #ovModes { display:none !important; }
+  #frame > #fxMain { position:absolute; inset:0; width:100%; height:100%; object-fit:var(--fit, contain); display:none; pointer-events:none; }
+  #frame.fxon > #fxMain { display:block; } #frame.fxon > #v { visibility:hidden !important; }
+  #olay canvas, #olay img { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border:0; -webkit-user-drag:none; }
+  #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
+  input[type=checkbox] { width:auto; flex:0 0 auto; }
+  .chips button.shp { display:flex; flex-direction:column; align-items:center; gap:2px; width:74px; padding:6px 2px; font-size:11px; } .chips button.shp svg { width:30px; height:30px; } #ovColors button { width:40px; min-width:40px; height:40px; border-radius:20px; border:2px solid #0006; } #ovColors button.on { border-color:#fff; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; } .chips button { flex:0 0 auto; min-width:44px; min-height:40px; padding:6px 10px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:14px; } .chips button.on { background:var(--ac); color:#0c1022; }
+  .ulb { position:absolute; left:30px; right:4px; top:0; line-height:30px; font-size:11px; color:#cfeee4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
+  .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
   .blk { position:absolute; top:0; height:100%; border-radius:6px; overflow:hidden; background:#262b36; border:2px solid #3a4150; }
   .blk.sel { border-color:var(--sel); } .blk img { position:absolute; top:0; height:100%; object-fit:cover; pointer-events:none; }
   .blk .lb { position:absolute; left:6px; bottom:2px; font-size:10px; text-shadow:0 0 4px #000; pointer-events:none; }
@@ -51,6 +95,7 @@
   #toast { position:fixed; left:50%; transform:translateX(-50%); top:calc(58px + env(safe-area-inset-top)); max-width:92%; background:#232834; border:1px solid var(--line); border-radius:12px; padding:9px 14px; font-size:14px; white-space:pre-wrap; display:none; z-index:20; } #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
   .back { position:fixed; inset:0; background:#0009; display:none; z-index:30; } .back.on { display:block; }
   .sheet { position:fixed; left:0; right:0; bottom:0; max-width:560px; margin-inline:auto; max-height:82dvh; overflow-y:auto; background:var(--bar); border-radius:18px 18px 0 0; border:1px solid var(--line); padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:none; z-index:31; } .sheet.on { display:block; }
+  #sOver { }      /* al elegir forma y tamaño se ve la pantalla */
   .sheet h2 { font-size:17px; margin:0 0 4px; } .sheet p.m { margin:0 0 10px; color:var(--mut); font-size:14px; } .sheet label { font-size:13px; color:var(--mut); display:block; margin-top:8px; }
   input, textarea { width:100%; font-size:16px; background:#0d0f14; color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:10px; } textarea { min-height:84px; }
   .btn { display:block; width:100%; min-height:46px; margin:10px 0 0; border-radius:12px; background:var(--ac); color:#0c1022; font-weight:700; padding:11px; text-align:center; } .btn.sec { background:#2a2f3b; color:var(--fg); } .btn:disabled { opacity:.4; }
@@ -65,31 +110,149 @@
   .vrow .mv { display:flex; flex-direction:column; } .vrow .mv button { width:34px; height:24px; font-size:12px; color:var(--mut); }
   .vrow .hd2 { width:40px; height:44px; display:flex; align-items:center; justify-content:center; touch-action:none; color:var(--mut); font-size:22px; }
   .vrow .rm { position:absolute; opacity:0; width:0; height:0; }
+  #home .hin { position:relative; } #home .hgear { position:absolute; top:calc(14px + env(safe-area-inset-top) + var(--padTop,0px)); right:14px; width:44px; height:44px; border-radius:22px; background:#2a2f3d; color:var(--fg); font-size:22px; border:1px solid var(--line); padding:0; }
+  .sheet h3 { font-size:14px; margin:16px 0 4px; color:var(--mut); font-weight:600; }
+  #langList button { display:block; width:100%; min-height:52px; margin:8px 0; border-radius:14px; background:#2a2f3b; color:var(--fg); font-size:18px; text-align:left; padding:0 18px; border:2px solid transparent; } #langList button.on { border-color:var(--ac); }
+  #home { position:fixed; inset:0; z-index:50; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #home .hin { max-width:560px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top) + var(--padTop,0px)) 16px 40px; }
+  #home h1 { margin:6px 0 2px; font-size:30px; letter-spacing:.5px; } #home h2 { margin:26px 0 8px; font-size:17px; } #home .m { color:var(--mut); margin:2px 0 14px; font-size:14px; }
+  .hgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hcard { text-align:left; padding:14px; min-height:92px; border-radius:16px; background:var(--bar); border:1px solid var(--line); color:var(--fg); display:flex; flex-direction:column; gap:6px; }
+  .hcard b { font-size:16px; } .hcard span { font-size:13px; color:var(--mut); } .hcard.main { background:var(--ac); border-color:var(--ac); color:#0c1022; } .hcard.main span { color:#2a3256; } .hcard:disabled { opacity:.5; } .hcard:active:not(:disabled) { filter:brightness(1.15); }
+  .pcard { display:flex; align-items:center; gap:10px; padding:12px 14px; margin:0 0 8px; border-radius:14px; background:var(--bar); border:1px solid var(--line); } .pcard:active { filter:brightness(1.15); }
+  .pcard .pt { flex:1; min-width:0; } .pcard .pt b { display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pcard .pt span { font-size:12.5px; color:var(--mut); }
+  .pcard button.pa { min-width:44px; min-height:44px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:12.5px; padding:0 8px; } .pcard button.pa.bad { color:var(--bad); }
+  #pzName { width:100%; box-sizing:border-box; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#0d0f14; color:var(--fg); padding:0 12px; font-size:16px; }
+  .btn.bad { background:#3a1f26; color:var(--bad); }
   @media (prefers-reduced-motion:no-preference) { .sheet.on { animation:up .18s ease-out; } @keyframes up { from { transform:translateY(24px); opacity:0; } } }
+/* paneles con vista previa: pegados abajo, sin tapar el video; «Ver más» los agranda y el video se achica */
+.shx{position:absolute;top:8px;right:10px;width:36px;height:36px;border-radius:18px;background:#2a2f3d;color:#fff;border:1px solid var(--line);font-size:16px;line-height:1;padding:0;z-index:2;cursor:pointer}
+.shgrip{height:20px;margin:-8px -16px 2px;display:flex;justify-content:center;align-items:center;touch-action:none;cursor:grab}.shgrip::before{content:'';width:40px;height:5px;border-radius:3px;background:#8d93a6;opacity:.7}
+.dockbar{display:flex;gap:10px;margin-top:8px}.dockbar .btn{flex:1;margin:0}
+.sheet.dock:not(.exp) .more{display:none !important}
+.sheet.dock{max-height:60dvh;padding-top:10px}.sheet.dock h2{font-size:15px;margin:0 0 6px}
+.sheet.dock .chips{margin:4px 0}.sheet.dock .fgrid{margin:6px 0}
+#sOver.dock .fgrid{grid-auto-columns:60px}#sOver.dock .fgrid.sq{grid-auto-columns:56px}
+body.dock{padding-bottom:calc(var(--dockh,0px) + env(safe-area-inset-bottom))}
+body.dock .bar{display:none}
+body.dock #tlbox{height:auto;max-height:96px}body.dock #tlwrap{max-height:96px}
+body.dockexp #tlbox{display:none}
+body.dock .back{pointer-events:none;background:transparent}
+/* compacto: botones y cuadritos chicos (pero tocables); «Ver más» agranda */
+.sheet.dock:not(.exp){padding:6px 12px 8px;max-height:38dvh}
+.sheet.dock:not(.exp) .shx{top:4px;right:8px;width:30px;height:30px;font-size:14px}
+.sheet.dock:not(.exp) .shgrip{height:12px;margin:-4px -12px 0}
+.sheet.dock:not(.exp) h2{font-size:13px;margin:0 36px 2px 0}
+.sheet.dock:not(.exp) .chips{margin:2px 0;gap:5px}
+.sheet.dock:not(.exp) .chips button{min-width:0;min-height:30px;padding:4px 9px;font-size:12px;border-radius:8px}
+.sheet.dock:not(.exp) .fgrid{grid-auto-columns:50px;gap:5px;margin:3px 0;padding-bottom:2px}
+.sheet.dock:not(.exp) .fgrid button{border-radius:8px;border-width:2px}
+.sheet.dock:not(.exp) .fgrid button span{font-size:9px;padding:1px;line-height:1}
+#sOver.dock:not(.exp) .fgrid,#sOver.dock:not(.exp) .fgrid.sq{grid-auto-columns:44px}
+.sheet.dock:not(.exp) .dockbar{gap:6px;margin-top:3px}
+.sheet.dock:not(.exp) .dockbar .btn{min-height:32px;height:32px;padding:0 8px;font-size:12.5px;border-radius:9px}
+.sheet.dock:not(.exp) .dockbar .btn{width:auto;flex:1 1 0;min-width:0;white-space:nowrap}.sheet.dock:not(.exp) .dockbar .btn[data-more]{flex:0 0 auto;padding:0 12px}
+.sheet.dock:not(.exp) input[type=range]{height:24px}
+.sheet.dock.exp{max-height:66dvh}
+.sheet.dock.exp .fgrid{grid-auto-flow:row;grid-template-columns:repeat(4,1fr);grid-auto-columns:auto;overflow:visible;gap:8px}
+
+.fgrid{display:grid;grid-auto-flow:column;grid-auto-columns:78px;gap:8px;margin:8px 0;overflow-x:auto;padding-bottom:4px}
+.fgrid button{position:relative;padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;background:#222;aspect-ratio:3/4;color:#fff;font-size:11px;cursor:pointer}
+.fgrid button canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fgrid button span{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;background:rgba(0,0,0,.55);line-height:1.1}
+.fgrid button.on{border-color:#fff}
+.fgrid.sq button{aspect-ratio:1}
+.fgrid.static{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;overflow:visible}
+.galhead{display:flex;align-items:center;gap:8px;margin:16px 0 2px}.galhead b{flex:1;font-size:16px}.galhead small{display:block;color:var(--mut);font-weight:400;font-size:12px}.galhead .btn{width:auto;padding:6px 12px;font-size:13px;margin:0}
+.frow{display:flex;gap:10px;align-items:flex-end}.frow .btn{width:auto;white-space:nowrap}
+
+  /* Wivra AI chat-first: provider/keys hidden until explicitly opened. */
+  .ai-chat .ai-intro{margin:0 0 10px}
+  .ai-chat .ai-mode-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-chat .ai-mode-row label{font-size:13px;flex:none}
+  .ai-chat .ai-mode-row select{flex:1;min-width:0;font-size:14px}
+  .ai-chat .ai-log{display:flex;flex-direction:column;gap:8px;min-height:78px;max-height:26dvh;overflow:auto;padding:8px;margin-bottom:8px;background:#11131a;border:1px solid var(--line);border-radius:12px}
+  .ai-chat .ai-empty{font-size:13px;color:var(--mut);padding:6px}
+  .ai-chat .ai-msg{border-radius:14px;max-width:92%;white-space:pre-wrap;font-size:14px}
+  .ai-chat .ai-msg.ai-user{align-self:flex-end;background:#293453}
+  .ai-chat .ai-msg.ai-assistant{align-self:flex-start;background:var(--bar)}
+  .ai-chat .ai-composer{background:#191c24;border:1px solid var(--line);border-radius:14px;padding:10px}
+  .ai-chat .ai-composer label{display:block;margin:0 0 5px}
+  .ai-chat .ai-composer textarea{margin:0;min-height:88px}
+  .ai-chat .ai-actions{align-items:center;justify-content:flex-end;gap:8px;margin-top:6px}
+  .ai-chat .ai-actions #aiAsk{flex:1;min-width:0}
+  .ai-chat .ai-settings{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .ai-chat .ai-settings summary{cursor:pointer;font-size:14px;color:var(--mut);min-height:40px}
+  .ai-chat .ai-settings #aiDirect{padding-bottom:8px}
+
 </style>
 </head>
 <body>
-<div class="top"><b>Wivra</b><span class="sp"></span>
-  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple>
+<div class="top"><button class="pill" id="bHome" type="button" title="Volver al inicio">‹ Inicio</button><span class="sp"></span>
+  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
-<div class="stage" id="stage"><video id="v" playsinline></video><div id="ov"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="shapeDefs"></defs></svg>
+<div class="stage" id="stage"><div id="frame"><video id="v" playsinline></video><canvas id="fxMain" aria-hidden="true"></canvas><div id="olay"><canvas id="ovGhost" aria-hidden="true"></canvas></div><div id="ov"></div><div id="ovHandle"></div><div id="ovModes" role="group" aria-label="Qué mover"><button type="button" data-m="all" class="on" title="Mueve y cambia el tamaño de todo el recuadro">Todo</button><button type="button" data-m="video" title="Mueve y agranda el video por dentro de la forma">Video</button><button type="button" data-m="shape" title="Mueve y cambia el tamaño de la forma sin mover el video">Forma</button></div></div><button id="bBig" type="button" aria-label="Ampliar o reducir la pantalla"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <div class="empty"><b style="color:var(--fg);font-size:18px">Empieza con un video</b><span>Elige uno o varios. Se quedan en tu teléfono; nada se sube.</span><label class="pill go" for="file">Elegir videos</label></div></div>
 <div class="ctl"><div class="t"><b id="tcur">0:00.0</b> / <span id="ttot">0:00.0</span></div>
   <button id="play" class="ib" disabled aria-label="Reproducir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
   <div class="r"><button id="undo" class="ib" disabled aria-label="Deshacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 8"/></svg></button><button id="redo" class="ib" disabled aria-label="Rehacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12H10a6 6 0 0 0 0 8"/></svg></button></div></div>
-<div id="tlbox"><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+<div id="tlbox"><div id="tlgrip" title="Arrastra para ver más o menos pistas"></div><div id="tlwrap"><div id="tlinner"><div id="ruler"></div><div class="trk" id="vtrack"></div><div class="trk" id="atrack"></div><div class="trk" id="otrack"></div><div class="trk" id="utrack"></div><div class="trk" id="ttrack"></div></div></div><div id="head"></div>
+  <div id="thead"></div>
   <div class="zoom"><button id="zi" disabled aria-label="Acercar">＋</button><button id="zo" disabled aria-label="Alejar">−</button></div></div>
 <div class="bar" role="toolbar" aria-label="Herramientas">
+  <button class="tool" id="bAdd" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Agregar</button>
   <button class="tool" id="bVids" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="8" rx="2"/><rect x="13" y="4" width="8" height="8" rx="2"/><rect x="3" y="14" width="8" height="6" rx="2"/><path d="M14 17h7M17.5 14v6"/></svg> Videos</button>
   <button class="tool" id="split" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M7 8 3 12l4 4M17 8l4 4-4 4"/></svg>Cortar</button>
   <button class="tool" id="del" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>Borrar</button>
   <button class="tool" id="bText" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>Texto</button>
   <button class="tool" id="bAI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg>IA</button>
+  <button class="tool" id="bDirector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h12M4 18h9M18 14l2 2-5 5h-3v-3z"/></svg>Director</button>
   <button class="tool" id="bObs" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observar</button>
-  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio<small>pronto</small></button>
-  <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos<small>pronto</small></button>
+  <button class="tool" id="bAudio" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg>Audio</button>
+  <button class="tool" id="bFormat" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8v8M21 8v8"/></svg>Formato</button>
+  <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Capa</button>
+  <button class="tool" id="bFx" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos</button>
+  <button class="tool" id="bFilt" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></svg>Filtros</button>
+  <button class="tool" id="bScreen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/></svg>Pantalla</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
+<div id="home"><div class="hin">
+  <h1>Wivra</h1><p class="m">¿Qué quieres hacer?</p>
+  <div class="hgrid">
+    <button class="hcard main" id="hEditor" type="button"><b>Editor de video</b><span>Empezar un proyecto nuevo</span></button>
+    <button class="hcard" id="hDirector" type="button"><b>Director</b><span>Lista de tomas y guion</span></button>
+    <button class="hcard" disabled type="button"><b>Transmisión en vivo</b><span>pronto</span></button>
+    <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
+  </div>
+  <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
+  <button id="hSet" class="hgear" type="button" aria-label="Ajustes">⚙</button>
+</div></div>
+<div class="sheet" id="sSettings" style="z-index:60;max-height:86dvh;overflow-y:auto"><h2>Ajustes</h2>
+  <h3>Idioma de la app</h3><div class="chips" id="setLangs"></div>
+  <h3>Pantalla</h3><p class="m"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px">Ajustar pantalla</button></p>
+  <h3>Datos y espacio</h3><p class="m">Espacio usado por Wivra: <b id="setSpace" data-notr>…</b></p><p class="m"><button id="setClearPacks" type="button" class="btn sec" style="width:auto;padding:8px 14px">Borrar paquetes descargados</button></p>
+  <h3>Transcripción y traducción</h3><p class="m">Próximamente: transcribir tu voz y traducir los subtítulos a otros idiomas.</p>
+  <h3>Privacidad</h3><p class="m">El video no sale de tu teléfono. Solo se envía algo a internet si tú lo pides (por ejemplo, el chat con tu IA), y siempre se avisa.</p>
+  <h3>Acerca de</h3><p class="m">Wivra es una app en construcción (versión de prueba). Efectos y filtros: fórmulas propias. Las traducciones de la interfaz son automáticas y aún pueden tener errores.</p>
+</div>
+<div id="sLang" style="display:none;position:fixed;inset:0;z-index:70;background:var(--bg);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:calc(40px + env(safe-area-inset-top)) 16px 40px"><h1 data-notr>Wivra</h1><h2 data-notr>🌐 Idioma · Language · Langue · Sprache · 言語 · 语言</h2><div id="langList" data-notr></div></div></div>
+<div class="sheet" id="sScreen" style="z-index:60"><h2>Ajustar pantalla</h2>
+  <p class="m">Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba esto. Se guarda en este teléfono.</p>
+  <div class="frow" style="align-items:center"><span class="m" style="flex:1;margin:0">Bajar el contenido desde arriba: <b id="scrTop">0</b> px</span><button class="btn sec" id="scrTopMinus" type="button">−</button><button class="btn sec" id="scrTopPlus" type="button">+</button></div>
+  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="scrNoCover"> Modo B: pantalla sin «cover» (recarga la página)</label>
+  <pre id="scrDiag" style="font-size:11px;color:var(--mut);white-space:pre-wrap;margin:8px 0"></pre>
+  <div class="dockbar"><button class="btn sec" id="scrReset" type="button">Reiniciar</button><button class="btn" id="scrDone" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sGallery" style="max-height:88dvh;z-index:40"><h2>Más efectos y filtros</h2><p class="m">Gratis. Se descargan al teléfono y los puedes usar sin conexión.</p>
+  <div class="chips" id="galScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <p class="m" id="galStatus"></p><div id="galPacks"></div>
+  <button id="galDone" class="btn" type="button">✓ Listo</button></div>
+<div class="sheet" id="sExit"><h2>¿Salir del proyecto?</h2><p class="m" id="exitInfo">Se guarda solo mientras editas. Elige qué hacer.</p>
+  <label class="m" for="pzName">Nombre del proyecto</label><input id="pzName" maxlength="60" autocomplete="off">
+  <button class="btn" id="exitSave" type="button">Guardar y salir</button>
+  <button class="btn sec" id="exitStay" type="button">Seguir editando</button>
+  <button class="btn sec" id="exitDiscard" type="button">Descartar cambios de esta sesión</button>
+  <button class="btn bad" id="exitDelete" type="button">Borrar el proyecto</button></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div class="back" id="back"></div>
 
@@ -97,30 +260,170 @@
   <div id="vlist"></div>
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
   <button id="vdone" class="btn">Listo</button></div>
+<div class="sheet" id="sMiss"><h2>Faltan archivos</h2><p class="m">Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar.</p>
+  <div id="missList" class="m"></div>
+  <label class="btn" for="relink" style="cursor:pointer">Elegir archivos</label><input id="relink" type="file" multiple accept="video/*,audio/*,.caf,.wav,.m4a,.mov" style="position:absolute;width:1px;height:1px;opacity:0">
+  <button id="missDone" class="btn sec">Seguir sin ellos</button></div>
 
+<div class="sheet" id="sAudio"><h2>Audio del clip</h2><p class="m" id="auInfo">Toca un clip en la línea de tiempo para elegirlo.</p>
+  <label class="m" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="auMute"> Silenciar el audio original de este clip</label>
+  <label class="m">Volumen: <b id="auVolTxt">100%</b><input type="range" id="auVol" min="0" max="200" step="5" value="100" style="width:100%"></label>
+  <p class="m" id="auNote">Al exportar se aplica exacto. En la vista previa del iPhone solo se oye silenciado o no; el volumen lo ignora Safari.</p>
+  <button id="auDone" class="btn">Listo</button></div>
+<div class="sheet" id="sFormat"><h2>Formato del video</h2><p class="m">La forma del cuadro del resultado. Lo que sobra se recorta solo, centrado.</p>
+  <div class="chips" id="fmtAspect"><button data-a="original">Original</button><button data-a="9:16">9:16 Reels</button><button data-a="1:1">1:1</button><button data-a="4:5">4:5</button><button data-a="16:9">16:9</button></div>
+  <div class="chips" id="fmtFit"><button data-f="cover">Rellenar (recorta)</button><button data-f="contain">Entero (barras)</button></div>
+  <p class="m" id="fmtNote"></p><button id="fmtDone" class="btn">Listo</button></div>
+<div class="sheet" id="sFx"><h2>Efectos</h2><p class="m more" id="fxInfo">Elige un video en la línea de tiempo.</p>
+  <div class="chips" id="fxScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <div class="chips" id="fxTabs"><button type="button" data-t="fxIn" class="on">Al aparecer</button><button type="button" data-t="fxOut">Al desaparecer</button></div>
+  <div class="fgrid" id="fxIn"></div>
+  <div class="fgrid" id="fxOut" style="display:none"></div>
+  <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m more" id="fltInfo">Elige un video en la línea de tiempo.</p>
+  <div class="chips" id="fltScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
+  <div class="fgrid" id="fltLooks"></div>
+  <div class="frow"><label class="m" style="flex:1">Nivel: <b id="fltLvTxt">100</b>%<input id="fltLevel" type="range" min="0" max="100" step="1" value="100" style="width:100%"></label>
+    </div>
+  <div id="fltSliders" class="more"></div>
+  <button id="fltReset" class="btn sec more" type="button">Quitar filtro</button>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fltDone" class="btn" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sDel"><h2>¿Qué borrar?</h2><p class="m" id="delInfo"></p>
+  <button id="delBoth" class="btn">Video y audio (los siguientes se juntan)</button>
+  <button id="delVideo" class="btn sec">Solo el video: el audio se queda</button>
+  <button id="delCancel" class="btn sec">Cancelar</button></div>
+<div class="sheet" id="sOver"><h2>Video superpuesto</h2><p class="m more" id="ovInfo">Toca un video superpuesto en la línea de tiempo para elegirlo.</p>
+  <div class="chips" id="ovScope"><button type="button" data-s="one" class="on">Solo esta capa</button><button type="button" data-s="all">Todas las capas</button></div>
+  <label class="m more">Tamaño: <b id="ovSizeTxt">40%</b><input type="range" id="ovSize" min="5" max="100" step="1" value="40" style="width:100%"></label>
+  <label class="m more">Posición horizontal: <b id="ovXTxt">72%</b><input type="range" id="ovX" min="0" max="100" step="1" value="72" style="width:100%"></label>
+  <label class="m more">Posición vertical: <b id="ovYTxt">28%</b><input type="range" id="ovY" min="0" max="100" step="1" value="28" style="width:100%"></label>
+  <div class="fgrid" id="ovPresets"></div>
+  <p class="m">Forma</p><div class="fgrid sq" id="ovShapes"></div>
+  <label class="m more">Zoom dentro de la forma: <b id="ovZoomTxt">100%</b><input type="range" id="ovZoom" min="100" max="300" step="5" value="100" style="width:100%"></label>
+  <label class="m more">Mover el video dentro de la forma ↔ <b id="ovPxTxt">50%</b><input type="range" id="ovPx" min="0" max="100" step="1" value="50" style="width:100%"></label>
+  <label class="m more">Mover el video dentro de la forma ↕ <b id="ovPyTxt">50%</b><input type="range" id="ovPy" min="0" max="100" step="1" value="50" style="width:100%"></label>
+  <label class="m more">Marco: <b id="ovFrameTxt">0%</b><input type="range" id="ovFrame" min="0" max="10" step="0.5" value="0" style="width:100%"></label>
+  <div class="chips more" id="ovColors"><button data-c="#ffffff" style="background:#fff"></button><button data-c="#000000" style="background:#000"></button><button data-c="#ffd24a" style="background:#ffd24a"></button><button data-c="#ff4d6d" style="background:#ff4d6d"></button><button data-c="#4dd2ff" style="background:#4dd2ff"></button><button data-c="#5fd4a0" style="background:#5fd4a0"></button></div>
+  <label class="m more">Transparencia: <b id="ovOpacTxt">100%</b> visible<input type="range" id="ovOpac" min="10" max="100" step="5" value="100" style="width:100%"></label>
+  <div class="chips more" id="ovOrder"><button data-o="front">Traer adelante</button><button data-o="back">Mandar atrás</button><button data-o="screen">Pantallita en la esquina</button></div>
+  <label class="m more" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="ovMute"> Silenciar el sonido de este video</label>
+  <p class="m more">También puedes arrastrar el video superpuesto sobre la pantalla para moverlo.</p>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="ovDone" class="btn" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
+  <label class="btn" for="file" style="cursor:pointer">Video</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
+  <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
+  <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
+  <button id="trkDone" class="btn sec">Cerrar</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button></div>
 
-<div class="sheet" id="sAI"><h2>Con tu IA</h2>
-  <div id="aiLog" aria-live="polite"></div>
-  <label>¿Qué quieres que haga? <button id="aiMic" type="button" class="pill" style="height:30px;padding:0 10px;margin-left:6px;display:none">🎤 Dictar</button> <button id="aiNew" type="button" class="pill" style="height:30px;padding:0 10px;display:none">Nueva conversación</button></label>
-  <textarea id="ask" placeholder="Deja solo del segundo 2 al 8 y pon el texto Vancouver"></textarea>
-  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
-  <div id="aiDirect">
-    <label>Proveedor</label><select id="aiProv"></select>
-    <label>Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <div id="aiBaseRow" style="display:none"><label>Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
-    <label>Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label><input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Se queda solo en esta página; se borra al cerrarla">
-    <p class="m" style="margin-top:6px">Se envía solo tu petición y un resumen del proyecto (nombres, duraciones, cortes). <b>Nunca el video.</b></p>
-    <button id="aiAsk" class="btn" disabled>Pedirle a la IA</button>
-    <div id="aiProp" style="display:none"><div class="item" id="aiPropText"></div>
-      <div class="row"><button id="aiApply" class="btn">Aplicar</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
-    <div id="aiMsg"></div>
+<div class="sheet ai-chat" id="sAI"><h2>Asistente Wivra</h2>
+  <p class="m ai-intro">Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla.</p>
+  <div class="ai-mode-row"><label for="aiMode">Asistente</label>
+    <select id="aiMode" aria-label="Modo de asistente">
+      <option value="local">Básico · gratis y sin conexión</option>
+      <option value="connected">IA conectada · opcional</option>
+    </select></div>
+  <div id="aiLog" class="ai-log" role="log" aria-label="Conversación de edición" aria-live="polite"><div class="ai-empty" id="aiEmpty">Escribe tu primera instrucción. El modo básico (en español) admite títulos y recortes exactos; con una IA conectada puedes escribir en tu idioma.</div></div>
+  <div class="ai-composer">
+    <label for="ask">¿Qué quieres cambiar en el video?</label>
+    <textarea id="ask" rows="2" placeholder='Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"'></textarea>
+    <div class="row ai-actions">
+      <button id="aiMic" type="button" class="pill" style="display:none">🎤 Dictar</button>
+      <button id="aiAsk" type="button" class="btn" disabled>Revisar cambio gratis</button>
+    </div>
   </div>
-  <details style="margin-top:12px"><summary class="m" style="cursor:pointer">Sin clave: copiar y pegar con ChatGPT o Claude</summary>
-    <button id="copy" class="btn" disabled>1. Copiar el mensaje para mi IA</button>
-    <label>2. Pega aquí la respuesta de la IA</label><textarea id="reply"></textarea>
-    <button id="apply" class="btn sec" disabled>3. Aplicar al video</button><div id="msg"></div></details></div>
+  <div id="aiDirectorInfo" style="display:none" class="m" role="status">La idea del Director está adjunta a esta conversación.</div>
+  <button type="button" class="btn sec" id="aiDirectorRemove" style="display:none">Desvincular idea</button>
+  <p class="m" id="aiMicHint" style="margin:4px 0 0"></p>
+  <div id="aiProp" style="display:none"><div class="item" id="aiPropText" data-notr="1"></div>
+    <div class="row"><button id="aiApply" class="btn">✓ Aplicar cambios</button><button id="aiDiscard" class="btn sec">Descartar</button></div></div>
+  <div id="aiMsg" role="status" aria-live="polite"></div>
+  <button id="aiNew" type="button" class="pill" style="display:none;margin-top:8px">↺ Nueva conversación</button>
+  <details id="aiSettings" class="ai-settings"><summary>⚙ Configurar una IA externa (opcional)</summary>
+    <div id="aiDirect">
+      <label for="aiProv">Proveedor</label><select id="aiProv"></select>
+      <label for="aiModel">Modelo (puedes cambiarlo)</label><input id="aiModel" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div id="aiBaseRow" style="display:none"><label for="aiBase">Dirección (compatible con OpenAI)</label><input id="aiBase" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/v1/"></div>
+      <label for="aiKey">Tu clave <a id="aiKeyLink" href="#" target="_blank" rel="noopener" style="color:var(--ac)">(crear una)</a></label>
+      <input id="aiKey" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Solo en memoria; se borra al cerrar">
+      <p class="m">Este modo puede usar servicios externos y sus límites de uso. Solo se envían instrucciones y un resumen del proyecto, nunca el archivo multimedia.</p>
+    </div>
+  </details>
+  <details class="ai-settings"><summary>Copiar instrucciones a ChatGPT o Claude manualmente</summary>
+    <button id="copy" class="btn" disabled>1. Copiar instrucciones</button>
+    <label for="reply">2. Pegar respuesta</label><textarea id="reply"></textarea>
+    <button id="apply" class="btn sec" disabled>3. Revisar y aplicar al video</button><div id="msg"></div></details>
+</div>
+
+<div class="sheet" id="sDirector">
+  <h2>Director creativo (prototipo)</h2>
+  <p class="m">Explica tu idea hablando con el micrófono del teclado o escribiendo. Prepara un briefing para tu IA, incluso si todavía no has grabado. No edita ni genera voz por sí solo.</p>
+  <label for="dirMode">Qué quieres hacer</label>
+  <select id="dirMode" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px">
+    <option value="automatic">Elegir los mejores momentos</option>
+    <option value="guided">Explicar qué hay en mis videos</option>
+    <option value="preproduction">Planear un video antes de grabar</option>
+  </select>
+  <label for="dirGoal">Cuéntame la idea o dicta instrucciones largas</label>
+  <textarea id="dirGoal" rows="5" placeholder="Ej.: Tengo cinco videos; quiero un capítulo y tres reels. Que tenga un gancho, cortes naturales, subtítulos y narración."></textarea>
+  <div class="row">
+    <div><label for="dirPlatform">Formato principal</label><select id="dirPlatform" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"><option value="reels">Reels</option><option value="tiktok">TikTok</option><option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option><option value="other">Otro</option></select></div>
+    <div><label for="dirSeconds">Duración objetivo (s)</label><input id="dirSeconds" type="number" min="1" max="7200" placeholder="Opcional"></div>
+  </div>
+  <label for="dirOutputs">Cuántas versiones quieres</label><input id="dirOutputs" type="number" min="1" max="12" value="1">
+  <label for="dirOtherFormats">Otros formatos además del principal</label>
+  <select id="dirOtherFormats" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px">
+    <option value="">Ninguno</option><option value="reels">Reels</option><option value="tiktok">TikTok</option>
+    <option value="shorts">YouTube Shorts</option><option value="youtube">Capítulo YouTube</option>
+  </select>
+  <label for="dirNotes">Estilo y recursos (subtítulos, voz de IA, música, efectos, etc.)</label>
+  <textarea id="dirNotes" rows="2" placeholder="Ej.: humor seco, voz en off, subtítulos, tres cortes rápidos..."></textarea>
+  <p class="m">Puedes comenzar contando tu historia ANTES de elegir videos. El micrófono del teclado sirve para dictar. Esta idea es una instrucción para el Director, no la pista de audio de tus clips.</p>
+  <div class="row"><button id="dirSaveDraft" class="btn sec" type="button">Guardar mi idea aquí</button><button id="dirForgetDraft" class="btn sec" type="button">Borrar idea guardada</button></div>
+  <p class="m" id="dirDraftStatus" role="status" aria-live="polite">La idea aún no está guardada. Se almacena solo texto en este navegador, no videos ni micrófono.</p>
+  <div id="dirAssetBox">
+    <label for="dirAsset">Qué contiene cada video (tu explicación ayuda a encontrarlo)</label>
+    <select id="dirAsset" style="width:100%;font:inherit;background:#0d0f14;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px"></select>
+    <textarea id="dirAssetDescription" rows="2" placeholder="Ej.: aquí caminé por Granville y grabé el teatro Vogue."></textarea>
+    <button id="dirSaveAsset" class="btn sec">Guardar explicación de este video</button>
+    <p class="m" id="dirAssetStatus"></p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Guía de grabación en Wivra</h3>
+    <p class="m">Genera un checklist sencillo y marca cada toma al grabarla. La plantilla es local, todavía no usa un modelo de IA ni inventa lugares cercanos.</p>
+    <label for="dirSpot">Lugar o tema que quieres grabar</label><input id="dirSpot" placeholder="Ej.: el parque, una cafetería o el barrio">
+    <div class="row">
+      <div><label for="dirShotCount">Cantidad de tomas</label><input id="dirShotCount" type="number" min="3" max="12" value="5"></div>
+      <div><label for="dirShootLength">Duración final deseada (s)</label><input id="dirShootLength" type="number" min="10" max="3600" value="45"></div>
+    </div>
+    <button id="dirGenerateChecklist" class="btn">Crear lista de tomas aquí</button>
+    <div id="dirPlanInfo" class="m" role="status" aria-live="polite" style="margin:10px 0"></div>
+    <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
+    <input type="file" id="directorCamera" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+    <p class="m">«Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma.</p>
+  </div>
+  <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+    <h3 style="font-size:16px;margin:0 0 6px">Edición directa dentro de Wivra (prueba básica)</h3>
+    <p class="m">No necesitas copiar prompts para esta prueba. Las órdenes muy sencillas se convierten en operaciones reales del editor, con vista previa del cambio y aprobación. Todavía NO es un modelo de IA.</p>
+    <textarea id="dirQuickEdit" rows="2" placeholder='Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver"'></textarea>
+    <button class="btn sec" id="dirPrepareEdit">Revisar propuesta local</button>
+    <pre id="dirPreparedOps" style="white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.4 monospace;color:var(--mut)"></pre>
+    <button class="btn" id="dirApplyEdit" disabled>Aplicar al editor</button>
+  </div>
+  <label for="dirCorrection">Instrucción adicional o corrección (no reemplaza las anteriores)</label>
+  <textarea id="dirCorrection" rows="2" placeholder="No, mejor que el comienzo use la segunda toma..."></textarea>
+  <button id="dirAddCorrection" class="btn sec">Agregar a la conversación</button>
+  <p id="dirHistory" class="m" role="status" aria-live="polite"></p>
+  <button id="dirUseInAI" class="btn" type="button">Usar esta idea en mi asistente IA</button>
+  <p class="m">Esta opción prepara el asistente con tu intención; nada sale a internet hasta que envíes una petición. Para editar necesitas importar al menos un video.</p>
+  <button id="dirCopy" class="btn">Preparar y copiar briefing para mi IA</button>
+  <label for="dirExportText">Briefing preparado (copia manual si no funciona el portapapeles)</label>
+  <textarea id="dirExportText" rows="4" readonly placeholder="Aquí aparecerá tu briefing."></textarea>
+  <p class="m" id="dirStatus" role="status" aria-live="polite">La IA aún no está conectada; puedes usar este briefing en ChatGPT o Claude.</p>
+</div>
 
 <div class="sheet" id="sObs"><h2>Observar el video</h2><p class="m">Mira 8 fotogramas pequeños en tu teléfono y propone cortes. No reconoce lugares, personas ni voz. No sube nada.</p>
   <button id="observe" class="btn" disabled>Inspeccionar fotogramas</button>
@@ -142,9 +445,19 @@
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
-let tlTime = 0, pps = 40, selId = null, playing = false, drag = null, toastTimer = null;
+let tlTime = 0, pps = 40, selId = null, selPart = 'v', playing = false, drag = null, toastTimer = null, tlPinch = null;   // tlPinch: pellizco de dos dedos en curso sobre la línea de tiempo
+const tlAborts = new Set();   // cancelan el gesto de UN dedo en curso (recortar o mover un bloque) si llega un segundo dedo y es un pellizco
+const GKEYS = ['clips', 'overlayClips', 'audioClips'];
+const anyClip = (id) => { if (!session || !id) return null; for (const g of GKEYS) { const c = (session.project[g] || []).find(k => k.id === id); if (c) return c; } return null; };
+const kindOf = (id) => (id && id[0] === 'o' ? 'overlay' : id && id[0] === 'u' ? 'audio' : 'main');
+let nOvShown = 0;
+const OV_ROW = 34, UI_MAX_OVERLAY = 3, AU_ROW = 32, UI_MAX_AUDIO = 3;
+const mediaFiles = {};   // id -> File/Blob original (para guardarlo en el teléfono)
+function keepFile(id, file, kind) { mediaFiles[id] = file; Object.assign(media[id], { size: file.size || 0, type: file.type || '', kind: kind === 'audio' ? 'audio' : kind === 'image' ? 'image' : 'video' }); }
 const media = {};   // id -> { url, name, duration, w, h, thumbs:[{t,url}], step }
 let assetSeq = 0, curAsset = null, pendingSeek = null, thumbQueue = Promise.resolve();
+let shootPlan=null,selectedShootId=null,quickPending=null,quickAgent=null;
+const SHOOT_STORAGE_KEY='agentcut-shoot-checklist-v1';
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
 
 function say(t, cls) {                       // aviso corto sobre la barra + copia en la hoja de IA
@@ -153,29 +466,145 @@ function say(t, cls) {                       // aviso corto sobre la barra + cop
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { x.style.display = 'none'; }, 3800);
 }
 function fmt(n) { return Math.round(n * 100) / 100; }
-function openSheet(id) { closeSheets(); $(id).classList.add('on'); $('back').classList.add('on'); }
-function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); }
+// iPhone: la altura real visible (barras del navegador) puede diferir de 100dvh; se ajusta y la página no se desplaza
+(function fitApp() {
+  const vv = window.visualViewport; if (!vv) return;
+  const f = () => { document.documentElement.style.setProperty('--appH', Math.round(vv.height) + 'px'); if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0); };
+  vv.addEventListener('resize', f); vv.addEventListener('scroll', f); window.addEventListener('orientationchange', f); f();
+})();
+// Altura de la línea de tiempo ajustable (arrastra la rayita): más pistas a la vista o video más grande; las pistas se deslizan con el dedo si hay muchas
+(function tlResize() {
+  const g = $('tlgrip'), box = $('tlbox'); if (!g) return; const KEY = 'wivra.tlh';
+  const set = (h) => { if (h == null) { box.style.removeProperty('--tlh'); box.style.removeProperty('--tlmax'); document.documentElement.style.removeProperty('--tlh'); return; } box.style.setProperty('--tlh', h + 'px'); box.style.setProperty('--tlmax', h + 'px'); };
+  try { const v = Number(localStorage.getItem(KEY)); if (v >= 90) set(v); } catch {}
+  let y0 = 0, h0 = 0, on = false, last = 0;
+  g.addEventListener('pointerdown', (e) => { on = true; y0 = e.clientY; h0 = box.getBoundingClientRect().height; try { g.setPointerCapture(e.pointerId); } catch {} e.preventDefault(); e.stopPropagation(); });
+  g.addEventListener('pointermove', (e) => { if (!on) return; const vv = (window.visualViewport && window.visualViewport.height) || window.innerHeight; const h = Math.round(Math.max(90, Math.min(vv - 380, h0 - (e.clientY - y0)))); last = h; set(h); });
+  const end = () => { if (!on) return; on = false; if (last) { try { localStorage.setItem(KEY, String(last)); } catch {} } };
+  g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  g.addEventListener('dblclick', () => { set(null); try { localStorage.removeItem(KEY); } catch {} });
+  $('tlwrap').addEventListener('scroll', () => { const t = $('thead'); if (t) t.style.transform = 'translateY(' + (-$('tlwrap').scrollTop) + 'px)'; }, { passive: true });
+})();
+// ---- Ajustar pantalla (barras de Chrome/Safari en iPhone) ----
+(function screenFix() {
+  const KEY = 'wivra.screen'; let z = {}; try { z = JSON.parse(localStorage.getItem(KEY) || 'null') || {}; } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(z)); } catch {} };
+  const apply = () => { document.documentElement.style.setProperty('--padTop', (z.padTop || 0) + 'px'); $('scrTop').textContent = z.padTop || 0; $('scrNoCover').checked = !!z.nocover; };
+  const diag = () => {
+    const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'; document.body.appendChild(probe);
+    const cs = getComputedStyle(probe), vv = window.visualViewport; const t = cs.paddingTop, b = cs.paddingBottom; probe.remove();
+    $('scrDiag').textContent = `ventana ${innerWidth}x${innerHeight} · visual ${vv ? Math.round(vv.width) + 'x' + Math.round(vv.height) + ' (arriba ' + Math.round(vv.offsetTop) + ')' : '—'}\ndocumento ${document.documentElement.clientHeight} · pantalla ${screen.width}x${screen.height} · zona segura ${t}/${b} · x${devicePixelRatio} · cover ${document.querySelector('meta[name=viewport]').content.includes('cover') ? 'sí' : 'no'}`;
+  };
+  const open = () => { apply(); diag(); $('sScreen').classList.add('on'); };
+  $('bScreen').onclick = () => { closeSheets(); open(); }; $('hScreen').onclick = open;
+  $('scrDone').onclick = () => $('sScreen').classList.remove('on');
+  $('scrTopPlus').onclick = () => { z.padTop = Math.min(200, (z.padTop || 0) + 10); save(); apply(); diag(); };
+  $('scrTopMinus').onclick = () => { z.padTop = Math.max(0, (z.padTop || 0) - 10); save(); apply(); diag(); };
+  $('scrNoCover').onchange = () => { z.nocover = $('scrNoCover').checked; save(); location.reload(); };
+  $('scrReset').onclick = () => { z = {}; save(); apply(); location.reload(); };
+  apply();
+})();
+// ---- Paquetes de efectos y filtros: catálogo gratis (solo datos, validados) que se descarga al teléfono ----
+const PK_KEY = 'wivra.packs'; let pkInstalled = {}, pkCatalog = null;
+try { const j = JSON.parse(localStorage.getItem(PK_KEY) || '{}') || {}; for (const [k, v] of Object.entries(j)) { const c = pkClean(v); if (c) pkInstalled[k] = c; } } catch {}
+function pkClean(p) {      // nada del catálogo se ejecuta: solo números dentro de rango y textos cortos
+  if (!p || typeof p !== 'object') return null; const id = String(p.id || ''); if (!/^[a-z0-9_-]{1,24}$/.test(id)) return null; const looks = [];
+  for (const l of Array.isArray(p.looks) ? p.looks : []) {
+    const lid = String(l && l.id || ''); if (!/^[a-z0-9_-]{1,24}$/.test(lid) || !l.p || typeof l.p !== 'object') continue;
+    let q = {}; for (const k of FILTER_KEYS) { const v = l.p[k]; if (v === undefined) continue; if (typeof v !== 'number') { q = null; break; } q[k] = v; }
+    if (!q || filterProblem(q) || !Object.values(q).some(v => v !== 0)) continue; looks.push({ id: lid, name: String(l.name || lid).slice(0, 40), p: q });
+  }
+  return looks.length ? { id, name: String(p.name || id).slice(0, 40), desc: String(p.desc || '').slice(0, 120), looks: looks.slice(0, 40) } : null;
+}
+const pkFull = (p) => { const o = {}; for (const k of FILTER_KEYS) o[k] = p[k] || 0; return o; };
+function pkLookP(id) { const [pid, lid] = id.slice(3).split('/'); const p = pkInstalled[pid] || (pkCatalog || []).find(x => x.id === pid), l = p && p.looks.find(x => x.id === lid); return l ? l.p : {}; }
+const pkSave = () => { try { localStorage.setItem(PK_KEY, JSON.stringify(pkInstalled)); } catch {} };
+async function pkLoad() {
+  try { const r = await fetch(new URL('packs/catalog.json', location.href), { cache: 'no-cache' }); if (!r.ok) throw new Error('http'); const j = await r.json(); if (j.schema !== 'wivra-packs') throw new Error('schema'); pkCatalog = (j.packs || []).map(pkClean).filter(Boolean); $('galStatus').textContent = ''; }
+  catch { pkCatalog = null; $('galStatus').textContent = 'No se pudo cargar el catálogo (¿sin conexión?). Se muestran los paquetes ya descargados.'; }
+}
+function galRender() {
+  const c = fltTarget(), src = fltSrcCanvas(c, 96, 128), box = $('galPacks'); box.replaceChildren();
+  const list = [...(pkCatalog || [])]; for (const p of Object.values(pkInstalled)) if (!list.some(x => x.id === p.id)) list.push(p);
+  if (!list.length) { const m = document.createElement('p'); m.className = 'm'; m.textContent = 'No hay paquetes todavía.'; box.appendChild(m); return; }
+  for (const p of list) {
+    const inst = !!pkInstalled[p.id], head = document.createElement('div'); head.className = 'galhead';
+    const t = document.createElement('b'), sm = document.createElement('small'); t.textContent = p.name + ' · ' + p.looks.length; sm.textContent = p.desc; t.appendChild(sm);
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn ' + (inst ? 'sec' : ''); btn.textContent = inst ? 'Quitar' : 'Descargar gratis';
+    btn.onclick = () => { if (inst) delete pkInstalled[p.id]; else pkInstalled[p.id] = p; pkSave(); fltLooksRender(); fltSync(); galRender(); };
+    head.append(t, btn); box.appendChild(head);
+    const g = document.createElement('div'); g.className = 'fgrid static';
+    for (const lk of p.looks) {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.look = 'pk:' + p.id + '/' + lk.id; const cv = document.createElement('canvas'), sp = document.createElement('span'); sp.textContent = lk.name; b.append(cv, sp);
+      cv.width = 96; cv.height = 128; const out = fxRender(src, lk.p, 0), x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, 96, 128); else x.drawImage(src, 0, 0);
+      if (c && c.filter && FILTER_KEYS.every(k => Math.abs((c.filter[k] || 0) - (lk.p[k] || 0)) < 1e-6)) b.classList.add('on');
+      b.onclick = () => { const cc = fltTarget(); if (!cc) return say('Elige un video en la línea de tiempo.', 'bad'); if (!pkInstalled[p.id]) { pkInstalled[p.id] = p; pkSave(); fltLooksRender(); } fltLook = b.dataset.look; fltApply(cc, pkFull(lk.p)); galRender(); };
+      g.appendChild(b);
+    }
+    box.appendChild(g);
+  }
+}
+document.addEventListener('click', async (e) => { if (!e.target.closest('[data-gallery]')) return; openSheet('sGallery'); galRender(); await pkLoad(); galRender(); });
+$('galScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
+$('galDone').onclick = closeSheets;
+fltLooksRender();
+// Cerrar cualquier panel: botón ✕ y bajarlo con el dedo (rayita de arriba)
+(function sheetClose() {
+  document.querySelectorAll('.sheet').forEach((sh) => {
+    if (['sExit', 'sMiss'].includes(sh.id)) return;      // preguntas que se responden con sus botones
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'shx'; x.setAttribute('aria-label', 'Cerrar'); x.textContent = '✕'; x.onclick = () => { closeSheets(); sh.classList.remove('on'); };
+    const g = document.createElement('div'); g.className = 'shgrip'; sh.prepend(g); sh.prepend(x);
+    let y0 = 0, dy = 0, on = false;
+    g.addEventListener('pointerdown', (e) => { on = true; y0 = e.clientY; dy = 0; sh.style.transition = 'none'; try { g.setPointerCapture(e.pointerId); } catch {} });
+    g.addEventListener('pointermove', (e) => { if (!on) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = 'translateY(' + dy + 'px)'; });
+    const end = () => { if (!on) return; on = false; sh.style.transition = 'transform .15s'; if (dy > 70) { sh.style.transform = ''; sh.style.transition = ''; closeSheets(); sh.classList.remove('on'); } else { sh.style.transform = ''; } };
+    g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
+  });
+})();
+const DOCKS = ['sFilt', 'sFx', 'sOver'];
+function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
+function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); document.body.classList.remove('dockexp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-more]'); if (!b) return; const sh = b.closest('.sheet'), o = !sh.classList.contains('exp'); sh.classList.toggle('exp', o); document.body.classList.toggle('dockexp', o && sh.classList.contains('dock')); b.textContent = o ? 'Ver menos' : 'Ver más'; dockMeasure(); try { showFrame(); syncOverlays(); } catch {} });
+if (window.ResizeObserver) new ResizeObserver(() => dockMeasure()).observe(document.body);
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov', 'dock', 'dockexp'); document.body.style.removeProperty('--dockh'); try { showFrame(); syncOverlays(); } catch {} }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
+function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
+function auSync() {
+  const c = anyClip(selId);
+  $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(c.out - c.in)} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
+  for (const id of ['auMute', 'auVol']) $(id).disabled = !c;
+  $('auMute').checked = !!(c && c.muted); const vol = c && typeof c.volume === 'number' ? c.volume : 1; $('auVol').value = Math.round(vol * 100); $('auVolTxt').textContent = Math.round(vol * 100) + '%';
+}
+$('bAudio').onclick = () => { auSync(); openSheet('sAudio'); }; $('auDone').onclick = closeSheets;
+function auApply(args) { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, ...args }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); auSync(); const cc = anyClip(selId); if (cc && kindOf(cc.id) === 'main') previewAudio(cc); else syncMedia(); }
+$('auMute').onchange = () => auApply({ muted: $('auMute').checked });
+$('auVol').oninput = () => { $('auVolTxt').textContent = $('auVol').value + '%'; };
+$('auVol').onchange = () => auApply({ volume: Number($('auVol').value) / 100 });
 $('bText').onclick = () => openSheet('sText'); $('bAI').onclick = () => openSheet('sAI'); $('bObs').onclick = () => openSheet('sObs');
+$('bDirector').onclick=()=>{refreshDirectorAssets();openSheet('sDirector')};
 
 function render() {
   const p = session?.project, on = !!p;
-  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp']) $(id).disabled = !on;
+  if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
+  for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio','bFilt']) $(id).disabled = !on;
+  const selc = anyClip(selId); $('bOver').disabled = !(selc && kindOf(selc.id) === 'overlay'); $('bFormat').disabled = !on; $('bAdd').disabled = !on; $('bFx').disabled = !(selc && kindOf(selc.id) !== 'audio');
+  $('del').lastChild.textContent = selc && selPart === 'a' && kindOf(selc.id) !== 'audio' ? (selc.muted ? 'Poner audio' : 'Quitar audio') : 'Borrar';
   $('observe').disabled = !on || visualBusy; aiSync();
   $('undo').disabled = !on || !session.undoStack.length;
   $('redo').disabled = !on || !session.redoStack.length;
   $('del').disabled = !on || !selId;
   $('stage').classList.toggle('on', on);
-  if (on && !loading) { const n = p.clips.length; $('info').textContent = `${n} clip${n === 1 ? '' : 's'} · ${fmt(totalDuration(p))} s en total`; }
-  renderTimeline();
+  if (on && !loading) { const n = p.clips.length; $('info').textContent = `${n} clip${n === 1 ? '' : 's'} · ${fmt(timelineEnd(p))} s en total`; }
+  updateFrame(); renderTimeline();
   if ($('sVids').classList.contains('on')) renderVids();
+  pzSchedule();
 }
-function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; } }
+function stopPlayIfAny() { if (playing) { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncMedia(); } }
 function run(ops) {
   const r = runTool(session, 'edit_apply', { ops, expected_revision: session.project.revision });
-  if (session.project.clips.every(c => c.id !== selId)) selId = null;
-  tlTime = Math.min(tlTime, totalDuration(session.project));
+  if (!anyClip(selId)) selId = null;
+  tlTime = Math.min(tlTime, timelineEnd(session.project));
   render(); syncScroll();
   return r;
 }
@@ -188,6 +617,383 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
   });
 }
+function probeImage(file) {     // logo, foto o GIF: no tiene duración propia; se le da una larga y el clip se corta a 5 s al agregarlo
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => res({ url, duration: IMG_LEN, w: im.naturalWidth, h: im.naturalHeight });
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede abrir esa imagen`)); }; im.src = url;
+  });
+}
+const IMG_LEN = 3600, IMG_CLIP = 5;
+async function prepGif(id, file) {   // si es un GIF con varios fotogramas, lo decodifica para animarlo con tiempo exacto (si no, se usa como imagen fija)
+  const m = media[id]; if (!m || m.kind !== 'image') return;
+  try {
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer()); if (String.fromCharCode(...head) !== 'GIF8') return;
+    const g = decodeGif(await file.arrayBuffer());
+    if (g.frames.length < 2) return;
+    if (g.w * g.h * g.frames.length * 4 > 400e6) { say('Ese GIF es muy pesado para animarlo aquí; se usará como imagen fija.', 'bad'); return; }
+    m.gif = g; m.makeEl = () => gifCanvasEl(g);
+  } catch (e) { say('No pude animar ese GIF (' + e.message + '); se usará como imagen fija.', 'bad'); }
+}
+function probeAudio(file) {     // duración de un archivo de audio (el navegador debe saber decodificarlo)
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), a = new Audio(); a.preload = 'metadata';
+    const fail = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede leer ese audio`)); };
+    a.onerror = fail; a.onloadedmetadata = () => (isFinite(a.duration) && a.duration > 0) ? res({ url, duration: Math.round(a.duration * 100) / 100 }) : fail(); a.src = url;
+  });
+}
+// Audio de las pistas aparte durante la reproducción de la vista previa. Un <audio> por clip; se alinea con la línea de tiempo.
+const apool = {};
+function syncAudioPreview() {
+  const list = session ? (session.project.audioClips || []) : [];
+  for (const c of list) {
+    const m = media[c.asset_id], a0 = apool[c.id];
+    const on = playing && m && !c.muted && tlTime >= c.start && tlTime < c.start + (c.out - c.in);
+    if (!on) { if (a0 && !a0.paused) a0.pause(); continue; }
+    const a = a0 || (apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }));
+    const want = c.in + (tlTime - c.start);
+    try { a.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {}   // iOS ignora el volumen: allí solo funciona silenciar
+    if (a.paused || Math.abs(a.currentTime - want) > 0.3) { try { a.currentTime = want; } catch {} a.play().catch(() => {}); }
+  }
+  for (const id of Object.keys(apool)) if (!list.some(c => c.id === id)) { apool[id].pause(); delete apool[id]; }
+}
+function primeAudioPreview() {   // dentro del toque en Play: iOS solo deja iniciar audio desde un gesto
+  for (const c of (session ? session.project.overlayClips || [] : [])) { const el = ensureOverlayEl(c); if (el && el.paused) { const was = el.muted; el.muted = true; el.play().then(() => { el.pause(); el.muted = was; }).catch(() => { el.muted = was; }); } }
+  for (const c of (session ? session.project.audioClips || [] : [])) { const m = media[c.asset_id]; if (!m || apool[c.id]) continue; const a = apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }); a.muted = true; a.play().then(() => { a.pause(); a.muted = false; }).catch(() => { a.muted = false; }); }
+}
+// ---- Videos superpuestos en la vista previa (un <video> por clip dentro de #olay) ----
+const opool = {};
+for (const [k, d] of Object.entries(SHAPE_PATHS)) $('shapeDefs').insertAdjacentHTML('beforeend', `<clipPath id="shp-${k}" clipPathUnits="objectBoundingBox"><path d="${d}"/></clipPath>`);
+let fltAny = false, ovMode = 'all';
+function ovPlace(node, cr) { const st = node.style; st.position = 'absolute'; st.inset = 'auto'; st.left = cr.x + 'px'; st.top = cr.y + 'px'; st.width = cr.w + 'px'; st.height = cr.h + 'px'; st.objectFit = 'fill'; st.transform = ''; st.objectPosition = ''; }
+function ovGhostShow(el, wr, cr, w, h) {   // «cuadrado transparente» del tamaño del video completo, para ubicarlo dentro de la forma
+  const gh = $('ovGhost'), L = parseFloat(wr.style.left) || 0, T = parseFloat(wr.style.top) || 0;
+  const gw = 240, gH = Math.max(2, Math.round(gw * cr.h / cr.w)); if (gh.width !== gw || gh.height !== gH) { gh.width = gw; gh.height = gH; }
+  try { gh.getContext('2d').drawImage(el, 0, 0, gw, gH); } catch {}
+  Object.assign(gh.style, { display: 'block', left: (L + cr.x) + 'px', top: (T + cr.y) + 'px', width: cr.w + 'px', height: cr.h + 'px' });
+}
+let ovDrag = null;      // {id, x, y, scale}: valores provisionales mientras arrastras o mueves un control
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
+function ensureOverlayEl(c) {
+  let el = opool[c.id]; const m = media[c.asset_id]; if (el || !m) return el;
+  if (m.kind === 'image') { if (m.gif) el = m.makeEl(); else { el = imageEl(new Image()); el.src = m.url; el.draggable = false; } } else { el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url; }
+  opool[c.id] = el; el.dataset.id = c.id; const wr = document.createElement('div'); wr.className = 'ow'; wr.dataset.id = c.id; wr.style.display = 'none'; wr.appendChild(el); $('olay').appendChild(wr);
+  return el;
+}
+function syncOverlays() {
+  const list = session ? (session.project.overlayClips || []) : [];
+  const sr = $('frame').getBoundingClientRect(), vr = sr, ok = vr.width > 0 && $('stage').classList.contains('on');
+  let handleShown = false;
+  { const mh = session ? clipAt(session.project, tlTime) : null, fx = fxAt(mh && mh.clip, tlTime); $('v').style.opacity = String(fx.alpha); $('v').style.transform = (fx.dx || fx.scale !== 1) ? `translateX(${fx.dx * 100}%) scale(${fx.scale})` : ''; }
+  for (const c0 of list) {
+    const m = media[c0.asset_id], c = (ovDrag && ovDrag.id === c0.id) ? { ...c0, ...ovDrag } : c0;
+    const want = (tlTime >= c.start && tlTime < c.start + (c.out - c.in) - 0.001) ? c.in + (tlTime - c.start) : null;
+    const el0 = opool[c.id];
+    if (want == null || !m || !ok) { if (el0) { el0.parentElement.style.display = 'none'; if (!el0.paused) el0.pause(); } continue; }
+    const el = ensureOverlayEl(c);
+    const fx = fxAt(c, tlTime), w = c.scale * vr.width * fx.scale, h = w * overlayAr(c, m.w, m.h), wr = el.parentElement;
+    wr.style.display = 'block'; wr.style.width = w + 'px'; wr.style.height = h + 'px';
+    wr.style.opacity = String(fx.alpha * (typeof c.opacity === 'number' ? c.opacity : 1)); wr.style.left = (vr.left - sr.left + c.x * vr.width - w / 2 + fx.dx * vr.width) + 'px'; wr.style.top = (vr.top - sr.top + c.y * vr.height - h / 2) + 'px';
+    const cp = SHAPE_PATHS[c.shape] ? `url(#shp-${c.shape})` : ''; wr.style.clipPath = cp; wr.style.webkitClipPath = cp; wr.style.borderRadius = c.shape === 'rounded' ? '12%' : '4px';
+    const cvw = m.w || el.videoWidth || 16, cvh = m.h || el.videoHeight || 9, cr = contentRect(w, h, cvw, cvh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5);
+    ovPlace(el, cr); el.dataset.cr = JSON.stringify([cr.x, cr.y, cr.w, cr.h]);
+    if (c.id === selId && ovMode !== 'all') ovGhostShow(el, wr, cr, w, h); else if (c.id === selId) $('ovGhost').style.display = 'none';
+    let fs = wr.querySelector('svg.ofr'); if (c.frame > 0) { if (!fs) { fs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); fs.setAttribute('class', 'ofr'); fs.setAttribute('viewBox', '0 0 1 1'); fs.setAttribute('preserveAspectRatio', 'none'); fs.innerHTML = '<path fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'; wr.appendChild(fs); } const fp = fs.firstChild; fp.setAttribute('d', SHAPE_PATHS[c.shape] || 'M0 0H1V1H0Z'); fp.setAttribute('stroke', c.frameColor || '#ffffff'); fp.setAttribute('stroke-width', String(2 * c.frame * w)); } else if (fs) fs.remove();
+    wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
+    el.style.visibility = ''; if (fltOverlay(el, wr, c)) fltAny = true;
+    if (c.id === selId) { const hh = $('ovHandle'); hh.style.display = 'block'; hh.style.left = Math.max(0, Math.min(vr.width - 16, c.x * vr.width + w / 2 - 8)) + 'px'; hh.style.top = Math.max(0, Math.min(vr.height - 16, c.y * vr.height + h / 2 - 8)) + 'px'; handleShown = true; }
+    if (playing) {
+      if (el.paused) { try { el.currentTime = want; } catch {} el.play().catch(() => {}); }
+      else if (Math.abs(el.currentTime - want) > 0.35) { try { el.currentTime = want; } catch {} }
+    } else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) { try { el.currentTime = want; } catch {} } }
+  }
+  if (!handleShown) { $('ovHandle').style.display = 'none'; $('ovGhost').style.display = 'none'; } $('ovModes').style.display = handleShown ? 'flex' : 'none';
+  const fm = fltMainRefresh(); if ((fm || fltAny) && playing && !fltRaf) fltRaf = requestAnimationFrame(() => { fltRaf = 0; syncOverlays(); });
+  fltAny = false;
+  for (const id of Object.keys(opool)) if (!list.some(c => c.id === id)) { opool[id].parentElement.remove(); delete opool[id]; }
+}
+function syncMedia() { syncAudioPreview(); syncOverlays(); }
+// Un dedo sobre un superpuesto lo mueve; dos dedos (pellizco) le cambian el tamaño; el círculo amarillo de su esquina también.
+let ovGestureOn = false;
+function ovGesture(c, e, how) {
+  if (ovGestureOn) return; ovGestureOn = true;
+  e.preventDefault(); stopPlayIfAny(); selId = c.id; selPart = 'v';
+  const vr = $('frame').getBoundingClientRect(), pts = new Map([[e.pointerId, [e.clientX, e.clientY]]]), mode = ovMode;
+  const m = media[c.asset_id], cvw = (m && m.w) || 16, cvh = (m && m.h) || 9;
+  const base = { x: c.x, y: c.y, scale: c.scale }; ovDrag = { id: c.id, ...base, zoom: c.zoom || 1, px: c.px ?? 0.5, py: c.py ?? 0.5 };
+  // Ventana (la forma) y contenido (el video completo) en píxeles del cuadro, al empezar el gesto.
+  const win0 = (sc, x, y) => { const w = sc * vr.width, h = w * overlayAr(c, cvw, cvh); return { left: x * vr.width - w / 2, top: y * vr.height - h / 2, w, h }; };
+  const W0 = win0(c.scale, c.x, c.y), cr0 = contentRect(W0.w, W0.h, cvw, cvh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), abs0 = { X: W0.left + cr0.x, Y: W0.top + cr0.y, W: cr0.w, H: cr0.h };
+  const cx = vr.left + c.x * vr.width, cy = vr.top + c.y * vr.height;       // centro del superpuesto en pantalla
+  const d0h = Math.max(20, Math.hypot(e.clientX - cx, e.clientY - cy));
+  let moved = false, pinch0 = 0, startX = e.clientX, startY = e.clientY, scaleBase = c.scale, off = [0, 0];
+  const apply = (dx, dy, s) => {      // dx,dy en píxeles; s = factor de tamaño (1 = igual)
+    if (mode === 'all') {
+      ovDrag.scale = Math.max(0.05, Math.min(1, scaleBase * s));
+      ovDrag.x = clamp01(base.x + dx / vr.width); ovDrag.y = clamp01(base.y + dy / vr.height);
+    } else if (mode === 'video') {      // la forma queda quieta; el video se mueve y se agranda por dentro (alrededor del centro de la forma)
+      const ccx = W0.left + W0.w / 2, ccy = W0.top + W0.h / 2, W = abs0.W * s, H = abs0.H * s;
+      const r = solveContent(W0, { X: ccx + (abs0.X - ccx) * s + dx, Y: ccy + (abs0.Y - ccy) * s + dy, W, H }, cvw, cvh); Object.assign(ovDrag, r);
+    } else {                            // 'shape': se mueve/redimensiona la forma y el video se queda donde está en pantalla
+      const sc = Math.max(0.05, Math.min(1, scaleBase * s)), x = clamp01(base.x + dx / vr.width), y = clamp01(base.y + dy / vr.height), Wn = win0(sc, x, y);
+      const r = solveContent(Wn, abs0, cvw, cvh); Object.assign(ovDrag, { scale: sc, x, y }, r);
+    }
+  };
+  const pd = (ev) => { if (how === 'move' && !pts.has(ev.pointerId)) { pts.set(ev.pointerId, [ev.clientX, ev.clientY]); if (pts.size === 2) { const a = [...pts.values()]; pinch0 = Math.max(20, Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1])); moved = true; } } };
+  const mv = (ev) => {
+    if (!pts.has(ev.pointerId)) return; pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    if (how === 'handle') { moved = true; apply(0, 0, Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0h); }
+    else if (pts.size >= 2 && pinch0) { const a = [...pts.values()]; apply(off[0], off[1], Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]) / pinch0); }
+    else if (pts.size === 1) { const dx = ev.clientX - startX, dy = ev.clientY - startY; if (Math.abs(dx) + Math.abs(dy) > 4) moved = true; off = [dx, dy]; apply(dx, dy, 1); }
+    syncOverlays();
+  };
+  const up = () => {
+    for (const [t, f] of [['pointermove', mv], ['pointerup', up], ['pointercancel', up], ['pointerdown', pd]]) window.removeEventListener(t, f);
+    ovGestureOn = false; const d = ovDrag; ovDrag = null; const r3 = (n) => Math.round(n * 1000) / 1000;
+    if (moved) {
+      const o = { op: 'set_overlay', clip_id: c.id };
+      if (mode !== 'video') { o.x = r3(d.x); o.y = r3(d.y); o.scale = r3(d.scale); }
+      if (mode !== 'all') { o.zoom = r3(d.zoom); o.px = r3(d.px); o.py = r3(d.py); }
+      const r = edit([o]); if (!r.ok) say('No se pudo: ' + r.message, 'bad');
+    } else render();
+    if ($('sOver').classList.contains('on')) ovSync();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); window.addEventListener('pointerdown', pd);
+}
+$('olay').addEventListener('pointerdown', (e) => { const wr = e.target.closest('.ow'); if (!wr) return; const c = anyClip(wr.dataset.id); if (c) ovGesture(c, e, 'move'); });
+$('ovModes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; ovMode = b.dataset.m; $('ovModes').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); if (ovMode === 'all') $('ovGhost').style.display = 'none'; syncOverlays(); });
+$('ovModes').addEventListener('pointerdown', (e) => e.stopPropagation()); $('ovModes').addEventListener('pointerup', (e) => e.stopPropagation());
+$('ovHandle').addEventListener('pointerdown', (e) => { const c = anyClip(selId); if (c && kindOf(c.id) === 'overlay') ovGesture(c, e, 'handle'); });
+// ---- Pantalla ampliada: botón ⤢ o doble toque sobre el cuadro. Esconde la línea de tiempo y la barra para tener más espacio al mover capas, memes, CG… ----
+function toggleBig() { document.body.classList.toggle('big'); requestAnimationFrame(() => { syncOverlays(); requestAnimationFrame(syncOverlays); }); say(document.body.classList.contains('big') ? 'Pantalla ampliada. Doble toque o ⤢ para volver.' : 'Pantalla normal.', 'ok'); }
+$('bBig').onclick = toggleBig;
+{ let lastTap = 0, lx = 0, ly = 0;
+  $('frame').addEventListener('pointerup', (e) => { if (e.target.id === 'ovHandle') return; const now = performance.now(); if (now - lastTap < 320 && Math.hypot(e.clientX - lx, e.clientY - ly) < 30) { lastTap = 0; toggleBig(); } else { lastTap = now; lx = e.clientX; ly = e.clientY; } });
+  window.addEventListener('resize', () => syncOverlays()); }
+// ---- Formato del cuadro (9:16, 1:1…): el cuadro de la vista previa y de la exportación tiene esa forma; lo que sobra se recorta centrado ----
+function updateFrame() {
+  const p = session && session.project, f = p && p.format;
+  let ar = ASPECTS[f && f.aspect] ? ASPECTS[f.aspect][0] / ASPECTS[f.aspect][1] : 0;
+  if (!ar && p) { const first = sortedClips(p)[0], m = first && media[first.asset_id]; if (m && m.w > 0 && m.h > 0) ar = m.w / m.h; }
+  $('frame').style.setProperty('--ar', String(ar || 9 / 16)); $('frame').style.setProperty('--fit', effectiveFit(f));
+}
+function fmtSync() {
+  const f = (session && session.project.format) || { aspect: 'original', fit: 'cover' };
+  document.querySelectorAll('#fmtAspect button').forEach(b => b.classList.toggle('on', b.dataset.a === f.aspect));
+  document.querySelectorAll('#fmtFit button').forEach(b => { b.classList.toggle('on', b.dataset.f === f.fit); b.disabled = f.aspect === 'original'; });
+  $('fmtNote').textContent = f.aspect === 'original' ? 'Original: el cuadro sigue la forma de tu primer video y no se recorta nada.' : (f.fit === 'cover' ? 'Rellenar: el video llena el cuadro y se recorta lo que sobra, centrado.' : 'Entero: se ve todo el video y quedan barras negras.');
+}
+$('bAdd').onclick = () => openSheet('sTrack');
+const FX_NAMES = { none: 'Ninguno', fade: 'Fundido', slide: 'Deslizar', zoom: 'Zoom' };
+(function fxBuild() {
+  for (const id of ['fxIn', 'fxOut']) $(id).innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}"><canvas></canvas><span>${n}</span></button>`).join('');
+})();
+function fxThumbs(c) {      // cada efecto se ve a mitad de camino sobre el cuadro actual (misma fórmula que la exportación: fxAt)
+  const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
+  for (const id of ['fxIn', 'fxOut']) document.querySelectorAll('#' + id + ' button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'), v = b.dataset.v;
+    const o = v === 'none' ? { alpha: 1, dx: 0, scale: 1 } : id === 'fxIn' ? fxAt({ start: 0, in: 0, out: 10, fxIn: v, fxDur: 1 }, 0.5) : fxAt({ start: 0, in: 0, out: 10, fxOut: v, fxDur: 1 }, 9.5);
+    g.fillStyle = '#111'; g.fillRect(0, 0, W, H); g.globalAlpha = o.alpha; const w = W * o.scale, h = H * o.scale;
+    g.drawImage(src, (W - w) / 2 + o.dx * W, (H - h) / 2, w, h);
+  });
+}
+function fxTargets() { return fltScope === 'all' ? [...session.project.clips, ...(session.project.overlayClips || [])] : [anyClip(selId)]; }
+function fxSync() {
+  const c = anyClip(selId), ok = !!c && kindOf(c.id) !== 'audio';
+  $('fxInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
+  document.querySelectorAll('#fxIn button').forEach(b => { b.classList.toggle('on', ok && (c.fxIn || 'none') === b.dataset.v); b.disabled = !ok; });
+  document.querySelectorAll('#fxOut button').forEach(b => { b.classList.toggle('on', ok && (c.fxOut || 'none') === b.dataset.v); b.disabled = !ok; });
+  $('fxDur').disabled = !ok; $('fxDur').value = ok && c.fxDur ? c.fxDur : 0.5; $('fxDurTxt').textContent = $('fxDur').value;
+}
+function fxCommit(args) {
+  if (!selId) return; const ops = fxTargets().filter(Boolean).map(k => ({ op: 'set_clip_fx', clip_id: k.id, ...args }));
+  const r = edit(ops); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fxSync(); syncOverlays();
+}
+$('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
+$('fxTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#fxTabs button').forEach(x => x.classList.toggle('on', x === b)); $('fxIn').style.display = b.dataset.t === 'fxIn' ? '' : 'none'; $('fxOut').style.display = b.dataset.t === 'fxOut' ? '' : 'none'; dockMeasure(); });
+$('fxScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
+$('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ intro: b.dataset.v }); });
+$('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
+$('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDur').value; });
+$('fxDur').addEventListener('change', () => fxCommit({ dur: Number($('fxDur').value) }));
+$('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').onclick = closeSheets;
+$('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
+$('fmtFit').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled || !session) return; const r = edit([{ op: 'set_format', fit: b.dataset.f }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
+// ---- Controles del video superpuesto ----
+const OV_POS = [['0.2,0.12', 'Arriba izq.'], ['0.8,0.12', 'Arriba der.'], ['0.5,0.5', 'Centro'], ['0.2,0.88', 'Abajo izq.'], ['0.8,0.88', 'Abajo der.'], ['full', 'Pantalla']];
+$('ovShapes').innerHTML = Object.entries(SHAPE_NAMES).map(([k, n]) => `<button type="button" data-s="${k}" class="shp"><canvas></canvas><span>${n}</span></button>`).join('');
+$('ovPresets').innerHTML = OV_POS.map(([p, n]) => `<button type="button" data-p="${p}"><canvas></canvas><span>${n}</span></button>`).join('');
+function ovThumbs(c) {      // formas y posiciones con el cuadro real de la capa
+  const S = 96, sq = fltSrcCanvas(c, S, S), tall = fltSrcCanvas(c, 54, 96);
+  document.querySelectorAll('#ovShapes button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = S; cv.height = S; const g = cv.getContext('2d'); g.fillStyle = '#111'; g.fillRect(0, 0, S, S);
+    g.save(); const m = new DOMMatrix().translate(S * 0.08, S * 0.08).scale(S * 0.84, S * 0.84); const pth = new Path2D(); pth.addPath(new Path2D(SHAPE_PATHS[b.dataset.s] || 'M0 0H1V1H0Z'), m); g.clip(pth); g.drawImage(sq, S * 0.08, S * 0.08, S * 0.84, S * 0.84); g.restore();
+  });
+  document.querySelectorAll('#ovPresets button').forEach(b => {
+    const cv = b.querySelector('canvas'); cv.width = 96; cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#111'; g.fillRect(0, 0, 96, 128); g.strokeStyle = '#555'; g.strokeRect(0.5, 0.5, 95, 127);
+    const full = b.dataset.p === 'full', [x, y] = full ? [0.5, 0.5] : b.dataset.p.split(',').map(Number), w = full ? 96 : 34, h = full ? 128 : 60;
+    g.drawImage(tall, x * 96 - w / 2, y * 128 - h / 2, w, h); g.strokeStyle = '#ffd24a'; g.strokeRect(x * 96 - w / 2 + .5, y * 128 - h / 2 + .5, w - 1, h - 1);
+  });
+}
+$('ovShapes').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) ovCommit({ shape: b.dataset.s }); });
+for (const [id, key, txt, f] of [['ovZoom', 'zoom', 'ovZoomTxt', (v) => v / 100], ['ovPx', 'px', 'ovPxTxt', (v) => v / 100], ['ovPy', 'py', 'ovPyTxt', (v) => v / 100], ['ovFrame', 'frame', 'ovFrameTxt', (v) => v / 100], ['ovOpac', 'opacity', 'ovOpacTxt', (v) => v / 100]]) {
+  $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { ...c, [key]: key === 'frame' && !f(Number($(id).value)) ? 0 : f(Number($(id).value)) }; syncOverlays(); });
+  $(id).addEventListener('change', () => ovCommit({ [key]: f(Number($(id).value)) }));
+}
+$('ovColors').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) ovCommit({ frameColor: b.dataset.c, ...((anyClip(selId) || {}).frame ? {} : { frame: 0.02 }) }); });
+$('ovOrder').addEventListener('click', (e) => {
+  if (e.target.closest('button') && e.target.closest('button').dataset.o === 'screen') { const cc = anyClip(selId); if (cc && kindOf(cc.id) === 'overlay') ovCommit({ shape: 'rounded', frame: 0.02, frameColor: '#ffffff', scale: 0.32, x: 0.8, y: 0.8 }); return; }       // adelante / atrás: cambia de pista con la capa vecina que coincida en el tiempo
+  const b = e.target.closest('button'), c = anyClip(selId); if (!b || b.disabled || !c || kindOf(c.id) !== 'overlay') return;
+  const d = b.dataset.o === 'front' ? 1 : -1, nt = c.track + d; if (nt < 1 || nt > UI_MAX_OVERLAY) return say(d > 0 ? 'Ya está lo más adelante posible.' : 'Ya está lo más atrás posible.', 'bad');
+  const other = session.project.overlayClips.find(k => k.id !== c.id && k.track === nt && k.start < c.start + (c.out - c.in) && k.start + (k.out - k.in) > c.start);
+  const r = edit([...(other ? [{ op: 'set_overlay', clip_id: other.id, track: c.track }] : []), { op: 'set_overlay', clip_id: c.id, track: nt }]);
+  say(r.ok ? (d > 0 ? 'Ahora va más adelante.' : 'Ahora va más atrás.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad'); ovSync(); syncOverlays();
+});
+function ovSync() {
+  const c = anyClip(selId), ok = !!c && kindOf(c.id) === 'overlay';
+  $('ovInfo').textContent = ok ? `${(media[c.asset_id] || {}).name || 'Video'} · pista ${c.track} · ${fmt(c.out - c.in)} s` : 'Toca un video superpuesto en la línea de tiempo para elegirlo.';
+  for (const id of ['ovSize', 'ovX', 'ovY', 'ovMute', 'ovZoom', 'ovPx', 'ovPy', 'ovFrame', 'ovOpac']) $(id).disabled = !ok;
+  document.querySelectorAll('#ovColors button').forEach(b => { b.disabled = !ok; });
+  document.querySelectorAll('#ovShapes button, #ovOrder button').forEach(b => { b.disabled = !ok; if (ok && b.dataset.s) b.classList.toggle('on', (c.shape || 'none') === b.dataset.s); });
+  document.querySelectorAll('#ovPresets button').forEach(b => { b.disabled = !ok; });
+  if (!ok) return;
+  $('ovFrame').value = (c.frame || 0) * 100; $('ovFrameTxt').textContent = $('ovFrame').value + '%'; $('ovOpac').value = Math.round((c.opacity ?? 1) * 100); $('ovOpacTxt').textContent = $('ovOpac').value + '%'; document.querySelectorAll('#ovColors button').forEach(b => b.classList.toggle('on', b.dataset.c === (c.frameColor || '#ffffff')));
+  $('ovZoom').value = Math.round((c.zoom || 1) * 100); $('ovZoomTxt').textContent = $('ovZoom').value + '%'; $('ovPx').value = Math.round((c.px ?? 0.5) * 100); $('ovPxTxt').textContent = $('ovPx').value + '%'; $('ovPy').value = Math.round((c.py ?? 0.5) * 100); $('ovPyTxt').textContent = $('ovPy').value + '%';
+  $('ovSize').value = Math.round(c.scale * 100); $('ovX').value = Math.round(c.x * 100); $('ovY').value = Math.round(c.y * 100); $('ovMute').checked = !!c.muted;
+  $('ovSizeTxt').textContent = $('ovSize').value + '%'; $('ovXTxt').textContent = $('ovX').value + '%'; $('ovYTxt').textContent = $('ovY').value + '%';
+}
+const OV_SCOPED = ['shape', 'frame', 'frameColor', 'opacity'];
+function ovCommit(args) { if (!selId) return; ovDrag = null; const all = fltScope === 'all' && kindOf(selId) === 'overlay' && Object.keys(args).every(k => OV_SCOPED.includes(k)); const ids = all ? (session.project.overlayClips || []).map(k => k.id) : [selId]; const r = edit(ids.map(id => ({ op: 'set_overlay', clip_id: id, ...args }))); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); ovSync(); }
+for (const [id, key, txt] of [['ovSize', 'scale', 'ovSizeTxt'], ['ovX', 'x', 'ovXTxt'], ['ovY', 'y', 'ovYTxt']]) {
+  $(id).addEventListener('input', () => { const c = anyClip(selId); if (!c) return; $(txt).textContent = $(id).value + '%'; ovDrag = { id: c.id, x: c.x, y: c.y, scale: c.scale, [key]: Number($(id).value) / 100 }; if (key === 'scale') ovDrag.scale = Math.max(0.05, ovDrag.scale); syncOverlays(); });
+  $(id).addEventListener('change', () => ovCommit({ [key]: key === 'scale' ? Math.max(0.05, Number($(id).value) / 100) : Number($(id).value) / 100 }));
+}
+$('ovMute').onchange = () => { if (!selId) return; const r = edit([{ op: 'set_clip_audio', clip_id: selId, muted: $('ovMute').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); syncMedia(); };
+$('ovPresets').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; if (b.dataset.p === 'full') ovCommit({ x: 0.5, y: 0.5, scale: 1 }); else { const [x, y] = b.dataset.p.split(',').map(Number); ovCommit({ x, y }); } });
+$('ovScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
+$('bOver').onclick = () => { ovSync(); openSheet('sOver'); ovThumbs(anyClip(selId)); }; $('ovDone').onclick = closeSheets; $('trkDone').onclick = closeSheets;
+// ---- Agregar pista (botón ＋ Pista): video encima del video, o audio ----
+function freeOverlayTrack(start, end) {
+  for (let t = 1; t <= UI_MAX_OVERLAY; t++) if (!(session.project.overlayClips || []).some(c => c.track === t && c.start < end && c.start + (c.out - c.in) > start)) return t;
+  return null;
+}
+async function addTrackFile(file, kind) {
+  if (!file) return; closeSheets();
+  if (!session) { say('Primero elige el video principal.', 'bad'); return; }
+  if (loading) return; loading = true; stopPlayIfAny();
+  try {
+    if (kind === 'video' && /^image\//.test(file.type || '')) kind = 'image';
+    const pr = kind === 'image' ? await probeImage(file) : kind === 'video' ? await probe(file) : await probeAudio(file), id = 'a' + (++assetSeq);
+    media[id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, file, kind); if (kind === 'image') await prepGif(id, file);
+    session.addAsset({ id, duration: pr.duration, name: file.name, ...(kind === 'image' ? { kind: 'image' } : {}) });
+    const start = round2(tlTime); let op;
+    if (kind === 'video' || kind === 'image') {
+      const len = kind === 'image' ? IMG_CLIP : pr.duration, track = freeOverlayTrack(start, start + len);
+      if (!track) { say(`Ya hay ${UI_MAX_OVERLAY} pistas de video encima ocupadas en ese momento. Mueve la línea blanca o borra una.`, 'bad'); return; }
+      op = { op: 'add_overlay_clip', asset_id: id, start, track, ...(kind === 'image' ? { out: IMG_CLIP, x: 0.8, y: 0.15, scale: 0.28 } : {}) };
+    } else { let tr = 1; const au = session.project.audioClips || []; while (tr < UI_MAX_AUDIO && au.some(c => (c.track || 1) === tr && c.start < start + pr.duration && c.start + (c.out - c.in) > start)) tr++; op = { op: 'add_audio_clip', asset_id: id, start, role: 'other', ...(tr > 1 ? { track: tr } : {}) }; }
+    const r = run([op]); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+    if (kind === 'video' || kind === 'image') {
+      const nc = session.project.overlayClips[session.project.overlayClips.length - 1]; selId = nc.id; selPart = 'v'; render();
+      if (kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id)); say(kind === 'image' ? 'Imagen agregada encima (5 s). Arrástrala, cámbiale el tamaño o alarga su bloque.' : 'Video agregado encima. Arrástralo en la pantalla o usa los controles.', 'ok'); ovSync(); openSheet('sOver');
+    } else { const nc = session.project.audioClips[session.project.audioClips.length - 1]; selId = nc.id; selPart = 'a'; render(); say('Pista de audio agregada.', 'ok'); }
+  } catch (e) { say('No pude abrir el archivo: ' + (e && e.message || e), 'bad'); }
+  finally { loading = false; }
+}
+$('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
+$('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+// Los canales pedidos de un audio (p. ej. dos micrófonos grabados en un estéreo) → un WAV mono por canal. Decodifica el archivo entero UNA vez (por eso hay tope de tamaño). Ver app/channel-split.mjs.
+async function decodeChannelWavs(file, channelIndexes) {
+  if (file.size > SPLIT_MAX_BYTES) throw new Error(`pesa demasiado para separar sus canales aquí (máximo ${Math.round(SPLIT_MAX_BYTES / 1048576)} MB)`);
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) throw new Error('este navegador no puede separar canales de audio');
+  const ctx = new AC();
+  try {
+    const ab = await file.arrayBuffer();
+    const buf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.catch) p.catch(rej); });
+    return channelIndexes.map((ch) => {
+      if (ch >= buf.numberOfChannels) throw new Error(`solo tiene ${buf.numberOfChannels} canal(es); no existe el canal ${ch + 1}`);
+      return wavFromChannel(buf.getChannelData(ch), buf.sampleRate);
+    });
+  } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch (e) { /* ya estaba cerrado */ } }
+}
+// Importa una captura: el .wivra.json elegido junto con sus archivos. Valida el manifiesto, abre lo que el navegador sepa leer y arma UN lote de operaciones (un solo deshacer).
+async function importCapture(files) {
+  if (!files.length || loading) return;
+  loading = true; stopPlayIfAny();
+  try {
+    const mf = files.find(f => /\.json$/i.test(f.name));
+    if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
+    const r = parseManifest(await mf.text());
+    if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
+    const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
+    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
+    if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
+    $('info').textContent = 'Leyendo la captura…';
+    const open = async (name, kind) => {
+      if (assets[name]) return assets[name];
+      const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
+      try {
+        const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); session ||= new Session(createProject({ assets: [] }));
+        session.addAsset({ id, duration: pr.duration, name: f.name }); return (assets[name] = { id, duration: pr.duration, kind });
+      } catch (e) { failed.push(e.message); return null; }
+    };
+    let videoFile = null, usedMuxed = false;
+    for (const [name, isMux] of [[m.videoFile, false], [m.muxedVideoFile, true]]) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
+    if (!videoFile) { say('No pude abrir el video de la captura. ' + failed.join(' · '), 'bad'); return; }
+    if (usedMuxed && m.videoFile) notes.push(`Se usó ${m.muxedVideoFile} (el video original no se pudo abrir en este navegador).`);
+    // Audio: con el video combinado, las pistas que ya trae no se importan dos veces. Si el usuario dio los audios sueltos y se abren todos, se importan aparte y se silencia el audio del video.
+    // Una pista que es UN canal de un archivo con varios (dos micrófonos en un estéreo) se separa a su propio audio mono; el archivo entero nunca suena dos veces.
+    const split = {}, splitTried = new Set();
+    const splitOf = async (t) => {
+      if (!splitTried.has(t.file)) {
+        splitTried.add(t.file);      // un solo intento por archivo: se decodifica una vez y se sacan todos sus canales
+        const f = byName.get(t.file), group = m.tracks.filter(x => x.file === t.file && needsChannelSplit(x));
+        if (!f) failed.push(`falta ${t.file}`);
+        else try {
+          const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
+          for (const [i, x] of group.entries()) {
+            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
+            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); session ||= new Session(createProject({ assets: [] }));
+            session.addAsset({ id, duration: pr.duration, name: nf.name }); split[x.id] = { id, duration: pr.duration };
+          }
+        } catch (e) { failed.push(`${t.file}: ${e.message}`); }
+      }
+      return split[t.id] || null;
+    };
+    const openTrack = (t) => needsChannelSplit(t) ? splitOf(t) : open(t.file, 'audio');
+    const embedded = new Set(usedMuxed ? m.muxedFromTrackIDs : []);
+    let tracks = m.tracks.filter(t => !embedded.has(t.id)), muteVideo = false;
+    if (embedded.size) {
+      const emb = m.tracks.filter(t => embedded.has(t.id)); let ok = emb.length > 0;
+      for (const t of emb) if (!byName.has(t.file) || !(await openTrack(t))) ok = false;   // nunca se silencia un MOV con sonido si su audio suelto no se pudo abrir o separar
+      if (ok) { tracks = m.tracks; muteVideo = true; notes.push('Las pistas de audio quedaron separadas y el audio del video se silenció (así no suena doble).'); }
+      else if (emb.some(needsChannelSplit)) notes.push('El MOV conserva su sonido: no se pudieron separar los canales L/R del audio suelto.');
+      else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
+    }
+    for (const t of tracks) await openTrack(t);
+    const plan = { videoFile, audioTracks: tracks };
+    const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
+    const out = planImportOps(plan, { videoStart: startAt, assets, splitChannelAssets: split });
+    out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
+    if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
+    const first = !session.project.clips.length;
+    $('stage').classList.add('on');
+    if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, assets[videoFile].duration))); }
+    const res = run(out.ops);
+    if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    if (first) useAsset(assets[videoFile].id, 0);
+    thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
+    const na = (session.project.audioClips || []).length;
+    $('info').textContent = `${session.project.clips.length} clip(s) · ${na} pista(s) de audio · ${fmt(totalDuration(session.project))} s`;
+    // Primero la causa (por qué no se pudo abrir o separar un archivo) y después lo que se omitió: el aviso corto de pantalla se corta a ~160 caracteres y lo que importa es el porqué.
+    // «canal independiente sin extraer» ya lo dice el aviso «canal N no separado», así que no se repite.
+    const all = [...notes, ...failed.filter(x => !/^falta /.test(x)), ...out.warnings, ...out.skipped.filter(x => x.reason !== 'canal independiente sin extraer').map(x => `no se importó ${x.file}: ${x.reason}`)];
+    say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
+  } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
+  finally { loading = false; }
+}
+$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await importCapture(chosen); });
 function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
   const v = $('v'), m = media[id]; if (!m) return;
   if (curAsset !== id) {
@@ -198,34 +1004,56 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
 let loading = false;
-$('file').addEventListener('change', async () => {
-  const files = [...$('file').files]; $('file').value = ''; if (!files.length || loading) return;
+async function importSelectedFiles(files) {
+  if (!files.length || loading) return;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
   for (const f of files) {
     try {
       const m = await probe(f); const id = 'a' + (++assetSeq);
-      media[id] = { ...m, name: f.name, thumbs: [], step: 1 };
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1 }; keepFile(id, f, 'video');
       if (!session) session = new Session(createProject({ assets: [] }));
       session.addAsset({ id, duration: m.duration, name: f.name }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
   if (added.length) {
-    let start = totalDuration(session.project);
-    const ops = added.map(id => { const o = { op: 'add_clip', asset_id: id, start: round2(start) }; start += media[id].duration; return o; });
-    const first = !session.project.clips.length;
+    const first = !session.project.clips.length, pj = session.project, D = added.reduce((n, id) => n + media[id].duration, 0);
+    // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
+    let at = totalDuration(pj);
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (k.out - k.in)])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
+    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: round2(k.start + D) }));
+    let start = at; const insertedAt = at;
+    const ops = [...shifts, ...added.map(id => { const o = { op: 'add_clip', asset_id: id, start: round2(start) }; start += media[id].duration; return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
-    run(ops);
+    if (first) run(ops); else { const rr = edit(ops, { ripple: false }); if (!rr.ok) say('No se pudo agregar: ' + rr.message, 'bad'); }
     if (first) useAsset(added[0], 0);
     for (const id of added) thumbQueue = thumbQueue.then(() => makeThumbs(id));
     const n = session.project.clips.length;
     $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total`;
-    say(added.length > 1 ? `${added.length} videos cargados. Revisa el orden.` : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? `${added.length} videos cargados. Revisa el orden.` : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
   if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
   loading = false;
+}
+$('file').addEventListener('change', async () => {
+  const chosen=[...$('file').files];$('file').value='';
+  await importSelectedFiles(chosen);
+});
+$('directorCamera').addEventListener('change',async()=>{
+  const files=[...$('directorCamera').files];$('directorCamera').value='';
+  if(!files.length)return;
+  const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
+  await importSelectedFiles(files);
+  const added=session?.project.assets.find(a=>!existing.has(a.id));
+  if(added&&shootPlan&&selectedShootId){
+   try{
+     shootPlan=updateShot(shootPlan,selectedShootId,{state:'done',assetId:added.id},{project:session.project});
+     saveShootPlan();renderShootPlan();
+     say('Toma grabada y asociada al proyecto.','ok');
+   }catch(e){say(e.message,'bad')}
+  }
 });
 
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
@@ -326,28 +1154,76 @@ function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if
 const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
 function showFrame() {
   const hit = clipAt(session.project, tlTime);
-  if (hit) useAsset(hit.clip.asset_id, hit.assetTime);
+  $('v').style.visibility = hit ? '' : 'hidden';   // en un hueco se ve negro
+  if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+  syncOverlays();
 }
-function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(totalDuration(session.project)); }
+function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(timelineEnd(session.project)); }
 function syncScroll() { if (session) wrap().scrollLeft = tlTime * pps; labels(); }
+// Si tocas la barra mientras suena, se pausa: si no, la reproducción y tu dedo pelean por la posición y tiembla.
+// Mientras suena, tocar la barra la pausa (si no, la reproducción y tu dedo pelean por la posición y tiembla); al soltarla y dejar de moverla, sigue sonando.
+let resumeAfter = false, resumeT = null, scrolledSinceGrab = false;
+const armResume = () => { clearTimeout(resumeT); if (!resumeAfter) return; resumeT = setTimeout(() => { const go = resumeAfter && scrolledSinceGrab && !playing; resumeAfter = false; if (go) $('play').click(); }, 450); };
+const grabTimeline = () => { clearTimeout(resumeT); if (playing) { resumeAfter = true; scrolledSinceGrab = false; stopPlay(); } };
+wrap().addEventListener('touchstart', grabTimeline, { passive: true });
+wrap().addEventListener('touchend', armResume, { passive: true }); wrap().addEventListener('touchcancel', armResume, { passive: true });
+wrap().addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') grabTimeline(); }, { passive: true });
+wrap().addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') armResume(); }, { passive: true });
+wrap().addEventListener('wheel', () => { grabTimeline(); scrolledSinceGrab = true; armResume(); }, { passive: true });
 wrap().addEventListener('scroll', () => {
+  if (tlPinch) return;       // durante un pellizco el tiempo no cambia: solo cambia la escala
+  if (resumeAfter) { scrolledSinceGrab = true; armResume(); }
   if (!session || playing) return;
-  const t = Math.max(0, Math.min(wrap().scrollLeft / pps, totalDuration(session.project)));
+  const t = Math.max(0, Math.min(wrap().scrollLeft / pps, timelineEnd(session.project)));
   if (Math.abs(t - tlTime) < 0.004) return;
   tlTime = t; showFrame(); labels();
 }, { passive: true });
 function renderTimeline() {
+  if (tlPinch) { tlPinch.redo = true; if (performance.now() - tlPinch.t > 4000) tlPinchEnd(); return; }      // con dos dedos sobre la línea no se reemplaza nada (si no, el navegador deja de avisar de esos dedos); al soltar se dibuja todo. Si el gesto lleva 4 s sin señales (aviso perdido), se cierra solo
   const p = session?.project, inner = $('tlinner'), L = padL();
-  $('vtrack').replaceChildren(); $('ttrack').replaceChildren(); $('ruler').replaceChildren();
-  if (!p) { labels(); return; }
-  const tot = totalDuration(p);
+  for (const id of ['vtrack', 'atrack', 'otrack', 'utrack', 'ttrack', 'ruler', 'thead']) $(id).replaceChildren();
+  if (!p) { $('thead').style.display = 'none'; labels(); return; }
+  $('thead').style.display = 'block';
+  const tot = timelineEnd(p);
   inner.style.width = (L * 2 + tot * pps) + 'px';
+  // Carriles (de arriba abajo) y su columna fija de nombres a la izquierda, con el botón para agregar pistas.
+  const maxOv = Math.max(0, ...(p.overlayClips || []).map(c => c.track)), nOv = p.clips.length || maxOv ? Math.min(UI_MAX_OVERLAY, maxOv + 1) : 0; nOvShown = nOv;      // siempre hay una fila vacía arriba: ahí se suelta un video para ponerlo encima
+  const maxAu = Math.max(0, ...(p.audioClips || []).map(c => c.track || 1)), nAu = maxAu ? Math.min(UI_MAX_AUDIO, maxAu + 1) : 0;
+  const lanes = [{ id: 'vtrack', h: 62, label: 'Video' }, { id: 'atrack', h: 30, label: 'Audio' }];
+  if (nOv) lanes.push({ id: 'otrack', h: nOv * OV_ROW, label: 'Capas' });
+  if (nAu) lanes.push({ id: 'utrack', h: nAu * AU_ROW, label: 'Pistas' });
+  lanes.push({ id: 'ttrack', h: 30, label: 'Texto' });
+  $('otrack').style.display = nOv ? 'block' : 'none'; $('utrack').style.display = nAu ? 'block' : 'none';
+  let top = 26;
+  const groupOfLane = (id, track) => id === 'atrack' ? p.clips : id === 'utrack' ? (p.audioClips || []).filter(c => (c.track || 1) === track) : (p.overlayClips || []).filter(c => c.track === track);
+  const addHead = (t, h, label, id, track, plus) => {            // un nombre + (si tiene sonido) un parlante que silencia o activa toda esa pista
+    const lh = document.createElement('div'); lh.className = 'lh'; lh.style.top = t + 'px'; lh.style.height = h + 'px';
+    if (id) {
+      const g = groupOfLane(id, track), allMuted = g.length > 0 && g.every(c => c.muted);
+      const b = document.createElement('button'); b.className = 'tspk' + (allMuted ? ' off' : ''); b.type = 'button'; b.dataset.lane = id; b.dataset.track = track || 0; b.disabled = !g.length;
+      b.textContent = allMuted ? '🔇' : '🔊'; b.setAttribute('aria-label', (allMuted ? 'Activar el sonido de toda la pista ' : 'Silenciar toda la pista ') + label); lh.appendChild(b);
+    }
+    if (!(plus && id)) { const sp = document.createElement('span'); sp.textContent = label; lh.appendChild(sp); }
+    if (plus) { const pb = document.createElement('button'); pb.className = 'lplus'; pb.type = 'button'; pb.dataset.add = plus; pb.textContent = '+'; pb.setAttribute('aria-label', plus === 'video' ? 'Agregar otra pista de video encima' : 'Agregar otra pista de audio'); lh.appendChild(pb); }
+    $('thead').appendChild(lh);
+  };
+  for (const ln of lanes) {
+    const el = $(ln.id); el.style.top = top + 'px'; el.style.height = ln.h + 'px';
+    if (ln.id === 'otrack') for (let t = nOv; t >= 1; t--) addHead(top + (nOv - t) * OV_ROW, OV_ROW, 'Capa ' + t, 'otrack', t);
+    else if (ln.id === 'utrack') for (let t = 1; t <= nAu; t++) { const r0 = (p.audioClips || []).find(c => (c.track || 1) === t); addHead(top + (t - 1) * AU_ROW, AU_ROW, ({ voice_primary: 'Voz 1', voice_guest: 'Voz 2', music: 'Música' })[r0 && r0.role] || 'Aud. ' + t, 'utrack', t); }
+    else addHead(top, ln.h, ln.label, ln.id === 'atrack' ? ln.id : null, 0, ln.id === 'vtrack' ? 'video' : ln.id === 'atrack' ? 'audio' : '');
+    top += ln.h + 4;
+  }
+  const add = document.createElement('button'); add.id = 'addTrack'; add.type = 'button'; add.style.top = top + 'px'; add.textContent = '＋ Pista'; add.setAttribute('aria-label', 'Agregar pista de video o de audio');
+  add.onclick = () => { $('trkNote').textContent = 'Se coloca en ' + fmtTime(tlTime) + ' (donde está la línea blanca). Grabar tu voz con el micrófono: todavía no está.'; openSheet('sTrack'); };
+  $('thead').appendChild(add); top += 34; inner.style.height = top + 'px'; $('thead').style.height = top + 'px';
   const step = pps >= 70 ? 1 : pps >= 30 ? 2 : pps >= 14 ? 5 : 10;
   for (let t = 0; t <= tot + 0.01; t += step) { const i = document.createElement('i'); i.style.left = (L + t * pps) + 'px'; i.textContent = t + 's'; $('ruler').appendChild(i); }
+  const spkBtn = (c, what) => { const sp = document.createElement('button'); sp.className = 'spk'; sp.type = 'button'; sp.dataset.id = c.id; sp.textContent = c.muted ? '🔇' : '🔊'; sp.setAttribute('aria-label', (c.muted ? 'Activar ' : 'Silenciar ') + what); return sp; };
   for (const c0 of sortedClips(p)) {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
-    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId ? ' sel' : ''); b.dataset.id = c.id;
+    const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel mv' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
     const mm = media[c.asset_id], step = mm ? mm.step : 1;
     for (const th of (mm ? mm.thumbs : [])) {
@@ -358,19 +1234,51 @@ function renderTimeline() {
     const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
+    // Pista de audio del clip: se ve debajo del video y se elige POR SEPARADO; el parlante la silencia o la activa.
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId && selPart === 'a' ? ' sel' : ''); ab.dataset.id = c.id;
+    ab.style.left = b.style.left; ab.style.width = b.style.width; const ln = document.createElement('span'); ln.className = 'ulb'; ln.textContent = c.muted ? 'sin audio' : 'audio'; ab.appendChild(ln);
+    $('atrack').appendChild(ab);
   }
+  // Videos superpuestos: una fila por pista (la 1 arriba del todo en pantalla = la de más abajo en el cuadro de capas).
+  for (const c0 of (p.overlayClips || [])) {
+    if (c0.track > nOv) continue;
+    const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
+    const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
+    const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
+    for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
+    $('otrack').appendChild(b);
+  }
+  // Pistas de audio aparte (micrófono de una captura, música…): una barra por clip, con su parlante.
+  for (const c of (p.audioClips || [])) {
+    const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); ab.dataset.id = c.id;
+    ab.style.left = (L + c.start * pps) + 'px'; ab.style.width = Math.max(30, (c.out - c.in) * pps) + 'px'; ab.style.top = (((c.track || 1) - 1) * AU_ROW) + 'px'; ab.style.height = '30px';
+    const nm = (media[c.asset_id] || {}).name || 'Audio'; const t = document.createElement('span'); t.className = 'ulb'; t.textContent = nm; ab.appendChild(t);
+    $('utrack').appendChild(ab);
+  }
+  if (nOv && !(p.overlayClips || []).length) { const h = document.createElement('div'); h.className = 'ovhint'; h.textContent = 'Capas: arrastra un video aquí (abajo = capa)'; $('otrack').appendChild(h); }
   for (const t of p.texts) {
     const b = document.createElement('div'); b.className = 'blk txb'; b.style.left = (L + t.start * pps) + 'px'; b.style.width = Math.max(8, (t.end - t.start) * pps) + 'px'; b.textContent = t.text; $('ttrack').appendChild(b);
   }
-  labels();
+  labels(); syncOverlays();
 }
 $('tlinner').addEventListener('click', (e) => {
+  const sp = e.target.closest('.spk');
+  if (sp) {
+    const c = anyClip(sp.dataset.id); if (!c) return;
+    const r = edit([{ op: 'set_clip_audio', clip_id: c.id, muted: !c.muted }]);
+    if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else { const n = anyClip(c.id); if (kindOf(c.id) === 'main') previewAudio(n); syncMedia(); }
+    return;
+  }
   const b = e.target.closest('.blk'); if (!b || e.target.closest('.hd') || !b.dataset.id) return;
-  selId = selId === b.dataset.id ? null : b.dataset.id; render();
+  // El video y su audio se eligen por separado: así se puede quitar el sonido de un tramo sin tocar la imagen.
+  const part = b.classList.contains('ablk') ? 'a' : 'v';
+  if (selId === b.dataset.id && selPart === part) selId = null; else { selId = b.dataset.id; selPart = part; }
+  render();
 });
 $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bordes amarillos = recortar
-  const h = e.target.closest('.hd'); if (!h) return;
-  const id = h.parentElement.dataset.id, c = session.project.clips.find(k => k.id === id), a = session.project.assets.find(k => k.id === c.asset_id);
+  const h = e.target.closest('.hd'); if (!h || tlPinch) return;
+  const id = h.parentElement.dataset.id, c = anyClip(id), a = session.project.assets.find(k => k.id === c.asset_id), kind = kindOf(id);
   const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
   e.preventDefault();
   const mv = (ev) => {
@@ -380,22 +1288,126 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
     renderTimeline();
   };
   const up = () => {
-    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tlAborts.delete(abort);
     const d = drag; drag = null;
     if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
-      const r = edit([{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }]);
+      const ops = [{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }];
+      if (kind !== 'main' && d.in !== c.in) ops.push({ op: 'move_clip', clip_id: id, start: round2(Math.max(0, c.start + (d.in - c.in))) });   // fuera del video principal el contenido no se corre al recortar el inicio
+      const r = edit(ops);
       say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
     } else render();
   };
+  const abort = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); tlAborts.delete(abort); drag = null; renderTimeline(); };   // llegó un segundo dedo: era un pellizco, no un recorte
+  tlAborts.add(abort);
   window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
 });
+$('thead').addEventListener('click', (e) => {         // parlante de una pista completa, o + para agregar otra pista
+  const pl = e.target.closest('.lplus'); if (pl) { if (!session) return say('Primero elige el video principal.', 'bad'); $(pl.dataset.add === 'video' ? 'ovFile' : 'auFile').click(); return; }
+  const b = e.target.closest('.tspk'); if (!b || b.disabled || !session) return;
+  const p = session.project, track = Number(b.dataset.track);
+  const g = b.dataset.lane === 'atrack' ? p.clips : b.dataset.lane === 'utrack' ? (p.audioClips || []).filter(c => (c.track || 1) === track) : (p.overlayClips || []).filter(c => c.track === track);
+  const mute = !g.every(c => c.muted); if (!g.length) return;
+  const r = edit(g.map(c => ({ op: 'set_clip_audio', clip_id: c.id, muted: mute })));
+  if (!r.ok) say('No se pudo: ' + r.message, 'bad'); else { previewAudio(clipAt(session.project, tlTime)?.clip); syncMedia(); say(mute ? 'Pista silenciada.' : 'Sonido de la pista activado.', 'ok'); }
+});
+// Mover con el dedo: se elige el bloque (un toque) y luego se arrastra. Audio y videos superpuestos: a los lados (y entre pistas de arriba abajo). Video principal: cambia de lugar entre los demás.
+let suppressClick = false, moveArmed = false;
+$('tlinner').addEventListener('touchmove', (e) => { if (moveArmed) e.preventDefault(); }, { passive: false });
+$('tlinner').addEventListener('click', (e) => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+$('tlinner').addEventListener('pointerdown', (e) => {
+  if (tlPinch || e.target.closest('.hd, .spk')) return;
+  const b = e.target.closest('.blk'); if (!b || !b.dataset.id || b.classList.contains('txb')) return;
+  if (b.classList.contains('ablk') && kindOf(b.dataset.id) === 'main') return;       // el audio propio de un clip va con su video
+  const id = b.dataset.id, c = anyClip(id), kind = kindOf(id); if (!c) return;
+  const x0 = e.clientX, y0 = e.clientY; let moved = false, armed = b.classList.contains('mv'), byHold = false, timer = null;
+  if (!armed) timer = setTimeout(() => {       // mantener el dedo sobre un bloque lo "agarra": se elige y ya se puede arrastrar sin mover la línea de tiempo
+    armed = true; byHold = true; moveArmed = true; selId = id; selPart = b.classList.contains('ablk') ? 'a' : 'v';
+    document.querySelectorAll('.blk.sel').forEach(k => k.classList.remove('sel', 'mv')); b.classList.add('sel', 'mv', 'moving'); try { navigator.vibrate && navigator.vibrate(12); } catch {}
+  }, 280);
+  if (armed) moveArmed = true;
+  const mv = (ev) => {
+    const dx = ev.clientX - x0, dy = ev.clientY - y0;
+    if (!armed) { if (Math.hypot(dx, dy) > 8) clearTimeout(timer); return; }
+    if (!moved && Math.hypot(dx, dy) < 8) return; moved = true; b.classList.add('moving');
+    b.style.transform = `translate(${dx}px, ${dy}px)`;
+  };
+  const up = (ev) => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    tlAborts.delete(abort); clearTimeout(timer); moveArmed = false;
+    if (!moved) { if (byHold) { suppressClick = true; setTimeout(() => { suppressClick = false; }, 80); render(); } return; }
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 80);
+    const dx = (ev.clientX - x0) / pps, dy = ev.clientY - y0, p = session.project; let r;
+    const orect = $('otrack').getBoundingClientRect(), vrect = $('vtrack').getBoundingClientRect(), nid = p.nextId, start0 = round2(Math.max(0, c.start + dx)), len = c.out - c.in;
+    const rowTrack = (y) => Math.max(1, Math.min(UI_MAX_OVERLAY, nOvShown - Math.floor((y - orect.top) / OV_ROW)));
+    const fxOps = (nidClip) => (c.fxIn || c.fxOut || c.fxDur) ? [{ op: 'set_clip_fx', clip_id: nidClip, intro: c.fxIn || 'none', outro: c.fxOut || 'none', ...(c.fxDur ? { dur: c.fxDur } : {}) }] : [];
+    const occupied = (t, a, z) => (p.overlayClips || []).some(k => k.id !== id && k.track === t && k.start < z && k.start + (k.out - k.in) > a);
+    if (kind === 'main' && nOvShown && ev.clientY >= orect.top - 4 && ev.clientY <= orect.bottom + 8) {          // clip principal soltado en las filas de capas (abajo) → pasa a ser una capa
+      const t = rowTrack(ev.clientY); if (occupied(t, start0, start0 + len)) { say('Esa capa ya está ocupada en ese momento. Suéltalo en otra fila.', 'bad'); render(); return; }
+      r = edit([{ op: 'add_overlay_clip', asset_id: c.asset_id, start: start0, in: c.in, out: c.out, track: t, ...(c.muted !== undefined ? { muted: c.muted } : {}), ...(typeof c.volume === 'number' ? { volume: c.volume } : {}) }, ...fxOps('o' + nid), { op: 'delete_clip', clip_id: id }], { ripple: false });
+      if (r.ok) { selId = 'o' + nid; selPart = 'v'; render(); say('Ahora es una capa: arrástralo en la pantalla o pellizca para el tamaño.', 'ok'); syncMedia(); } else { say('No se pudo: ' + r.message, 'bad'); render(); }
+      return;
+    }
+    if (kind === 'overlay' && ev.clientY < orect.top - 10) {                  // capa soltada arriba, en el video principal → pasa a ser parte del video
+      const clash = p.clips.some(k => k.start < start0 + len && k.start + (k.out - k.in) > start0), at = clash ? round2(totalDuration(p)) : start0;
+      r = edit([{ op: 'add_clip', asset_id: c.asset_id, start: at }, { op: 'trim_clip', clip_id: 'c' + nid, in: c.in, out: c.out }, ...((c.muted !== undefined || typeof c.volume === 'number') ? [{ op: 'set_clip_audio', clip_id: 'c' + nid, ...(c.muted !== undefined ? { muted: c.muted } : {}), ...(typeof c.volume === 'number' ? { volume: c.volume } : {}) }] : []), ...fxOps('c' + nid), { op: 'delete_clip', clip_id: id }], { ripple: false });
+      if (r.ok) { selId = 'c' + nid; selPart = 'v'; render(); say(clash ? 'Ese lugar estaba ocupado: quedó al final del video principal.' : 'Ahora es parte del video principal.', 'ok'); syncMedia(); } else { say('No se pudo: ' + r.message, 'bad'); render(); }
+      return;
+    }
+    if (kind === 'main') {
+      const ordered = sortedClips(p).filter(k => k.id !== id), center = c.start + (c.out - c.in) / 2 + dx;
+      const idx = ordered.filter(k => k.start + (k.out - k.in) / 2 < center).length; ordered.splice(idx, 0, c);
+      const ops = reorderOps(p, ordered.map(k => k.id));
+      if (!ops || !ops.length) { render(); return; }
+      r = edit(ops, { ripple: false });
+    } else {
+      const ops = [{ op: 'move_clip', clip_id: id, start: start0 }];
+      if (kind === 'overlay') {
+        const nt = rowTrack(ev.clientY);
+        if (nt !== c.track) { if (occupied(nt, start0, start0 + len)) say('Esa capa ya está ocupada en ese momento.', 'bad'); else ops.push({ op: 'set_overlay', clip_id: id, track: nt }); }
+      }
+      if (kind === 'audio') { const nt = Math.max(1, Math.min(UI_MAX_AUDIO, (c.track || 1) + Math.round(dy / AU_ROW))); if (nt !== (c.track || 1)) ops.push({ op: 'set_audio_clip', clip_id: id, track: nt }); }
+      r = edit(ops);
+    }
+    if (!r.ok) { say('No se pudo mover: ' + r.message, 'bad'); render(); } else { syncMedia(); say('Movido.', 'ok'); }
+  };
+  const abort = () => { clearTimeout(timer); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); tlAborts.delete(abort); moveArmed = false; b.style.transform = ''; b.classList.remove('moving'); render(); };   // llegó un segundo dedo: era un pellizco, no mover el bloque
+  tlAborts.add(abort);
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+});
+// Borrar: con el video elegido se pregunta si también el audio; con el audio elegido solo se quita el sonido de ese tramo.
+function deleteMain(keepAudio) {
+  const c = anyClip(selId); if (!c) return;
+  const ops = keepAudio ? [{ op: 'add_audio_clip', asset_id: c.asset_id, start: c.start, in: c.in, out: c.out, role: 'other', ...(typeof c.volume === 'number' ? { volume: c.volume } : {}) }, { op: 'delete_clip', clip_id: c.id }] : [{ op: 'delete_clip', clip_id: c.id }];
+  const r = edit(ops, { ripple: !keepAudio }); closeSheets(); syncMedia();
+  say(r.ok ? (keepAudio ? 'Video borrado; su audio se quedó como pista aparte. Queda un hueco negro.' : 'Clip borrado; los siguientes se juntaron.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+}
+$('delBoth').onclick = () => deleteMain(false); $('delVideo').onclick = () => deleteMain(true); $('delCancel').onclick = closeSheets;
 $('split').onclick = () => {
+  const sc = anyClip(selId);
+  if (sc && kindOf(sc.id) !== 'main') {            // pista de audio o video superpuesto elegido: se corta ese clip
+    if (tlTime <= sc.start + 0.1 || tlTime >= sc.start + (sc.out - sc.in) - 0.1) return say('Mueve la línea blanca al interior del clip elegido (no en el borde).', 'bad');
+    const r0 = edit([{ op: 'split_clip', clip_id: sc.id, at: round2(sc.in + (tlTime - sc.start)) }]); syncMedia();
+    return say(r0.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + r0.message, r0.ok ? 'ok' : 'bad');
+  }
   const r = splitAt(session.project, tlTime); if (!r.ok) return say(r.message, 'bad');
   const rr = run(r.ops); say(rr.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + rr.message, rr.ok ? 'ok' : 'bad');
 };
 $('del').onclick = () => {
   if (!selId) return say('Toca un clip para elegirlo.', 'bad');
-  const r = edit([{ op: 'delete_clip', clip_id: selId }]); say(r.ok ? 'Clip borrado; los siguientes se juntaron.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+  const kind = kindOf(selId);
+  if (selPart === 'a' && kind !== 'audio') {       // se eligió solo el audio de un clip: se quita el sonido de ese tramo, el video queda
+    const cc = anyClip(selId);
+    if (cc.muted) { const r2 = edit([{ op: 'set_clip_audio', clip_id: selId, muted: false }]); syncMedia(); previewAudio(anyClip(selId)); return say(r2.ok ? 'Audio devuelto a este tramo.' : 'No se pudo: ' + r2.message, r2.ok ? 'ok' : 'bad'); }
+    const r1 = edit([{ op: 'set_clip_audio', clip_id: selId, muted: true }]); syncMedia(); previewAudio(anyClip(selId));
+    return say(r1.ok ? 'Audio de este tramo quitado (queda vacío). Toca ese tramo y «Poner audio» para devolverlo.' : 'No se pudo: ' + r1.message, r1.ok ? 'ok' : 'bad');
+  }
+  if (kind === 'main') {
+    const c = anyClip(selId); $('delInfo').textContent = `Clip de ${fmt(c.out - c.in)} s. Si borras solo el video, el sonido de este tramo se queda y la imagen queda en negro.`;
+    $('delVideo').disabled = !!c.muted; $('delVideo').textContent = c.muted ? 'Solo el video (este clip ya está silenciado)' : 'Solo el video: el audio se queda';
+    openSheet('sDel'); return;
+  }
+  const r = edit([{ op: 'delete_clip', clip_id: selId }]); syncMedia();
+  say(r.ok ? 'Borrado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
 $('addtxt').onclick = () => {
   const tot = totalDuration(session.project);
@@ -404,14 +1416,61 @@ $('addtxt').onclick = () => {
 };
 $('undo').onclick = () => { session.undo(); run_after(); say('Deshecho.', 'ok'); };
 $('redo').onclick = () => { session.redo(); run_after(); say('Rehecho.', 'ok'); };
-function run_after() { if (session.project.clips.every(c => c.id !== selId)) selId = null; tlTime = Math.min(tlTime, totalDuration(session.project)); render(); syncScroll(); }
-$('zi').onclick = () => { pps = Math.min(400, pps * 1.5); render(); syncScroll(); };
-$('zo').onclick = () => { pps = Math.max(6, pps / 1.5); render(); syncScroll(); };
+function run_after() { if (!anyClip(selId)) selId = null; tlTime = Math.min(tlTime, timelineEnd(session.project)); render(); syncScroll(); }
+$('zi').onclick = () => { pps = clampPps(pps * 1.5); render(); syncScroll(); };
+$('zo').onclick = () => { pps = clampPps(pps / 1.5); render(); syncScroll(); };
+/* Pellizco con dos dedos sobre la línea de tiempo = lo mismo que ＋/−: dedos que se separan → expande; que se juntan → achica.
+   Mientras los dedos están abajo solo se estira el dibujo (transform: barato y sin reemplazar nada bajo los dedos); al soltar se aplica la escala real y la línea blanca queda en el mismo instante. */
+const tlScaleEls = () => ['ruler', 'vtrack', 'atrack', 'otrack', 'utrack', 'ttrack'].map($);
+const tlFingers = (e) => [...e.touches].filter((t) => { const el = document.elementFromPoint(t.clientX, t.clientY); return !!el && !!el.closest('#tlbox') && !el.closest('#tlgrip'); });   // dedos que están sobre la línea de tiempo (también sobre ＋/−), no en el asa de altura; se mira dónde están ahora, no el bloque donde empezaron (al recortar el dibujo se rehace y ese bloque ya no existe)
+const tlFinger = (e, id) => [...e.touches].find((t) => t.identifier === id);
+function tlPinchPaint(p) {
+  p.raf = 0; if (tlPinch !== p) return;
+  const k = p.ps / p.pps0; for (const el of tlScaleEls()) el.style.transform = `scaleX(${k})`;
+}
+function tlPinchEnd(e) {
+  const p = tlPinch; if (!p) return;
+  if (e && tlFinger(e, p.id0) && tlFinger(e, p.id1)) return;          // los dos dedos del gesto siguen abajo (se levantó otro dedo): no ha terminado
+  cancelAnimationFrame(p.raf); tlPinch = null;
+  for (const el of tlScaleEls()) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; }
+  suppressClick = true; setTimeout(() => { suppressClick = false; }, 150);
+  clearTimeout(resumeT); resumeAfter = false;                       // si sonaba, queda en pausa: tus manos estaban en la línea
+  const changed = Math.abs(p.ps / p.pps0 - 1) > 0.005;              // un temblor de los dedos no cuenta
+  if (changed) pps = p.ps;
+  if (changed || p.redo) { render(); syncScroll(); }
+}
+// Redes de seguridad: si algún aviso de "soltaste" no llega (el navegador no lo manda a un elemento que ya no está), el gesto no se queda colgado.
+document.addEventListener('touchstart', (e) => { if (tlPinch && !(tlFinger(e, tlPinch.id0) && tlFinger(e, tlPinch.id1))) tlPinchEnd(); }, { capture: true, passive: true });
+document.addEventListener('touchend', tlPinchEnd, { capture: true, passive: true });
+document.addEventListener('touchcancel', tlPinchEnd, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) tlPinchEnd(); });
+$('tlbox').addEventListener('click', (e) => { if (suppressClick) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);        // un pellizco que empezó sobre un botón no lo pulsa al soltar
+$('tlbox').addEventListener('touchstart', (e) => {
+  if (tlPinch) return;                                              // ya hay pellizco (si llega un tercer dedo se ignora)
+  const f = tlFingers(e);
+  if (!session || e.touches.length !== 2 || f.length !== 2) return;
+  const d0 = touchDistance(f[0], f[1]); if (!(d0 > 4)) return;
+  const w = wrap(), ox = w.scrollLeft + w.clientWidth / 2;          // la línea blanca (centro) es el ancla, igual que con ＋/−
+  tlPinch = { id0: f[0].identifier, id1: f[1].identifier, d0, pps0: pps, ps: pps, raf: 0, redo: false, t: performance.now() };
+  for (const abort of [...tlAborts]) abort();                       // un dedo que estaba recortando o moviendo un bloque: era un pellizco
+  for (const el of tlScaleEls()) { el.style.transformOrigin = `${ox}px 0`; el.style.willChange = 'transform'; }
+}, { passive: true });
+$('tlbox').addEventListener('touchmove', (e) => {
+  const p = tlPinch; if (!p) return;
+  const a = tlFinger(e, p.id0), b = tlFinger(e, p.id1);
+  if (!a || !b) return tlPinchEnd(e);
+  p.t = performance.now();
+  if (e.cancelable) e.preventDefault();                             // sin esto el navegador desplazaría la línea (o haría zoom a la página) mientras pellizcas
+  const ps = pinchPps(p.pps0, p.d0, touchDistance(a, b)); if (ps === null) return;
+  p.ps = ps; if (!p.raf) p.raf = requestAnimationFrame(() => tlPinchPaint(p));
+}, { passive: false });
+for (const n of ['gesturestart', 'gesturechange', 'gestureend']) $('tlbox').addEventListener(n, (e) => e.preventDefault());   // Safari: sin zoom de página con el pellizco
 
 /* ---------- Exportar: graba el resultado en el teléfono (tiempo real, con audio) ---------- */
 let expCancel = false, expBusy = false, expUrl = null;
 $('bExp').onclick = () => {
   if (!session || expBusy) return;
+  if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
@@ -436,7 +1495,7 @@ $('expGo').onclick = async () => {
     };
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
-    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
     $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
@@ -445,33 +1504,49 @@ $('expGo').onclick = async () => {
 
 /* ---------- IA directa: propuesta → tú apruebas → un solo deshacer ---------- */
 let aiPending = null, aiBusy = false;
-const aiSay = (t, cls) => { $('aiMsg').className = cls || ''; $('aiMsg').textContent = t; };
+// Una línea por <div>: el traductor en vivo compara frases completas, así cada línea se traduce por separado.
+const aiSay = (t, cls) => { const m = $('aiMsg'); m.className = cls || ''; m.replaceChildren(...String(t).split('\n').map((l) => { const d = document.createElement('div'); d.textContent = l; return d; })); };
 for (const pr of PRESETS) { const o = document.createElement('option'); o.value = pr.id; o.textContent = pr.name; $('aiProv').appendChild(o); }
 function aiPreset() { const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0]; $('aiModel').value = pr.model; $('aiBaseRow').style.display = pr.id === 'custom' ? 'block' : 'none'; $('aiKeyLink').style.display = pr.keyUrl ? 'inline' : 'none'; $('aiKeyLink').href = pr.keyUrl || '#'; }
 $('aiProv').onchange = aiPreset; aiPreset();
-function aiSync() { $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || $('aiKey').value.trim().length < 8; }
+// El modo básico solo entiende español: su ejemplo funciona tal cual. Con una IA conectada se muestra el ejemplo que sí se traduce.
+const AI_PH_LOCAL = 'Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"', AI_PH_CONNECTED = 'Ej.: Recorta clip 1 desde 2 a 7 y pon texto "Vancouver"';
+let aiPhLocal = null;
+function aiSync() {
+  const local = $('aiMode').value === 'local';
+  $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8);
+  $('aiAsk').textContent = local ? 'Revisar cambio gratis' : 'Pedir propuesta a IA';
+  if (aiPhLocal !== local) { aiPhLocal = local; $('ask').placeholder = local ? AI_PH_LOCAL : AI_PH_CONNECTED; }
+}
+$('aiMode').addEventListener('change', aiSync);
 for (const id of ['ask', 'aiKey', 'aiModel']) $(id).addEventListener('input', aiSync);
 function aiClear() { aiPending = null; $('aiProp').style.display = 'none'; }
 $('aiDiscard').onclick = () => { aiClear(); aiHistory.push({ role: 'user', content: '(Descarté tu propuesta; no se aplicó nada.)' }); aiSay('Propuesta descartada. No cambió nada.'); };
 let aiHistory = [];
-function aiLogAdd(who, text) { const d = document.createElement('div'); d.className = 'item'; d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = who === 'tú' ? 'right' : 'left'; d.textContent = (who === 'tú' ? '' : '✨ ') + text; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
-$('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren(); $('aiNew').style.display = 'none'; aiClear(); aiSay('Conversación nueva.'); };
+// El texto va en su propio nodo (sin el ✨ delante) para que el traductor en vivo lo reconozca; lo que escribe la persona nunca se traduce.
+// final=true: el texto ya salió en su idioma (las líneas de una propuesta) y el traductor en vivo no lo vuelve a tocar.
+function aiLogAdd(who, text, final) { const d = document.createElement('div'), mine = who === 'tú'; d.className = 'item ai-msg ' + (mine ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = mine ? 'right' : 'left'; if (mine || final) d.dataset.notr = '1'; if (!mine) { const s = document.createElement('span'); s.textContent = '✨ '; s.setAttribute('aria-hidden', 'true'); d.appendChild(s); } d.appendChild(document.createTextNode(text)); $('aiEmpty').hidden = true; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
+$('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren($('aiEmpty')); $('aiEmpty').hidden = false; $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
   const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
   try {
-    const r = await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, parseText: parseReply,
+    const r = $('aiMode').value === 'local' ? (() => { const local = localBasicCommand(request, session.project); return { ops: local.operations, nota: local.description, notaFija: true }; })() : await askModel({ base: pr.id === 'custom' ? $('aiBase').value.trim() : pr.base, key: $('aiKey').value.trim(), model: $('aiModel').value.trim(), request, project: session.project, history: aiHistory, directorContext: aiDirectorContext, parseText: parseReply,
       onStatus: ({ attempt }) => aiSay(`El proveedor está saturado. Reintentando (${attempt}/2)…`) });
     aiLogAdd('tú', request); aiHistory.push({ role: 'user', content: request });
     if (!r.ops.length) { const t = r.nota ? 'No propongo cambios: ' + r.nota : 'No propongo cambios.'; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); $('ask').value = ''; return aiSay('La IA no propone cambios.', 'bad'); }
     const trial = planEdit(session.project, r.ops, { ripple: false });
     if (!trial.ok) { const t = `Mi propuesta fue rechazada por el editor (operación ${trial.failed_index + 1}): ${trial.message}`; aiLogAdd('ia', t); aiHistory.push({ role: 'assistant', content: t }); return aiSay(t + '\nNada cambió. Corrígela con otra frase.', 'bad'); }
     aiPending = { ops: r.ops, revision: session.project.revision };
-    const lines = r.ops.map((o, i) => `${i + 1}. ${describeOp(o)}`).join('\n');
-    $('aiPropText').textContent = (r.nota ? r.nota + '\n' : '') + lines; $('aiPropText').style.whiteSpace = 'pre-wrap';
-    aiLogAdd('ia', (r.nota ? r.nota + '\n' : '') + lines); aiHistory.push({ role: 'assistant', content: 'Propuse:\n' + lines });
+    // Las líneas se muestran en el idioma de la pantalla; al historial del modelo van siempre en español (así lo entiende igual en cualquier idioma).
+    const numbered = (es) => r.ops.map((o, i) => `${i + 1}. ${describeOp(o, es)}`).join('\n'), lines = numbered(false), linesEs = numbered(true);
+    // La nota del modo básico es una frase fija de Wivra (notaFija: se traduce); la del modelo es texto libre suyo y se muestra tal cual.
+    const nota = r.nota && r.notaFija ? i18nTr(r.nota) : r.nota;
+    $('aiPropText').textContent = (nota ? nota + '\n' : '') + lines; $('aiPropText').style.whiteSpace = 'pre-wrap';
+    aiLogAdd('ia', (nota ? nota + '\n' : '') + lines, true); aiHistory.push({ role: 'assistant', content: 'Propuse:\n' + linesEs });
     $('ask').value = ''; aiSync();
     $('aiProp').style.display = 'block'; aiSay('Revisa la propuesta. Nada cambia hasta que toques Aplicar. Para corregirla, escribe o dicta otra frase.', 'ok');
+    try { $('aiProp').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e2) { /* el botón Aplicar queda donde está */ }
   } catch (e) { aiSay(e.message, 'bad'); } finally { aiBusy = false; aiSync(); }
 };
 /* Dictado: Web Speech del navegador (si existe). El micrófono del teclado del iPhone también sirve en el cuadro de texto. */
@@ -491,41 +1566,38 @@ $('aiAsk').onclick = async () => {
 })();
 $('aiApply').onclick = () => {
   if (!aiPending) return;
-  if (aiPending.revision !== session.project.revision) { aiClear(); return aiSay('El proyecto cambió mientras tanto. Vuelve a pedírselo a la IA.', 'bad'); }
+  if (aiPending.revision !== session.project.revision) { aiClear(); return aiSay('El proyecto cambió mientras tanto. Vuelve a pedir el cambio.', 'bad'); }
   const r = run(aiPending.ops); aiClear();
   if (r.ok) aiHistory.push({ role: 'user', content: '(Apliqué tu propuesta.)' });
   if (r.ok) { closeSheets(); say('Aplicado. Puedes deshacerlo con la flecha.', 'ok'); } else aiSay('No se pudo aplicar: ' + r.message, 'bad');
 };
-function describeOp(o) {
-  const f = (n) => fmt(n);
-  switch (o.op) {
-    case 'split_clip': return `Cortar ${o.clip_id} en ${f(o.at)} s`;
-    case 'trim_clip': return `Recortar ${o.clip_id}: de ${f(o.in)} a ${f(o.out)} s`;
-    case 'move_clip': return `Mover ${o.clip_id} a ${f(o.start)} s`;
-    case 'delete_clip': return `Borrar ${o.clip_id}`;
-    case 'add_clip': return `Agregar ${o.asset_id} en ${f(o.start ?? 0)} s`;
-    case 'add_text': return `Texto «${o.text}» en ${f(o.start)} s por ${f(o.duration)} s`;
-    default: return JSON.stringify(o);
-  }
-}
-function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; }
+// Una línea por operación. Los textos y su orden por idioma viven en app/describe-op.mjs (+ filas en app/i18n); es=true → español, para el historial del modelo.
+const aiT = (key, ...a) => fillTemplate(i18nTr(key), a);
+function describeOp(o, es) { const base = { f: fmt, lookName: (id) => LOOK_PRESETS[id]?.name || id }; return describeOperation(o, es ? base : { ...base, T: aiT }); }
+function stopPlay() { playing = false; $('v').pause(); $('play').innerHTML = PLAY; syncMedia(); }
 $('play').onclick = () => {
   if (playing) return stopPlay();
-  const p = session.project; if (!p.clips.length) return;
-  if (tlTime >= totalDuration(p) - 0.05) tlTime = 0;
-  playing = true; $('play').innerHTML = PAUSE; let cur = null;
+  const p = session.project; if (timelineEnd(p) <= 0) return;
+  if (tlTime >= timelineEnd(p) - 0.05) tlTime = 0;
+  playing = true; $('play').innerHTML = PAUSE; let cur = null, gapT = 0; primeAudioPreview();
   const frame = () => {
     if (!playing) return;
     const hit = clipAt(session.project, tlTime) || clipAt(session.project, tlTime + 0.05);
-    if (!hit) {
-      const next = sortedClips(session.project).find(c => c.start > tlTime);
-      if (!next) { stopPlay(); return; }
-      tlTime = next.start; cur = null; requestAnimationFrame(frame); return;
+    if (!hit) {                                   // hueco: la imagen queda en negro, pero el audio y los superpuestos siguen sonando
+      const now = performance.now(), dt = Math.min(0.1, (now - (gapT || now)) / 1000); gapT = now;
+      if (cur !== null) { cur = null; $('v').pause(); }
+      $('v').style.visibility = 'hidden';
+      if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
+      tlTime += dt; syncMedia();
+      $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+      wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame); return;
     }
+    gapT = 0; $('v').style.visibility = '';
     if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
-    if (cur !== hit.clip.id) { cur = hit.clip.id; const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
+    if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    syncMedia();
     $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
     wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
   };
@@ -549,6 +1621,528 @@ async function makeThumbs(id) {
     }
   } catch { /* sin miniaturas: los bloques se ven igual */ }
 }
+
+
+/* Creative Director context, complementary to Claude core. No model calls. */
+let directorBrief=null, aiDirectorContext=null;
+function directorProject(){return session?.project||createProject()}
+function saveDirectorDraft(){
+  try{
+    const b=readDirectorBrief();
+    const data=createDirectorDraftRecord(b);
+    localStorage.setItem(DIRECTOR_DRAFT_KEY,data);
+    directorBrief=b;
+    $('dirDraftStatus').textContent='Idea guardada en este navegador. No se guardaron medios ni grabaciones. Las descripciones de cada clip solo viven en esta sesión.';
+    return true;
+  }catch(e){$('dirDraftStatus').textContent='No se pudo guardar en este dispositivo: '+e.message;return false;}
+}
+function restoreDirectorDraft(){
+  try{
+    const data=localStorage.getItem(DIRECTOR_DRAFT_KEY);
+    if(!data)return;
+    const b=restoreDirectorDraftRecord(data);
+    directorBrief=b;
+    $('dirMode').value=b.mode;
+    $('dirGoal').value=b.goal;
+    $('dirPlatform').value=b.platforms[0]||'reels';
+    $('dirOtherFormats').value=b.platforms[1]||'';
+    $('dirSeconds').value=b.durationSeconds==null?'':b.durationSeconds;
+    $('dirOutputs').value=b.outputCount;
+    $('dirNotes').value=b.notes;
+    $('dirHistory').textContent=b.utterances.length+' instrucciones anteriores recuperadas.';
+    $('dirDraftStatus').textContent='Idea recuperada de este navegador. Vuelve a elegir tus videos para vincular escenas y tiempos.';
+  }catch(e){$('dirDraftStatus').textContent='Hay un borrador ilegible; puedes borrarlo desde aquí.';}
+}
+function setDirectorAIContext(ctx){
+  aiDirectorContext=ctx;
+  $('aiDirectorInfo').style.display=ctx?'block':'none';
+  $('aiDirectorRemove').style.display=ctx?'block':'none';
+}
+$('dirSaveDraft').onclick=saveDirectorDraft;
+$('dirForgetDraft').onclick=()=>{
+  try{localStorage.removeItem(DIRECTOR_DRAFT_KEY);}catch{}
+  directorBrief=null;setDirectorAIContext(null);
+  for(const id of ['dirGoal','dirNotes','dirCorrection','dirAssetDescription','dirSeconds'])$(id).value='';
+  $('dirMode').value='automatic';$('dirPlatform').value='reels';$('dirOtherFormats').value='';$('dirOutputs').value=1;
+  $('dirHistory').textContent='';$('dirDraftStatus').textContent='Idea guardada eliminada de este navegador. Los videos existentes no se borraron.';
+};
+$('dirUseInAI').onclick=()=>{
+  if(!session||!session.project.assets.length){
+    $('dirStatus').textContent='Puedes guardar la idea ahora. Para pedir ediciones a la IA, importa al menos un video.';
+    return;
+  }
+  try{
+    directorBrief=readDirectorBrief();
+    setDirectorAIContext(directorAITaskContext(directorBrief,session.project));
+    $('ask').value='Revisa el objetivo que te adjunté y el material realmente disponible. Propón una primera edición con los cambios que puedas justificar; si falta evidencia, no inventes cortes.';
+    // El contexto del Director solo lo usa la IA conectada (el modo básico no lo lee): se pasa a ese modo y, si falta la clave, se abre su sección.
+    $('aiMode').value='connected';
+    if($('aiKey').value.trim().length<8)$('aiSettings').open=true;
+    aiSync();openSheet('sAI');
+    aiSay('Idea preparada como contexto, no enviada. Revisa tu petición y envíala cuando quieras.','ok');
+  }catch(e){$('dirStatus').textContent='No pude preparar el contexto: '+e.message;}
+};
+$('aiDirectorRemove').onclick=()=>{setDirectorAIContext(null);aiSay('Idea separada de la conversación con IA.');};
+function refreshDirectorAssets(){
+ const assets=directorProject().assets,sel=$('dirAsset');
+ const previous=sel.value;sel.replaceChildren();
+ for(const asset of assets){
+  const option=document.createElement('option');
+  option.value=asset.id;option.textContent=(asset.name||asset.id)+' ('+asset.id+')';
+  sel.appendChild(option);
+ }
+ if(assets.some(x=>x.id===previous))sel.value=previous;
+ $('dirAssetBox').style.display=assets.length?'block':'none';
+ syncDirectorAssetDescription();
+}
+function syncDirectorAssetDescription(){
+ $('dirAssetDescription').value=directorBrief?.assetDescriptions?.[$('dirAsset').value]?.description||'';
+}
+$('dirAsset').addEventListener('change',syncDirectorAssetDescription);
+function readDirectorBrief(){
+ const mode=$('dirMode').value,goal=$('dirGoal').value.trim();
+ const raw=$('dirSeconds').value.trim();
+ const durationSeconds=raw?Number(raw):null;
+ const fresh=createDirectorBrief({
+   mode,goal,platforms:[...new Set([$('dirPlatform').value,$('dirOtherFormats').value].filter(Boolean))],
+   durationSeconds,outputCount:Number($('dirOutputs').value),notes:$('dirNotes').value.trim()
+ });
+ if(directorBrief){
+   fresh.utterances=directorBrief.utterances;
+   fresh.assetDescriptions=directorBrief.assetDescriptions;
+   fresh.shotIdeas=mode==='preproduction'?directorBrief.shotIdeas:[];
+ }
+ return fresh;
+}
+$('dirMode').addEventListener('change',()=>{
+ $('dirAssetBox').style.display=$('dirMode').value==='preproduction'?'none':directorProject().assets.length?'block':'none';
+});
+$('dirSaveAsset').addEventListener('click',()=>{
+ try{
+   let b=readDirectorBrief();
+   b=describeAsset(b,directorProject(),{
+      assetId:$('dirAsset').value,description:$('dirAssetDescription').value,
+      source:'typed'
+   });
+   directorBrief=b;
+   $('dirAssetStatus').textContent='Descripción de esta toma guardada durante la sesión, no verificada. El archivo y esta asociación no se conservan al cerrar la página.';
+ }catch(e){$('dirAssetStatus').textContent=e.message}
+});
+$('dirAddCorrection').addEventListener('click',()=>{
+ try{
+   let b=readDirectorBrief();
+   b=recordInstruction(b,$('dirCorrection').value,{source:'typed',kind:'correction'});
+   directorBrief=b;
+   $('dirCorrection').value='';
+   $('dirHistory').textContent='Instrucciones adicionales: '+b.utterances.length+'. Guarda la idea si quieres recuperarlas más tarde.';
+ }catch(e){$('dirHistory').textContent=e.message}
+});
+$('dirCopy').addEventListener('click',async()=>{
+ try{
+   directorBrief=readDirectorBrief();
+   const prompt=directorPrompt(directorProject(),directorBrief);
+   $('dirExportText').value=prompt;
+   try{
+     await navigator.clipboard.writeText(prompt);
+     $('dirStatus').textContent='Briefing copiado. Pégalo en tu IA; no se envió ningún video ni se realizó edición.';
+   }catch{
+     $('dirStatus').textContent='El navegador no permitió copiar. Selecciona el texto de abajo para copiarlo manualmente.';
+     $('dirExportText').focus();$('dirExportText').select();
+   }
+ }catch(e){$('dirStatus').textContent='Falta información: '+e.message}
+});
+
+
+/* Director: checklist offline and validated quick edits, no hidden AI service. */
+function saveShootPlan(){
+ try{if(shootPlan)localStorage.setItem(SHOOT_STORAGE_KEY,JSON.stringify(shootPlan))}
+ catch{ /* private mode or file scheme may refuse local storage */ }
+}
+function loadShootPlan(){
+ try{
+  const restored=JSON.parse(localStorage.getItem(SHOOT_STORAGE_KEY)||'null');
+  if(restored?.schema==='agentcut-shoot-plan-v0.1'&&Array.isArray(restored.shots)){
+    // Saved asset IDs do NOT grant access to files after page reload.
+    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null}))};
+  }
+ }catch{ /* ignore corrupt storage */ }
+}
+function renderShootPlan(){
+ const list=$('dirChecklist'),places=$('dirPlaceHints');
+ list.replaceChildren();places.replaceChildren();
+ if(!shootPlan){
+  $('dirPlanInfo').textContent='Todavía no hay lista de tomas.';
+  return;
+ }
+ const p=progress(shootPlan);
+ $('dirPlanInfo').textContent=p.done+' de '+p.total+' tomas completadas ('+p.percent+' %). '+(p.readyToEdit?'Lista lista para revisar tus videos.':'Marca las tomas que hayas grabado.');
+ const sub=document.createElement('p');sub.className='m';
+ sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
+ places.append(sub);
+ for(const loc of shootPlan.shotLocations){
+  const hint=document.createElement('p');hint.className='m';hint.textContent='• '+loc.hint;places.append(hint);
+ }
+ for(const shot of shootPlan.shots){
+  const card=document.createElement('div');card.className='item';
+  const title=document.createElement('label');title.style.cssText='display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--fg)';
+  const check=document.createElement('input');check.type='checkbox';check.checked=shot.state==='done';
+  check.style.cssText='width:24px;height:24px;flex:none';
+  check.setAttribute('aria-label','Toma completada: '+shot.title);
+  check.onchange=()=>{
+   shootPlan=updateShot(shootPlan,shot.id,{state:check.checked?'done':'todo'});
+   saveShootPlan();renderShootPlan();
+  };
+  const label=document.createElement('span');label.textContent=shot.title+' · '+shot.durationSeconds+' s';
+  title.append(check,label);
+  const body=document.createElement('p');body.className='m';body.style.margin='4px 0';body.textContent=shot.direction;
+  const row=document.createElement('div');row.className='row';
+  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
+  cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
+  const choose=document.createElement('select');
+  choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
+  choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
+  const none=document.createElement('option');none.value='';none.textContent='Asociar video...';choose.append(none);
+  (session?.project.assets||[]).forEach(asset=>{
+    const opt=document.createElement('option');opt.value=asset.id;opt.textContent=asset.name||asset.id;
+    choose.append(opt);
+  });
+  choose.value=shot.assetId||'';
+  choose.onchange=()=>{
+    if(!session||!choose.value)return;
+    try{
+      shootPlan=updateShot(shootPlan,shot.id,{assetId:choose.value,state:'done'},{project:session.project});
+      saveShootPlan();renderShootPlan();say('Video asociado a la toma.','ok');
+    }catch(e){say(e.message,'bad')}
+  };
+  row.append(cam,choose);
+  if(shot.assetId){
+    const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
+    card.append(title,body,linked,row);
+  }else card.append(title,body,row);
+  list.append(card);
+ }
+}
+$('dirGenerateChecklist').onclick=()=>{
+ try{
+  const subject=$('dirSpot').value.trim()||$('dirGoal').value.trim();
+  shootPlan=createShootPlan({subject,
+   platform:$('dirPlatform').value,shotCount:Number($('dirShotCount').value),
+   durationSeconds:Number($('dirShootLength').value),style:$('dirNotes').value.trim()});
+  saveShootPlan();renderShootPlan();
+ }catch(e){$('dirPlanInfo').textContent=e.message}
+};
+$('dirPrepareEdit').onclick=async()=>{
+ if(!session){say('Importa al menos un video antes de editar.','bad');return}
+ try{
+  quickAgent=createAgentToolController({session,
+   model:async ({message,project})=>localBasicCommand(message,project)});
+  quickPending=await quickAgent.propose({message:$('dirQuickEdit').value});
+  $('dirPreparedOps').textContent='Propuesta local, aún NO aplicada:\n'+JSON.stringify(quickPending.operations,null,2);
+  $('dirApplyEdit').disabled=false;
+ }catch(e){quickPending=null;quickAgent=null;$('dirApplyEdit').disabled=true;
+  $('dirPreparedOps').textContent=e.message}
+};
+$('dirApplyEdit').onclick=()=>{
+ if(!quickAgent||!quickPending)return;
+ try{
+  const result=quickAgent.approve();quickPending=null;quickAgent=null;
+  $('dirPreparedOps').textContent='Aplicado '+result.operationsApplied+' cambio(s). Puedes deshacerlos.';
+  selId=null;tlTime=Math.min(tlTime,totalDuration(session.project));
+  render();syncScroll();say('Edición realizada dentro de Wivra.','ok');
+ }catch(e){quickPending=null;quickAgent=null;
+  $('dirApplyEdit').disabled=true;$('dirPreparedOps').textContent=e.message}
+};
+
+/* ---------- Filtros de color (WebGL): vista previa igual a la exportación ---------- */
+let fltDrag = null, fltRaf = 0;      // fltDrag = {id, filter}: valores provisionales mientras mueves un control
+const FLT_LABELS = { brightness: 'Brillo', contrast: 'Contraste', saturation: 'Saturación', warmth: 'Calidez', sepia: 'Sepia', fade: 'Desvanecido', vignette: 'Viñeta', grain: 'Grano' };
+const fltOf = (c) => (fltDrag && fltDrag.id === c.id) ? fltDrag.filter : c.filter;
+function fltTarget() {
+  const s = anyClip(selId); if (s && kindOf(s.id) !== 'audio') return s;
+  const h = session && clipAt(session.project, tlTime); return h ? h.clip : null;
+}
+function fltMainRefresh() {
+  const fr = $('frame'), v = $('v'), hit = session && clipAt(session.project, tlTime), f = hit && fltOf(hit.clip);
+  if (f && v.readyState >= 2 && v.videoWidth > 0) {
+    const out = fxRender(v, f, tlTime), cv = $('fxMain');
+    if (out) { if (cv.width !== out.width || cv.height !== out.height) { cv.width = out.width; cv.height = out.height; } cv.getContext('2d').drawImage(out, 0, 0); cv.style.opacity = v.style.opacity; cv.style.transform = v.style.transform; fr.classList.add('fxon'); return true; }
+  }
+  fr.classList.remove('fxon'); return false;
+}
+function fltOverlay(el, wr, c) {      // capa con filtro: se dibuja en un <canvas> encima del medio original (que sigue sonando/avanzando oculto)
+  let fl = wr.querySelector('canvas.fxl'); const f = fltOf(c); let out = null;
+  if (f && (el.videoWidth > 0 || el.naturalWidth > 0 || el.width > 0)) out = fxRender(el, f, tlTime);
+  if (!out) { if (fl) fl.remove(); el.style.visibility = ''; return false; }
+  if (!fl) { fl = document.createElement('canvas'); fl.className = 'fxl'; wr.appendChild(fl); }
+  if (fl.width !== out.width || fl.height !== out.height) { fl.width = out.width; fl.height = out.height; }
+  fl.getContext('2d').drawImage(out, 0, 0); { const r = JSON.parse(el.dataset.cr || 'null'); if (r) ovPlace(fl, { x: r[0], y: r[1], w: r[2], h: r[3] }); } el.style.visibility = 'hidden'; return true;
+}
+let fltScope = 'one', fltLook = null;
+const fltKeys = Object.keys(FLT_LABELS);
+const fltLookP = (id) => (id && id.startsWith('pk:')) ? pkLookP(id) : ((LOOK_PRESETS[id] || {}).p || {});
+const fltScaled = (look, lv) => { const o = {}, P = fltLookP(look); for (const k of fltKeys) o[k] = Math.round(((P[k] || 0) * lv) * 1000) / 1000; return o; };
+function fltTargets(c) { return fltScope === 'all' ? [...session.project.clips, ...(session.project.overlayClips || [])] : [c]; }
+function fltApply(c, extra) {      // una sola edición (un paso en deshacer) para «este clip» o «todos»
+  const ops = fltTargets(c).map(k => ({ op: 'set_clip_filter', clip_id: k.id, ...extra }));
+  const r = edit(ops, { ripple: false }); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fltSync(); showFrame();
+}
+function fltSource(c) {
+  if (kindOf(c.id) === 'overlay') { const w = document.querySelector(`#olay .ow[data-id="${c.id}"]`); const e = w && w.querySelector('video,img,canvas:not(.fxl)'); if (e) return e; }
+  return $('v');
+}
+let fltSample = null;
+function fltSrcCanvas(c, W, H) {      // imagen de EJEMPLO genérica (no el video): cielo, sol, cerros, casa y persona
+  if (fltSample && fltSample.width === W && fltSample.height === H) return fltSample;
+  const src = document.createElement('canvas'); src.width = W; src.height = H; const g = src.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, H * .62); sky.addColorStop(0, '#4a86c8'); sky.addColorStop(1, '#f1d6a4'); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(W * .72, H * .24, W * .11, 0, 7); g.fill();
+  g.fillStyle = '#5d8a4a'; g.beginPath(); g.moveTo(0, H * .66); g.quadraticCurveTo(W * .3, H * .44, W * .6, H * .62); g.quadraticCurveTo(W * .85, H * .5, W, H * .6); g.lineTo(W, H); g.lineTo(0, H); g.fill();
+  g.fillStyle = '#35603a'; g.fillRect(0, H * .8, W, H * .2);
+  g.fillStyle = '#d9604c'; g.fillRect(W * .12, H * .56, W * .3, H * .2); g.fillStyle = '#7a2e2a'; g.beginPath(); g.moveTo(W * .1, H * .56); g.lineTo(W * .27, H * .45); g.lineTo(W * .44, H * .56); g.fill();
+  g.fillStyle = '#2b2f4a'; g.fillRect(W * .58, H * .6, W * .1, H * .22); g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(W * .63, H * .56, W * .06, 0, 7); g.fill();
+  fltSample = src; return src;
+}
+function fltThumbs(c) {      // vistas previas: el cuadro actual con cada ajuste, en miniatura
+  const W = 96, H = 128, src = fltSrcCanvas(c, W, H);
+  document.querySelectorAll('#fltLooks button').forEach(b => {
+    const cv = b.querySelector('canvas'); const id = b.dataset.look; const out = fxRender(src, id === 'none' ? null : fltLookP(id), 0);
+    cv.width = W; cv.height = H; const x = cv.getContext('2d'); if (out) x.drawImage(out, 0, 0, W, H); else x.drawImage(src, 0, 0);
+  });
+}
+function fltSync() {
+  const c = fltTarget(), ok = !!c && kindOf(c.id) !== 'audio';
+  $('fltInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : 'Video'} · ${(media[c.asset_id] || {}).name || ''}` : 'Elige un video en la línea de tiempo.';
+  const f = (ok && c.filter) || {};
+  if (f.look) fltLook = f.look; else if (!c?.filter) fltLook = null;
+  document.querySelectorAll('#fltLooks button').forEach(b => { const id = b.dataset.look, pk = id.startsWith('pk:'); b.classList.toggle('on', (id === 'none' && !c?.filter) || (!!c && !!f.look && id === f.look) || (!!c && pk && !f.look && !!c.filter && fltKeys.every(k => Math.abs((c.filter[k] || 0) - (fltLookP(id)[k] || 0)) < 1e-6))); });
+  for (const k of fltKeys) { const r = $('flt_' + k); if (r) { r.value = Math.round((f[k] || 0) * 100); r.previousElementSibling.textContent = r.value; r.disabled = !ok; } }
+  const lvOk = ok && !!fltLook && !!c.filter; $('fltLevel').disabled = !lvOk;
+  if (lvOk) { const p = fltLookP(fltLook), k = fltKeys.find(q => Math.abs(p[q] || 0) > 1e-9); const lv = f.look ? 1 : (k ? (f[k] || 0) / p[k] : 1); $('fltLevel').value = Math.round(Math.max(0, Math.min(1, lv)) * 100); } else $('fltLevel').value = 100;
+  $('fltLvTxt').textContent = $('fltLevel').value;
+  $('fltReset').disabled = !ok || !c.filter;
+}
+(function fltBuild() {
+  const box = $('fltSliders');
+  for (const k of fltKeys) {
+    const lo = FILTER_RANGES[k][0] < 0 ? -100 : 0, lab = document.createElement('label'); lab.className = 'm';
+    lab.innerHTML = `${FLT_LABELS[k]}: <b>0</b><input type="range" id="flt_${k}" min="${lo}" max="100" step="1" value="0" style="width:100%">`;
+    box.appendChild(lab);
+    const r = lab.querySelector('input'), b = lab.querySelector('b');
+    r.addEventListener('input', () => {
+      const c = fltTarget(); if (!c) return; b.textContent = r.value;
+      const cur = { ...(c.filter || {}) }; delete cur.look; cur[k] = Number(r.value) / 100;
+      fltDrag = { id: c.id, filter: cur }; syncOverlays(); showFrame();
+    });
+    r.addEventListener('change', () => { const c = fltTarget(); fltDrag = null; if (!c) return; fltApply(c, { [k]: Number(r.value) / 100 }); });
+  }
+  const lv = $('fltLevel');
+  lv.addEventListener('input', () => {
+    const c = fltTarget(); if (!c || !fltLook) return; $('fltLvTxt').textContent = lv.value;
+    fltDrag = { id: c.id, filter: fltScaled(fltLook, Number(lv.value) / 100) }; syncOverlays(); showFrame();
+  });
+  lv.addEventListener('change', () => {
+    const c = fltTarget(); fltDrag = null; if (!c || !fltLook) return; const n = Number(lv.value);
+    fltApply(c, n === 100 ? { look: fltLook } : fltScaled(fltLook, n / 100));
+  });
+})();
+function fltLooksRender() {      // ajustes de fábrica + los de paquetes descargados
+  const l = $('fltLooks'); l.replaceChildren(); const mk = (id, name) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.look = id; const cv = document.createElement('canvas'), sp = document.createElement('span'); sp.textContent = name; b.append(cv, sp); l.appendChild(b); };
+  mk('none', 'Sin filtro'); for (const [id, v] of Object.entries(LOOK_PRESETS)) mk(id, v.name);
+  for (const p of Object.values(pkInstalled)) for (const lk of p.looks) mk('pk:' + p.id + '/' + lk.id, lk.name);
+}
+$('fltLooks').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return; const c = fltTarget(); if (!c) return;
+  const id = b.dataset.look; fltLook = id === 'none' ? null : id; $('fltLevel').value = 100;
+  fltApply(c, id.startsWith('pk:') ? pkFull(fltLookP(id)) : { look: id });
+});
+function scopeSet(sc) {      // «Solo este clip» / «Todos los clips»: un solo ajuste compartido por Filtros y Efectos
+  fltScope = sc; document.querySelectorAll('#fltScope button, #fxScope button, #ovScope button, #galScope button').forEach(x => x.classList.toggle('on', x.dataset.s === sc));
+}
+$('fltScope').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return; scopeSet(b.dataset.s);
+  const c = fltTarget(); if (fltScope === 'all' && c && c.filter) { const { look, ...pr } = c.filter; fltApply(c, look ? { look } : pr); }   // al pasar a «Todos» se copia el ajuste actual a todos
+});
+$('fltReset').onclick = () => { const c = fltTarget(); if (!c) return; fltLook = null; fltApply(c, { reset: true }); };
+$('bFilt').onclick = () => { fltSync(); openSheet('sFilt'); const c = fltTarget(); fltThumbs(c); }; $('fltDone').onclick = closeSheets;
+$('v').addEventListener('seeked', () => { if (session) fltMainRefresh(); }); $('v').addEventListener('seeked', () => { const c = anyClip(selId); if (!c) return; if ($('sFilt').classList.contains('on')) fltThumbs(fltTarget()); else if ($('sFx').classList.contains('on')) fxThumbs(c); else if ($('sOver').classList.contains('on')) ovThumbs(c); }); $('v').addEventListener('loadeddata', () => { if (session) fltMainRefresh(); });
+
+/* ---------- Inicio, Mis proyectos, guardar y reabrir (IndexedDB, solo en este teléfono) ---------- */
+let pzDb = null, pzReady = false, pzTimer = null, pzKey = '', pzBusy = false, pzAgain = false, pzWarned = false, pzMissing = [], pzPid = null, pzName = '', pzBase = null;
+const pzStored = new Set(), pzSleep = (ms) => new Promise(r => setTimeout(r, ms));
+const pzHashPid = () => { const m = /^#p=([\w-]+)$/.exec(location.hash); return m ? m[1] : null; };
+window.addEventListener('hashchange', () => location.reload());   // cambiar de pantalla = recargar limpio (sin restos del proyecto anterior)
+function pzSchedule() {
+  if (!pzReady || !session) return;
+  const key = session.project.revision + ':' + session.project.assets.length + ':' + Object.keys(media).length;
+  if (key === pzKey) return; pzKey = key; clearTimeout(pzTimer); pzTimer = setTimeout(pzSave, 700);
+}
+async function pzSave() {
+  if (!session || !pzReady) return; if (pzBusy) { pzAgain = true; return; } pzBusy = true;
+  try {
+    pzDb ||= await pzOpen();
+    for (const a of session.project.assets) {
+      if (pzStored.has(a.id) || !mediaFiles[a.id]) continue;
+      if (await pzPutBlob(pzDb, pzPid, a.id, mediaFiles[a.id])) pzStored.add(a.id);
+      else if (!pzWarned) { pzWarned = true; say('El teléfono no tiene espacio para guardar “' + ((media[a.id] || {}).name || 'un archivo') + '”. El proyecto se guarda igual; al reabrir tendrás que elegir ese archivo otra vez.', 'bad'); }
+    }
+    await pzSaveSnapshot(pzDb, pzPid, makeSnapshot({ project: session.project, media, assetSeq, tlTime, stored: [...pzStored] }), makeMeta({ id: pzPid, name: pzName, project: session.project }));
+    await pzDeleteBlobs(pzDb, pzPid, session.project.assets.map(a => a.id));
+    if (location.hash !== '#p=' + pzPid) history.replaceState(null, '', '#p=' + pzPid);   // sin recargar: así un refresco vuelve a ESTE proyecto
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+    window.__pzSaved = (window.__pzSaved || 0) + 1;
+  } catch (e) { if (!pzWarned) { pzWarned = true; say('No se pudo guardar el proyecto en este teléfono: ' + e.message, 'bad'); } }
+  pzBusy = false; if (pzAgain) { pzAgain = false; pzSchedule(); }
+}
+async function pzFlush() { clearTimeout(pzTimer); while (pzBusy) await pzSleep(40); pzKey = ''; await pzSave(); while (pzBusy) await pzSleep(40); }
+document.addEventListener('visibilitychange', () => { if (document.hidden && pzReady && session) { clearTimeout(pzTimer); pzSave(); } });   // iOS puede cerrar la pestaña en segundo plano
+function pzShowMissing() {
+  const l = $('missList'); l.replaceChildren();
+  for (const a of pzMissing) { const d = document.createElement('div'); d.textContent = '• ' + (a.name || a.id) + (a.size ? ' (' + (a.size / 1048576).toFixed(1) + ' MB)' : ''); l.appendChild(d); }
+  if (pzMissing.length) openSheet('sMiss'); else closeSheets();
+}
+async function pzRestore(pid) {
+  try {
+    pzDb ||= await pzOpen(); const saved = await pzLoad(pzDb, pid);
+    if (!saved) { say('Ese proyecto ya no existe.', 'bad'); window.__pzError = 'no existe'; return; }
+    const r = readSnapshot(saved.raw);
+    if (!r.ok) { say('El proyecto guardado no se pudo abrir: ' + r.errors.join(' '), 'bad'); window.__pzError = r.errors.join(' '); return; }
+    const sn = r.snapshot; assetSeq = Math.max(assetSeq, sn.assetSeq); pzName = (saved.meta && saved.meta.name) || defaultName();
+    for (const a of sn.assets) {
+      const b = saved.blobs[a.id]; if (!b) continue;
+      media[a.id] = { url: URL.createObjectURL(b), name: a.name, duration: a.duration, w: a.w, h: a.h, thumbs: [], step: 1, size: a.size, type: a.type, kind: a.kind };
+      mediaFiles[a.id] = b; pzStored.add(a.id); if (a.kind === 'image') await prepGif(a.id, b);
+    }
+    pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
+    session = new Session(sn.project);
+    pzMissing = missingAssets(sn, Object.keys(media));
+    selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
+    pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));
+    $('stage').classList.add('on'); pzKey = '';
+    render(); syncScroll();
+    const first = sortedClips(sn.project)[0]; if (first && media[first.asset_id]) useAsset(first.asset_id, tlTime);
+    for (const id of Object.keys(media)) if (media[id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    say('Proyecto reabierto.' + (r.warnings.length ? ' ' + r.warnings.join(' ') : ''), r.warnings.length ? 'bad' : 'ok');
+    if (pzMissing.length) pzShowMissing();
+    window.__pzRestored = true;
+  } catch (e) { say('No se pudo reabrir el proyecto guardado: ' + e.message, 'bad'); window.__pzError = e.message; }
+  finally { pzReady = true; pzSchedule(); }
+}
+async function pzRenderHome() {
+  const l = $('hList'); l.replaceChildren();
+  let list = []; try { pzDb ||= await pzOpen(); list = await pzList(pzDb); } catch (e) { l.innerHTML = ''; const p = document.createElement('p'); p.className = 'm'; p.textContent = 'Este navegador no puede guardar proyectos (' + e.message + ').'; l.appendChild(p); return; }
+  if (!list.length) { const p = document.createElement('p'); p.className = 'm'; p.textContent = 'Todavía no tienes proyectos. Cuando empieces uno en el editor, aparecerá aquí para continuarlo.'; l.appendChild(p); }
+  for (const m of list) {
+    const c = document.createElement('div'); c.className = 'pcard'; c.dataset.id = m.id; c.setAttribute('role', 'button'); c.tabIndex = 0;
+    const t = document.createElement('div'); t.className = 'pt';
+    const nm = document.createElement('b'); nm.textContent = m.name;
+    const sub = document.createElement('span'); sub.textContent = `${m.clips} clip${m.clips === 1 ? '' : 's'} · ${m.duration} s · ${new Date(m.updatedAt).toLocaleString(i18nCur, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    t.append(nm, sub);
+    const ren = document.createElement('button'); ren.className = 'pa'; ren.textContent = 'Nombre'; ren.type = 'button';
+    const del = document.createElement('button'); del.className = 'pa bad'; del.textContent = 'Borrar'; del.type = 'button';
+    c.append(t, ren, del);
+    c.onclick = () => { location.hash = '#p=' + m.id; };
+    ren.onclick = async (e) => { e.stopPropagation(); const n = prompt('Nombre del proyecto', m.name); if (n && n.trim()) { await pzRename(pzDb, m.id, n.trim()); pzRenderHome(); } };
+    del.onclick = async (e) => { e.stopPropagation(); if (!confirm('¿Borrar “' + m.name + '”? Se borra del teléfono (tus videos originales no se tocan).')) return; await pzDeleteProject(pzDb, m.id); pzRenderHome(); };
+    l.appendChild(c);
+  }
+  window.__pzHome = list.length;
+}
+// ---- Idiomas (el español es el original; ver app/i18n.mjs y app/i18n/*.tsv) ----
+let i18nCur = 'es', i18nTr = (x) => x, i18nBusy = false; const i18nTexts = new WeakMap(), i18nAttrs = new WeakMap();
+const I18N_ATTRS = ['placeholder', 'title', 'aria-label'];
+function i18nNode(n) {
+  const p = n.parentElement; if (!p || p.closest('script,style,textarea,[data-notr]')) return;
+  const cur = n.nodeValue, rec = i18nTexts.get(n), base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
+  if (t !== cur) { i18nBusy = true; n.nodeValue = t; i18nBusy = false; }
+  i18nTexts.set(n, { o: base, t });
+}
+function i18nAttr(e, a) {
+  if (e.closest('[data-notr]')) return; const cur = e.getAttribute(a); if (cur == null) return;
+  let m = i18nAttrs.get(e); if (!m) i18nAttrs.set(e, m = {}); const rec = m[a], base = rec && rec.t === cur ? rec.o : cur, t = i18nTr(base);
+  if (t !== cur) { i18nBusy = true; e.setAttribute(a, t); i18nBusy = false; } m[a] = { o: base, t };
+}
+function i18nWalk(root) {
+  if (root.nodeType === 3) return i18nNode(root); if (root.nodeType !== 1) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) i18nNode(n);
+  for (const e of [root, ...root.querySelectorAll('[placeholder],[title],[aria-label]')]) for (const a of I18N_ATTRS) if (e.hasAttribute && e.hasAttribute(a)) i18nAttr(e, a);
+}
+function i18nApply(lang) {
+  i18nCur = lang; i18nTr = lang === 'es' ? (x) => x : i18nCompile(I18N_DATA[lang]); document.documentElement.lang = lang;
+  try { localStorage.setItem('wivra.lang', lang); } catch {}
+  i18nWalk(document.body); document.querySelectorAll('#setLangs button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+}
+const i18nSaved = () => { try { const l = localStorage.getItem('wivra.lang'); return I18N_LANGS.some(x => x[0] === l) ? l : null; } catch { return null; } };
+new MutationObserver((recs) => {
+  if (i18nBusy || i18nCur === 'es') return;
+  for (const r of recs) {
+    if (r.type === 'characterData') i18nNode(r.target);
+    else if (r.type === 'attributes') i18nAttr(r.target, r.attributeName);
+    else r.addedNodes.forEach(i18nWalk);
+  }
+}).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
+(function i18nSetup() {
+  const mk = (box, onPick, cur) => { box.innerHTML = ''; for (const [id, name] of I18N_LANGS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.l = id; b.dataset.notr = '1'; b.textContent = name; b.classList.toggle('on', id === cur); b.onclick = () => onPick(id); box.appendChild(b); } };
+  const saved = i18nSaved();
+  mk($('setLangs'), (id) => i18nApply(id), saved || 'es');
+  if (saved) i18nApply(saved);
+  else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; }, det); $('sLang').style.display = 'block'; }
+  $('hSet').onclick = async () => {
+    $('sSettings').classList.add('on'); $('setSpace').textContent = '…';
+    try { const e = await navigator.storage.estimate(); $('setSpace').textContent = (e.usage / 1048576 < 10 ? (e.usage / 1048576).toFixed(1) : Math.round(e.usage / 1048576)) + ' MB'; } catch { $('setSpace').textContent = '—'; }
+  };
+  $('setClearPacks').onclick = () => { pkInstalled = {}; pkSave(); try { fltLooksRender(); } catch {} say(i18nTr('Paquetes borrados.')); };
+})();
+$('hEditor').onclick = () => { location.hash = '#new'; };
+$('hDirector').onclick = () => { location.hash = '#new-director'; };
+$('bHome').onclick = () => { if (!session) { location.hash = ''; return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
+$('exitStay').onclick = () => closeSheets();
+$('exitSave').onclick = async () => { const n = $('pzName').value.trim(); if (n) pzName = n.slice(0, 60); await pzFlush(); pzReady = false; location.hash = ''; };
+$('exitDiscard').onclick = async () => {
+  if (!confirm(pzBase ? '¿Descartar lo que hiciste en esta sesión? El proyecto vuelve a como estaba al abrirlo.' : '¿Descartar este proyecto? Se borra lo que llevas.')) return;
+  clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
+  try { if (pzBase) { await pzSaveSnapshot(pzDb, pzPid, JSON.parse(pzBase.raw), pzBase.meta || makeMeta({ id: pzPid, name: pzName, project: readSnapshot(pzBase.raw).snapshot.project })); await pzDeleteBlobs(pzDb, pzPid, pzBase.ids); } else await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo descartar: ' + e.message, 'bad'); }
+  location.hash = '';
+};
+$('exitDelete').onclick = async () => {
+  if (!confirm('¿Borrar “' + pzName + '” del teléfono? No se puede deshacer (tus videos originales no se tocan).')) return;
+  clearTimeout(pzTimer); pzReady = false; while (pzBusy) await pzSleep(40);
+  try { await pzDeleteProject(pzDb, pzPid); } catch (e) { say('No se pudo borrar: ' + e.message, 'bad'); }
+  location.hash = '';
+};
+$('relink').addEventListener('change', async () => {
+  const files = [...$('relink').files]; $('relink').value = ''; if (!files.length || loading) return; loading = true;
+  const { matches } = matchFiles(pzMissing, files), bad = [];
+  for (const { asset, file } of matches) {
+    try {
+      const pr = asset.kind === 'audio' ? await probeAudio(file) : asset.kind === 'image' ? await probeImage(file) : await probe(file);
+      if (asset.kind !== 'image' && Math.abs(pr.duration - asset.duration) > 0.5) { URL.revokeObjectURL(pr.url); bad.push(`“${file.name}” dura ${pr.duration} s y el proyecto espera ${asset.duration} s`); continue; }
+      media[asset.id] = { ...pr, name: file.name, thumbs: [], step: 1, w: pr.w || asset.w, h: pr.h || asset.h }; keepFile(asset.id, file, asset.kind); if (asset.kind === 'image') await prepGif(asset.id, file);
+      pzMissing = pzMissing.filter(m => m.id !== asset.id);
+      if (media[asset.id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(asset.id));
+    } catch (e) { bad.push(e.message); }
+  }
+  loading = false; pzKey = ''; render(); syncMedia(); showFrame();
+  if (bad.length) say('No se pudo reconectar: ' + bad.join(' · '), 'bad');
+  else if (!matches.length) say('Ningún archivo coincide por nombre con los que faltan.', 'bad');
+  pzShowMissing();
+});
+$('missDone').onclick = () => closeSheets();
+(async function pzStart() {
+  const h = location.hash, pid = pzHashPid();
+  if (!h || h === '#') {           // pantalla de inicio
+    try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
+    await pzRenderHome(); return;
+  }
+  $('home').style.display = 'none';
+  try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
+  if (pid) { pzPid = pid; await pzRestore(pid); return; }
+  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director
+  if (h === '#new-director') { refreshDirectorAssets(); openSheet('sDirector'); }
+})();
+
+loadShootPlan();
+renderShootPlan();
+restoreDirectorDraft();
 
 render();
 </script>

@@ -13,6 +13,8 @@ export function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(c.out - c.in) });
     cursor = Math.max(cursor, c.start + (c.out - c.in));
   }
+  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
 }
@@ -25,6 +27,22 @@ export function outputSize(w, h, shortSide = 1080) {
   return { w: even(w), h: even(h) };
 }
 
+// Forma del cuadro según el formato elegido. 'original' sigue la forma del primer video; los demás son fijos (lado corto 1080).
+export const ASPECTS = { '9:16': [9, 16], '1:1': [1, 1], '4:5': [4, 5], '16:9': [16, 9] };
+export function formatSize(format, w, h, shortSide = 1080) {
+  const a = ASPECTS[format && format.aspect];
+  if (!a) return outputSize(w, h, shortSide);
+  const k = shortSide / Math.min(a[0], a[1]);
+  return { w: Math.round((a[0] * k) / 2) * 2, h: Math.round((a[1] * k) / 2) * 2 };
+}
+// Con formato 'original' el cuadro sigue al primer video: no se recorta (los demás clips se ven enteros). Con formato fijo manda `fit`.
+export const effectiveFit = (format) => (!format || !ASPECTS[format.aspect] ? 'contain' : (format.fit === 'contain' ? 'contain' : 'cover'));
+// Dónde dibujar un video de vw×vh dentro de W×H: 'contain' = entero con barras; 'cover' = rellena y recorta lo que sobra, centrado.
+export function fitRect(vw, vh, W, H, fit) {
+  const k = fit === 'cover' ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh), w = vw * k, h = vh * k;
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
 export const MIME_CANDIDATES = [
   'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4',
@@ -34,6 +52,103 @@ export function pickMime(isSupported) {
   return '';
 }
 export const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
+
+// Ganancia del audio original de un clip: silenciado = 0; si no, su volumen (por defecto 1), limitado a 0–2.
+export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
+
+// Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
+export function audioStartAt(c, t) {
+  const len = c.out - c.in, into = t - c.start;
+  if (c.muted || into < -0.02 || into >= len - 0.03) return null;
+  const k = Math.max(0, into);
+  return { offset: c.in + k, dur: len - k };
+}
+
+// Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
+const f4 = (n) => (Math.round(n * 1e4) / 1e4).toString();
+const polar = (n, rf) => { let d = ''; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 - Math.PI / 2, r = rf(a); d += `${i ? 'L' : 'M'}${f4(0.5 + r * Math.cos(a))} ${f4(0.5 + r * Math.sin(a))} `; } return d + 'Z'; };
+const starPath = () => polar(10, (() => { let i = -1; return () => (++i % 2 ? 0.2 : 0.5); })());
+// Borde rasgado: un cuadrado con los lados en dientes de sierra irregulares (determinista).
+const tornPath = () => { const pts = [], N = 14, j = (i) => 0.012 + 0.03 * Math.abs(Math.sin(i * 12.9898) * 0.5 + Math.sin(i * 7.233 + 1.3) * 0.5); let k = 0;
+  for (let i = 0; i <= N; i++) pts.push([i / N, j(k++)]); for (let i = 1; i <= N; i++) pts.push([1 - j(k++), i / N]); for (let i = 1; i <= N; i++) pts.push([1 - i / N, 1 - j(k++)]); for (let i = 1; i < N; i++) pts.push([j(k++), 1 - i / N]);
+  return pts.map((q, i) => `${i ? 'L' : 'M'}${f4(q[0])} ${f4(q[1])}`).join(' ') + ' Z'; };
+export const SHAPE_PATHS = {
+  rounded: 'M0.12 0 H0.88 Q1 0 1 0.12 V0.88 Q1 1 0.88 1 H0.12 Q0 1 0 0.88 V0.12 Q0 0 0.12 0 Z',
+  square: 'M0 0 H1 V1 H0 Z',
+  squircle: 'M0.2 0 H0.8 C0.95 0 1 0.05 1 0.2 V0.8 C1 0.95 0.95 1 0.8 1 H0.2 C0.05 1 0 0.95 0 0.8 V0.2 C0 0.05 0.05 0 0.2 0 Z',
+  circle: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
+  oval: 'M0.5 0 A0.5 0.5 0 1 1 0.5 1 A0.5 0.5 0 1 1 0.5 0 Z',
+  heart: 'M0.5 0.95 C0.1 0.65 0 0.45 0 0.28 C0 0.12 0.12 0.02 0.27 0.02 C0.38 0.02 0.46 0.08 0.5 0.18 C0.54 0.08 0.62 0.02 0.73 0.02 C0.88 0.02 1 0.12 1 0.28 C1 0.45 0.9 0.65 0.5 0.95 Z',
+  star: starPath(),
+  diamond: 'M0.5 0 L1 0.5 L0.5 1 L0 0.5 Z',
+  triangle: 'M0.5 0.02 L1 0.95 L0 0.95 Z',
+  hexagon: 'M0.25 0.04 L0.75 0.04 L1 0.5 L0.75 0.96 L0.25 0.96 L0 0.5 Z',
+  cloud: 'M0.24 0.82 C0.06 0.82 0 0.6 0.14 0.5 C0.06 0.32 0.26 0.2 0.38 0.3 C0.44 0.1 0.72 0.08 0.78 0.28 C0.96 0.24 1 0.5 0.88 0.58 C1 0.72 0.88 0.86 0.74 0.8 C0.66 0.92 0.46 0.92 0.4 0.82 C0.34 0.88 0.28 0.86 0.24 0.82 Z',
+  blob: polar(72, (a) => 0.4 + 0.07 * Math.sin(3 * a + 1) + 0.045 * Math.sin(5 * a + 2) + 0.025 * Math.sin(7 * a)),
+  splat: polar(96, (a) => 0.3 + 0.12 * Math.abs(Math.sin(4.5 * a + 0.5)) ** 0.6 + 0.08 * Math.max(0, Math.sin(11 * a + 1)) + 0.04 * Math.sin(2 * a)),
+  flower: polar(120, (a) => 0.37 + 0.11 * Math.cos(6 * a)),
+  bubble: 'M0.1 0.05 H0.9 Q0.98 0.05 0.98 0.13 V0.62 Q0.98 0.7 0.9 0.7 H0.55 L0.3 0.95 L0.35 0.7 H0.1 Q0.02 0.7 0.02 0.62 V0.13 Q0.02 0.05 0.1 0.05 Z',
+  torn: tornPath(),
+};
+export const SHAPE_NAMES = { none: 'Normal', rounded: 'Redondeado', square: 'Cuadrado', squircle: 'Cuadrado suave', circle: 'Círculo', oval: 'Óvalo', heart: 'Corazón', star: 'Estrella', diamond: 'Rombo', triangle: 'Triángulo', hexagon: 'Hexágono', cloud: 'Nube', blob: 'Mancha', splat: 'Salpicadura', flower: 'Flor', bubble: 'Globo', torn: 'Rasgado' };
+const SQUARE_SHAPES = ['square', 'squircle', 'circle', 'heart', 'star', 'diamond', 'triangle', 'hexagon', 'cloud', 'blob', 'splat', 'flower', 'bubble', 'torn'];
+// Alto/ancho del cuadro de un superpuesto: con forma cuadrada es 1; si no, la forma del video.
+export const overlayAr = (c, vw, vh) => (SQUARE_SHAPES.includes(c.shape) ? 1 : (vw > 0 && vh > 0 ? vh / vw : 16 / 9));
+// Dónde y de qué tamaño se dibuja un video superpuesto en un cuadro W×H (x,y = centro en 0..1; scale = ancho en 0..1 del cuadro).
+export function overlayRect(c, W, H, vw, vh) {
+  const w = c.scale * W, h = w * overlayAr(c, vw, vh);
+  return { x: c.x * W - w / 2, y: c.y * H - h / 2, w, h };
+}
+// Dónde va el video (vw×vh) dentro de su cuadro bw×bh: rellena el cuadro (recorta lo que sobra), se mueve con px/py (0..1, 0.5 = centro) y se amplía con zoom desde el centro.
+export function contentRect(bw, bh, vw, vh, zoom = 1, px = 0.5, py = 0.5) {
+  // Contenido que cubre la ventana (bw×bh), ampliado `zoom` veces; px/py (0..1) deciden qué parte se ve (0 = borde izquierdo/superior, 1 = derecho/inferior).
+  const k = Math.max(bw / vw, bh / vh), w = vw * k * zoom, h = vh * k * zoom;
+  return { x: (bw - w) * px, y: (bh - h) * py, w, h };
+}
+/** Inverso de contentRect: dado el rectángulo que debe ocupar el contenido (abs, en el mismo sistema que la ventana win={left,top,w,h}), devuelve {zoom, px, py} válidos (zoom 1..4, el contenido siempre cubre la ventana). */
+export function solveContent(win, abs, vw, vh) {
+  const k = Math.max(win.w / vw, win.h / vh), w0 = vw * k, h0 = vh * k, cl = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const zoom = cl(abs.W / w0, 1, 4), Wc = w0 * zoom, Hc = h0 * zoom, dx = win.w - Wc, dy = win.h - Hc;
+  return { zoom, px: dx < -1e-6 ? cl((abs.X - win.left) / dx, 0, 1) : 0.5, py: dy < -1e-6 ? cl((abs.Y - win.top) / dy, 0, 1) : 0.5 };
+}
+// Dibuja el video superpuesto `el` en el cuadro r (ya con efectos), recortado por su forma y con su marco (borde) si lo tiene.
+// Una imagen (logo, foto, GIF) se usa como capa con la misma interfaz mínima que un <video>: el resto del código no distingue.
+export function imageEl(img) {
+  Object.defineProperties(img, { paused: { value: true }, currentTime: { get: () => 0, set: () => {} }, videoWidth: { get: () => img.naturalWidth }, videoHeight: { get: () => img.naturalHeight } });
+  img.pause = () => {}; img.play = () => Promise.resolve(); return img;
+}
+export function drawOverlay(g, el, c, r, t = 0) {
+  const vw = el.videoWidth || el.naturalWidth, vh = el.videoHeight || el.naturalHeight, cr = contentRect(r.w, r.h, vw, vh, c.zoom || 1, c.px ?? 0.5, c.py ?? 0.5), d = SHAPE_PATHS[c.shape];
+  g.save();
+  g.translate(r.x, r.y);
+  if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
+  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t)) || el;
+  try { g.drawImage(src, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
+  if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
+    g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
+    const p2 = new Path2D(); p2.addPath(new Path2D(d || 'M0 0H1V1H0Z'), new DOMMatrix([r.w, 0, 0, r.h, 0, 0])); g.stroke(p2);
+  }
+  g.restore();
+}
+// ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
+export function overlayAt(c, t) {
+  const into = t - c.start;
+  return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
+}
+
+// Efectos de entrada/salida de un clip de video: devuelve cuánto se ve (alpha), cuánto está desplazado (dx, en anchos del cuadro) y su escala en el instante t.
+const ease = (p) => { const q = Math.max(0, Math.min(1, p)); return q * q * (3 - 2 * q); };
+export function fxAt(c, t) {
+  const o = { alpha: 1, dx: 0, scale: 1 }; if (!c || (!c.fxIn && !c.fxOut)) return o;
+  const len = c.out - c.in, rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
+  const apply = (kind, p, sign) => {
+    if (!kind || kind === 'none' || p >= 1) return; const e = ease(p);
+    if (kind === 'fade') o.alpha *= e; else if (kind === 'slide') o.dx += sign * (e - 1); else if (kind === 'zoom') { o.alpha *= e; o.scale *= 0.6 + 0.4 * e; }
+  };
+  apply(c.fxIn, rel / d, 1); apply(c.fxOut, (len - rel) / d, -1);
+  return o;
+}
+const withFx = (r, fx, W) => { const w = r.w * fx.scale, h = r.h * fx.scale; return { x: r.x + (r.w - w) / 2 + fx.dx * W, y: r.y + (r.h - h) / 2, w, h }; };
 
 export const textsAt = (project, t) => project.texts.filter((x) => t >= x.start && t < x.end);
 
@@ -49,11 +164,18 @@ export function wrapLines(text, maxWidth, measure) {
 }
 
 // Dibuja un fotograma: el video centrado ("contain") sobre negro y los textos activos.
-export function drawFrame(g, W, H, video, project, t) {
+export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
-    const k = Math.min(W / video.videoWidth, H / video.videoHeight), dw = video.videoWidth * k, dh = video.videoHeight * k;
-    try { g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch { /* fotograma aún no listo */ }
+    const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
+    const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
+    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t)) || video;   // filtro de color en la tarjeta gráfica
+    g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
+  }
+  for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
+    const el = o.el; if (!el || !(el.videoWidth > 0)) continue;
+    const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
+    g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r, t); g.restore();
   }
   const size = Math.round(Math.min(W, H) * 0.06);
   g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -74,10 +196,10 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
-  if (!firstClip) throw new Error('No hay clips para exportar.');
+  if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
-  const first = media[firstClip.clip.asset_id] || {};
-  const { w: W, h: H } = outputSize(first.w, first.h);
+  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
+  const { w: W, h: H } = formatSize(project.format, first.w, first.h);
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d');
 
@@ -86,14 +208,66 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
   document.body.appendChild(ev);
 
-  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null;
+  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null;
   const stream = canvas.captureStream(fps);
   try {
     ac = new AC(); await ac.resume().catch(() => {});
-    dest = ac.createMediaStreamDestination(); ac.createMediaElementSource(ev).connect(dest);
+    dest = ac.createMediaStreamDestination(); gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(dest);
     dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
+
+  // Pistas de audio aparte (p. ej. el micrófono de una captura): se decodifican antes y se lanzan según el tiempo del timeline.
+  const aClips = (project.audioClips || []).filter((c) => !c.muted && clipGain(c) > 0), buffers = new Map(), skippedAudio = [];
+  if (ac && dest) {
+    for (const c of aClips) {
+      if (buffers.has(c.asset_id) || skippedAudio.includes(c.asset_id)) continue;
+      const m = media[c.asset_id];
+      try { if (!m) throw new Error('sin medio'); buffers.set(c.asset_id, await ac.decodeAudioData(await (await fetch(m.url)).arrayBuffer())); }
+      catch { skippedAudio.push(c.asset_id); }
+    }
+  } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
+  const oList = [], skippedOverlay = [];
+  for (const c of (project.overlayClips || [])) {
+    const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
+    if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
+      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
+      try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
+      continue;
+    }
+    const el = document.createElement('video'); el.playsInline = true; el.setAttribute('playsinline', ''); el.preload = 'auto'; el.src = m.url;
+    el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
+    try {
+      await Promise.race([once(el, 'loadedmetadata'), once(el, 'error').then(() => { throw new Error('no se pudo leer'); }), new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), 10000))]);
+      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(dest); } else el.muted = true;
+      oList.push({ el, c });
+    } catch { el.remove(); skippedOverlay.push(c.id); }
+  }
+  oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayTick = (t) => {
+    const draw = [];
+    for (const o of oList) {
+      const want = overlayAt(o.c, t);
+      if (want == null) { if (!o.el.paused) o.el.pause(); continue; }
+      if (o.el.paused) { try { o.el.currentTime = want; } catch { /* aún no */ } o.el.play().catch(() => {}); }
+      else if (Math.abs(o.el.currentTime - want) > 0.35) { try { o.el.currentTime = want; } catch { /* aún no */ } }
+      draw.push(o);
+    }
+    return draw;
+  };
+  const started = new Set(), sources = [];
+  const audioTick = (t) => {
+    if (!ac || !dest) return;
+    for (const c of aClips) {
+      if (started.has(c.id) || !buffers.has(c.asset_id)) continue;
+      const a = audioStartAt(c, t); if (!a) continue;
+      started.add(c.id);
+      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
+      src.connect(gn); gn.connect(dest); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+    }
+  };
 
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
@@ -109,18 +283,20 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (seg.type === 'gap') {
         const s = performance.now();
         while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
-          drawFrame(g, W, H, null, project, seg.start + (performance.now() - s) / 1000); report(seg.start + (performance.now() - s) / 1000); await frame();
+          const tg = seg.start + (performance.now() - s) / 1000; audioTick(tg);
+          drawFrame(g, W, H, null, project, tg, overlayTick(tg)); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
         continue;
       }
       const c = seg.clip, m = media[c.asset_id]; if (!m) throw new Error('Falta el video original de un clip.');
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
+      if (gainNode) gainNode.gain.value = clipGain(c);
       await ev.play();
       await new Promise((res) => {
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
-          drawFrame(g, W, H, ev, project, t); report(t);
+          audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
           if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
           requestAnimationFrame(tick);
         };
@@ -130,12 +306,14 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     await frame(); await frame();
   } finally {
+    sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
+    oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
   }
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd };
+  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
