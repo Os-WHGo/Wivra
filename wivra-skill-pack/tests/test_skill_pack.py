@@ -117,10 +117,13 @@ class MobileQATests(unittest.TestCase):
     def test_source_check_is_static_and_sensitive_content_is_not_returned(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
+            markers_by_path = {}
             for _,relative,markers in mobile_qa.CHECKS:
+                markers_by_path.setdefault(relative, set()).update(markers)
+            for relative, markers in markers_by_path.items():
                 target=root/relative
                 target.parent.mkdir(parents=True,exist_ok=True)
-                target.write_text("\n".join(markers)+"\nsecret=NEVER_RETURN",encoding="utf-8")
+                target.write_text("\n".join(sorted(markers))+"\nsecret=NEVER_RETURN",encoding="utf-8")
             result=mobile_qa.report(root)
         for x in result["static_checks"]["results"]:
             if x["id"] in {y[0] for y in mobile_qa.CHECKS}:
