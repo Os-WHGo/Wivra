@@ -51,6 +51,7 @@ const GOLDEN = [
   [{ op: 'set_audio_clip', clip_id: 'c5', track: 2, role: 'music' }, 'Pista de audio c5: fila 2, papel music'],
   [{ op: 'set_audio_clip', clip_id: 'c5', track: 0 }, 'Pista de audio c5: fila 0'],
   [{ op: 'set_audio_clip', clip_id: 'c5', role: 'music' }, 'Pista de audio c5: papel music'],
+  [{ op: 'set_clip_speed', clip_id: 'c1', speed: 0.5 }, 'Velocidad de c1: 0.5×'],
   [{ op: 'set_clip_fx', clip_id: 'c1', intro: 'fade', outro: 'zoom', dur: 0.5 }, 'Efecto de c1: entrada fade, salida zoom, 0.5 s'],
   [{ op: 'set_clip_fx', clip_id: 'c1', intro: 'fade' }, 'Efecto de c1: entrada fade'],
   [{ op: 'set_clip_fx', clip_id: 'c1' }, 'Efecto de c1: '],
@@ -81,8 +82,8 @@ test('fillTemplate: rellena en orden, en una sola pasada, y deja la marca si fal
   assert.equal(fillTemplate('sin marcas', ['x']), 'sin marcas');
 });
 
-test('en español cada operación sale EXACTAMENTE como antes de traducir (46 casos)', () => {
-  assert.equal(GOLDEN.length, 46);
+test('en español cada operación sale EXACTAMENTE como antes de traducir (47 casos)', () => {
+  assert.equal(GOLDEN.length, 47);
   for (const [o, es] of GOLDEN) assert.equal(describeOperation(o, { lookName }), es, JSON.stringify(o));
 });
 

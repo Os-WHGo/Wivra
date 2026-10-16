@@ -1,6 +1,7 @@
 // Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
+import { clipLength, speedOf, srcTime } from '../core/project.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 
 const r2 = (n) => Math.round(n * 100) / 100;
@@ -11,10 +12,10 @@ export function exportPlan(project) {
   const segments = []; let cursor = 0;
   for (const c of clips) {
     if (c.start - cursor > 0.05) segments.push({ type: 'gap', dur: r2(c.start - cursor), start: cursor });
-    segments.push({ type: 'clip', clip: c, dur: r2(c.out - c.in) });
-    cursor = Math.max(cursor, c.start + (c.out - c.in));
+    segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
+    cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
   if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
@@ -59,10 +60,10 @@ export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.v
 
 // Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
 export function audioStartAt(c, t) {
-  const len = c.out - c.in, into = t - c.start;
+  const len = clipLength(c), s = speedOf(c), into = t - c.start;
   if (c.muted || into < -0.02 || into >= len - 0.03) return null;
   const k = Math.max(0, into);
-  return { offset: c.in + k, dur: len - k };
+  return { offset: c.in + k * s, dur: (len - k) * s, rate: s };      // offset y dur en segundos del MEDIO; rate = velocidad de reproducción
 }
 
 // Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
@@ -134,14 +135,14 @@ export function drawOverlay(g, el, c, r, t = 0) {
 // ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
 export function overlayAt(c, t) {
   const into = t - c.start;
-  return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
+  return into >= 0 && into < clipLength(c) - 0.03 ? c.in + into * speedOf(c) : null;
 }
 
 // Efectos de entrada/salida de un clip de video: devuelve cuánto se ve (alpha), cuánto está desplazado (dx, en anchos del cuadro) y su escala en el instante t.
 const ease = (p) => { const q = Math.max(0, Math.min(1, p)); return q * q * (3 - 2 * q); };
 export function fxAt(c, t) {
   const o = { alpha: 1, dx: 0, scale: 1 }; if (!c || (!c.fxIn && !c.fxOut)) return o;
-  const len = c.out - c.in, rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
+  const len = clipLength(c), rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
   const apply = (kind, p, sign) => {
     if (!kind || kind === 'none' || p >= 1) return; const e = ease(p);
     if (kind === 'fade') o.alpha *= e; else if (kind === 'slide') o.dx += sign * (e - 1); else if (kind === 'zoom') { o.alpha *= e; o.scale *= 0.6 + 0.4 * e; }
@@ -168,7 +169,7 @@ export function wrapLines(text, maxWidth, measure) {
 export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
-    const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
+    const mc = project.clips.find((k) => t >= k.start && t < k.start + clipLength(k)), fx = fxAt(mc, t);
     const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
     const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t, Math.max(W, H))) || video;   // filtro de color en la tarjeta gráfica
     g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
@@ -297,6 +298,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     for (const o of oList) {
       const want = overlayAt(o.c, t);
       if (want == null) { if (!o.el.paused) o.el.pause(); continue; }
+      try { o.el.playbackRate = speedOf(o.c); } catch { /* velocidad no admitida */ }
       if (o.el.paused) { try { o.el.currentTime = want; } catch { /* aún no */ } o.el.play().catch(() => {}); }
       else if (Math.abs(o.el.currentTime - want) > 0.35) { try { o.el.currentTime = want; } catch { /* aún no */ } }
       draw.push(o);
@@ -310,7 +312,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (started.has(c.id) || !buffers.has(c.asset_id)) continue;
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
-      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
+      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
       src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
     }
   };
@@ -365,11 +367,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
+      const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
       try { await ev.play(); } catch { throw new Error('El navegador no dejó reproducir un video para exportar.'); }
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {
-          const cur = ev.currentTime, t = c.start + (cur - c.in);
+          const cur = ev.currentTime, t = c.start + (cur - c.in) / spd;
           audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
           if (stopNow() || cur >= c.out - 0.03 || ev.ended) return res();
           if (cur !== last) { last = cur; since = performance.now(); }

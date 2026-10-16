@@ -1,6 +1,6 @@
 // Operaciones validadas. La IA propone; el validador decide. Todo-o-nada por lote.
 // — Claude
-import { clipLength, totalDuration } from './project.mjs';
+import { clipLength, totalDuration, speedOf, SPEED_MIN, SPEED_MAX } from './project.mjs';
 import { LOOK_IDS, filterProblem, mergeFilter, FILTER_KEYS } from './filters.mjs';
 import { TEXT_STYLE_KEYS, textStyleProblem, applyTextStyle } from './text-style.mjs';
 
@@ -120,6 +120,17 @@ const handlers = {
     if (role !== undefined) c.role = role;
     return { ok: true };
   },
+  // Velocidad de un clip (video principal, capa o audio): 0.25 a 4 (1 = normal). `in`/`out` siguen siendo segundos del medio original; en la línea de tiempo el clip dura (out − in) / speed.
+  // Cambia cuánto dura el clip y NO mueve los demás (la app cierra huecos o desplaza lo que sigue). Las fotos no tienen velocidad.
+  set_clip_speed(p, { clip_id, speed }) {
+    const c = findClip(p, clip_id);
+    if (!c) return err('unknown_clip', `No existe el clip ${clip_id}`);
+    if (!num(speed) || speed < SPEED_MIN || speed > SPEED_MAX) return err('bad_speed', `speed debe estar entre ${SPEED_MIN} y ${SPEED_MAX} (1 = normal)`);
+    const a = findAsset(p, c.asset_id);
+    if (a && a.kind === 'image') return err('bad_speed', 'Las fotos no tienen velocidad: cambia su duración.');
+    if (speed === 1) delete c.speed; else c.speed = Math.round(speed * 1000) / 1000;
+    return { ok: true };
+  },
   set_clip_fx(p, { clip_id, intro, outro, dur }) {      // efecto al aparecer / desaparecer (video principal o superpuesto)
     const c = [...(p.clips || []), ...(p.overlayClips || [])].find((k) => k.id === clip_id);
     if (!c) return err('unknown_clip', `No existe el clip de video ${clip_id}`);
@@ -169,8 +180,8 @@ const handlers = {
     if (!num(at) || at <= c.in || at >= c.out) return err('out_of_range', `at debe estar entre ${c.in} y ${c.out}`);
     const [grp, prefix] = groupOf(p, c);
     const id = `${prefix}${p.nextId++}`;
-    const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) };
-    for (const k of ['role', 'track', 'x', 'y', 'scale', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity']) if (c[k] !== undefined) right[k] = c[k];
+    const right = { id, asset_id: c.asset_id, in: at, out: c.out, start: c.start + (at - c.in) / speedOf(c) };
+    for (const k of ['role', 'track', 'speed', 'x', 'y', 'scale', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity']) if (c[k] !== undefined) right[k] = c[k];
     if (c.muted !== undefined) right.muted = c.muted;
     if (c.volume !== undefined) right.volume = c.volume;   // el corte conserva el audio del clip original
     if (c.fxOut !== undefined) { right.fxOut = c.fxOut; delete c.fxOut; }   // la salida se queda en la última parte; la entrada, en la primera

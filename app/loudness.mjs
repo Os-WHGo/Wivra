@@ -1,6 +1,7 @@
 // Volumen parejo: mide cuánto «suena» el video mezclado (norma ITU-R BS.1770 / EBU R128, implementación propia) y calcula UNA ganancia fija.
 // Solo lógica pura (sin DOM). No comprime ni «aprieta» la voz: sube o baja todo por igual, y solo se detiene antes de que el pico distorsione. — Claude
 // El objetivo (-14 LUFS u otro) es una ELECCIÓN editorial, no una norma universal: se ofrece como opción.
+import { clipLength, speedOf } from '../core/project.mjs';
 export const LOUD_LEVELS = {
   off: { id: 'off', target: null },
   balanced: { id: 'balanced', target: -14 },      // el estilo habitual de reels
@@ -79,11 +80,11 @@ export function buildMix(project, getPcm, rate = LOUD_RATE) {
   const all = [...project.clips.filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.overlayClips || []).filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.audioClips || []).map((c) => ({ c, g: gainOf(c) }))].filter((x) => x.g > 0);
-  const end = all.reduce((m, x) => Math.max(m, x.c.start + (x.c.out - x.c.in)), 0), size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
+  const end = all.reduce((m, x) => Math.max(m, x.c.start + clipLength(x.c)), 0), size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
   for (const { c, g } of all) {
     const pcm = getPcm(c.asset_id); if (!pcm || !pcm.l) { if (!missing.includes(c.asset_id)) missing.push(c.asset_id); continue; }
-    const i0 = Math.floor(c.in * rate), len = Math.min(Math.floor((c.out - c.in) * rate), pcm.l.length - i0), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
-    for (let i = 0; i < len; i++) { const o = o0 + i; if (o < size) { L[o] += pcm.l[i0 + i] * g; R[o] += r[i0 + i] * g; } }
+    const sp = speedOf(c), i0 = Math.floor(c.in * rate), len = Math.min(Math.floor(clipLength(c) * rate), Math.floor((pcm.l.length - i0) / sp)), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
+    for (let i = 0; i < len; i++) { const o = o0 + i, k = i0 + Math.floor(i * sp); if (o < size) { L[o] += pcm.l[k] * g; R[o] += r[k] * g; } }      // con velocidad ≠ 1 se lee el medio más rápido o más lento (el volumen medido casi no cambia)
   }
   return { channels: [L, R], rate, seconds: end, missing, sources: all.length };
 }

@@ -19,6 +19,7 @@ const PIEZAS = [
   ['AutoCut: elegir donde más se oye', 'async function qaPlan('],
   ['plan de producción del Director', "$('dirProdCreate').onclick"],
   ['teleprompter', 'function openPrompter('],
+  ['velocidad', 'function spSync('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],
