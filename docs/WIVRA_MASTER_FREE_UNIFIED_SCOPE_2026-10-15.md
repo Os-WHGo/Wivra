@@ -42,3 +42,16 @@ P3 - futuro condicionado:
 
 ## Política de pruebas y aceptación
 Probar contratos con Node, pruebas de editor, artefacto HTML regenerado cuando corresponda, CI iOS y Android cuando se conecten. No equiparar compilación con prueba física. La aceptación final requiere proyecto editable único con fotos, videos y audio, biblioteca recuperable, cámara, Director y exportación verificables en dispositivos cuando sea posible. Nada de main o ramas de Claude se modifica desde esta rama; Claude revisa antes de integrar.
+
+
+## Auditoría de integridad de ideas (complemento obligatorio)
+Ver **WIVRA_IDEAS_TRACEABILITY_2026-10-15.md** en esta misma carpeta, con matriz A01–E07 y separación explícita REQUISITO / PARCIAL / PROTOTIPO / PENDIENTE / CONDICIONADO.
+
+Aclaraciones que el resumen anterior no explicitaba suficientemente:
+- Cámara: modos Auto/Pro, larga exposición dentro de límites físicos, fotos simultáneas con grabación/LIVE cuando se pueda, filtros estilo Wivra, Ray-Ban y micrófonos AirPods/USB/DJI, pista independiente y MOV combinado.
+- LIVE: escenas/múltiples fuentes, pantallas de espera, audio y destinos RTMP/RTMPS y plataformas cuando estén autorizados; Siri, AirPods y Meta para comandos manos libres condicionados.
+- Editor: efectos avanzados y subtítulos editables futuros, grabación de voz, fotos como CLIPS PRINCIPALES (no solo capas), paquetes de efectos, música autorizada y análisis audiovisual real para AutoCut.
+- Director: teleprompter, datos de interés verificables, imprevistos, minidocumentales y series/films verticales, indicación de duración bruta vs duración final, accesibilidad manual/voz, control multilingüe coloquial.
+- Experiencia: chat y micrófono visibles sin configuración técnica obligatoria, interfaz más cuidada, consentimiento comercial separado y sin exigir login o mapas/IA pagados.
+
+La matriz es una lista de obligaciones para el plan de trabajo, NO una declaración de que esas funciones están implementadas. No crear módulos redundantes con Claude para intentar cumplirla.
