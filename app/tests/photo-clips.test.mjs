@@ -6,7 +6,7 @@ import { createProject } from '../../core/project.mjs';
 import { applyBatch } from '../../core/operations.mjs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const tpl = read('../template.html'), dist = read('../dist/agentcut.html'), exp = read('../export.mjs'), prompt = read('../prompt.mjs');
+const tpl = read('../template.html'), dist = read('../dist/agentcut.html').replace(/<script type="text\/plain" id="whisperLib">[\s\S]*?<\/script>/, ''), exp = read('../export.mjs'), prompt = read('../prompt.mjs');
 
 const proj = () => {
   let p = createProject({ assets: [{ id: 'a1', duration: 10, name: 'v.mp4' }, { id: 'a2', duration: 3600, name: 'f.jpg', kind: 'image' }] });

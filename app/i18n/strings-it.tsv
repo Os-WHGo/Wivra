@@ -424,3 +424,288 @@ Operaciones locales básicas, sin modelo de IA || Operazioni locali di base, sen
 Foto {1} en {2} s por {3} s || Foto {1} a {2} s per {3} s
 Se cargaron {} archivos (videos y fotos). Revisa el orden. || {} file caricati (video e foto). Controlla l'ordine.
 Foto cargada (3 s). Alarga su bloque para que dure más. || Foto caricata (3 s). Allunga il suo blocco per farla durare di più.
+Texto {1}: {2} || Testo {1}: {2}
+«{1}» || «{1}»
+desde {1} s || da {1} s
+por {1} s || per {1} s
+Borrar texto {1} || Elimina il testo {1}
+Editar texto || Modifica testo
+Empieza (s) || Inizia (s)
+Dura (s) || Dura (s)
+Guardar cambios || Salva modifiche
+Borrar texto || Elimina testo
+Importa un archivo .srt o .vtt, o guarda los textos como subtítulos. || Importa un file .srt o .vtt, oppure salva i testi come sottotitoli.
+Importar subtítulos (.srt / .vtt) || Importa sottotitoli (.srt / .vtt)
+Guardar .srt || Salva .srt
+Guardar .vtt || Salva .vtt
+Texto actualizado. || Testo aggiornato.
+Texto borrado. || Testo eliminato.
+Se importaron {1} subtítulos. || Importati {1} sottotitoli.
+Ningún subtítulo cabe dentro del video. || Nessun sottotitolo rientra nel video.
+{1} subtítulo(s) con tiempos o texto inválidos no se importaron. || {1} sottotitolo/i con tempi o testo non validi non sono stati importati.
+{1} subtítulo(s) eran muy largos y se partieron en trozos de hasta {2} caracteres. || {1} sottotitolo/i erano troppo lunghi e sono stati divisi in parti di al massimo {2} caratteri.
+{1} subtítulo(s) empiezan después del final del video y no se importaron. || {1} sottotitolo/i iniziano dopo la fine del video e non sono stati importati.
+El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos. || Il file è stato letto come Windows-1252 (non era UTF-8). Controlla gli accenti.
+No pude leer ese archivo de subtítulos: {1} || Non sono riuscito a leggere quel file di sottotitoli: {1}
+Subtítulos guardados ({1}). || Sottotitoli salvati ({1}).
+No hay textos para guardar como subtítulos. || Non ci sono testi da salvare come sottotitoli.
+Dura {} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos {} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan. || Dura {} s e viene registrato in tempo reale: ci mette quanto il video. Peserà circa {} MB. Tieni lo schermo acceso e non cambiare app né scheda. Gli originali non vengono toccati.
+Es un video largo: para que el archivo no sea enorme, se baja un poco la calidad. || È un video lungo: per evitare un file enorme, la qualità viene abbassata un po'.
+La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida. || L'esportazione si è fermata perché sei uscito dall'app o lo schermo si è spento. Esporta di nuovo con Wivra aperto e lo schermo acceso.
+Elegiste {} archivos; se cargan los primeros {} para no sobrecargar el teléfono. Agrega el resto después. || Hai scelto {} file; vengono caricati i primi {} per non sovraccaricare il telefono. Aggiungi il resto dopo.
+Montaje rápido || Montaggio rapido
+Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer. || Accorcia le clip per far durare il video quanto vuoi. Ogni clip contribuisce con la parte centrale e le foto durano 2 s. Non analizza il contenuto: controlla il risultato. Si può annullare.
+Otra duración (s) || Altra durata (s)
+Aplicar montaje || Applica montaggio
+Quedaría en {} s; se acortan {} clips. || Durerebbe {} s; {} clip vengono accorciate.
+Montaje rápido aplicado. Puedes deshacerlo. || Montaggio rapido applicato. Puoi annullarlo.
+Elige una duración para ver cómo quedaría. || Scegli una durata per vedere il risultato.
+Elige una plantilla y se arma formato, duración, color y título de una vez. Se puede deshacer. || Scegli un modello e formato, durata, colore e titolo vengono impostati insieme. Si può annullare.
+Título (opcional) || Titolo (facoltativo)
+Aplicar plantilla || Applica modello
+Plantilla aplicada. Puedes deshacerla. || Modello applicato. Puoi annullarlo.
+Elige una plantilla para ver qué cambia. || Scegli un modello per vedere cosa cambia.
+Reel vertical || Reel verticale
+Historia corta || Storia breve
+Horizontal || Orizzontale
+Recuerdo || Ricordo
+Vertical 9:16 de 30 s, con un toque de película. || Verticale 9:16, 30 s, con un tocco di pellicola.
+Vertical 9:16 de 15 s, colores intensos. || Verticale 9:16, 15 s, colori intensi.
+Cuadrado 1:1 de 30 s, sin cambiar los colores. || Quadrato 1:1, 30 s, colori invariati.
+Horizontal 16:9 de 60 s, sin recortar los bordes. || Orizzontale 16:9, 60 s, bordi non tagliati.
+Vertical 9:16 de 45 s, cálido y con grano suave. || Verticale 9:16, 45 s, caldo con grana morbida.
+Formato {} || Formato {}
+Duración {} s (se acortan {} clips) || Durata {} s ({} clip accorciate)
+Duración: ya cabe en {} s || Durata: rientra già in {} s
+Color «{}» || Colore «{}»
+Título «{}» los primeros {} s || Titolo «{}» per i primi {} s
+Agregar videos o fotos a la pista de video || Aggiungi video o foto alla traccia video
+Agregar otra capa de video encima || Aggiungi un altro livello video sopra
+Video o foto encima (capa) || Video o foto sopra (livello)
+estilo || stile
+Estilo || Stile
+Dónde va en la pantalla || Dove va sullo schermo
+Tamaño || Dimensione
+Arriba || In alto
+Abajo || In basso
+Chico || Piccolo
+Mediano || Medio
+Grande || Grande
+Enorme || Enorme
+Color del texto || Colore del testo
+Caja de fondo || Riquadro di sfondo
+Sin caja || Senza riquadro
+Aplicar este estilo a todos los textos || Applica questo stile a tutti i testi
+No hay otros textos. || Non ci sono altri testi.
+Estilo aplicado a {1} textos. || Stile applicato a {1} testi.
+Blanco || Bianco
+Amarillo || Giallo
+Negro || Nero
+Rojo || Rosso
+Azul || Blu
+Verde || Verde
+Lugar || Posizione
+Color || Colore
+Caja || Riquadro
+Quitar silencios || Rimuovi i silenzi
+Busca las pausas largas de tus clips y las corta. Mide el volumen (no entiende palabras) y todo pasa en tu teléfono: no se envía nada. Revisa el resultado. Se puede deshacer. || Trova le pause lunghe nelle tue clip e le taglia. Misura il volume (non capisce le parole) e tutto avviene sul tuo telefono: non viene inviato nulla. Controlla il risultato. Si può annullare.
+Suave || Leggero
+Fuerte || Forte
+Buscar pausas || Cerca le pause
+Toca «Buscar pausas» para ver cuánto se puede quitar. || Tocca «Cerca le pause» per vedere quanto si può togliere.
+Quitar las pausas || Rimuovi le pause
+Ningún video tiene sonido que se pueda leer. || Nessun video ha un audio leggibile.
+No encontré pausas para quitar con esta sensibilidad. || Non ho trovato pause da rimuovere con questa sensibilità.
+Algún video no tiene sonido o es demasiado grande para leerlo aquí: ese no se toca. || Qualche video non ha audio o è troppo grande per essere letto qui: non viene toccato.
+Pausas quitadas. Puedes deshacerlo. || Pause rimosse. Puoi annullare.
+El audio que iba con cada video se cortó igual. || L'audio che accompagnava ogni video è stato tagliato allo stesso modo.
+Los textos se corrieron con el video. || I testi si sono spostati insieme al video.
+Algún texto quedó dentro de una pausa y se borró. || Un testo era dentro una pausa ed è stato eliminato.
+Las capas y los audios aparte (música) no se mueven: revisa su tiempo. || I livelli e gli audio separati (musica) non si spostano: controlla i loro tempi.
+Pausas encontradas: {1} ({2} s). El video pasaría de {3} s a {4} s. || Pause trovate: {1} ({2} s). Il video passerebbe da {3} s a {4} s.
+Buscando pausas… {1} de {2} || Ricerca delle pause… {1} di {2}
+Descripción de este material || Descrizione di questo materiale
+Grabar con la cámara || Registra con la fotocamera
+Edición rápida: escribe qué cambiar || Modifica rapida: scrivi cosa cambiare
+Volumen del video || Volume del video
+Como está || Così com'è
+Parejo y fuerte (para reels) || Uniforme e forte (per i reel)
+Parejo y suave || Uniforme e morbido
+Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales. || Misura l'audio di tutto il video e lo alza o abbassa in modo uniforme, senza deformare la voce. I tuoi originali non cambiano.
+Midiendo el volumen… || Misurazione del volume…
+No pude leer el sonido de algún video: se exporta con el volumen original. || Non sono riuscito a leggere l'audio di un video: viene esportato con il volume originale.
+No hay sonido que medir: se exporta con el volumen original. || Non c'è audio da misurare: viene esportato con il volume originale.
+No se pudo medir el volumen: se exporta con el volumen original. || Impossibile misurare il volume: viene esportato con il volume originale.
+Volumen: ya estaba cerca del objetivo, no se cambió. || Volume: era già vicino all'obiettivo, non è stato cambiato.
+No se pudo subir más sin que el sonido se rompa. || Non si poteva alzare di più senza che l'audio si distorcesse.
+Volumen ajustado {1} dB (de {2} a {3} LUFS). || Volume regolato di {1} dB (da {2} a {3} LUFS).
+zona segura de textos || zona sicura per i testi
+sin zona segura de textos || senza zona sicura per i testi
+Revisar el ritmo de tu video || Controlla il ritmo del tuo video
+Cuenta tiempos (huecos, cortes, textos, final) y te avisa. No ve ni oye el video. Los consejos son una guía: puedes ignorarlos. No cambia nada por sí solo. || Conta i tempi (buchi, tagli, testi, finale) e ti avvisa. Non vede né ascolta il video. I consigli sono una guida: puoi ignorarli. Non cambia nulla da solo.
+Revisar el ritmo || Controlla il ritmo
+Primero agrega videos a la línea de tiempo. || Prima aggiungi dei video alla timeline.
+Aviso || Avviso
+Consejo || Consiglio
+Bien || Bene
+Ir ahí || Vai lì
+Activar zona segura || Attiva zona sicura
+Zona segura || Zona sicura
+Zona segura para los textos (solo 9:16) || Zona sicura per i testi (solo 9:16)
+Deja libres los bordes que tapan los botones y el pie de Reels, TikTok y Shorts. Es una guía de Wivra, no una regla de esas apps. La línea punteada se ve solo al editar; no sale en el video. || Lascia liberi i bordi coperti dai pulsanti e dalla didascalia di Reels, TikTok e Shorts. È una guida di Wivra, non una regola di quelle app. La linea tratteggiata si vede solo durante la modifica; non compare nel video.
+Zona segura activada. Puedes deshacerla. || Zona sicura attivata. Puoi annullare.
+El final vuelve a la misma toma del inicio: sirve de cierre en bucle. || Il finale torna alla stessa inquadratura dell'inizio: funziona come chiusura in loop.
+No veo nada que corregir en el ritmo. Recuerda: solo cuento tiempos, no veo el contenido. || Non vedo nulla da correggere nel ritmo. Ricorda: conto solo i tempi, non vedo il contenuto.
+Pantalla + cara || Schermo + volto
+Vertical 9:16: el 1.er video es tu pantalla y el 2.º tu cara, en un círculo abajo a la izquierda. || Verticale 9:16: il 1º video è il tuo schermo e il 2º il tuo volto, in un cerchio in basso a sinistra.
+Video 1 = tu pantalla (de fondo) || Video 1 = il tuo schermo (sfondo)
+El audio que iba con cada video se mueve con él || L'audio che accompagnava ogni video si sposta con esso
+Si tu voz suena en los dos videos, silencia uno: toca el clip y elige Audio. || Se la tua voce è in entrambi i video, silenzia uno: tocca la clip e scegli Audio.
+Los demás videos siguen en la línea principal, uno tras otro. || Gli altri video restano sulla traccia principale, uno dopo l'altro.
+Esta plantilla necesita dos videos en la línea de tiempo: el 1.º es tu pantalla y el 2.º tu cara. || Questo modello richiede due video nella timeline: il 1º è il tuo schermo e il 2º il tuo volto.
+Elegir el tramo de cada clip donde más se oye (en vez del centro) || Scegli in ogni clip il tratto dove si sente di più (invece del centro)
+Usa el volumen del audio, en tu teléfono: no entiende palabras ni imágenes. Si un clip tiene volumen parejo, queda el centro. || Usa il volume dell'audio, sul tuo telefono: non capisce parole né immagini. Se una clip ha un volume uniforme, resta il centro.
+Escuchando el volumen de tus videos… || Sto ascoltando il volume dei tuoi video…
+{} de {} tomas hechas. || {} di {} riprese fatte.
+Por repetir: {} || Da rifare: {}
+Saltadas: {} (no cuentan como grabadas) || Saltate: {} (non contano come registrate)
+Lista lista para revisar tus videos. || Pronta per rivedere i tuoi video.
+Todas las tomas están saltadas: no hay nada que editar. || Tutte le riprese sono saltate: non c'è nulla da montare.
+Marca las tomas que hayas grabado. || Segna le riprese che hai registrato.
+Pendiente || Da fare
+Hecha || Fatta
+Por repetir || Da rifare
+Saltada || Saltata
+Repetir esta toma || Rifai questa ripresa
+Saltar esta toma || Salta questa ripresa
+Volver a pendiente || Torna da fare
+Grabar esta toma || Registra questa ripresa
+Esta toma ya está hecha. ¿Repetirla? Se quita el video asociado a la toma (el video sigue en el proyecto). || Questa ripresa è già fatta. Rifarla? Il video associato viene scollegato (il video resta nel progetto).
+La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla? || La ripresa «{1}» verrà saltata e non conta come registrata. Saltarla?
+Planear una producción (lugares y guion tuyos) || Pianifica una produzione (luoghi e copione tuoi)
+Tú pones los lugares y el guion; Wivra solo reparte el tiempo y arma las tomas. No inventa rutas, horarios ni datos del lugar, y todo queda en tu teléfono. || Tu indichi i luoghi e il copione; Wivra si limita a ripartire il tempo e a creare le riprese. Non inventa percorsi, orari o informazioni sul luogo, e tutto resta sul tuo telefono.
+Título || Titolo
+Reel || Reel
+Minidocumental vertical || Mini-documentario verticale
+Serie vertical || Serie verticale
+Película vertical || Film verticale
+Duración final (s) || Durata finale (s)
+Voz || Voce
+Hablo mientras grabo || Parlo mentre registro
+Pongo mi voz después || Aggiungo la mia voce dopo
+Mixta || Mista
+Sin voz || Senza voce
+Lugares, uno por línea (opcional: «lugar | cómo grabarlo | guion») || Luoghi, uno per riga (facoltativo: «luogo | come girarlo | copione»)
+Crear plan de producción || Crea il piano di produzione
+Ej.: Un día en Vancouver || Es.: Un giorno a Vancouver
+Granville Island | plano general y un detalle del mercado | Empezamos el día en el mercado… Stanley Park Gastown || Granville Island | campo largo e un dettaglio del mercato | Iniziamo la giornata al mercato… Stanley Park Gastown
+Dar una orden a la lista (escribe o dicta con el micrófono del teclado) || Dai un comando alla lista (scrivi o detta con il microfono della tastiera)
+Enviar orden || Invia comando
+Ej.: ya la hice · siguiente · repite · saltar || Es.: fatto · avanti · ripeti · salta
+Empezar || Avvia
+Lento || Lento
+Rápido || Veloce
+A− || A−
+A+ || A+
+Esto se ve en pantalla pero no se graba en el video. || Questo appare sullo schermo ma non viene registrato nel video.
+Teleprompter || Teleprompter
+Velocidad || Velocità
+Letra más pequeña || Testo più piccolo
+Letra más grande || Testo più grande
+Abrir teleprompter || Apri il teleprompter
+Pausar || Pausa
+Subir || Sposta su
+Bajar || Sposta giù
+Primero crea una lista de tomas. || Prima crea una lista di riprese.
+No entendí esa orden. Prueba con: ya la hice, siguiente, repite, repetir toma o saltar. || Non ho capito questo comando. Prova con: fatto, avanti, ripeti, rifare o salta.
+No quedan tomas pendientes. || Non ci sono più riprese da fare.
+Esta es la última toma pendiente. || Questa è l'ultima ripresa da fare.
+Toma marcada como hecha. || Ripresa segnata come fatta.
+Velocidad de {1}: {2}× || Velocità di {1}: {2}×
+Elige un video, una capa o un audio en la línea de tiempo. || Scegli un video, un livello o un audio nella timeline.
+1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre. || 1× è la velocità normale: meno è slow motion e più è veloce. Cambia la durata della clip; quello che segue si sposta.
+Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip. || Sotto 0.5× o sopra 2× il suono può risultare strano o senza voce naturale, soprattutto su iPhone (non verificato). Se non ti piace, silenzia quella clip.
+Transición en todos los cortes entre clips: || Transizione su ogni taglio tra le clip:
+Transición en los cortes || Transizione sui tagli
+Subtítulos automáticos (en el teléfono, gratis) || Sottotitoli automatici (sul telefono, gratis)
+Escribe lo que se dice en tus videos. Todo pasa en el teléfono: ni el audio ni el video salen de él. La primera vez baja un modelo de voz (una sola vez; queda guardado). || Scrive ciò che viene detto nei tuoi video. Tutto avviene sul telefono: né l'audio né il video ne escono. La prima volta scarica un modello vocale (una sola volta; resta salvato).
+Calidad || Qualità
+Rápido (31 MB) || Veloce (31 MB)
+Mejor (57 MB) || Migliore (57 MB)
+Idioma del audio || Lingua dell'audio
+Detectar || Rileva
+Crear subtítulos || Crea sottotitoli
+Poner los subtítulos || Inserisci i sottotitoli
+Borrar el modelo guardado || Elimina il modello salvato
+No hay voz que transcribir: los videos están silenciados o son fotos. || Non c'è voce da trascrivere: i video sono silenziati o sono foto.
+Este navegador no puede crear subtítulos automáticos (falta WebAssembly o Worker). || Questo browser non può creare sottotitoli automatici (mancano WebAssembly o Worker).
+Va a bajar un modelo de voz de {1} MB (una sola vez; queda en tu teléfono). Tu audio y tu video no salen del teléfono. Toca «Crear subtítulos» otra vez para seguir. || Verrà scaricato un modello vocale da {1} MB (una sola volta; resta sul telefono). Il tuo audio e il tuo video non lasciano il telefono. Tocca di nuovo «Crea sottotitoli» per continuare.
+Bajando el modelo… {1} % || Download del modello… {1} %
+Preparando el motor de voz… || Preparazione del motore vocale…
+El audio de este video no se pudo leer. || Non è stato possibile leggere l'audio di questo video.
+Escribiendo lo que se dice… {1} % || Trascrizione in corso… {1} %
+No encontré voz en el audio. Prueba con otro idioma o con la calidad «Mejor». || Non ho trovato voce nell'audio. Prova un'altra lingua o la qualità «Migliore».
+Poner {1} subtítulos || Inserisci {1} sottotitoli
+Listo: {1} subtítulos. Tardó {2} s para {3} s de audio. || Fatto: {1} sottotitoli. Ci sono voluti {2} s per {3} s di audio.
+Cancelado. || Annullato.
+No pude crear los subtítulos: {1} || Non sono riuscito a creare i sottotitoli: {1}
+Subtítulos puestos: {1}. || Sottotitoli inseriti: {1}.
+Modelo borrado. || Modello eliminato.
+Collage || Collage
+Los primeros 2, 3 o 4 clips (videos o fotos) a la vez, en cuadros. Con 2 o 3: vertical 9:16, uno sobre otro; con 4: cuadrado 1:1, en cuadrícula. || I primi 2, 3 o 4 clip (video o foto) contemporaneamente, in riquadri. Con 2 o 3: verticale 9:16, uno sopra l'altro; con 4: quadrato 1:1, a griglia.
+Collage de {} clips a la vez, uno sobre otro (9:16) || Collage di {} clip contemporaneamente, uno sopra l'altro (9:16)
+Collage de {} clips a la vez, en cuadrícula (1:1) || Collage di {} clip contemporaneamente, a griglia (1:1)
+Duran {} s (lo que dura el video más corto) || Durano {} s (quanto il video più corto)
+Suena el 1.er clip; los demás quedan silenciados || Si sente il 1° clip; gli altri sono silenziati
+El audio que iba con cada clip se recortó y se movió con él || L'audio che accompagnava ogni clip è stato tagliato e spostato con esso
+Solo entran los primeros {} clips; los demás siguen después, uno tras otro. || Entrano solo i primi {} clip; gli altri seguono dopo, uno dopo l'altro.
+Los clips más largos se recortaron al final para que todos duren lo mismo. || Le clip più lunghi sono stati tagliati alla fine perché durino tutti lo stesso.
+Las fotos duran lo mismo que el video más corto. || Le foto durano quanto il video più corto.
+Los textos, capas y audios que cruzan varios clips no se mueven: revisa su tiempo. || Testi, livelli e audio che attraversano più clip non vengono spostati: controlla i loro tempi.
+Para oír otro cuadro: toca su capa y elige Audio. || Per sentire un altro riquadro: tocca il suo livello e scegli Audio.
+Esta plantilla necesita al menos dos clips (videos o fotos) en la línea de tiempo. || Questo modello richiede almeno due clip (video o foto) nella timeline.
+Música de Wivra (gratis, sin conexión) || Musica di Wivra (gratis, offline)
+Pistas originales de Wivra, hechas por código: sin derechos de terceros, sin internet y sin cuentas. Se agregan como pista de audio donde está la línea blanca. || Brani originali di Wivra, creati con il codice: senza diritti di terzi, senza internet e senza account. Vengono aggiunti come traccia audio dove si trova la linea bianca.
+Pulso || Pulso
+Alegre y con ritmo || Allegro e ritmato
+Escuchar || Ascolta
+Calma || Calma
+Suave, para fondo || Morbido, per sottofondo
+Viaje || Viaggio
+Abierto, de paseo || Aperto, da passeggiata
+Energía || Energia
+Fuerte, para deporte || Forte, per lo sport
+Suspenso || Suspense
+Oscuro y tenso || Scuro e teso
+Lo-fi || Lo-fi
+Tranquilo, con groove || Tranquillo, con groove
+Creando la música… || Creazione della musica…
+No se pudo reproducir aquí. Usa «Agregar» y escúchala en la línea de tiempo. || Non è stato possibile riprodurla qui. Usa «Aggiungi» e ascoltala nella timeline.
+Parar || Ferma
+Ráfaga || Raffica
+6 huecos de 1,5 s en vertical 9:16: tus primeros 6 clips (videos o fotos), uno tras otro, rápidos. || 6 slot da 1,5 s in verticale 9:16: i tuoi primi 6 clip (video o foto), uno dopo l'altro, veloci.
+Antes y después || Prima e dopo
+2 huecos de 4 s en vertical 9:16: el 1.er clip es el «Antes» y el 2.º el «Después», cada uno con su rótulo. || 2 slot da 4 s in verticale 9:16: il 1° clip è il «Prima» e il 2° il «Dopo», ciascuno con la sua etichetta.
+Top 3 || Top 3
+3 huecos de 4 s en vertical 9:16, en cuenta regresiva: el 1.er clip es el N.º 3, el 2.º el N.º 2 y el 3.º el N.º 1. || 3 slot da 4 s in verticale 9:16, in conto alla rovescia: il 1° clip è il N. 3, il 2° il N. 2 e il 3° il N. 1.
+Antes || Prima
+Después || Dopo
+N.º 3 || N. 3
+N.º 2 || N. 2
+N.º 1 || N. 1
+Huecos llenos: {} de {} || Slot riempiti: {} su {}
+Cada hueco dura {} s || Ogni slot dura {} s
+Rótulos: {} || Etichette: {}
+Falta 1 clip para llenar todos los huecos: agrega más videos o fotos. || Manca 1 clip per riempire tutti gli slot: aggiungi altri video o foto.
+Faltan {} clips para llenar todos los huecos: agrega más videos o fotos. || Mancano {} clip per riempire tutti gli slot: aggiungi altri video o foto.
+Sobra 1 clip: sigue después de los huecos, sin cambios. || Avanza 1 clip: segue dopo gli slot, senza modifiche.
+Sobran {} clips: siguen después de los huecos, sin cambios. || Avanzano {} clip: seguono dopo gli slot, senza modifiche.
+Algún video dura menos que su hueco: queda más corto. || Un video dura meno del suo slot: resta più corto.
+Las capas, los audios aparte y los textos que ya había no se mueven: revisa su tiempo. || Livelli, audio separati e testi già presenti non vengono spostati: controlla i loro tempi.
+Todos los videos || Tutti i video
+Todos los videos de la línea principal van a la misma velocidad (las fotos no cambian). || Tutti i video della linea principale vanno alla stessa velocità (le foto non cambiano).
+No hay videos en la línea principal. || Non ci sono video nella linea principale.
+Ya tienen esa velocidad. || Hanno già quella velocità.
+Ahora dura {1} s (antes {2} s). || Ora dura {1} s (prima {2} s).
+{1} videos cambiados. El video ahora dura {2} s (antes {3} s). || {1} video modificati. Il video ora dura {2} s (prima {3} s).
+Como el audio ({1} s) || Come l'audio ({1} s)

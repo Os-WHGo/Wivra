@@ -1,6 +1,8 @@
 // Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
+import { clipLength, speedOf, srcTime } from '../core/project.mjs';
+import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -10,13 +12,16 @@ export function exportPlan(project) {
   const segments = []; let cursor = 0;
   for (const c of clips) {
     if (c.start - cursor > 0.05) segments.push({ type: 'gap', dur: r2(c.start - cursor), start: cursor });
-    segments.push({ type: 'clip', clip: c, dur: r2(c.out - c.in) });
-    cursor = Math.max(cursor, c.start + (c.out - c.in));
+    segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
+    cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  // El video termina donde terminan los clips y las capas de video. La música/audio que pasa de ahí se CORTA al exportar (con un fundido), no alarga el video con negro.
+  const end = (project.overlayClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
   if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
+  const audioEnd = (project.audioClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
+  if (!segments.length && audioEnd > 0) { segments.push({ type: 'gap', dur: r2(audioEnd), start: 0 }); cursor = audioEnd; }       // solo audio: se exporta tal cual
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
-  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05, audioCut: r2(Math.max(0, audioEnd - cursor)) };
 }
 
 // Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
@@ -58,10 +63,10 @@ export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.v
 
 // Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
 export function audioStartAt(c, t) {
-  const len = c.out - c.in, into = t - c.start;
+  const len = clipLength(c), s = speedOf(c), into = t - c.start;
   if (c.muted || into < -0.02 || into >= len - 0.03) return null;
   const k = Math.max(0, into);
-  return { offset: c.in + k, dur: len - k };
+  return { offset: c.in + k * s, dur: (len - k) * s, rate: s };      // offset y dur en segundos del MEDIO; rate = velocidad de reproducción
 }
 
 // Formas de recorte para un video superpuesto: caminos SVG en un cuadrado de 0 a 1. Las que no son rectangulares usan un cuadro cuadrado.
@@ -122,7 +127,7 @@ export function drawOverlay(g, el, c, r, t = 0) {
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
-  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t)) || el;
+  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t, Math.max(r.w, r.h) * 1.5)) || el;      // sin bajar la resolución: el filtro se calcula al tamaño con que se dibuja (+50 % para zoom)
   try { g.drawImage(src, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
   if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
     g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
@@ -133,14 +138,14 @@ export function drawOverlay(g, el, c, r, t = 0) {
 // ¿Debe verse el clip superpuesto `c` en el instante t? Devuelve el tiempo dentro del medio original, o null.
 export function overlayAt(c, t) {
   const into = t - c.start;
-  return into >= 0 && into < c.out - c.in - 0.03 ? c.in + into : null;
+  return into >= 0 && into < clipLength(c) - 0.03 ? c.in + into * speedOf(c) : null;
 }
 
 // Efectos de entrada/salida de un clip de video: devuelve cuánto se ve (alpha), cuánto está desplazado (dx, en anchos del cuadro) y su escala en el instante t.
 const ease = (p) => { const q = Math.max(0, Math.min(1, p)); return q * q * (3 - 2 * q); };
 export function fxAt(c, t) {
   const o = { alpha: 1, dx: 0, scale: 1 }; if (!c || (!c.fxIn && !c.fxOut)) return o;
-  const len = c.out - c.in, rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
+  const len = clipLength(c), rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
   const apply = (kind, p, sign) => {
     if (!kind || kind === 'none' || p >= 1) return; const e = ease(p);
     if (kind === 'fade') o.alpha *= e; else if (kind === 'slide') o.dx += sign * (e - 1); else if (kind === 'zoom') { o.alpha *= e; o.scale *= 0.6 + 0.4 * e; }
@@ -167,9 +172,9 @@ export function wrapLines(text, maxWidth, measure) {
 export function drawFrame(g, W, H, video, project, t, overlays = []) {
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
   if (video && video.videoWidth > 0) {
-    const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
+    const mc = project.clips.find((k) => t >= k.start && t < k.start + clipLength(k)), fx = fxAt(mc, t);
     const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
-    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t)) || video;   // filtro de color en la tarjeta gráfica
+    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t, Math.max(W, H))) || video;   // filtro de color en la tarjeta gráfica
     g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
@@ -177,23 +182,64 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
     const fx = fxAt(o.c, t), r = withFx(overlayRect(o.c, W, H, el.videoWidth, el.videoHeight), fx, W);
     g.save(); g.globalAlpha = fx.alpha * (typeof o.c.opacity === 'number' ? o.c.opacity : 1); drawOverlay(g, el, o.c, r, t); g.restore();
   }
-  const size = Math.round(Math.min(W, H) * 0.06);
-  g.font = `800 ${size}px -apple-system, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  g.lineJoin = 'round'; g.lineWidth = Math.max(2, size / 6); g.strokeStyle = 'rgba(0,0,0,.85)'; g.fillStyle = '#fff';
-  let y = H * 0.86;
-  for (const tx of textsAt(project, t)) {
-    const lines = wrapLines(tx.text, W * 0.86, (s) => g.measureText(s).width);
-    y -= (lines.length - 1) * size * 1.2;
-    for (const line of lines) { g.strokeText(line, W / 2, y); g.fillText(line, W / 2, y); y += size * 1.2; }
-    y -= size * 1.2 * lines.length + size * 0.4;
+  drawTexts(g, textsAt(project, t), W, H, textZoneOf(project.format));
+}
+
+/**
+ * Dibuja los textos del instante: arriba, al centro o abajo, con su tamaño, color y (si tiene) caja de fondo. Misma regla que la vista previa (app/template.html).
+ * Dentro de una posición los textos se apilan en el orden en que se crearon; abajo, el último queda más abajo y todo crece hacia arriba. — Claude
+ */
+export function drawTexts(g, list, W, H, zone = TEXT_ZONES.normal) {
+  if (!list.length) return;
+  const base = Math.min(W, H) * 0.06, groups = groupTextsByPos(list);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  for (const pos of TEXT_POS) {
+    const blocks = groups[pos].map((tx) => {
+      const st = textStyleOf(tx), size = Math.round(base * TEXT_SIZES[st.size]), lineH = size * 1.2, pad = st.box === 'none' ? 0 : size * 0.28;
+      g.font = `800 ${size}px -apple-system, system-ui, sans-serif`;
+      const lines = wrapLines(tx.text, W * zone.width - pad * 2, (x) => g.measureText(x).width), tw = Math.max(...lines.map((l) => g.measureText(l).width));
+      return { st, size, lineH, pad, lines, tw, h: lines.length * lineH + pad * 2 };
+    });
+    if (!blocks.length) continue;
+    const gap = base * 0.3, total = blocks.reduce((a, b) => a + b.h, 0) + gap * (blocks.length - 1);
+    const cx = W * (zone.left + (1 - zone.right)) / 2;      // centro horizontal de la zona
+    let y = pos === 'top' ? H * zone.top : pos === 'middle' ? H * zone.mid - total / 2 : H * zone.bottom - total;
+    for (const b of blocks) {
+      g.font = `800 ${b.size}px -apple-system, system-ui, sans-serif`;
+      if (b.st.box !== 'none') {
+        const bw = b.tw + b.pad * 2, bx = cx - bw / 2, r = b.size * 0.3;
+        g.fillStyle = b.st.box; g.beginPath();
+        if (g.roundRect) g.roundRect(bx, y, bw, b.h, r); else g.rect(bx, y, bw, b.h);
+        g.fill();
+      } else { g.lineWidth = Math.max(2, b.size / 6); g.strokeStyle = 'rgba(0,0,0,.85)'; }
+      g.fillStyle = b.st.color;
+      b.lines.forEach((line, i) => { const ly = y + b.pad + (i + 0.5) * b.lineH; if (b.st.box === 'none') g.strokeText(line, cx, ly); g.fillText(line, cx, ly); });
+      y += b.h + gap;
+    }
   }
 }
 
 const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
 const frame = () => new Promise((res) => requestAnimationFrame(res));
+/** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
+export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
+export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+/** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
+export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
+  return new Promise((res, rej) => {
+    let done = false, timer = 0, poll = 0;
+    const fin = (f, v) => { if (done) return; done = true; clearTimeout(timer); clearInterval(poll); el.removeEventListener(ev, onEv); el.removeEventListener('error', onErr); f(v); };
+    const onEv = () => fin(res), onErr = () => fin(rej, new Error(`No se pudo leer ${what.toLowerCase()} para exportar.`));
+    el.addEventListener(ev, onEv); el.addEventListener('error', onErr);
+    timer = setTimeout(() => fin(rej, new Error(`${what} tardó demasiado en responder (más de ${Math.round(ms / 1000)} s).`)), ms);
+    poll = setInterval(() => { if (isCancelled()) fin(res); }, 200);
+  });
+}
+export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0 }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
@@ -209,11 +255,14 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
   document.body.appendChild(ev);
 
-  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null;
+  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null, bus = null;
   const stream = canvas.captureStream(fps);
   try {
     ac = new AC(); await ac.resume().catch(() => {});
-    dest = ac.createMediaStreamDestination(); gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(dest);
+    dest = ac.createMediaStreamDestination(); bus = dest;
+    // Volumen parejo (opcional): una sola ganancia fija sobre toda la mezcla, medida antes de grabar (app/loudness.mjs). Sin compresor ni limitador.
+    if (Number.isFinite(loudnessGainDb) && Math.abs(loudnessGainDb) >= 0.05) { const master = ac.createGain(); master.gain.value = 10 ** (Math.max(-12, Math.min(12, loudnessGainDb)) / 20); master.connect(dest); bus = master; }
+    gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(bus);
     dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
@@ -242,7 +291,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
     try {
       await Promise.race([once(el, 'loadedmetadata'), once(el, 'error').then(() => { throw new Error('no se pudo leer'); }), new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), 10000))]);
-      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(dest); } else el.muted = true;
+      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(bus); } else el.muted = true;
       oList.push({ el, c });
     } catch { el.remove(); skippedOverlay.push(c.id); }
   }
@@ -252,6 +301,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     for (const o of oList) {
       const want = overlayAt(o.c, t);
       if (want == null) { if (!o.el.paused) o.el.pause(); continue; }
+      try { o.el.playbackRate = speedOf(o.c); } catch { /* velocidad no admitida */ }
       if (o.el.paused) { try { o.el.currentTime = want; } catch { /* aún no */ } o.el.play().catch(() => {}); }
       else if (Math.abs(o.el.currentTime - want) > 0.35) { try { o.el.currentTime = want; } catch { /* aún no */ } }
       draw.push(o);
@@ -265,13 +315,15 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (started.has(c.id) || !buffers.has(c.asset_id)) continue;
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
-      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(dest); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
+      const over = c.start + clipLength(c) - plan.total;      // lo que pasa del final del video se corta con un fundido de 0,8 s
+      if (over > 0.02) { const endAt = ac.currentTime + Math.max(0, plan.total - t), f = Math.min(0.8, Math.max(0.05, plan.total - t)), g0 = clipGain(c); gn.gain.setValueAtTime(g0, Math.max(ac.currentTime, endAt - f)); gn.gain.linearRampToValueAtTime(0, endAt); }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
     }
   };
 
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
@@ -286,16 +338,20 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     photos.set(id, el); return el;
   };
+  // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
+  let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
+  const stopNow = () => isCancelled() || interrupted;
+  rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
   const t0 = performance.now(); let cancelled = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
     rec.start(1000);
     for (const seg of plan.segments) {
-      if (isCancelled()) { cancelled = true; break; }
+      if (stopNow()) { cancelled = true; break; }
       if (seg.type === 'gap') {
         const s = performance.now();
-        while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
+        while (performance.now() - s < seg.dur * 1000 && !stopNow()) {
           const tg = seg.start + (performance.now() - s) / 1000; audioTick(tg);
           drawFrame(g, W, H, null, project, tg, overlayTick(tg)); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
@@ -307,21 +363,25 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         if (!el) throw new Error(`No se pudo abrir la foto «${m.name || c.asset_id}» para exportar.`);
         if (typeof el.currentTime === 'number' && m.gif) { try { el.currentTime = c.in; } catch { /* aún no */ } }
         const s = performance.now();
-        while (!isCancelled()) {
+        while (!stopNow()) {
           const dt = (performance.now() - s) / 1000; if (dt >= seg.dur) break;
           const tp = c.start + dt; audioTick(tp); drawFrame(g, W, H, el, project, tp, overlayTick(tp)); report(tp); await frame();
         }
         continue;
       }
-      if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
-      if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
+      if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
+      if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
-      await ev.play();
-      await new Promise((res) => {
+      const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
+      try { await ev.play(); } catch { throw new Error('El navegador no dejó reproducir un video para exportar.'); }
+      await new Promise((res, rej) => {
+        let last = -1, since = performance.now();
         const tick = () => {
-          const cur = ev.currentTime, t = c.start + (cur - c.in);
+          const cur = ev.currentTime, t = c.start + (cur - c.in) / spd;
           audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
-          if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
+          if (stopNow() || cur >= c.out - 0.03 || ev.ended) return res();
+          if (cur !== last) { last = cur; since = performance.now(); }
+          else if (performance.now() - since > STALL_SECONDS * 1000) return rej(new Error(`El video se trabó y no avanzó durante ${STALL_SECONDS} s. Prueba de nuevo o con menos clips.`));
           requestAnimationFrame(tick);
         };
         tick();
@@ -337,8 +397,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
     photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+    document.removeEventListener('visibilitychange', onVis);
   }
+  if (interrupted) return { interrupted: true };
   if (cancelled || isCancelled()) return { cancelled: true };
-  const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
+  const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
+  if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
+  return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }

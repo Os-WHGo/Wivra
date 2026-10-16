@@ -1,9 +1,11 @@
-// Wivra · guardar y reabrir el proyecto en el propio teléfono (IndexedDB). Sin dependencias, sin imports.
+// Wivra · guardar y reabrir el proyecto en el propio teléfono (IndexedDB). Sin dependencias (solo el estilo de texto del núcleo).
 // Todo queda en el dispositivo: nada se sube a ningún servidor. — Claude
 //
 // Qué se guarda: el proyecto (JSON), la lista de archivos (nombre, duración, tamaño) y, si cabe, los archivos mismos.
 // Qué NO se guarda: el historial de deshacer (al reabrir se empieza con el historial vacío).
 // Si el navegador no deja guardar un archivo (poco espacio), el proyecto igual se guarda y al reabrir pide ese archivo de nuevo.
+import { clipLength } from '../core/project.mjs';
+import { TEXT_STYLE_KEYS, textStyleProblem } from '../core/text-style.mjs';
 
 export const PERSIST_SCHEMA = 'wivra-project';
 export const PERSIST_VERSION = 1;
@@ -12,13 +14,30 @@ const pzNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const PZ_GROUPS = ['clips', 'overlayClips', 'audioClips'];
 
 /** Instantánea serializable. `stored` = ids de archivos que sí están guardados en el teléfono. */
-export function makeSnapshot({ project, media = {}, assetSeq = 0, tlTime = 0, stored = [], now = Date.now() }) {
+export const DIRECTOR_DRAFT_MAX = 50000, SHOOT_PLAN_MAX = 100000;      // topes de lo que el Director puede guardar dentro del proyecto
+/** Notas del Director de ESTE proyecto: la idea (texto JSON ya validado por el Director) y la lista de tomas. null si no hay nada que guardar. */
+export function cleanDirector(d) {
+  if (!d || typeof d !== 'object') return { director: null, warnings: [] };
+  const warnings = [], out = {};
+  if (d.draft !== undefined && d.draft !== null) {
+    if (typeof d.draft === 'string' && d.draft.length <= DIRECTOR_DRAFT_MAX) out.draft = d.draft; else warnings.push('Se descartó la idea del Director guardada (dañada o demasiado grande).');
+  }
+  if (d.shootPlan !== undefined && d.shootPlan !== null) {
+    const sp = d.shootPlan, big = (() => { try { return JSON.stringify(sp).length > SHOOT_PLAN_MAX; } catch { return true; } })();
+    if (sp && typeof sp === 'object' && sp.schema === 'agentcut-shoot-plan-v0.1' && Array.isArray(sp.shots) && sp.shots.length <= 50 && !big) out.shootPlan = JSON.parse(JSON.stringify(sp));
+    else warnings.push('Se descartó la lista de tomas del Director guardada (dañada o demasiado grande).');
+  }
+  return { director: out.draft !== undefined || out.shootPlan !== undefined ? out : null, warnings };
+}
+export function makeSnapshot({ project, media = {}, assetSeq = 0, tlTime = 0, stored = [], director = null, now = Date.now() }) {
   const ok = new Set(stored);
   const assets = (project.assets || []).map((a) => {
     const m = media[a.id] || {};
     return { id: a.id, name: m.name || a.name || '', duration: a.duration, w: m.w || 0, h: m.h || 0, size: m.size || 0, type: m.type || '', kind: m.kind || '', stored: ok.has(a.id) };
   });
-  return { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: now, assetSeq, tlTime, project: JSON.parse(JSON.stringify(project)), assets };
+  const snap = { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: now, assetSeq, tlTime, project: JSON.parse(JSON.stringify(project)), assets };
+  const cd = cleanDirector(director).director; if (cd) snap.director = cd;      // campo opcional: los proyectos viejos no lo tienen y siguen abriendo
+  return snap;
 }
 
 /**
@@ -43,7 +62,7 @@ export function readSnapshot(raw) {
   p.revision = pzNum(p.revision) ? p.revision : 0;
   p.assets = Array.isArray(p.assets) ? p.assets.filter((a) => a && typeof a.id === 'string' && pzNum(a.duration)) : [];
   const f = p.format && typeof p.format === 'object' ? p.format : {};
-  p.format = { aspect: typeof f.aspect === 'string' ? f.aspect : 'original', fit: typeof f.fit === 'string' ? f.fit : 'cover' };
+  p.format = { aspect: typeof f.aspect === 'string' ? f.aspect : 'original', fit: typeof f.fit === 'string' ? f.fit : 'cover', ...(f.safe === true ? { safe: true } : {}) };
   for (const g of [...PZ_GROUPS, 'texts']) if (!Array.isArray(p[g])) { if (p[g] !== undefined) warnings.push(`Se reparó la lista “${g}”.`); p[g] = []; }
 
   // Quita clips imposibles (números rotos, fuera de duración, sin archivo conocido) en vez de abrir un proyecto corrupto.
@@ -56,6 +75,7 @@ export function readSnapshot(raw) {
     });
   }
   p.texts = p.texts.filter((t) => { const good = t && typeof t.text === 'string' && pzNum(t.start) && pzNum(t.end) && t.end > t.start; if (!good) warnings.push('Se descartó un texto dañado.'); return good; });
+  for (const t of p.texts) for (const k of TEXT_STYLE_KEYS) if (t[k] !== undefined && textStyleProblem(k, t[k])) { delete t[k]; warnings.push('Se quitó un estilo de texto dañado.'); }      // pos, size, color y box inválidos vuelven al valor por defecto
 
   // nextId siempre mayor que cualquier id usado, para que los clips nuevos no choquen con los viejos.
   let maxId = 0;
@@ -66,7 +86,10 @@ export function readSnapshot(raw) {
   const assets = p.assets.map((a) => { const k = known.get(a.id) || {}; return { id: a.id, name: String(k.name || a.name || ''), duration: a.duration, w: pzNum(k.w) ? k.w : 0, h: pzNum(k.h) ? k.h : 0, size: pzNum(k.size) ? k.size : 0, type: String(k.type || ''), kind: String(k.kind || ''), stored: k.stored === true }; });
   let seq = pzNum(s.assetSeq) ? s.assetSeq : 0;
   for (const a of p.assets) { const n = parseInt(String(a.id).replace(/^\D+/, ''), 10); if (pzNum(n) && n > seq) seq = n; }
-  return { ok: true, warnings, snapshot: { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: pzNum(s.savedAt) ? s.savedAt : 0, assetSeq: seq, tlTime: pzNum(s.tlTime) && s.tlTime >= 0 ? s.tlTime : 0, project: p, assets } };
+  const cd = cleanDirector(s.director); warnings.push(...cd.warnings);
+  const snapshot = { schema: PERSIST_SCHEMA, version: PERSIST_VERSION, savedAt: pzNum(s.savedAt) ? s.savedAt : 0, assetSeq: seq, tlTime: pzNum(s.tlTime) && s.tlTime >= 0 ? s.tlTime : 0, project: p, assets };
+  if (cd.director) snapshot.director = cd.director;
+  return { ok: true, warnings, snapshot };
 }
 
 /** Archivos del proyecto que no están en el teléfono (hay que volver a elegirlos). */
@@ -91,7 +114,7 @@ export function matchFiles(missing, files) {
 
 /** Resumen corto para la lista «Mis proyectos». */
 export function makeMeta({ id, name, project, now = Date.now() }) {
-  const end = [project.clips, project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + (c.out - c.in)), m), 0);
+  const end = [project.clips, project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
   return { id, name: String(name || '').slice(0, 60) || 'Proyecto', updatedAt: now, clips: project.clips.length + (project.overlayClips || []).length, duration: Math.round(end * 10) / 10 };
 }
 export const newProjectId = (now = Date.now(), rnd = Math.random()) => 'p' + now.toString(36) + Math.floor(rnd * 1296).toString(36);
