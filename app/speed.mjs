@@ -2,6 +2,7 @@
 // `in`/`out` siguen siendo segundos del medio original; la velocidad solo cambia cuánto dura el clip en la línea de tiempo: (out − in) / velocidad.
 // Al cambiarla en el video PRINCIPAL, lo que viene después se corre (como al recortar), y el audio que iba con ese video cambia igual.
 import { clipLength, speedOf, SPEED_MIN, SPEED_MAX } from '../core/project.mjs';
+import { applyBatch } from '../core/operations.mjs';
 
 export const SPEED_CHOICES = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 export const SPEED_SAFE_MIN = 0.5, SPEED_SAFE_MAX = 2;      // fuera de este rango el navegador puede dejar el sonido raro o mudo (en iPhone: sin verificar)
@@ -54,22 +55,30 @@ export function planSpeed(project, clipId, speed) {
 }
 
 /**
- * Apply one speed to all eligible clips as a single undoable batch.
- * Work from the end of the timeline backwards so ripple moves do not
- * interfere with earlier clips. Exclude standalone audio by default:
- * changing a music bed's pitch/speed is not equivalent to speeding video.
+ * Plan one undoable batch for all principal video clips.
+ * Recalculate each step on the updated project to avoid stale ripple positions.
+ * Standalone music is not speed-adjusted. Linked voice follows planSpeed.
  */
-export function planSpeedAll(project, speed, { includeOverlays = false } = {}) {
+export function planSpeedAll(project, speed) {
   if (!project || !Array.isArray(project.clips)) return { ok: false, error: 'No hay proyecto.' };
   if (!Number.isFinite(speed) || speed < SPEED_MIN || speed > SPEED_MAX)
     return { ok: false, error: `La velocidad va de ${SPEED_MIN}× a ${SPEED_MAX}×.` };
   const kinds = new Map((project.assets || []).map(a => [a.id, a.kind]));
-  const eligible = [...project.clips, ...(includeOverlays ? project.overlayClips || [] : [])]
-    .filter(c => kinds.get(c.asset_id) === 'video')
+  const clips = project.clips.filter(c => kinds.get(c.asset_id) === 'video')
     .sort((a, b) => b.start - a.start);
-  if (!eligible.length) return { ok: false, error: 'No hay videos para cambiar de velocidad.' };
-  // Each step must use the updated project. The normal editor operation engine
-  // is the source of truth for validation and moving linked tracks.
-  return { ok: true, clipIds: eligible.map(c => c.id), speed, count: eligible.length,
-    warnings: ['Aplica cada cambio sobre el proyecto actualizado y guarda todo en un único paso de deshacer.'] };
+  if (!clips.length) return { ok: false, error: 'No hay videos para cambiar de velocidad.' };
+  let working = project;
+  const ops = [], warnings = [];
+  for (const clip of clips) {
+    const step = planSpeed(working, clip.id, speed);
+    if (!step.ok) return step;
+    if (!step.ops.length) continue;
+    const applied = applyBatch(working, step.ops);
+    if (!applied.ok) return { ok: false, error: applied.message || 'No se pudo cambiar la velocidad.' };
+    working = applied.project;
+    ops.push(...step.ops);
+    warnings.push(...step.warnings);
+  }
+  return { ok: true, ops, count: clips.length, warnings: [...new Set(warnings)],
+    after: working, speed };
 }
