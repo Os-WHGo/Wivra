@@ -125,8 +125,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             finishRecording()
         }
         photoButton = button(root, getString(R.string.capture_photo)) { captureGlassesPhoto() }
-        button(root, getString(R.string.disconnect)) { stopAll() }
-        button(root, getString(R.string.back_editor)) { stopAll(); finish() }
+        button(root, getString(R.string.disconnect)) { if (recordingMode) finishRecording() else stopAll() }
+        button(root, getString(R.string.back_editor)) { if (recordingMode) finishRecording() else { stopAll(); finish() } }
         root.addView(TextView(this).apply {
             text = getString(R.string.preview_disclaimer)
         })
