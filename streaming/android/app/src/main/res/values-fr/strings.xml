@@ -126,4 +126,16 @@
     <string name="phone_camera_wav_failed">Échec du WAV. Vérifiez la vidéo privée avant de sauver.</string>
     <string name="phone_camera_wav_unusable">WAV en attente incomplet ; aucune publication comme audio valide.</string>
     <string name="picker_phone_audio_named">Piste WAV Wivra : %1$s</string>
+    <string name="phone_camera_choose_shot">Choisir une prise du Réalisateur</string>
+    <string name="phone_camera_without_script">Sans texte</string>
+    <string name="phone_camera_unnamed_shot">Prise %1$d</string>
+    <string name="teleprompter_accessible">Téléprompteur à l’écran, absent de la vidéo</string>
+    <string name="teleprompter_start">Démarrer</string>
+    <string name="teleprompter_pause">Pause</string>
+    <string name="teleprompter_slower">Plus lent</string>
+    <string name="teleprompter_faster">Plus rapide</string>
+    <string name="teleprompter_smaller">Texte −</string>
+    <string name="teleprompter_bigger">Texte +</string>
+    <string name="teleprompter_hide">Masquer / afficher</string>
+    <string name="teleprompter_wpm">Lecture : %1$d mots par minute</string>
 </resources>
