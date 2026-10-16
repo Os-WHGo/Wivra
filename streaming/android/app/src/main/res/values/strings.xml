@@ -8,7 +8,7 @@
     <string name="activate_video">3. Activar video</string>
     <string name="disconnect">Desconectar</string>
     <string name="back_editor">Volver al editor</string>
-    <string name="preview_disclaimer">Vista previa local (hasta 6 FPS, YUV I420 provisional). No graba ni transmite; la calidad y los colores exigen prueba real. LIVE y audio independiente siguen pendientes.</string>
+    <string name="preview_disclaimer">Vista previa local de diagnóstico a 6 FPS o modo de grabación MP4 sin audio. El modo de grabación no muestra preview; LIVE y audio siguen pendientes.</string>
     <string name="bluetooth_denied">Bluetooth denegado. El editor funciona sin gafas.</string>
     <string name="camera_denied">Permiso de cámara denegado; no se inicia video.</string>
     <string name="permission_error">Error de permiso DAT: %1$s</string>
@@ -38,4 +38,11 @@
     <string name="photo_save_failed">No se pudo guardar la foto: %1$s</string>
     <string name="picker_last_photo">Usar última foto Ray-Ban de Wivra</string>
     <string name="picker_browse_files">Buscar en Archivos</string>
+    <string name="record_video_only">3b. Grabar video Ray-Ban (sin audio)</string>
+    <string name="stop_save_recording">Detener y guardar MP4</string>
+    <string name="recording_wait_keyframe">Recibiendo video comprimido. Esperando primer fotograma clave…</string>
+    <string name="recording_frames">Grabación local: %1$d cuadros guardados (video sin audio)</string>
+    <string name="recording_finalizing">Finalizando archivo MP4…</string>
+    <string name="recording_saved">MP4 guardado en Videos/Wivra. La sesión se ha cerrado.</string>
+    <string name="recording_no_video">No se pudo guardar MP4: faltan cuadros válidos o datos HEVC.</string>
 </resources>
