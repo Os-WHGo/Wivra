@@ -8,7 +8,7 @@ La cámara de las gafas **Ray-Ban Meta debe estar disponible tanto en Android co
 | Función | iOS | Android | Regla de entrega |
 | --- | --- | --- | --- |
 | Cámara móvil, grabación y fotografías | Código Swift/AVFoundation prototipo | PENDIENTE de módulo CameraX | No anunciar lanzamiento paritario hasta probar ambas |
-| Ray-Ban Meta video/preview | Meta DAT iOS 1.0.1; prototipo | Meta DAT Android 1.0.1, dependencia añadida; conexión PENDIENTE | Las dos plataformas ofrecerán integración con gafas compatibles |
+| Ray-Ban Meta video/preview | Meta DAT iOS 1.0.1; prototipo | Meta DAT Android 1.0.1 + pantalla de conexión y contadores de cuadros; preview visual/recording PENDIENTES | Las dos plataformas ofrecerán integración con gafas compatibles |
 | Fotos por Ray-Ban y durante video | Según disponibilidad del SDK; probar | Según disponibilidad del SDK; probar | No simular capacidades ni prometer funciones experimentales |
 | Audio Ray-Ban, AirPods, USB/DJI/Bluetooth | Adaptadores y pruebas parciales | Adaptadores Android PENDIENTES | Mostrar entradas detectadas realmente, rutas reales y límites del SO |
 | Video con audio + pista independiente | Prototipos MOV/CAF y manifests v2 | PENDIENTE contrato equivalente | No duplicar audio ni inventar canales separados |
@@ -16,7 +16,7 @@ La cámara de las gafas **Ray-Ban Meta debe estar disponible tanto en Android co
 | Editor, filtros, plantillas, Director, AutoCut | Motor JS de Claude compartido | Mismo motor JS empaquetado | Mismos comandos, idiomas, formatos y semántica |
 | LIVE/escenas/destinos | Prototipos de preflight; transmisión real pendiente | PENDIENTE | Mismo alcance de producto, no publicar desde APIs no autorizadas |
 
-**Estado real:** en Android existe actualmente el shell Java/WebView del Editor, y ahora las dependencias DAT oficiales están declaradas en Gradle. No hay sesión de gafas activa ni cámara móvil Android conectada todavía. En iOS hay más código nativo, pero tampoco se puede inferir que funcione en todas las gafas sin prueba física.
+**Estado real:** en Android existe el shell Java/WebView del Editor y una nueva pantalla Kotlin para inicializar DAT, registrarse, pedir permiso, iniciar sesión de gafas y contar cuadros de video. **No está probado en hardware**; el video aún no se representa visualmente, graba ni transmite, y la cámara móvil Android sigue pendiente. En iOS hay más código nativo, pero tampoco se puede inferir que funcione en todas las gafas sin prueba física.
 
 ## Contratos y privacidad
 - Kotlin para módulos Android nuevos cuando se justifique; no migrar Java ni JS solo para cambiar un lenguaje. Swift para funciones nativas iOS.
