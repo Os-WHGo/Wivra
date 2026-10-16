@@ -6,8 +6,88 @@
 // No navigation to a remote origin, arbitrary script injection, or payments.
 import SwiftUI
 import WebKit
+import UIKit
+import UniformTypeIdentifiers
 
-private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate {
+@MainActor
+private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate {
+    private var pendingFileSelection: (@MainActor @Sendable ([URL]?) -> Void)?
+
+    private func finishSelection(_ urls: [URL]?) {
+        guard let completion = pendingFileSelection else { return }
+        pendingFileSelection = nil
+        completion(urls)
+    }
+
+    // The editor already imports a manifest + MOV + CAF through its existing
+    // input#capFile. Use the native file chooser to provide those exact local
+    // file URLs, never clone media bytes into JS or invent a second asset format.
+    // The same delegate continues to support the normal system Files picker.
+    func webView(
+        _ webView: WKWebView,
+        runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
+    ) {
+        guard pendingFileSelection == nil,
+              frame.isMainFrame,
+              frame.request.url?.isFileURL == true,
+              let presenter = webView.window?.rootViewController else {
+            completionHandler(nil)
+            return
+        }
+        pendingFileSelection = completionHandler
+        let all = WivraLocalCaptureScanner.read().days.flatMap { $0.captures }
+        let ready = all.filter { $0.videoURL != nil }
+            .sorted { $0.recordedAt > $1.recordedAt }
+        let sheet = UIAlertController(
+            title: "Importar a Wivra",
+            message: "Elige medios de Archivos o una grabación local terminada.",
+            preferredStyle: .actionSheet
+        )
+
+        // A capture requires a manifest AND a video (and optional CAF tracks),
+        // so it is only offered for multi-file input elements.
+        if parameters.allowsMultipleSelection {
+            for item in ready.prefix(12) {
+                let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
+                sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
+                    guard let video = item.videoURL else {
+                        self?.finishSelection(nil)
+                        return
+                    }
+                    let urls = [item.manifestURL, video] + item.audioURLs
+                    self?.finishSelection(urls)
+                })
+            }
+        }
+        sheet.addAction(UIAlertAction(title: "Buscar en Archivos", style: .default) { [weak self] _ in
+            guard let self else { return }
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
+            picker.allowsMultipleSelection = parameters.allowsMultipleSelection
+            picker.delegate = self
+            presenter.present(picker, animated: true)
+        })
+        sheet.addAction(UIAlertAction(title: "Cancelar", style: .cancel) { [weak self] _ in
+            self?.finishSelection(nil)
+        })
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = webView
+            popover.sourceRect = CGRect(x: webView.bounds.midX, y: 12, width: 1, height: 1)
+        }
+        presenter.present(sheet, animated: true)
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        // Security-scoped file URLs from the document provider must be handled
+        // by the system; any inaccessible item is reported by the web editor.
+        finishSelection(urls)
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        finishSelection(nil)
+    }
+
     // A remote page must never receive the file-origin native message bridge.
     func webView(
         _ webView: WKWebView,
@@ -48,6 +128,7 @@ private struct WivraEditorWebView: UIViewRepresentable {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
+        view.uiDelegate = context.coordinator
         view.isOpaque = false
         view.backgroundColor = .black
         view.scrollView.contentInsetAdjustmentBehavior = .never
