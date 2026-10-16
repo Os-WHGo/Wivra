@@ -33,6 +33,9 @@ export function planSpeed(project, clipId, speed) {
     // Audio que «va con» este video (≥80 % de su duración dentro de él): cambia de velocidad igual y conserva su sitio relativo.
     const mine = new Set();
     for (const a of groups.audio) {
+      // Spatial overlap is not proof of linkage: a music bed can sit fully
+      // inside a video. Never retime music or unrelated audio-only assets.
+      if (a.role === 'music' || (kind.get(a.asset_id) === 'audio' && !['voice_primary', 'voice_guest'].includes(a.role))) continue;
       const alen = clipLength(a), ov = Math.min(a.start + alen, clipEnd) - Math.max(a.start, c.start);
       if (alen <= 0 || ov < 0.8 * alen) continue;
       const na = spR(speedOf(a) * ratio);
