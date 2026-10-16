@@ -189,7 +189,7 @@ body.dock .back{pointer-events:none;background:transparent}
 </head>
 <body>
 <div class="top"><button class="pill" id="bHome" type="button" title="Volver al inicio">‹ Inicio</button><span class="sp"></span>
-  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
+  <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*,image/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
 <div id="info">Ningún video elegido.</div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="shapeDefs"></defs></svg>
@@ -625,6 +625,20 @@ function probeImage(file) {     // logo, foto o GIF: no tiene duración propia; 
   });
 }
 const IMG_LEN = 3600, IMG_CLIP = 5;
+// Fotos (y GIF) en el video principal: sin <video>; se dibujan en #fxMain y el tiempo corre con el reloj de la reproducción.
+const isPhoto = (c) => !!c && (media[c.asset_id] || {}).kind === 'image';
+function photoOf(c) {      // elemento listo para dibujar (miniatura ≤1600 px para no cargar el teléfono) o null si todavía abre
+  const m = c && media[c.asset_id]; if (!m || m.kind !== 'image') return null;
+  if (!m.phEl) {
+    if (m.gif) m.phEl = m.makeEl();
+    else { const im = new Image(); im.onload = () => { const k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight)), cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(im.naturalWidth * k)); cv.height = Math.max(1, Math.round(im.naturalHeight * k)); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); m.phEl = cv; if (session) showFrame(); }; im.src = m.url; m.phEl = false; }
+  }
+  return m.phEl || null;
+}
+function makePhotoThumb(id) {      // miniatura para el bloque de la línea de tiempo y la lista de videos
+  const m = media[id]; if (!m || m.kind !== 'image' || m.photoThumb) return;
+  const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.height = 56; cv.width = Math.max(24, Math.round(56 * ((im.naturalWidth / im.naturalHeight) || 0.56))); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); m.photoThumb = cv.toDataURL('image/jpeg', 0.6); if (session) { renderTimeline(); if ($('sVids').classList.contains('on')) renderVids(); } }; im.src = m.url;
+}
 async function prepGif(id, file) {   // si es un GIF con varios fotogramas, lo decodifica para animarlo con tiempo exacto (si no, se usa como imagen fija)
   const m = media[id]; if (!m || m.kind !== 'image') return;
   try {
@@ -1010,28 +1024,30 @@ async function importSelectedFiles(files) {
   const failed = [], added = [];
   for (const f of files) {
     try {
-      const m = await probe(f); const id = 'a' + (++assetSeq);
-      media[id] = { ...m, name: f.name, thumbs: [], step: 1 }; keepFile(id, f, 'video');
+      const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
+      const m = photo ? await probeImage(f) : await probe(f); const id = 'a' + (++assetSeq);
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 }; keepFile(id, f, photo ? 'image' : 'video'); if (photo) { await prepGif(id, f); makePhotoThumb(id); }
       if (!session) session = new Session(createProject({ assets: [] }));
-      session.addAsset({ id, duration: m.duration, name: f.name }); added.push(id);
+      session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
   if (added.length) {
-    const first = !session.project.clips.length, pj = session.project, D = added.reduce((n, id) => n + media[id].duration, 0);
+    const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
     if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (k.out - k.in)])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
     const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: round2(k.start + D) }));
     let start = at; const insertedAt = at;
-    const ops = [...shifts, ...added.map(id => { const o = { op: 'add_clip', asset_id: id, start: round2(start) }; start += media[id].duration; return o; })];
+    const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: round2(start) }; start += mainLen(id); return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
     if (first) run(ops); else { const rr = edit(ops, { ripple: false }); if (!rr.ok) say('No se pudo agregar: ' + rr.message, 'bad'); }
-    if (first) useAsset(added[0], 0);
-    for (const id of added) thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    if (first && media[added[0]].kind !== 'image') useAsset(added[0], 0);
+    for (const id of added) if (media[id].kind !== 'image') thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    if (first) showFrame();
     const n = session.project.clips.length;
     $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total`;
-    say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? `${added.length} videos cargados. Revisa el orden.` : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? (added.some(id => media[id].kind === 'image') ? `Se cargaron ${added.length} archivos (videos y fotos). Revisa el orden.` : `${added.length} videos cargados. Revisa el orden.`) : media[added[0]].kind === 'image' ? 'Foto cargada (3 s). Alarga su bloque para que dure más.' : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
   if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
@@ -1062,7 +1078,7 @@ function renderVids() {
   const clips = sortedClips(session.project);
   clips.forEach((c, i) => {
     const m = media[c.asset_id], r = document.createElement('div'); r.className = 'vrow'; r.dataset.id = c.id;
-    const th = m?.thumbs?.[0]?.url;
+    const th = m?.thumbs?.[0]?.url || m?.photoThumb;
     r.innerHTML = `<div class="n">${i + 1}</div><div class="th"${th ? ` style="background-image:url(${th})"` : ''}></div><div class="nm"><b></b><span>${fmt(c.out - c.in)} s</span></div><div class="mv"><button aria-label="Subir">▲</button><button aria-label="Bajar">▼</button></div><div class="hd2" aria-label="Arrastrar">≡</div>`;
     r.querySelector('b').textContent = m ? m.name : c.asset_id;
     const [up, dn] = r.querySelectorAll('.mv button'); up.disabled = i === 0; dn.disabled = i === clips.length - 1;
@@ -1154,8 +1170,9 @@ function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if
 const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
 function showFrame() {
   const hit = clipAt(session.project, tlTime);
-  $('v').style.visibility = hit ? '' : 'hidden';   // en un hueco se ve negro
-  if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
+  $('v').style.visibility = hit && !isPhoto(hit.clip) ? '' : 'hidden';   // en un hueco se ve negro; una foto se dibuja en #fxMain
+  if (hit && isPhoto(hit.clip)) { $('v').pause(); photoOf(hit.clip); }
+  else if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
   $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
   syncOverlays();
 }
@@ -1225,15 +1242,17 @@ function renderTimeline() {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel mv' : ''); b.dataset.id = c.id;
     b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
-    const mm = media[c.asset_id], step = mm ? mm.step : 1;
-    for (const th of (mm ? mm.thumbs : [])) {
+    const mm = media[c.asset_id], step = mm ? mm.step : 1, photo = !!mm && mm.kind === 'image';
+    if (photo && mm.photoThumb) { b.style.backgroundImage = `url(${mm.photoThumb})`; b.style.backgroundSize = 'auto 100%'; b.style.backgroundRepeat = 'repeat-x'; }
+    for (const th of (photo ? [] : (mm ? mm.thumbs : []))) {
       const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
       if (left + w < 0 || left > (c.out - c.in) * pps) continue;
       const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; b.appendChild(im);
     }
-    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (photo ? '▣ ' : '') + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
+    if (photo) continue;      // una foto no tiene pista de audio
     // Pista de audio del clip: se ve debajo del video y se elige POR SEPARADO; el parlante la silencia o la activa.
     const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId && selPart === 'a' ? ' sel' : ''); ab.dataset.id = c.id;
     ab.style.left = b.style.left; ab.style.width = b.style.width; const ln = document.createElement('span'); ln.className = 'ulb'; ln.textContent = c.muted ? 'sin audio' : 'audio'; ab.appendChild(ln);
@@ -1592,6 +1611,15 @@ $('play').onclick = () => {
       $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
       wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame); return;
     }
+    if (isPhoto(hit.clip)) {                      // foto: no hay <video>; el tiempo corre con el reloj, como en un hueco, y la foto se dibuja en #fxMain
+      const now = performance.now(), dt = Math.min(0.1, (now - (gapT || now)) / 1000); gapT = now;
+      if (cur !== null) { cur = null; $('v').pause(); }
+      $('v').style.visibility = 'hidden'; photoOf(hit.clip);
+      if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
+      tlTime += dt; syncMedia();
+      $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+      wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame); return;
+    }
     gapT = 0; $('v').style.visibility = '';
     if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
     if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
@@ -1863,6 +1891,17 @@ function fltTarget() {
 }
 function fltMainRefresh() {
   const fr = $('frame'), v = $('v'), hit = session && clipAt(session.project, tlTime), f = hit && fltOf(hit.clip);
+  if (hit && isPhoto(hit.clip)) {      // foto en el video principal: se dibuja en #fxMain (con filtro si lo tiene)
+    const el = photoOf(hit.clip), cv = $('fxMain');
+    if (el) {
+      if (media[hit.clip.asset_id].gif) { try { el.currentTime = hit.assetTime; } catch {} }
+      const ew = el.videoWidth || el.width, eh = el.videoHeight || el.height, out = f ? fxRender(el, f, tlTime) : null, sw = out ? out.width : ew, sh = out ? out.height : eh;
+      if (cv.width !== sw || cv.height !== sh) { cv.width = sw; cv.height = sh; }
+      const g = cv.getContext('2d'); g.clearRect(0, 0, sw, sh); g.drawImage(out || el, 0, 0, sw, sh);
+      cv.style.opacity = v.style.opacity; cv.style.transform = v.style.transform; fr.classList.add('fxon'); return true;
+    }
+    fr.classList.remove('fxon'); return false;
+  }
   if (f && v.readyState >= 2 && v.videoWidth > 0) {
     const out = fxRender(v, f, tlTime), cv = $('fxMain');
     if (out) { if (cv.width !== out.width || cv.height !== out.height) { cv.width = out.width; cv.height = out.height; } cv.getContext('2d').drawImage(out, 0, 0); cv.style.opacity = v.style.opacity; cv.style.transform = v.style.transform; fr.classList.add('fxon'); return true; }
@@ -2019,8 +2058,9 @@ async function pzRestore(pid) {
     pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));
     $('stage').classList.add('on'); pzKey = '';
     render(); syncScroll();
-    const first = sortedClips(sn.project)[0]; if (first && media[first.asset_id]) useAsset(first.asset_id, tlTime);
-    for (const id of Object.keys(media)) if (media[id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    const first = sortedClips(sn.project)[0]; if (first && media[first.asset_id] && !isPhoto(first)) useAsset(first.asset_id, tlTime);
+    for (const id of Object.keys(media)) { if (media[id].kind === 'video') thumbQueue = thumbQueue.then(() => makeThumbs(id)); else if (media[id].kind === 'image') makePhotoThumb(id); }
+    showFrame();
     say('Proyecto reabierto.' + (r.warnings.length ? ' ' + r.warnings.join(' ') : ''), r.warnings.length ? 'bad' : 'ok');
     if (pzMissing.length) pzShowMissing();
     window.__pzRestored = true;

@@ -198,7 +198,8 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
-  const first = (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
+  const firstVideo = plan.segments.find((s) => s.type === 'clip' && media[s.clip.asset_id] && media[s.clip.asset_id].kind !== 'image');   // el cuadro 'original' sigue al primer VIDEO, no a una foto
+  const first = (firstVideo && media[firstVideo.clip.asset_id]) || (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
   const { w: W, h: H } = formatSize(project.format, first.w, first.h);
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const g = canvas.getContext('2d');
@@ -273,6 +274,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise((res) => { rec.onstop = res; });
+  // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
+  const photos = new Map();
+  const photoEl = async (id, m) => {
+    if (photos.has(id)) return photos.get(id);
+    let el = null;
+    if (m.gif) el = m.makeEl();
+    else {
+      const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
+      try { await im.decode(); el = im; } catch { im.remove(); }
+    }
+    photos.set(id, el); return el;
+  };
   const t0 = performance.now(); let cancelled = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
@@ -289,6 +302,17 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         continue;
       }
       const c = seg.clip, m = media[c.asset_id]; if (!m) throw new Error('Falta el video original de un clip.');
+      if (m.kind === 'image') {      // foto (o GIF) en la línea principal: sin audio propio; se dibuja durante `dur` s con el mismo reloj que los huecos
+        const el = await photoEl(c.asset_id, m);
+        if (!el) throw new Error(`No se pudo abrir la foto «${m.name || c.asset_id}» para exportar.`);
+        if (typeof el.currentTime === 'number' && m.gif) { try { el.currentTime = c.in; } catch { /* aún no */ } }
+        const s = performance.now();
+        while (!isCancelled()) {
+          const dt = (performance.now() - s) / 1000; if (dt >= seg.dur) break;
+          const tp = c.start + dt; audioTick(tp); drawFrame(g, W, H, el, project, tp, overlayTick(tp)); report(tp); await frame();
+        }
+        continue;
+      }
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
       if (gainNode) gainNode.gain.value = clipGain(c);
@@ -311,6 +335,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     await stopped;
     stream.getTracks().forEach((t) => t.stop());
     oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
+    photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
   }
   if (cancelled || isCancelled()) return { cancelled: true };
