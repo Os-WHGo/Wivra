@@ -2,21 +2,23 @@
 // These markers are app-private and have no network or editor dependency.
 // A dismissed choice is NOT an instruction to delete captured media.
 import Foundation
+import AVFoundation
 
 struct WivraPendingRecording: Codable, Identifiable {
-    let id: String              // original .mov filename
+    let id: String              // original .mov or audio-only .caf filename
     let createdAt: Date
     let files: [String]         // exact app-generated filenames, never arbitrary paths
 }
 
 enum WivraPendingRecordingError: LocalizedError {
-    case invalidPath, invalidSelection, missingVideo
+    case invalidPath, invalidSelection, missingVideo, missingAudio
 
     var errorDescription: String? {
         switch self {
         case .invalidPath: "La grabación contiene una ruta de archivo no permitida."
         case .invalidSelection: "No se pudo verificar la decisión de esta grabación."
         case .missingVideo: "El video pendiente no está disponible."
+        case .missingAudio: "No hay una pista CAF válida para recuperar."
         }
     }
 }
@@ -77,6 +79,90 @@ enum WivraPendingRecordingStore {
         return entry
     }
 
+    /** Stage a real, non-empty CAF when no usable Ray-Ban video was produced. */
+    @discardableResult
+    static func stageAudio(_ audioURL: URL) throws -> WivraPendingRecording {
+        let folder = try directory()
+        let audio = try checkedURL(audioURL, in: folder)
+        guard audio.lastPathComponent.range(
+            of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
+            options: .regularExpression
+        ) != nil, FileManager.default.fileExists(atPath: audio.path),
+        let caf = try? AVAudioFile(forReading: audio), caf.length > 0 else {
+            throw WivraPendingRecordingError.missingAudio
+        }
+        let entry = WivraPendingRecording(
+            id: audio.lastPathComponent, createdAt: Date(), files: [audio.lastPathComponent]
+        )
+        try JSONEncoder().encode(entry).write(
+            to: ticketURL(videoName: entry.id, folder: folder), options: [.atomic]
+        )
+        return entry
+    }
+
+    /**
+     * A process may stop after the CAF has closed but before its video was
+     * finalized. Recover only standalone, readable audio with no existing
+     * decision ticket and no reference in an already-kept v2 manifest.
+     * Never delete or reinterpret an in-progress video as a saved clip.
+     */
+    @discardableResult
+    static func recoverOrphanedAudio() -> Int {
+        guard let folder = try? directory(),
+              let urls = try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: nil
+              ) else { return 0 }
+        let claimed = Set(pending().flatMap(\.files))
+        var usedByVideo = Set<String>()
+        for json in urls where json.lastPathComponent.hasSuffix(".wivra.json") {
+            guard let data = try? Data(contentsOf: json),
+                  let manifest = try? JSONDecoder().decode(
+                    WivraCaptureManifest.self, from: data
+                  ) else { continue }
+            if let name = manifest.originalAudioFile { usedByVideo.insert(name) }
+            for track in manifest.tracks { usedByVideo.insert(track.file) }
+        }
+        var count = 0
+        for url in urls {
+            let name = url.lastPathComponent
+            guard name.range(
+                of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
+                options: .regularExpression
+            ) != nil, !claimed.contains(name), !usedByVideo.contains(name),
+            (try? checkedURL(url, in: folder)) != nil,
+            (try? stageAudio(url)) != nil else { continue }
+            count += 1
+        }
+        return count
+    }
+
+    /** Kept audio-only captures can be shared from Wivra's native catalog. */
+    static func savedAudioOnlyURLs() -> [URL] {
+        guard let folder = try? directory(),
+              let urls = try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: nil
+              ) else { return [] }
+        let claimed = Set(pending().flatMap(\.files))
+        let manifests = urls.compactMap { url -> WivraCaptureManifest? in
+            guard url.lastPathComponent.hasSuffix(".wivra.json"),
+                let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(WivraCaptureManifest.self, from: data)
+        }
+        let linked = Set(manifests.flatMap { m -> [String] in
+            (m.originalAudioFile.map { [$0] } ?? []) + m.tracks.map(\.file)
+        })
+        return urls.filter { url in
+            let name = url.lastPathComponent
+            guard name.range(of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
+                             options: .regularExpression) != nil,
+                  !claimed.contains(name), !linked.contains(name),
+                  (try? checkedURL(url, in: folder)) != nil,
+                  let caf = try? AVAudioFile(forReading: url), caf.length > 0
+            else { return false }
+            return true
+        }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
     /** Existing files can be listed after process restart without deleting them. */
     static func pending() -> [WivraPendingRecording] {
         guard let folder = try? directory(),
@@ -88,7 +174,8 @@ enum WivraPendingRecordingStore {
             .compactMap { marker -> WivraPendingRecording? in
                 guard let data = try? Data(contentsOf: marker),
                       let entry = try? JSONDecoder().decode(WivraPendingRecording.self, from: data),
-                      safeName(entry.id), entry.id.hasSuffix(".mov"),
+                      safeName(entry.id),
+                      (entry.id.hasSuffix(".mov") || entry.id.hasSuffix(".caf")),
                       marker.lastPathComponent == entry.id + suffix,
                       entry.files.contains(entry.id),
                       entry.files.allSatisfy(safeName)
@@ -151,7 +238,8 @@ enum WivraPendingRecordingStore {
 
     private static func verifiedTicket(_ entry: WivraPendingRecording) throws -> (URL, WivraPendingRecording) {
         let folder = try directory()
-        guard safeName(entry.id), entry.id.hasSuffix(".mov") else {
+        guard safeName(entry.id),
+              (entry.id.hasSuffix(".mov") || entry.id.hasSuffix(".caf")) else {
             throw WivraPendingRecordingError.invalidSelection
         }
         let marker = ticketURL(videoName: entry.id, folder: folder)
@@ -186,6 +274,20 @@ enum WivraPendingRecordingStore {
             clips.append(url)
         }
         return clips
+    }
+
+    /** Preview only an explicitly staged CAF; never publish audio to the editor. */
+    static func previewAudioURLs(_ entry: WivraPendingRecording) throws -> [URL] {
+        let (_, stored) = try verifiedTicket(entry)
+        let folder = try directory()
+        return try stored.files.filter { $0.hasSuffix(".caf") }.compactMap { name in
+            let url = try checkedURL(folder.appendingPathComponent(name), in: folder)
+            guard FileManager.default.fileExists(atPath: url.path),
+                let caf = try? AVAudioFile(forReading: url), caf.length > 0 else {
+                return nil
+            }
+            return url
+        }
     }
 
     /** Save means keep existing files in Wivra; it does NOT upload to iCloud/Photos. */
