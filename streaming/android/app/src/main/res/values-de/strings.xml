@@ -69,4 +69,16 @@
     <string name="recording_review_previous">Zurück</string>
     <string name="recording_review_next">Weiter</string>
     <string name="recording_review_disclaimer">Die Vorschau bleibt lokal. Keine Datei wird ohne deine Entscheidung gespeichert oder gelöscht.</string>
+    <string name="mobile_network_offline">Offline</string>
+    <string name="mobile_network_wifi">WLAN</string>
+    <string name="mobile_network_cellular">Mobilfunk</string>
+    <string name="mobile_network_ethernet">Ethernet</string>
+    <string name="mobile_network_vpn">VPN</string>
+    <string name="mobile_network_other">Anderer Pfad</string>
+    <string name="mobile_network_system_validated">Von Android bestätigt</string>
+    <string name="mobile_network_unverified">Von Android nicht bestätigt</string>
+    <string name="mobile_network_summary">Telefonnetz: %1$s · %2$s</string>
+    <string name="mobile_network_disclaimer">Misst NICHT die Geschwindigkeit oder die Ray-Ban-Verbindung und garantiert kein LIVE.</string>
+    <string name="mobile_network_checking">Telefonnetz wird geprüft…</string>
+    <string name="mobile_network_unavailable">Telefonnetz kann nicht geprüft werden.</string>
 </resources>
