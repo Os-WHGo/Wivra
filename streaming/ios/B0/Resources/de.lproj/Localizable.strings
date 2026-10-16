@@ -23,3 +23,13 @@
 "ios.library.title" = "Meine Aufnahmen";
 "ios.library.close" = "Schließen";
 "ios.library.refresh" = "Aktualisieren";
+"ios.record.pending_title" = "Diese Aufnahme behalten?";
+"ios.record.pending_description" = "Video und Spuren bleiben privat in Wivra, bis du entscheidest. Schließen löscht nichts.";
+"ios.record.keep" = "In Wivra behalten";
+"ios.record.dont_save" = "Nicht speichern";
+"ios.record.later" = "Später entscheiden";
+"ios.record.delete_confirm_title" = "Diese Aufnahme löschen?";
+"ios.record.delete_confirm_description" = "Zugehörige lokale Dateien werden nur nach Bestätigung gelöscht. Wivra kann keine Kopien auf LIVE-Plattformen löschen.";
+"ios.record.delete_confirm" = "Ja, Aufnahme löschen";
+"ios.record.pending_notice" = "Aufnahme wartet auf deine Entscheidung. Nicht im Editor verfügbar.";
+"ios.record.review_pending" = "Ausstehende Aufnahmen prüfen";
