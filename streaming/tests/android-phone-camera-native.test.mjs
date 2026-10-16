@@ -34,9 +34,9 @@ test('Camera and audio permissions separate and mic strictly opt-in',()=>{
   assert.match(activity,/ActivityResultContracts.RequestPermission\(\)/);
   assert.match(activity,/cameraPermission.launch\(Manifest.permission.CAMERA\)/);
   assert.match(activity,/audioPermission.launch\(Manifest.permission.RECORD_AUDIO\)/);
-  assert.match(activity,/private var micEnabled = false/);
-  assert.match(activity,/if \(micEnabled\) pending\.withAudioEnabled\(\) else pending/);
-  assert.match(activity,/if \(micEnabled && !hasPermission\(Manifest.permission.RECORD_AUDIO\)\)/);
+  assert.match(activity,/private var micMode = 0/);
+  assert.match(activity,/if \(micMode == 1\) pending\.withAudioEnabled\(\) else pending/);
+  assert.match(activity,/if \(micMode != 0 && !hasPermission\(Manifest.permission.RECORD_AUDIO\)\)/);
   assert.match(activity,/R.string.phone_camera_recording_silent/);
   assert.match(activity,/R.string.phone_camera_recording_audio/);
 });

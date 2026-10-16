@@ -120,4 +120,10 @@
     <string name="phone_camera_mic_off">Microphone: off</string>
     <string name="picker_phone_photo_named">Phone photo: %1$s</string>
     <string name="picker_phone_video_named">Phone video: %1$s</string>
+    <string name="phone_camera_mic_wav">Microphone: independent WAV</string>
+    <string name="phone_camera_recording_wav">Recording video-only MP4 and a separate WAV audio track.</string>
+    <string name="phone_camera_wav_unavailable">Could not start WAV recording. Video continues without audio.</string>
+    <string name="phone_camera_wav_failed">WAV recording failed. Review the private video before saving.</string>
+    <string name="phone_camera_wav_unusable">Pending WAV is incomplete; it will not be published as valid audio.</string>
+    <string name="picker_phone_audio_named">Wivra WAV track: %1$s</string>
 </resources>

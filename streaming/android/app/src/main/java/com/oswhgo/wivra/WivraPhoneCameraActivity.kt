@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.view.ViewGroup
 import android.widget.Button
@@ -39,7 +40,9 @@ import java.util.concurrent.Executor
  *   Delete. A network outage never blocks a local video.
  * - Photos/videos that were saved are handed to the SAME Claude editor using
  *   MainActivity's Android system content:// chooser.
- * - No LIVE publisher and no separate audio track in this component yet.
+ * - Exclusive audio choices: CameraX audio inside MP4 OR independent WAV.
+ * - WAV + video use an approximate sync timestamp; no first-frame guarantee.
+ * - Neither separate input switching nor LIVE transport is implemented here.
  */
 class WivraPhoneCameraActivity : ComponentActivity() {
     private lateinit var viewfinder: PreviewView
@@ -58,7 +61,15 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private var currentFile: File? = null
     private var recordingFinishing = false
     private var cameraFront = false
-    private var micEnabled = false
+    // 0 = silent MP4; 1 = MP4 with embedded mic; 2 = video-only MP4 + mono WAV
+    private var micMode = 0
+    private var wavRecorder: WivraPhoneWavRecorder? = null
+    private var videoStartNs = 0L
+    private var videoFinalized = false
+    private var wavFinalized = true
+    private var wavWasRequested = false
+    private var wavFailed = false
+    private var interrupted = false
     private var resumed = false
 
     private val cameraPermission = registerForActivityResult(
@@ -70,7 +81,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private val audioPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { accepted ->
-        micEnabled = accepted
+        micMode = if (accepted) 1 else 0
         updateMicLabel()
         if (!accepted) message(R.string.phone_camera_mic_denied)
     }
@@ -211,20 +222,20 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             message(R.string.phone_camera_audio_locked)
             return
         }
-        if (micEnabled) {
-            micEnabled = false
-            updateMicLabel()
-        } else if (hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            micEnabled = true
-            updateMicLabel()
-        } else {
+        if (micMode == 0 && !hasPermission(Manifest.permission.RECORD_AUDIO)) {
             audioPermission.launch(Manifest.permission.RECORD_AUDIO)
+        } else {
+            micMode = (micMode + 1) % 3
+            updateMicLabel()
         }
     }
 
     private fun updateMicLabel() {
-        micButton.setText(if (micEnabled) R.string.phone_camera_mic_on
-            else R.string.phone_camera_mic_off)
+        micButton.setText(when (micMode) {
+            1 -> R.string.phone_camera_mic_on
+            2 -> R.string.phone_camera_mic_wav
+            else -> R.string.phone_camera_mic_off
+        })
     }
 
     private fun capturePhoto() {
@@ -259,6 +270,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             recordingButton.isEnabled = false
             message(R.string.phone_camera_finishing)
             activeRecording?.stop()
+            wavRecorder?.stop()
         } else if (!recordingFinishing) {
             startRecording()
         }
@@ -273,8 +285,8 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             requireCamera()
             return
         }
-        if (micEnabled && !hasPermission(Manifest.permission.RECORD_AUDIO)) {
-            micEnabled = false
+        if (micMode != 0 && !hasPermission(Manifest.permission.RECORD_AUDIO)) {
+            micMode = 0
             updateMicLabel()
             message(R.string.phone_camera_mic_denied)
             return
@@ -289,27 +301,40 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             val pending = video.output.prepareRecording(
                 this, FileOutputOptions.Builder(privateVideo).build()
             )
-            val configured = if (micEnabled) pending.withAudioEnabled() else pending
+            val configured = if (micMode == 1) pending.withAudioEnabled() else pending
             recordingFinishing = false
+            videoFinalized = false
+            wavWasRequested = micMode == 2
+            wavFinalized = !wavWasRequested
+            wavFailed = false
+            interrupted = false
+            videoStartNs = 0L
             activeRecording = configured.start(captureExecutor) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
-                        message(if (micEnabled) R.string.phone_camera_recording_audio
-                            else R.string.phone_camera_recording_silent)
+                        videoStartNs = SystemClock.elapsedRealtimeNanos()
+                        if (wavWasRequested && !recordingFinishing) {
+                            startSidecarWav(privateVideo)
+                        } else if (wavWasRequested) {
+                            wavFinalized = true
+                            wavFailed = true
+                        }
+                        message(when {
+                            wavWasRequested && wavFailed ->
+                                R.string.phone_camera_wav_unavailable
+                            micMode == 1 -> R.string.phone_camera_recording_audio
+                            micMode == 2 -> R.string.phone_camera_recording_wav
+                            else -> R.string.phone_camera_recording_silent
+                        })
                         refreshControls()
                     }
                     is VideoRecordEvent.Finalize -> {
-                        // Keep any nonempty private partial file for human review
-                        // even when CameraX reports a write or interruption error.
+                        interrupted = event.hasError()
                         activeRecording = null
-                        recordingFinishing = false
-                        currentFile = null
-                        refreshControls()
-                        if (event.hasError())
-                            message(R.string.phone_camera_recording_interrupted)
-                        else
-                            message(R.string.phone_camera_review_pending)
-                        if (resumed) choosePendingVideo()
+                        videoFinalized = true
+                        recordingFinishing = true
+                        wavRecorder?.stop()
+                        completeRecordingWhenReady()
                     }
                 }
             }
@@ -321,6 +346,49 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             message(R.string.phone_camera_start_failed)
             refreshControls()
         }
+    }
+
+    private fun startSidecarWav(video: File) {
+        try {
+            val recorder = WivraPhoneWavRecorder(WivraPhoneMediaStore.privateWav(this, video))
+            wavRecorder = recorder
+            recorder.start { result ->
+                wavFinalized = true
+                wavFailed = !result.usable
+                if (result.usable) {
+                    try {
+                        WivraPhoneMediaStore.saveSidecarTiming(
+                            this, video, videoStartNs,
+                            result.estimatedFirstReadElapsedRealtimeNs,
+                            result.bytesWritten
+                        )
+                    } catch (_: Exception) {
+                        // Never pretend offset is measured if the sidecar record failed.
+                        wavFailed = true
+                    }
+                }
+                completeRecordingWhenReady()
+            }
+        } catch (_: Exception) {
+            wavFinalized = true
+            wavFailed = true
+            wavRecorder = null
+            message(R.string.phone_camera_wav_unavailable)
+        }
+    }
+
+    private fun completeRecordingWhenReady() {
+        if (!videoFinalized || !wavFinalized) return
+        recordingFinishing = false
+        currentFile = null
+        wavRecorder = null
+        refreshControls()
+        message(when {
+            interrupted -> R.string.phone_camera_recording_interrupted
+            wavWasRequested && wavFailed -> R.string.phone_camera_wav_failed
+            else -> R.string.phone_camera_review_pending
+        })
+        if (resumed) choosePendingVideo()
     }
 
     private fun refreshControls() {
@@ -374,8 +442,17 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             .setView(preview)
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 try {
-                    WivraPhoneMediaStore.publish(this, file)
-                    message(R.string.phone_camera_saved_to_editor)
+                    val wav = WivraPhoneMediaStore.privateWav(this, file)
+                    if (wav.exists() && !WivraPhoneMediaStore.hasUsableWav(this, file)) {
+                        message(R.string.phone_camera_wav_unusable)
+                    } else {
+                        if (WivraPhoneMediaStore.hasUsableWav(this, file)) {
+                            WivraPhoneMediaStore.publishPair(this, file)
+                        } else {
+                            WivraPhoneMediaStore.publish(this, file)
+                        }
+                        message(R.string.phone_camera_saved_to_editor)
+                    }
                 } catch (_: Exception) {
                     message(R.string.phone_camera_keep_failed)
                 }
@@ -420,6 +497,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         if (activeRecording != null) {
             recordingFinishing = true
             activeRecording?.stop()
+            wavRecorder?.stop()
         }
         super.onStop()
     }
@@ -429,6 +507,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (activeRecording != null) activeRecording?.stop()
+        wavRecorder?.stop()
         provider?.unbindAll()
         super.onDestroy()
     }

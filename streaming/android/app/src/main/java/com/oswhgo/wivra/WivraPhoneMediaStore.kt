@@ -90,7 +90,182 @@ object WivraPhoneMediaStore {
 
     fun discard(context: Context, privateVideo: File): Boolean {
         require(isWivraPrivate(context, privateVideo)) { "Not a Wivra-owned pending video" }
-        return !privateVideo.exists() || privateVideo.delete()
+        val wav = privateWav(context, privateVideo)
+        val timing = File(directory(context), privateVideo.name.removeSuffix(".mp4") + ".wivra.json")
+        val videoGone = !privateVideo.exists() || privateVideo.delete()
+        val wavGone = !wav.exists() || wav.delete()
+        val timingGone = !timing.exists() || timing.delete()
+        return videoGone && wavGone && timingGone
+    }
+
+
+    /** Private WAV sidecar with the same stem as its Wivra-owned pending MP4. */
+    fun privateWav(context: Context, video: File): File {
+        require(isWivraPrivate(context, video)) { "Not a Wivra private video" }
+        return File(directory(context), video.name.removeSuffix(".mp4") + ".wav")
+    }
+
+    fun hasUsableWav(context: Context, video: File): Boolean {
+        val wav = privateWav(context, video)
+        if (!wav.isFile || wav.length() <= 44L) return false
+        return try {
+            wav.inputStream().buffered().use { input ->
+                val header = ByteArray(12)
+                input.read(header) == 12 &&
+                    String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
+                    String(header, 8, 4, Charsets.US_ASCII) == "WAVE"
+            }
+        } catch (_: IOException) { false }
+    }
+
+    private fun insertPending(
+        context: Context, collection: Uri, name: String,
+        mime: String, folder: String, file: File
+    ): Uri {
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, mime)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, folder)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(collection, values)
+            ?: throw IOException("Could not stage capture media")
+        try {
+            resolver.openOutputStream(uri, "w")?.use { output ->
+                file.inputStream().use { input -> input.copyTo(output, 128 * 1024) }
+            } ?: throw IOException("Could not write capture media")
+            return uri
+        } catch (error: Exception) {
+            resolver.delete(uri, null, null)
+            throw error
+        }
+    }
+
+    data class SavedPair(val video: Uri, val audio: Uri)
+
+    /**
+     * Both assets stay IS_PENDING until their full contents have been copied.
+     * On failure, roll back both gallery rows and retain both private originals.
+     * MediaStore is NOT a transactional database; a process crash can leave
+     * pending items for system cleanup. Never claim system-level atomicity.
+     */
+    fun publishPair(context: Context, video: File): SavedPair {
+        require(isWivraPrivate(context, video)) { "Not an owned Wivra video" }
+        require(video.isFile && video.length() > 0L) { "Empty pending video" }
+        require(hasUsableWav(context, video)) { "No finalized WAV sidecar" }
+        val wav = privateWav(context, video)
+        val resolver = context.contentResolver
+        val name = "Wivra_Phone_" + System.currentTimeMillis() + "_" + UUID.randomUUID()
+        var videoUri: Uri? = null
+        var audioUri: Uri? = null
+        try {
+            videoUri = insertPending(
+                context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                "$name.mp4", "video/mp4", VIDEO_FOLDER, video
+            )
+            audioUri = insertPending(
+                context, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                "$name.wav", "audio/wav", "Music/Wivra/", wav
+            )
+            val visible = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+            if (resolver.update(videoUri, visible, null, null) != 1 ||
+                resolver.update(audioUri, visible, null, null) != 1) {
+                throw IOException("Could not publish complete recording")
+            }
+            val timingFile = File(directory(context),
+                video.name.removeSuffix(".mp4") + ".wivra.json")
+            // An optional private sync record never contains vocal samples.
+            // Keep it for Claude's future single-library media association.
+            try {
+                if (timingFile.exists()) {
+                    val data = org.json.JSONObject(timingFile.readText())
+                    data.put("publishedVideoUri", videoUri.toString())
+                    data.put("publishedAudioUri", audioUri.toString())
+                    timingFile.writeText(data.toString(2))
+                }
+            } catch (_: Exception) { /* media is already safely published */ }
+            video.delete()
+            wav.delete()
+            return SavedPair(videoUri, audioUri)
+        } catch (error: Exception) {
+            audioUri?.let { resolver.delete(it, null, null) }
+            videoUri?.let { resolver.delete(it, null, null) }
+            throw error
+        }
+    }
+
+    /** Only WAV files saved by Wivra itself, never scan the user's music. */
+    @JvmStatic fun latestSavedWav(context: Context): List<SavedMedia> {
+        val columns = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DISPLAY_NAME)
+        val results = mutableListOf<SavedMedia>()
+        val where = "${MediaStore.Audio.Media.RELATIVE_PATH} = ? AND " +
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? AND " +
+            "${MediaStore.Audio.Media.MIME_TYPE} = ? AND " +
+            "${MediaStore.Audio.Media.IS_PENDING} = 0 AND " +
+            "${MediaStore.Audio.Media.SIZE} > 44 AND " +
+            "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?"
+        return try {
+            context.contentResolver.query(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, columns, where,
+                arrayOf("Music/Wivra/", "$PUBLISHED_PREFIX%", "audio/wav", context.packageName),
+                "${MediaStore.Audio.Media.DATE_ADDED} DESC"
+            )?.use { cursor ->
+                val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val name = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                while (cursor.moveToNext() && results.size < MAX_RECENTS) {
+                    val title = cursor.getString(name) ?: continue
+                    if (title.startsWith(PUBLISHED_PREFIX) && title.endsWith(".wav", true)) {
+                        results.add(SavedMedia(
+                            ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                                cursor.getLong(id)), title.take(96)
+                        ))
+                    }
+                }
+            }
+            results
+        } catch (_: SecurityException) { emptyList() }
+          catch (_: IllegalArgumentException) { emptyList() }
+    }
+
+    /**
+     * Approximate timing only; first read completion and CameraX Start
+     * event do NOT mean first audio sample and first video frame timestamps.
+     */
+    fun saveSidecarTiming(
+        context: Context, video: File, videoStartNs: Long, audioReadNs: Long,
+        audioBytes: Long
+    ) {
+        require(isWivraPrivate(context, video)) { "Invalid video path" }
+        val track = org.json.JSONObject().apply {
+            put("schemaVersion", 2)
+            put("cameraSource", "android-phone-camerax")
+            put("originalVideoFile", video.name)
+            put("originalAudioFile", privateWav(context, video).name)
+            put("audioFormat", "pcm16-48000-mono-wav")
+            put("audioBytes", audioBytes)
+            put("timebase", "elapsedRealtimeNanos")
+            put("audioStartOffsetSeconds", if (videoStartNs > 0L && audioReadNs > 0L)
+                (audioReadNs - videoStartNs) / 1_000_000_000.0
+                else org.json.JSONObject.NULL)
+            put("timestampPrecision", "approximate; CameraX Start and WAV read completion")
+            put("muxedFromTrackIDs", org.json.JSONArray())
+            put("tracks", org.json.JSONArray().put(org.json.JSONObject().apply {
+                put("id", "audio-1")
+                put("kind", "audio")
+                put("role", "voice_primary")
+                put("source", "android-phone-mic")
+                put("file", privateWav(context, video).name)
+                put("channelCount", 1)
+                put("sampleRateHz", 48000)
+            }))
+        }
+        val timing = File(directory(context), video.name.removeSuffix(".mp4") + ".wivra.json")
+        val temp = File(directory(context), timing.name + ".tmp")
+        try {
+            temp.writeText(track.toString(2))
+            if (!temp.renameTo(timing)) throw IOException("Could not persist audio timing")
+        } finally { temp.delete() }
     }
 
     fun videoCaptureValues(): ContentValues = ContentValues().apply {

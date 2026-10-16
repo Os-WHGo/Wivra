@@ -120,4 +120,10 @@
     <string name="phone_camera_mic_off">Micrófono: desactivado</string>
     <string name="picker_phone_photo_named">Foto del teléfono: %1$s</string>
     <string name="picker_phone_video_named">Video del teléfono: %1$s</string>
+    <string name="phone_camera_mic_wav">Micrófono: WAV independiente</string>
+    <string name="phone_camera_recording_wav">Grabando MP4 sin audio integrado y pista WAV independiente.</string>
+    <string name="phone_camera_wav_unavailable">No se pudo iniciar el micrófono WAV. El video continúa sin audio.</string>
+    <string name="phone_camera_wav_failed">La pista WAV falló. Revisa el video privado antes de guardar.</string>
+    <string name="phone_camera_wav_unusable">El WAV pendiente no está completo; no se publicará como pista válida.</string>
+    <string name="picker_phone_audio_named">Pista WAV Wivra: %1$s</string>
 </resources>

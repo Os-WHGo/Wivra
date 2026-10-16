@@ -120,4 +120,10 @@
     <string name="phone_camera_mic_off">Mikrofon: aus</string>
     <string name="picker_phone_photo_named">Handyfoto: %1$s</string>
     <string name="picker_phone_video_named">Handyvideo: %1$s</string>
+    <string name="phone_camera_mic_wav">Mikrofon: separate WAV</string>
+    <string name="phone_camera_recording_wav">Video-MP4 ohne eingebetteten Ton und separate WAV-Spur werden aufgenommen.</string>
+    <string name="phone_camera_wav_unavailable">WAV-Start fehlgeschlagen. Video läuft ohne Audio weiter.</string>
+    <string name="phone_camera_wav_failed">WAV-Aufnahme fehlgeschlagen. Privates Video vor dem Speichern prüfen.</string>
+    <string name="phone_camera_wav_unusable">WAV ist unvollständig und wird nicht als gültiges Audio veröffentlicht.</string>
+    <string name="picker_phone_audio_named">Wivra-WAV-Spur: %1$s</string>
 </resources>
