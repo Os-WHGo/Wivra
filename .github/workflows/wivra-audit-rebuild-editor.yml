@@ -12,6 +12,13 @@ on:
       - 'app/i18n/**'
       - 'core/*.mjs'
       - '.github/workflows/wivra-audit-rebuild-editor.yml'
+  pull_request:
+    branches:
+      - chatgpt/wivra-android-wav-integrity-20261016
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - '.github/workflows/wivra-audit-rebuild-editor.yml'
   workflow_dispatch:
 permissions:
   contents: write
@@ -26,6 +33,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -36,7 +44,8 @@ jobs:
           node --test app/tests/*.test.mjs
       - name: Commit generated HTML only on audit integration branch
         run: |
-          test "$GITHUB_REF_NAME" = "chatgpt/wivra-unified-owner-20261016"
+          test "${{ github.event.pull_request.head.ref || github.ref_name }}" = "chatgpt/wivra-unified-owner-20261016"
+          test "${{ github.event.pull_request.head.repo.full_name || github.repository }}" = "Os-WHGo/Wivra"
           if ! git diff --quiet -- app/dist/agentcut.html; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
