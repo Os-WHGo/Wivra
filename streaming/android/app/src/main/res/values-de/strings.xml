@@ -8,7 +8,7 @@
     <string name="activate_video">3. Video starten</string>
     <string name="disconnect">Trennen</string>
     <string name="back_editor">Zurück zum Editor</string>
-    <string name="preview_disclaimer">Lokale Vorschau (bis zu 6 FPS, vorläufiges YUV I420). Keine Aufnahme oder Übertragung. Bildqualität und Farben müssen am Gerät geprüft werden. LIVE und getrenntes Audio sind noch nicht verfügbar.</string>
+    <string name="preview_disclaimer">Lokale Diagnosevorschau mit 6 FPS oder MP4-Aufnahme ohne Ton. Im Aufnahmemodus ist noch keine Videovorschau verfügbar; LIVE und Audio folgen.</string>
     <string name="bluetooth_denied">Bluetooth verweigert. Der Editor funktioniert weiterhin.</string>
     <string name="camera_denied">Kamerazugriff verweigert; Video startet nicht.</string>
     <string name="permission_error">DAT-Berechtigungsfehler: %1$s</string>
@@ -38,4 +38,11 @@
     <string name="photo_save_failed">Foto konnte nicht gespeichert werden: %1$s</string>
     <string name="picker_last_photo">Letztes Wivra-Ray-Ban-Foto verwenden</string>
     <string name="picker_browse_files">Dateien durchsuchen</string>
+    <string name="record_video_only">3b. Ray-Ban-Video aufnehmen (ohne Ton)</string>
+    <string name="stop_save_recording">Stoppen und MP4 speichern</string>
+    <string name="recording_wait_keyframe">Komprimiertes Video empfangen. Warten auf Keyframe…</string>
+    <string name="recording_frames">Lokale Aufnahme: %1$d Videobilder geschrieben (ohne Ton)</string>
+    <string name="recording_finalizing">MP4-Datei wird abgeschlossen…</string>
+    <string name="recording_saved">MP4 in Filme/Wivra gespeichert. Sitzung beendet.</string>
+    <string name="recording_no_video">MP4 nicht gespeichert: zu wenige Bilder oder ungültige HEVC-Daten.</string>
 </resources>
