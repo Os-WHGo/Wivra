@@ -1302,14 +1302,14 @@ function tpPreview() {
   $('tpTitleBox').style.display = t.title ? 'block' : 'none';
   const add = (txt, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = txt; info.appendChild(d); };
   add(t.desc);
-  const pl = session ? planTemplate(session.project, t.id, { title: t.title ? $('tpTitle').value : '' }) : { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  const pl = session ? planTemplate(session.project, t.id, { title: t.title ? $('tpTitle').value : '', tr: i18nTr }) : { ok: false, error: 'No hay clips en la línea de tiempo.' };
   if (!pl.ok) { add(pl.error, 'bad'); return; }
   for (const x of pl.lines) add(x, 'ln'); for (const w of pl.warnings) add(w); btn.disabled = !pl.ops.length;
 }
 $('tpList').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) { tpSel = b.dataset.id; tpPreview(); } });
 $('tpTitle').addEventListener('input', tpPreview);
 $('tpApply').onclick = () => {
-  if (!session || !tpSel) return; const t = TPL_CATALOG.find(x => x.id === tpSel); const pl = planTemplate(session.project, tpSel, { title: t && t.title ? $('tpTitle').value : '' });
+  if (!session || !tpSel) return; const t = TPL_CATALOG.find(x => x.id === tpSel); const pl = planTemplate(session.project, tpSel, { title: t && t.title ? $('tpTitle').value : '', tr: i18nTr });
   if (!pl.ok || !pl.ops.length) { tpPreview(); return; }
   const r = edit(pl.ops, { ripple: false }); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
   say('Plantilla aplicada. Puedes deshacerla.', 'ok'); renderVids(); tpPreview();

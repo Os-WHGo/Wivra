@@ -1,7 +1,7 @@
 // Plantillas de Wivra: recetas de formato + duración + look + título, hechas SOLO con operaciones normales del editor (un paso en «deshacer»).
 // Son recetas propias de estructura (no copian plantillas de otras apps ni usan su material). Lógica pura, sin DOM. — Claude
 import { clipLength, speedOf } from '../core/project.mjs';
-import { planQuickAssembly } from './quick-assembly.mjs';
+import { planQuickAssembly, qaLinkedAudioOps } from './quick-assembly.mjs';
 import { LOOK_PRESETS } from '../core/filters.mjs';
 import { MAX_TRACKS } from '../core/operations.mjs';
 
@@ -12,6 +12,9 @@ export const TPL_CATALOG = [
   { id: 'wide', name: 'Horizontal', desc: 'Horizontal 16:9 de 60 s, sin recortar los bordes.', format: { aspect: '16:9', fit: 'contain' }, targetSeconds: 60, look: null, title: true },
   { id: 'screenface', name: 'Pantalla + cara', desc: 'Vertical 9:16: el 1.er video es tu pantalla y el 2.º tu cara, en un círculo abajo a la izquierda.', format: { aspect: '9:16', fit: 'cover', safe: true }, targetSeconds: 0, look: null, title: false, special: 'screenface' },
   { id: 'collage', name: 'Collage', desc: 'Los primeros 2, 3 o 4 clips (videos o fotos) a la vez, en cuadros. Con 2 o 3: vertical 9:16, uno sobre otro; con 4: cuadrado 1:1, en cuadrícula.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'collage' },
+  { id: 'burst', name: 'Ráfaga', desc: '6 huecos de 1,5 s en vertical 9:16: tus primeros 6 clips (videos o fotos), uno tras otro, rápidos.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [1.5, 1.5, 1.5, 1.5, 1.5, 1.5], labels: [] },
+  { id: 'beforeafter', name: 'Antes y después', desc: '2 huecos de 4 s en vertical 9:16: el 1.er clip es el «Antes» y el 2.º el «Después», cada uno con su rótulo.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [4, 4], labels: ['Antes', 'Después'] },
+  { id: 'top3', name: 'Top 3', desc: '3 huecos de 4 s en vertical 9:16, en cuenta regresiva: el 1.er clip es el N.º 3, el 2.º el N.º 2 y el 3.º el N.º 1.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 0, look: null, title: false, special: 'slots', slots: [4, 4, 4], labels: ['N.º 3', 'N.º 2', 'N.º 1'] },
   { id: 'memory', name: 'Recuerdo', desc: 'Vertical 9:16 de 45 s, cálido y con grano suave.', format: { aspect: '9:16', fit: 'cover' }, targetSeconds: 45, look: 'vintage', title: true },
 ];
 export const TPL_TITLE_MAX = 60, TPL_TITLE_SECONDS = 3;
@@ -20,7 +23,7 @@ export const TPL_TITLE_MAX = 60, TPL_TITLE_SECONDS = 3;
  * planTemplate(project, id, { title }) → { ok:true, ops, lines:[…], warnings:[…] } | { ok:false, error }
  * Orden: formato → montaje (acortar y pegar) → look en todos los clips → título (si la plantilla lo lleva y se escribió uno).
  */
-export function planTemplate(project, id, { title = '' } = {}) {
+export function planTemplate(project, id, { title = '', tr = (x) => x } = {}) {
   const t = TPL_CATALOG.find((x) => x.id === id); if (!t) return { ok: false, error: 'Esa plantilla no existe.' };
   if (!project || !Array.isArray(project.clips) || !project.clips.length) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
   const ops = [], lines = [], warnings = [];
@@ -29,6 +32,7 @@ export function planTemplate(project, id, { title = '' } = {}) {
     ops.push({ op: 'set_format', aspect: t.format.aspect, fit: t.format.fit, ...(t.format.safe ? { safe: true } : {}) }); lines.push(`Formato ${t.format.aspect}${t.format.safe ? ' con zona segura para textos' : ''}`);
   }
   if (t.special === 'collage') { const cl = planCollage(project); if (!cl.ok) return cl; ops.length = 0; lines.length = 0; ops.push(...cl.formatOps, ...cl.ops); lines.push(...cl.lines); warnings.push(...cl.warnings); return { ok: true, ops, lines, warnings, template: t, after: cl.after }; }
+  if (t.special === 'slots') { const sl = planSlots(project, t, tr); if (!sl.ok) return sl; ops.length = 0; lines.length = 0; ops.push(...sl.formatOps, ...sl.ops); lines.push(...sl.lines); warnings.push(...sl.warnings); return { ok: true, ops, lines, warnings, template: t, after: sl.after }; }
   if (t.special === 'screenface') { const sf = planScreenFace(project); if (!sf.ok) return sf; ops.push(...sf.ops); lines.push(...sf.lines); warnings.push(...sf.warnings); return { ok: true, ops, lines, warnings, template: t, after: sf.after }; }
   const qa = planQuickAssembly(project, { targetSeconds: t.targetSeconds });
   if (!qa.ok) return qa;
@@ -159,4 +163,44 @@ export function planCollage(project) {
   if (otherAudio || (project.texts || []).length || (project.overlayClips || []).length) warnings.push('Los textos, capas y audios que cruzan varios clips no se mueven: revisa su tiempo.');
   warnings.push('Para oír otro cuadro: toca su capa y elige Audio.');
   return { ok: true, formatOps: fmtOps, ops, lines, warnings, after: clR(Math.max(0, ...clips.slice(n).map((c) => c.start + delta + clipLength(c)), S0 + L)) };
+}
+
+/**
+ * planSlots(project, tpl) → { ok, formatOps, ops, lines, warnings, after } | { ok:false, error }
+ * Plantilla con HUECOS: cada hueco tiene una duración fija y se llena con el clip que le toca (1.º hueco = 1.er clip de la línea principal, etc.).
+ * Un clip más largo que su hueco aporta el tramo del CENTRO; uno más corto lo deja más corto (no se alarga, salvo una foto, que dura lo del hueco).
+ * Lo que sobre de clips sigue después, sin tocar, pegado al final. Cada hueco puede llevar un rótulo (texto) al inicio. El audio que iba con cada video se recorta y se mueve con él.
+ */
+export function planSlots(project, tpl, tr = (x) => x) {
+  const kind = new Map((project.assets || []).map((a) => [a.id, a])), clips = [...project.clips].sort((a, b) => a.start - b.start), slots = tpl.slots || [];
+  if (clips.length < 1) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if (clips.some((c) => c.speed) || (project.audioClips || []).some((c) => c.speed)) return { ok: false, error: 'Hay clips en cámara lenta o rápida. Vuelve su velocidad a 1× para usar esta función.' };
+  const n = Math.min(slots.length, clips.length), ops = [], items = [], lines = [], warnings = [], fmtOps = [], f = project.format || {};
+  if (f.aspect !== tpl.format.aspect || f.fit !== tpl.format.fit) fmtOps.push({ op: 'set_format', aspect: tpl.format.aspect, fit: tpl.format.fit });
+  const isImg = (c) => (kind.get(c.asset_id) || {}).kind === 'image', maxOut = (c) => (kind.get(c.asset_id) || {}).duration ?? Infinity;
+  let t = 0, short = 0; const labelAt = [];
+  clips.forEach((c, i) => {
+    const photo = isImg(c), len = clipLength(c), d = i < n ? slots[i] : len;
+    let nin = c.in, nout = c.out;
+    if (i < n) {
+      if (photo) nout = clR(Math.min(maxOut(c), c.in + d));
+      else if (len > d + 0.005) { nin = clR(c.in + (len - d) / 2); nout = clR(Math.min(c.out, nin + d)); }
+      else if (len < d - 0.05) short++;
+      labelAt.push({ i, start: clR(t) });
+    }
+    const start = clR(t); t += nout - nin;
+    if (nin !== c.in || nout !== c.out) ops.push({ op: 'trim_clip', clip_id: c.id, in: nin, out: nout });
+    if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
+    items.push({ id: c.id, from: [c.in, c.out], to: [nin, nout], start, photo });
+  });
+  const au = qaLinkedAudioOps(project, items); ops.push(...au.ops);
+  (tpl.labels || []).forEach((lab, i) => { const h = labelAt.find((x) => x.i === i); if (h) { const dur = clR(Math.min(2, Math.max(0.5, (items[i].to[1] - items[i].to[0]) - 0.3))); ops.push({ op: 'add_text', text: tr(lab), start: clR(h.start + 0.3), duration: dur }); } });
+  lines.push(`Huecos llenos: ${n} de ${slots.length}`, `Cada hueco dura ${String(slots[0]).replace('.', ',')} s`);
+  if ((tpl.labels || []).length) lines.push(`Rótulos: ${(tpl.labels || []).slice(0, n).map(tr).join(' · ')}`);
+  if (n < slots.length) warnings.push(slots.length - n === 1 ? 'Falta 1 clip para llenar todos los huecos: agrega más videos o fotos.' : `Faltan ${slots.length - n} clips para llenar todos los huecos: agrega más videos o fotos.`);
+  if (clips.length > n) warnings.push(clips.length - n === 1 ? 'Sobra 1 clip: sigue después de los huecos, sin cambios.' : `Sobran ${clips.length - n} clips: siguen después de los huecos, sin cambios.`);
+  if (short) warnings.push('Algún video dura menos que su hueco: queda más corto.');
+  if (au.linked) warnings.push('El audio que iba con cada video se recortó y se movió junto con él.');
+  if ((project.overlayClips || []).length || au.other || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos que ya había no se mueven: revisa su tiempo.');
+  return { ok: true, formatOps: fmtOps, ops, lines, warnings, after: clR(t) };
 }
