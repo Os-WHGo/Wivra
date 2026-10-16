@@ -14,6 +14,7 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['el volumen parejo al exportar', 'async function loudnessPlan('],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
   ['el estilo de los textos en la vista previa', 'function renderTexts()'],
   ['la hoja de estilo de texto (acoplada abajo, sin tapar el video)', "const DOCKS = ['sFilt', 'sFx', 'sOver', 'sTxStyle'];"],

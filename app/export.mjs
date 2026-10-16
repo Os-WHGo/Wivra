@@ -234,7 +234,7 @@ export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what 
 export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0 }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
@@ -250,11 +250,14 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
   document.body.appendChild(ev);
 
-  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null;
+  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null, bus = null;
   const stream = canvas.captureStream(fps);
   try {
     ac = new AC(); await ac.resume().catch(() => {});
-    dest = ac.createMediaStreamDestination(); gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(dest);
+    dest = ac.createMediaStreamDestination(); bus = dest;
+    // Volumen parejo (opcional): una sola ganancia fija sobre toda la mezcla, medida antes de grabar (app/loudness.mjs). Sin compresor ni limitador.
+    if (Number.isFinite(loudnessGainDb) && Math.abs(loudnessGainDb) >= 0.05) { const master = ac.createGain(); master.gain.value = 10 ** (Math.max(-12, Math.min(12, loudnessGainDb)) / 20); master.connect(dest); bus = master; }
+    gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(bus);
     dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
   } catch { ac = null; /* sin audio: se avisa al final */ }
   const hasAudio = stream.getAudioTracks().length > 0;
@@ -283,7 +286,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(el);
     try {
       await Promise.race([once(el, 'loadedmetadata'), once(el, 'error').then(() => { throw new Error('no se pudo leer'); }), new Promise((_, no) => setTimeout(() => no(new Error('tardó demasiado')), 10000))]);
-      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(dest); } else el.muted = true;
+      if (ac && dest && !c.muted && clipGain(c) > 0) { const gn = ac.createGain(); gn.gain.value = clipGain(c); ac.createMediaElementSource(el).connect(gn); gn.connect(bus); } else el.muted = true;
       oList.push({ el, c });
     } catch { el.remove(); skippedOverlay.push(c.id); }
   }
@@ -307,7 +310,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(dest); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
     }
   };
 

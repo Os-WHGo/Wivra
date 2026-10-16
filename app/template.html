@@ -481,12 +481,15 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sExp"><h2>Exportar video</h2>
   <p class="m" id="expInfo"></p>
   <p class="m" id="expLong" style="display:none">Es un video largo: para que el archivo no sea enorme, se baja un poco la calidad.</p>
+  <label for="expLoud" style="display:block;margin-top:8px">Volumen del video</label>
+  <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
+  <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
   <button id="expGo" class="btn">Empezar a exportar</button>
   <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
     <button id="expCancel" class="btn sec">Cancelar</button></div>
   <div id="expDone" style="display:none"><video id="expVid" controls playsinline style="width:100%;max-height:38dvh;border-radius:8px;background:#000;margin-top:10px"></video>
     <button id="expShare" class="btn">Guardar o compartir</button><a id="expDl" class="btn sec" style="text-decoration:none">Descargar archivo</a></div>
-  <div id="expMsg"></div></div>
+  <div id="expMsg"></div><p class="m" id="expLoudDone"></p></div>
 <script>
 /*__CORE__*/
 const $ = (id) => document.getElementById(id);
@@ -1179,17 +1182,20 @@ $('qaApply').onclick = () => {
 };
 /* Quitar silencios (app/silence.mjs): se lee el volumen de cada video UNA vez (en el teléfono) y se guarda solo un resumen; cambiar la sensibilidad es instantáneo. */
 let siLevel = 'normal', siBusy = false; const siEnv = new Map();      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
+async function loadPcm16(assetId) {      // sonido de un medio (izquierda y derecha) a 16 kHz (null si no se puede leer); se usa para medir pausas y volumen
+  const AC = window.AudioContext || window.webkitAudioContext; let f = mediaFiles[assetId];
+  if (!f && media[assetId] && media[assetId].url) { try { f = await (await fetch(media[assetId].url)).blob(); } catch { f = null; } }
+  if (!AC || !f || f.size > SPLIT_MAX_BYTES * 4) return null;
+  const ctx = new AC();
+  try {
+    const ab = await f.arrayBuffer(), buf = await new Promise((ok, no) => { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.catch) p.catch(no); });
+    const chans = []; for (let ch = 0; ch < buf.numberOfChannels; ch++) chans.push(buf.getChannelData(ch));
+    return pcmFromChannels(chans, buf.sampleRate);
+  } catch { return null; } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch {} }
+}
 async function siAnalyze(assetId) {
   if (siEnv.has(assetId)) return siEnv.get(assetId);
-  const AC = window.AudioContext || window.webkitAudioContext, f = mediaFiles[assetId]; let res = null;
-  if (AC && f && f.size <= SPLIT_MAX_BYTES * 4) {
-    const ctx = new AC();
-    try {
-      const ab = await f.arrayBuffer(), buf = await new Promise((ok, no) => { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.catch) p.catch(no); });
-      const mono = new Float32Array(buf.length); for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
-      res = envelopeFromSamples(mono, buf.sampleRate);
-    } catch { res = null; } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch {} }
-  }
+  const pcm = await loadPcm16(assetId), res = pcm ? envelopeFromSamples(monoOf(pcm), pcm.rate) : null;
   siEnv.set(assetId, res); return res;
 }
 function siCuts() {          // pausas de cada video de la línea principal, con el nivel elegido
@@ -1776,15 +1782,30 @@ $('bExp').onclick = () => {
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
-  $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
+  $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
 $('expCancel').onclick = () => { expCancel = true; };
+try { const v = localStorage.getItem('wivra.loud'); if (v && LOUD_LEVELS[v]) $('expLoud').value = v; } catch {}
+$('expLoud').addEventListener('change', () => { try { localStorage.setItem('wivra.loud', $('expLoud').value); } catch {} });
+/* Volumen parejo: se mide la mezcla (app/loudness.mjs) antes de grabar; devuelve la ganancia en dB o null (con el motivo en `why`). */
+async function loudnessPlan(project, level) {
+  const target = LOUD_LEVELS[level] && LOUD_LEVELS[level].target; if (target == null) return null;
+  const ids = [...new Set([...project.clips, ...(project.overlayClips || []), ...(project.audioClips || [])].map(c => c.asset_id))]; const cache = new Map();
+  for (const id of ids) { const a = project.assets.find(x => x.id === id); if (!a || a.kind === 'image') continue; cache.set(id, await loadPcm16(id)); }
+  const mix = buildMix(project, id => cache.get(id)); cache.clear();
+  if (mix.missing.length) return { why: 'No pude leer el sonido de algún video: se exporta con el volumen original.' };
+  const pl = planLoudness({ lufs: integratedLoudness(mix.channels, mix.rate), peak: samplePeak(mix.channels) }, target);
+  return pl.ok ? pl : { why: 'No hay sonido que medir: se exporta con el volumen original.' };
+}
 $('expGo').onclick = async () => {
   if (expBusy) return; expBusy = true; expCancel = false; stopPlayIfAny();
   $('expGo').style.display = 'none'; $('expBar').style.display = 'block'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
   try {
-    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel,
+    let loud = null; const level = $('expLoud').value;
+    if (level !== 'off') { $('expMsg').className = 'm'; $('expMsg').textContent = 'Midiendo el volumen…'; try { loud = await loudnessPlan(session.project, level); } catch { loud = { why: 'No se pudo medir el volumen: se exporta con el volumen original.' }; } $('expMsg').textContent = ''; }
+    if (expCancel) { $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
+    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
@@ -1800,6 +1821,7 @@ $('expGo').onclick = async () => {
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
     $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expLoudDone').textContent = !loud ? '' : (loud.ok ? (Math.abs(loud.gainDb) < 0.05 ? 'Volumen: ya estaba cerca del objetivo, no se cambió.' : `Volumen ajustado ${loud.gainDb > 0 ? '+' : ''}${loud.gainDb} dB (de ${loud.before} a ${loud.after} LUFS).`) + (loud.limitedByPeak ? ' ' + loud.note : '') : loud.why);
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';
     $('expMsg').className = 'bad'; $('expMsg').textContent = 'No se pudo exportar: ' + e.message;
