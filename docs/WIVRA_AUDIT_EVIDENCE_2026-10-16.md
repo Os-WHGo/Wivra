@@ -118,3 +118,9 @@ Comparación GitHub **`chatgpt/wivra-unified-owner-20261016...claude/beta-editor
 - `app/build.mjs` incluye el módulo de música para que el HTML de editor pueda usarlo: commit `1102143`. La interfaz de selección de pistas **aún no está conectada**. No afirmar que la música ya está disponible al usuario.
 - Workflow existente `wivra-audit-rebuild-editor.yml` reconstruye el HTML y ejecuta pruebas en push a la rama; confirmar que el bot haya podido actualizar `app/dist/agentcut.html` y que el ensamblaje integral pase antes de anunciar beta.
 - La rama de Claude se conserva intacta. Whisper y plantillas especiales permanecen pendientes de integración y revisión.
+
+## Integración selectiva ejecutada · plantillas Claude
+- `app/templates.mjs` fusionado **por secciones**: catálogo de 10 plantillas, planificadores `collage` y `slots`, y rutas correspondientes en `planTemplate`. Conservados imports, pantalla+cara y montaje previo. Commit `ab3e0a3`.
+- Pruebas de Claude recuperadas en `app/tests/collage.test.mjs` y `app/tests/slots.test.mjs`: commits `84aba3f` y `ac20fe7`. La rama de Claude sigue intacta.
+- **No declarar UI completa:** `app/template.html` no ha incorporado aún los controles de las plantillas nuevas. **No declarar tests verdes:** falta confirmación de ejecución CI, HTML generado y hardware.
+- Siguiente: conectar catálogo y biblioteca musical a interfaz única, reconstruir bundle, corregir CI; luego Whisper con hash de modelos y validación de worker.
