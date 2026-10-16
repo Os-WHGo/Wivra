@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">Yes, delete</string>
     <string name="recording_discarded">Temporary recording deleted.</string>
     <string name="recording_delete_failed">Could not delete the temporary file. It remains available.</string>
+    <string name="recording_frames_checkpoints">Recording: %1$d frames, %2$d protected MP4 segments.</string>
+    <string name="recording_pending_multiple_parts">This recording has %1$d independent MP4 segments. They have not yet been merged into one file.</string>
+    <string name="recording_partially_saved">Saved %1$d of %2$d segments. The remaining segments are still pending.</string>
 </resources>

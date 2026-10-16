@@ -121,7 +121,29 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
     // finishToPending + publishPending path instead.
     fun finishAndSave(): Uri? = finishToPending()?.let { publishPending(context, it) }
 
+    /** One video session can include multiple independently playable MP4 parts. */
+    data class PendingRecording(val id: String, val parts: List<File>)
+
     companion object {
+        private val partNamePattern =
+            Regex("""^(wivra_rayban_[0-9a-f]{32})_part[0-9]{4}\.mp4$""")
+
+        /**
+         * Group checkpointed files by recording session. Legacy single MP4s
+         * remain independent recordings; nothing is silently merged or erased.
+         */
+        fun listPendingRecordings(context: Context): List<PendingRecording> =
+            listPending(context)
+                .groupBy { file ->
+                    partNamePattern.matchEntire(file.name)?.groupValues?.get(1) ?: file.name
+                }
+                .map { (id, files) ->
+                    PendingRecording(id, files.sortedBy { it.name })
+                }
+                .sortedByDescending { recording ->
+                    recording.parts.maxOfOrNull { it.lastModified() } ?: 0L
+                }
+
         private fun pendingDir(context: Context): File =
             File(context.filesDir, "wivra_pending_videos").apply {
                 if (!exists() && !mkdirs()) throw IOException("Cannot create pending recordings")

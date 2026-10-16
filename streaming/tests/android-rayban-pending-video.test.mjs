@@ -13,15 +13,15 @@ test('video must finish privately before user opts into gallery storage', () => 
   assert.doesNotMatch(recorder, /File\.createTempFile\([^\n]*context\.cacheDir/);
   assert.match(recorder, /fun finishToPending\(\): File\?/);
   assert.match(activity, /val pending = withContext\(Dispatchers\.IO\) \{ recorder\?\.finishToPending\(\) \}/);
-  assert.match(activity, /WivraHevcMp4Recorder\.publishPending\(applicationContext, pending\)/);
+  assert.match(activity, /WivraHevcMp4Recorder\.publishPending\(applicationContext, part\)/);
   assert.match(recorder, /local\.delete\(\)\s*\n\s*uri/);
 });
 
 test('no automatic deletion on dismiss and explicit two-step discard', () => {
   assert.match(activity, /private fun offerPendingVideo\(\)/);
   assert.match(activity, /\.setNegativeButton\(R\.string\.recording_discard\)[\s\S]*?confirmDiscardPending\(pending\)/);
-  assert.match(activity, /private fun confirmDiscardPending\(pending: File\)/);
-  assert.match(activity, /WivraHevcMp4Recorder\.discardPending\(applicationContext, pending\)/);
+  assert.match(activity, /private fun confirmDiscardPending\(pending: WivraHevcMp4Recorder\.PendingRecording\)/);
+  assert.match(activity, /WivraHevcMp4Recorder\.discardPending\(applicationContext, part\)/);
   assert.match(activity, /\.setOnDismissListener \{ pendingDialogVisible = false \}/);
   assert.match(recorder, /isPending\(context, local\) && local\.delete\(\)/);
 });

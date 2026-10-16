@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">Ja, löschen</string>
     <string name="recording_discarded">Temporäre Aufnahme gelöscht.</string>
     <string name="recording_delete_failed">Löschen fehlgeschlagen. Die Aufnahme bleibt erhalten.</string>
+    <string name="recording_frames_checkpoints">Aufnahme: %1$d Bilder, %2$d geschützte MP4-Teile.</string>
+    <string name="recording_pending_multiple_parts">Diese Aufnahme hat %1$d eigenständige MP4-Teile. Sie sind noch nicht zu einer Datei zusammengefügt.</string>
+    <string name="recording_partially_saved">%1$d von %2$d Teilen gespeichert. Die übrigen bleiben vorgemerkt.</string>
 </resources>

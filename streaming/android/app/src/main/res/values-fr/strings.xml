@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">Oui, supprimer</string>
     <string name="recording_discarded">Enregistrement temporaire supprimé.</string>
     <string name="recording_delete_failed">Suppression impossible. Le fichier temporaire est conservé.</string>
+    <string name="recording_frames_checkpoints">Enregistrement : %1$d images, %2$d segments MP4 protégés.</string>
+    <string name="recording_pending_multiple_parts">Cet enregistrement contient %1$d segments MP4 indépendants. Ils ne sont pas encore réunis en un seul fichier.</string>
+    <string name="recording_partially_saved">%1$d segments sur %2$d enregistrés. Les autres restent en attente.</string>
 </resources>
