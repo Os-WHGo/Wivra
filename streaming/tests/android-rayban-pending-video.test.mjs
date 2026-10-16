@@ -8,6 +8,8 @@ const activity = read('../android/app/src/main/java/com/oswhgo/wivra/WivraMetaPr
 
 test('video must finish privately before user opts into gallery storage', () => {
   assert.match(recorder, /File\(context\.filesDir, "wivra_pending_videos"\)/);
+  assert.match(recorder, /File\.createTempFile\("wivra_rayban_", "\.writing"/);
+  assert.match(recorder, /local\.renameTo\(ready\)/);
   assert.doesNotMatch(recorder, /File\.createTempFile\([^\n]*context\.cacheDir/);
   assert.match(recorder, /fun finishToPending\(\): File\?/);
   assert.match(activity, /val pending = withContext\(Dispatchers\.IO\) \{ recorder\?\.finishToPending\(\) \}/);
