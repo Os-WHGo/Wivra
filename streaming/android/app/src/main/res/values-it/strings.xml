@@ -61,4 +61,12 @@
     <string name="recording_frames_checkpoints">Registrazione: %1$d fotogrammi, %2$d segmenti MP4 protetti.</string>
     <string name="recording_pending_multiple_parts">Questa registrazione contiene %1$d segmenti MP4 separati. Non sono ancora uniti in un unico file.</string>
     <string name="recording_partially_saved">Salvati %1$d segmenti su %2$d. Gli altri restano in attesa.</string>
+    <string name="recording_review_video">Rivedi video</string>
+    <string name="recording_review_title">Rivedi registrazione in attesa</string>
+    <string name="recording_review_part">Segmento %1$d di %2$d</string>
+    <string name="recording_review_close">Chiudi anteprima</string>
+    <string name="recording_review_unavailable">Impossibile riprodurre questo segmento.</string>
+    <string name="recording_review_previous">Precedente</string>
+    <string name="recording_review_next">Successivo</string>
+    <string name="recording_review_disclaimer">L’anteprima rimane locale. Nessun file viene conservato o cancellato senza una tua scelta.</string>
 </resources>
