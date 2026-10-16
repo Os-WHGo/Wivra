@@ -326,6 +326,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sSpeed"><h2>Velocidad</h2><p class="m" id="spInfo">Elige un video, una capa o un audio en la línea de tiempo.</p>
   <div class="chips" id="spChips" role="group" aria-label="Velocidad"></div>
+  <label class="m" for="spAll"><input type="checkbox" id="spAll"> Aplicar a todos los videos (un solo paso para deshacer)</label>
   <p class="m more">1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre.</p>
   <p class="m more" id="spNote" style="display:none">Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip.</p>
   <p class="m" id="spOut" role="status"></p>
@@ -972,12 +973,13 @@ $('bSpeed').onclick = () => { $('spOut').textContent = ''; spSync(); openSheet('
 $('spDone').onclick = closeSheets;
 $('spChips').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.disabled || !selId) return;
-  const plan = planSpeed(session.project, selId, Number(b.dataset.v));
+  const plan = $('spAll').checked ? planSpeedAll(session.project, Number(b.dataset.v)) : planSpeed(session.project, selId, Number(b.dataset.v));
   if (!plan.ok) { $('spOut').textContent = plan.error; say(plan.error, 'bad'); return; }
   if (!plan.ops.length) { $('spOut').textContent = plan.warnings[0] || ''; return; }
   stopPlayIfAny(); const r = edit(plan.ops, { ripple: false });
   if (!r.ok) { $('spOut').textContent = 'No se pudo: ' + r.message; say('No se pudo: ' + r.message, 'bad'); return; }
-  $('spOut').textContent = `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).` + (plan.warnings.length ? ' ' + plan.warnings.join(' ') : '');
+  $('spOut').textContent = $('spAll').checked ? `Velocidad ${speedLabel(Number(b.dataset.v))} aplicada a ${plan.count} videos.` : `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).`;
+  if (plan.warnings.length) $('spOut').textContent += ' ' + plan.warnings.join(' ');
   spSync(); syncMedia();
 });
 $('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
