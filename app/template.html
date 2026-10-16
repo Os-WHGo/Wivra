@@ -616,19 +616,32 @@ function run(ops) {
   return r;
 }
 
+const PROBE_MS = 30000;      // abrir los datos de un archivo: si el teléfono no responde en tanto (archivo en iCloud, dañado), se rinde en vez de dejar la app esperando para siempre
 function probe(file) {          // lee duración y tamaño de un archivo sin tocar el video principal
   return new Promise((res, rej) => {
-    const url = URL.createObjectURL(file), t = document.createElement('video');
-    t.muted = true; t.playsInline = true; t.preload = 'metadata'; t.src = url;
-    const fail = () => { const e = t.error, cod = { 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible' }[e && e.code] || 'desconocido'; URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}, ${(file.size / 1048576).toFixed(1)} MB): ${cod}${e && e.message ? ' (' + e.message + ')' : ''}`)); };
-    t.onerror = fail; t.onloadedmetadata = () => isFinite(t.duration) ? res({ url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }) : fail();
+    const url = URL.createObjectURL(file), t = document.createElement('video'); let done = false;
+    t.muted = true; t.playsInline = true; t.preload = 'metadata';
+    const fin = (f, v) => { if (done) return; done = true; clearTimeout(timer); t.onerror = t.onloadedmetadata = null; try { t.removeAttribute('src'); t.load(); } catch {} f(v); };      // se suelta el lector: el teléfono solo deja abrir pocos a la vez
+    const what = () => `“${file.name}” (${file.type || 'sin tipo'}, ${(file.size / 1048576).toFixed(1)} MB)`;
+    const fail = (why) => { const e = t.error, cod = why || ({ 1: 'cancelado', 2: 'red/lectura', 3: 'no se pudo decodificar', 4: 'formato no compatible. Prueba con un video .mp4 o .mov' }[e && e.code] || 'desconocido') + (e && e.message ? ' (' + e.message + ')' : ''); URL.revokeObjectURL(url); fin(rej, new Error(`${what()}: ${cod}`)); };
+    const timer = setTimeout(() => fail('tardó demasiado en abrirse (¿está en iCloud o es muy pesado?). Prueba otra vez'), PROBE_MS);
+    t.onerror = () => fail();
+    t.onloadedmetadata = () => {
+      if (!isFinite(t.duration)) return fail();
+      if (t.duration < 0.1) return fail('dura menos de 0.1 s');
+      const r = { url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }; fin(res, r);
+    };
+    t.src = url;
   });
 }
 function probeImage(file) {     // logo, foto o GIF: no tiene duración propia; se le da una larga y el clip se corta a 5 s al agregarlo
   return new Promise((res, rej) => {
-    const url = URL.createObjectURL(file), im = new Image();
-    im.onload = () => res({ url, duration: IMG_LEN, w: im.naturalWidth, h: im.naturalHeight });
-    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): este navegador no puede abrir esa imagen`)); }; im.src = url;
+    const url = URL.createObjectURL(file), im = new Image(); let done = false;
+    const timer = setTimeout(() => fail('tardó demasiado en abrirse. Prueba otra vez'), PROBE_MS);
+    const heic = /\.(heic|heif)$/i.test(file.name) || /heic|heif/i.test(file.type || '');
+    const fail = (why) => { if (done) return; done = true; clearTimeout(timer); im.onload = im.onerror = null; URL.revokeObjectURL(url); rej(new Error(`“${file.name}” (${file.type || 'sin tipo'}): ${why || 'este navegador no puede abrir esa imagen'}${heic ? '. Es una foto HEIC: en el iPhone, Ajustes → Cámara → Formatos → «Más compatible», o compártela como JPEG' : ''}`)); };
+    im.onload = () => { if (done) return; if (!(im.naturalWidth > 0 && im.naturalHeight > 0)) return fail('la imagen está vacía'); done = true; clearTimeout(timer); res({ url, duration: IMG_LEN, w: im.naturalWidth, h: im.naturalHeight }); };
+    im.onerror = () => fail(); im.src = url;
   });
 }
 const IMG_LEN = 3600, IMG_CLIP = 5;
@@ -1025,8 +1038,10 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
 let loading = false;
+const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
   if (!files.length || loading) return;
+  let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
   for (const f of files) {
@@ -1057,7 +1072,8 @@ async function importSelectedFiles(files) {
     say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? (added.some(id => media[id].kind === 'image') ? `Se cargaron ${added.length} archivos (videos y fotos). Revisa el orden.` : `${added.length} videos cargados. Revisa el orden.`) : media[added[0]].kind === 'image' ? 'Foto cargada (3 s). Alarga su bloque para que dure más.' : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
-  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
+  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + (capNote ? '\n' + capNote : '') + '\nNavegador: ' + navigator.userAgent, 'bad');
+  else if (capNote) say(capNote, 'bad');      // al final, para que no lo tape el mensaje de «cargados»
   loading = false;
 }
 $('file').addEventListener('change', async () => {
