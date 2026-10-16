@@ -35,9 +35,11 @@ export function analyzeRhythm(project) {
   for (const c of mains) { if (c.start - cursor > RH.gap) gaps.push({ at: cursor, secs: c.start - cursor }); cursor = Math.max(cursor, endOf(c)); }
   group(gaps, 'gap', 'warn', (g) => `Hay un hueco negro de ${rhR(g.secs)} s en ${rhClock(g.at)}.`, (n) => `Y ${n} huecos negros más.`);
 
-  // 2. Música o capas que pasan del último video (el video exportado queda negro ahí).
-  const tailOf = [...audio.map((c) => ({ c, what: 'El audio' })), ...overlays.map((c) => ({ c, what: 'Una capa' }))].filter((x) => endOf(x.c) - mainEnd > RH.tail).sort((a, b) => endOf(b.c) - endOf(a.c))[0];
-  if (tailOf) add('warn', 'tail', `${tailOf.what} sigue ${rhR(endOf(tailOf.c) - mainEnd)} s después del último video: el resultado termina en negro.`, mainEnd);
+  // 2. Capas que pasan del último video (el video exportado queda negro ahí) y música que pasa (se corta con un fundido al exportar).
+  const tailOf = overlays.filter((c) => endOf(c) - mainEnd > RH.tail).sort((a, b) => endOf(b) - endOf(a))[0];
+  if (tailOf) add('warn', 'tail', `Una capa sigue ${rhR(endOf(tailOf) - mainEnd)} s después del último video: el resultado termina en negro.`, mainEnd);
+  const layerEnd = Math.max(mainEnd, ...overlays.map(endOf)), musicTail = audio.filter((c) => endOf(c) - layerEnd > RH.tail).sort((a, b) => endOf(b) - endOf(a))[0];
+  if (musicTail) add('tip', 'audio-tail', `El audio sigue ${rhR(endOf(musicTail) - layerEnd)} s después del final del video: se corta con un fundido al exportar. Si quieres otro final, acórtalo o muévelo.`, layerEnd);
 
   // 3. Textos que no da tiempo a leer.
   const reads = texts.map((t) => ({ t, secs: t.end - t.start, at: t.start })).filter(({ t, secs }) => secs < RH.minTextSeconds || String(t.text).length / Math.max(secs, 0.01) > RH.maxCps);

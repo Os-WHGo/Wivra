@@ -11,6 +11,14 @@ test('plan: aviso si hay texto después del final', () => {
   assert.equal(exportPlan(P([{ id: 'a', asset_id: 'a', in: 0, out: 2, start: 0 }], [{ text: 'x', start: 1, end: 9 }])).textBeyondEnd, true);
   assert.equal(exportPlan(P([{ id: 'a', asset_id: 'a', in: 0, out: 2, start: 0 }], [{ text: 'x', start: 0, end: 2 }])).textBeyondEnd, false);
 });
+test('plan: la música que pasa del final NO alarga el video (se corta); las capas sí cuentan', () => {
+  const clip = { id: 'a', asset_id: 'a', in: 0, out: 4, start: 0 };
+  let p = exportPlan({ ...P([clip]), audioClips: [{ id: 'u1', asset_id: 'm', in: 0, out: 30, start: 0 }] });
+  assert.equal(p.total, 4); assert.equal(p.audioCut, 26); assert.deepEqual(p.segments.map((s) => s.type), ['clip']);
+  p = exportPlan({ ...P([clip]), overlayClips: [{ id: 'o1', asset_id: 'v', in: 0, out: 6, start: 0 }], audioClips: [{ id: 'u1', asset_id: 'm', in: 0, out: 30, start: 0 }] });
+  assert.equal(p.total, 6); assert.equal(p.audioCut, 24);
+  p = exportPlan({ ...P([]), audioClips: [{ id: 'u1', asset_id: 'm', in: 0, out: 5, start: 0 }] }); assert.equal(p.total, 5);
+});
 test('tamaño: respeta la forma, máx 1080 lado corto, pares', () => {
   assert.deepEqual(outputSize(2160, 3840), { w: 1080, h: 1920 });
   assert.deepEqual(outputSize(720, 1281), { w: 720, h: 1282 });

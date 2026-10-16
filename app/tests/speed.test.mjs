@@ -73,7 +73,7 @@ test('planSpeed: capa y audio solo cambian su velocidad; fotos y velocidades fue
 });
 test('exportación: el plan, el audio, las capas y los efectos siguen el tiempo de la línea', () => {
   const p = applyBatch(base(), [{ op: 'set_clip_speed', clip_id: 'c1', speed: 2 }, { op: 'set_clip_speed', clip_id: 'u3', speed: 2 }, { op: 'move_clip', clip_id: 'c2', start: 5 }]).project;
-  const plan = exportPlan(p); assert.equal(plan.segments[0].dur, 5); assert.equal(plan.total, 16, 'la música llega hasta 16 s');
+  const plan = exportPlan(p); assert.equal(plan.segments[0].dur, 5); assert.equal(plan.total, 13, 'el video termina en 13 s'); assert.equal(plan.audioCut, 3, 'la música que pasa (3 s) se corta');
   const a = audioStartAt(p.audioClips[0], 1); assert.deepEqual([a.offset, a.dur, a.rate], [2, 8, 2]);
   assert.equal(audioStartAt(p.audioClips[0], 5.1), null);
   const o = applyBatch(p, [{ op: 'add_overlay_clip', asset_id: 'a2', start: 2, in: 2, out: 6, track: 1 }, { op: 'set_clip_speed', clip_id: 'o' + p.nextId, speed: 0.5 }]); assert.ok(o.ok, JSON.stringify(o));

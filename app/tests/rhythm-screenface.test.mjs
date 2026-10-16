@@ -29,11 +29,11 @@ test('ritmo: un corte en los primeros 3 s evita el aviso de gancho; un texto den
   let p = mk([2, 11]); assert.ok(!codes(analyzeRhythm(p)).includes('hook-cut'));
   p = ok(p, [{ op: 'add_text', text: 'Mira', start: 1, duration: 2 }, { op: 'add_text', text: 'Dato', start: 7, duration: 2 }]); assert.ok(!codes(analyzeRhythm(p)).includes('long'));
 });
-test('ritmo: hueco negro y música que pasa del final son avisos (warn) y van primero', () => {
+test('ritmo: el hueco negro es aviso (warn) y va primero; la música que pasa del final es solo una guía (tip)', () => {
   let p = mk([5, 5, 5]); p = ok(p, [{ op: 'move_clip', clip_id: p.clips[1].id, start: 7 }, { op: 'move_clip', clip_id: p.clips[2].id, start: 12 }]);
   p = { ...p, assets: [...p.assets, { id: 'm1', kind: 'audio', duration: 40, name: 'm.mp3' }] }; p = ok(p, [{ op: 'add_audio_clip', asset_id: 'm1', start: 0, in: 0, out: 30 }]);
   const r = analyzeRhythm(p); assert.equal(r.items[0].level, 'warn'); const gap = r.items.find((i) => i.code === 'gap'); assert.ok(gap && /2 s/.test(gap.text) && gap.at === 5, JSON.stringify(gap));
-  assert.ok(codes(r).includes('tail'));
+  assert.ok(!codes(r).includes('tail')); const at = r.items.find((i) => i.code === 'audio-tail'); assert.ok(at && at.level === 'tip' && /se corta/.test(at.text), JSON.stringify(at));
 });
 test('ritmo: texto que no da tiempo a leer (muy corto o muy largo para su duración)', () => {
   let p = mk([4, 4, 4]); p = ok(p, [{ op: 'add_text', text: 'Hola', start: 1, duration: 0.6 }, { op: 'add_text', text: 'Esta frase tan larga no se alcanza a leer', start: 4, duration: 1.5 }, { op: 'add_text', text: 'Bien', start: 8, duration: 2 }]);

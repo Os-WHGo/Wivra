@@ -15,10 +15,13 @@ export function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
     cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
+  // El video termina donde terminan los clips y las capas de video. La música/audio que pasa de ahí se CORTA al exportar (con un fundido), no alarga el video con negro.
+  const end = (project.overlayClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
   if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
+  const audioEnd = (project.audioClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
+  if (!segments.length && audioEnd > 0) { segments.push({ type: 'gap', dur: r2(audioEnd), start: 0 }); cursor = audioEnd; }       // solo audio: se exporta tal cual
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
-  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05, audioCut: r2(Math.max(0, audioEnd - cursor)) };
 }
 
 // Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
@@ -313,6 +316,8 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
+      const over = c.start + clipLength(c) - plan.total;      // lo que pasa del final del video se corta con un fundido de 0,8 s
+      if (over > 0.02) { const endAt = ac.currentTime + Math.max(0, plan.total - t), f = Math.min(0.8, Math.max(0.05, plan.total - t)), g0 = clipGain(c); gn.gain.setValueAtTime(g0, Math.max(ac.currentTime, endAt - f)); gn.gain.linearRampToValueAtTime(0, endAt); }
       src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
     }
   };

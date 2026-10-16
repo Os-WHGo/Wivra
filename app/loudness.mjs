@@ -80,10 +80,11 @@ export function buildMix(project, getPcm, rate = LOUD_RATE) {
   const all = [...project.clips.filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.overlayClips || []).filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.audioClips || []).map((c) => ({ c, g: gainOf(c) }))].filter((x) => x.g > 0);
-  const end = all.reduce((m, x) => Math.max(m, x.c.start + clipLength(x.c)), 0), size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
+  const vEnd = [...project.clips, ...(project.overlayClips || [])].reduce((m, c) => Math.max(m, c.start + clipLength(c)), 0);      // el audio que pasa del final del video se corta al exportar: no cuenta
+  const aEnd = all.reduce((m, x) => Math.max(m, x.c.start + clipLength(x.c)), 0), end = vEnd > 0 ? Math.min(aEnd, vEnd) : aEnd, size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
   for (const { c, g } of all) {
     const pcm = getPcm(c.asset_id); if (!pcm || !pcm.l) { if (!missing.includes(c.asset_id)) missing.push(c.asset_id); continue; }
-    const sp = speedOf(c), i0 = Math.floor(c.in * rate), len = Math.min(Math.floor(clipLength(c) * rate), Math.floor((pcm.l.length - i0) / sp)), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
+    const sp = speedOf(c), i0 = Math.floor(c.in * rate), len = Math.min(Math.floor(clipLength(c) * rate), Math.floor((end - c.start) * rate), Math.floor((pcm.l.length - i0) / sp)), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
     for (let i = 0; i < len; i++) { const o = o0 + i, k = i0 + Math.floor(i * sp); if (o < size) { L[o] += pcm.l[k] * g; R[o] += r[k] * g; } }      // con velocidad ≠ 1 se lee el medio más rápido o más lento (el volumen medido casi no cambia)
   }
   return { channels: [L, R], rate, seconds: end, missing, sources: all.length };

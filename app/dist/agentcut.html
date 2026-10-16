@@ -1786,10 +1786,13 @@ function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
     cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
+  // El video termina donde terminan los clips y las capas de video. La música/audio que pasa de ahí se CORTA al exportar (con un fundido), no alarga el video con negro.
+  const end = (project.overlayClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
   if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
+  const audioEnd = (project.audioClips || []).reduce((n, c) => Math.max(n, c.start + clipLength(c)), 0);
+  if (!segments.length && audioEnd > 0) { segments.push({ type: 'gap', dur: r2(audioEnd), start: 0 }); cursor = audioEnd; }       // solo audio: se exporta tal cual
   const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
-  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05, audioCut: r2(Math.max(0, audioEnd - cursor)) };
 }
 
 // Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
@@ -2084,6 +2087,8 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
+      const over = c.start + clipLength(c) - plan.total;      // lo que pasa del final del video se corta con un fundido de 0,8 s
+      if (over > 0.02) { const endAt = ac.currentTime + Math.max(0, plan.total - t), f = Math.min(0.8, Math.max(0.05, plan.total - t)), g0 = clipGain(c); gn.gain.setValueAtTime(g0, Math.max(ac.currentTime, endAt - f)); gn.gain.linearRampToValueAtTime(0, endAt); }
       src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
     }
   };
@@ -3475,10 +3480,11 @@ function buildMix(project, getPcm, rate = LOUD_RATE) {
   const all = [...project.clips.filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.overlayClips || []).filter((c) => kind.get(c.asset_id) !== 'image').map((c) => ({ c, g: gainOf(c) })),
     ...(project.audioClips || []).map((c) => ({ c, g: gainOf(c) }))].filter((x) => x.g > 0);
-  const end = all.reduce((m, x) => Math.max(m, x.c.start + clipLength(x.c)), 0), size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
+  const vEnd = [...project.clips, ...(project.overlayClips || [])].reduce((m, c) => Math.max(m, c.start + clipLength(c)), 0);      // el audio que pasa del final del video se corta al exportar: no cuenta
+  const aEnd = all.reduce((m, x) => Math.max(m, x.c.start + clipLength(x.c)), 0), end = vEnd > 0 ? Math.min(aEnd, vEnd) : aEnd, size = Math.ceil(end * rate) + 1, L = new Float32Array(size), R = new Float32Array(size), missing = [];
   for (const { c, g } of all) {
     const pcm = getPcm(c.asset_id); if (!pcm || !pcm.l) { if (!missing.includes(c.asset_id)) missing.push(c.asset_id); continue; }
-    const sp = speedOf(c), i0 = Math.floor(c.in * rate), len = Math.min(Math.floor(clipLength(c) * rate), Math.floor((pcm.l.length - i0) / sp)), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
+    const sp = speedOf(c), i0 = Math.floor(c.in * rate), len = Math.min(Math.floor(clipLength(c) * rate), Math.floor((end - c.start) * rate), Math.floor((pcm.l.length - i0) / sp)), o0 = Math.floor(c.start * rate), r = pcm.r || pcm.l;
     for (let i = 0; i < len; i++) { const o = o0 + i, k = i0 + Math.floor(i * sp); if (o < size) { L[o] += pcm.l[k] * g; R[o] += r[k] * g; } }      // con velocidad ≠ 1 se lee el medio más rápido o más lento (el volumen medido casi no cambia)
   }
   return { channels: [L, R], rate, seconds: end, missing, sources: all.length };
@@ -3538,9 +3544,11 @@ function analyzeRhythm(project) {
   for (const c of mains) { if (c.start - cursor > RH.gap) gaps.push({ at: cursor, secs: c.start - cursor }); cursor = Math.max(cursor, endOf(c)); }
   group(gaps, 'gap', 'warn', (g) => `Hay un hueco negro de ${rhR(g.secs)} s en ${rhClock(g.at)}.`, (n) => `Y ${n} huecos negros más.`);
 
-  // 2. Música o capas que pasan del último video (el video exportado queda negro ahí).
-  const tailOf = [...audio.map((c) => ({ c, what: 'El audio' })), ...overlays.map((c) => ({ c, what: 'Una capa' }))].filter((x) => endOf(x.c) - mainEnd > RH.tail).sort((a, b) => endOf(b.c) - endOf(a.c))[0];
-  if (tailOf) add('warn', 'tail', `${tailOf.what} sigue ${rhR(endOf(tailOf.c) - mainEnd)} s después del último video: el resultado termina en negro.`, mainEnd);
+  // 2. Capas que pasan del último video (el video exportado queda negro ahí) y música que pasa (se corta con un fundido al exportar).
+  const tailOf = overlays.filter((c) => endOf(c) - mainEnd > RH.tail).sort((a, b) => endOf(b) - endOf(a))[0];
+  if (tailOf) add('warn', 'tail', `Una capa sigue ${rhR(endOf(tailOf) - mainEnd)} s después del último video: el resultado termina en negro.`, mainEnd);
+  const layerEnd = Math.max(mainEnd, ...overlays.map(endOf)), musicTail = audio.filter((c) => endOf(c) - layerEnd > RH.tail).sort((a, b) => endOf(b) - endOf(a))[0];
+  if (musicTail) add('tip', 'audio-tail', `El audio sigue ${rhR(endOf(musicTail) - layerEnd)} s después del final del video: se corta con un fundido al exportar. Si quieres otro final, acórtalo o muévelo.`, layerEnd);
 
   // 3. Textos que no da tiempo a leer.
   const reads = texts.map((t) => ({ t, secs: t.end - t.start, at: t.start })).filter(({ t, secs }) => secs < RH.minTextSeconds || String(t.text).length / Math.max(secs, 0.01) > RH.maxCps);
