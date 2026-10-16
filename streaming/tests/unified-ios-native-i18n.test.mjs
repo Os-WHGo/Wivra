@@ -31,7 +31,7 @@ test('Native iOS screens use localized resources without changing Claude editor'
   const swiftPaths = ['WivraEmbeddedEditorScreen.swift','WivraNativeCaptureLibrary.swift','WivraMetaB0App.swift'];
   const code = swiftPaths.map(f=>readFileSync(join(ios,f),'utf8')).join('\n');
   const declared = dictionary('es');
-  const refs = new Set([...code.matchAll(/ios\.(?:picker|editor|app|library)\.[a-z_]+/g)].map(m=>m[0]));
+  const refs = new Set([...code.matchAll(/ios\.(?:picker|editor|app|library|record)\.[a-z_]+/g)].map(m=>m[0]));
   assert.equal(refs.size,declared.size);
   for(const key of refs) assert.ok(declared.has(key),'missing locale key: '+key);
   assert.match(code,/NSLocalizedString\("ios\.picker\.title"/);

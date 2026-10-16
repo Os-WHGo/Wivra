@@ -59,6 +59,12 @@ enum WivraLocalCaptureScanner {
                         rejected += 1
                         continue
                     }
+                    // Never offer an undecided recording to Claude's editor.
+                    // User may choose Keep, Discard (double confirmed), or Later.
+                    let candidateVideo = folder.appendingPathComponent(m.originalVideoFile)
+                    if WivraPendingRecordingStore.isPendingVideo(candidateVideo) {
+                        continue
+                    }
                     seen.insert(m.captureID)
                     let original = folder.appendingPathComponent(m.originalVideoFile)
                     let combined = m.muxedVideoFile.map { folder.appendingPathComponent($0) }

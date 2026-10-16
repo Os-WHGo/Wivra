@@ -1,0 +1,155 @@
+// Wivra Ray-Ban iOS: explicit consent before keeping completed recordings.
+// These markers are app-private and have no network or editor dependency.
+// A dismissed choice is NOT an instruction to delete captured media.
+import Foundation
+
+struct WivraPendingRecording: Codable, Identifiable {
+    let id: String              // original .mov filename
+    let createdAt: Date
+    let files: [String]         // exact app-generated filenames, never arbitrary paths
+}
+
+enum WivraPendingRecordingError: LocalizedError {
+    case invalidPath, invalidSelection, missingVideo
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidPath: "La grabación contiene una ruta de archivo no permitida."
+        case .invalidSelection: "No se pudo verificar la decisión de esta grabación."
+        case .missingVideo: "El video pendiente no está disponible."
+        }
+    }
+}
+
+enum WivraPendingRecordingStore {
+    private static let suffix = ".wivra.pending.json"
+
+    private static func directory() throws -> URL {
+        let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WivraRecordings", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.standardizedFileURL
+    }
+
+    private static func safeName(_ name: String) -> Bool {
+        guard !name.isEmpty, name.count <= 255, name != ".", name != "..",
+              !name.contains("/"), !name.contains("\\"),
+              !name.contains("\n"), !name.contains("\r"), !name.contains("\0") else {
+            return false
+        }
+        return name.hasPrefix("Wivra_Meta_") || name.hasPrefix("Wivra_Audio_")
+    }
+
+    private static func checkedURL(_ url: URL, in folder: URL) throws -> URL {
+        let candidate = url.standardizedFileURL
+        let exists = FileManager.default.fileExists(atPath: candidate.path)
+        let isLink = exists
+            ? ((try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
+            : false // Expected manifest may not yet have been written.
+        guard candidate.isFileURL, candidate.deletingLastPathComponent() == folder,
+              safeName(candidate.lastPathComponent), !isLink
+        else { throw WivraPendingRecordingError.invalidPath }
+        return candidate
+    }
+
+    private static func ticketURL(videoName: String, folder: URL) -> URL {
+        folder.appendingPathComponent(videoName + suffix)
+    }
+
+    /** Stage already finalized source video plus any actual CAF/MOV/manifest outputs. */
+    @discardableResult
+    static func stage(videoURL: URL, related: [URL]) throws -> WivraPendingRecording {
+        let folder = try directory()
+        let video = try checkedURL(videoURL, in: folder)
+        guard video.pathExtension.lowercased() == "mov",
+              FileManager.default.fileExists(atPath: video.path) else {
+            throw WivraPendingRecordingError.missingVideo
+        }
+        let files = try [videoURL].addingUnique(related).map {
+            try checkedURL($0, in: folder).lastPathComponent
+        }
+        let entry = WivraPendingRecording(
+            id: video.lastPathComponent, createdAt: Date(), files: files
+        )
+        try JSONEncoder().encode(entry).write(
+            to: ticketURL(videoName: entry.id, folder: folder), options: [.atomic]
+        )
+        return entry
+    }
+
+    /** Existing files can be listed after process restart without deleting them. */
+    static func pending() -> [WivraPendingRecording] {
+        guard let folder = try? directory(),
+              let contents = try? FileManager.default.contentsOfDirectory(
+                  at: folder, includingPropertiesForKeys: nil
+              ) else { return [] }
+        return contents
+            .filter { $0.lastPathComponent.hasSuffix(suffix) }
+            .compactMap { marker -> WivraPendingRecording? in
+                guard let data = try? Data(contentsOf: marker),
+                      let entry = try? JSONDecoder().decode(WivraPendingRecording.self, from: data),
+                      safeName(entry.id), entry.id.hasSuffix(".mov"),
+                      marker.lastPathComponent == entry.id + suffix,
+                      entry.files.contains(entry.id),
+                      entry.files.allSatisfy(safeName)
+                else { return nil }
+                return entry
+            }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    static func isPendingVideo(_ videoURL: URL) -> Bool {
+        guard let folder = try? directory(),
+              let url = try? checkedURL(videoURL, in: folder) else { return false }
+        return FileManager.default.fileExists(
+            atPath: ticketURL(videoName: url.lastPathComponent, folder: folder).path
+        )
+    }
+
+    private static func verifiedTicket(_ entry: WivraPendingRecording) throws -> (URL, WivraPendingRecording) {
+        let folder = try directory()
+        guard safeName(entry.id), entry.id.hasSuffix(".mov") else {
+            throw WivraPendingRecordingError.invalidSelection
+        }
+        let marker = ticketURL(videoName: entry.id, folder: folder)
+        let stored = try JSONDecoder().decode(
+            WivraPendingRecording.self, from: Data(contentsOf: marker)
+        )
+        guard stored.id == entry.id, stored.files == entry.files,
+              stored.files.contains(entry.id), stored.files.allSatisfy(safeName) else {
+            throw WivraPendingRecordingError.invalidSelection
+        }
+        return (marker, stored)
+    }
+
+    /** Save means keep existing files in Wivra; it does NOT upload to iCloud/Photos. */
+    static func keep(_ entry: WivraPendingRecording) throws {
+        let (marker, stored) = try verifiedTicket(entry)
+        let folder = marker.deletingLastPathComponent()
+        guard FileManager.default.fileExists(
+            atPath: folder.appendingPathComponent(stored.id).path
+        ) else { throw WivraPendingRecordingError.missingVideo }
+        try FileManager.default.removeItem(at: marker)
+    }
+
+    /** Called ONLY after an additional destructive-action confirmation. */
+    static func discardConfirmed(_ entry: WivraPendingRecording) throws {
+        let (marker, stored) = try verifiedTicket(entry)
+        let folder = marker.deletingLastPathComponent()
+        for name in stored.files {
+            let url = try checkedURL(folder.appendingPathComponent(name), in: folder)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
+        }
+        // If a deletion fails, the marker and remaining originals stay available.
+        try FileManager.default.removeItem(at: marker)
+    }
+}
+
+private extension Array where Element == URL {
+    func addingUnique(_ other: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return (self + other).filter { seen.insert($0.standardizedFileURL.path).inserted }
+    }
+}

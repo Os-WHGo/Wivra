@@ -23,3 +23,13 @@
 "ios.library.title" = "My captures";
 "ios.library.close" = "Close";
 "ios.library.refresh" = "Refresh";
+"ios.record.pending_title" = "Save this recording?";
+"ios.record.pending_description" = "Video and tracks remain privately stored in Wivra until you decide. Closing this prompt does not delete them.";
+"ios.record.keep" = "Keep in Wivra";
+"ios.record.dont_save" = "Do not save";
+"ios.record.later" = "Decide later";
+"ios.record.delete_confirm_title" = "Delete this recording?";
+"ios.record.delete_confirm_description" = "Related local files are deleted only if you confirm. Wivra cannot delete any replay hosted by a streaming platform.";
+"ios.record.delete_confirm" = "Yes, delete recording";
+"ios.record.pending_notice" = "Recording pending your decision. Not available in the editor.";
+"ios.record.review_pending" = "Review pending recordings";

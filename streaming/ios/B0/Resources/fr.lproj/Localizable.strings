@@ -23,3 +23,13 @@
 "ios.library.title" = "Mes captures";
 "ios.library.close" = "Fermer";
 "ios.library.refresh" = "Actualiser";
+"ios.record.pending_title" = "Conserver cet enregistrement ?";
+"ios.record.pending_description" = "La vidéo et ses pistes restent dans Wivra en attendant votre choix. Fermer cette fenêtre ne les supprime pas.";
+"ios.record.keep" = "Conserver dans Wivra";
+"ios.record.dont_save" = "Ne pas enregistrer";
+"ios.record.later" = "Décider plus tard";
+"ios.record.delete_confirm_title" = "Supprimer cet enregistrement ?";
+"ios.record.delete_confirm_description" = "Les fichiers locaux associés ne seront supprimés qu'après votre confirmation. Wivra ne peut pas effacer la copie d'une plateforme LIVE.";
+"ios.record.delete_confirm" = "Oui, supprimer";
+"ios.record.pending_notice" = "Enregistrement en attente de votre décision. Non disponible dans l'éditeur.";
+"ios.record.review_pending" = "Examiner les enregistrements en attente";

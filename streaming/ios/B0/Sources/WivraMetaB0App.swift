@@ -368,7 +368,7 @@ struct MetaB0Screen: View {
                             .font(.footnote)
 
                         HStack {
-                            Button(model.recordingArmed ? "Detener y guardar MOV" : "Grabar HEVC") {
+                            Button(model.recordingArmed ? "Detener grabación" : "Grabar HEVC") {
                                 if model.recordingArmed {
                                     Task { await model.finishRecording() }
                                 } else {
@@ -388,6 +388,15 @@ struct MetaB0Screen: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("meta_b1_recording_status")
+                        if model.isCurrentRecordingPending {
+                            Label("ios.record.pending_notice", systemImage: "lock.shield")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                            Button("ios.record.review_pending") {
+                                model.refreshPendingRecordingChoice()
+                            }
+                            .accessibilityIdentifier("meta_b1_review_pending")
+                        } else {
                         if let audioURL = model.lastSeparateAudioURL {
                             ShareLink(item: audioURL) {
                                 Label("Compartir pista de audio independiente (CAF)",
@@ -422,6 +431,7 @@ struct MetaB0Screen: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        }
                     }
                     .padding()
                     .background(Color(.secondarySystemBackground))
@@ -448,6 +458,12 @@ struct MetaB0Screen: View {
             }
             .padding()
         }
+        .onAppear {
+            model.refreshPendingRecordingChoice()
+        }
+        .overlay {
+            WivraPendingDecisionPrompts(model: model)
+        }
         .confirmationDialog(
             "Meta AI debe autorizar la cámara",
             isPresented: $model.showCameraPermissionConfirm,
@@ -471,5 +487,48 @@ struct MetaB0Screen: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
+    }
+}
+
+@MainActor
+private struct WivraPendingDecisionPrompts: View {
+    @Bindable var model: MetaB0Model
+
+    var body: some View {
+        ZStack {
+            Color.clear.frame(width: 0, height: 0)
+                .confirmationDialog(
+                    "ios.record.pending_title",
+                    isPresented: $model.showPendingRecordingChoice,
+                    titleVisibility: .visible
+                ) {
+                    Button("ios.record.keep") {
+                        model.keepPendingRecording()
+                    }
+                    Button("ios.record.dont_save", role: .destructive) {
+                        model.requestPendingDiscard()
+                    }
+                    Button("ios.record.later", role: .cancel) {
+                        model.decidePendingLater()
+                    }
+                } message: {
+                    Text("ios.record.pending_description")
+                }
+            Color.clear.frame(width: 0, height: 0)
+                .alert(
+                    "ios.record.delete_confirm_title",
+                    isPresented: $model.showPendingRecordingDeletionConfirmation
+                ) {
+                    Button("ios.record.delete_confirm", role: .destructive) {
+                        model.discardPendingRecordingConfirmed()
+                    }
+                    Button("ios.record.later", role: .cancel) {
+                        model.decidePendingLater()
+                    }
+                } message: {
+                    Text("ios.record.delete_confirm_description")
+                }
+        }
+        .allowsHitTesting(false)
     }
 }

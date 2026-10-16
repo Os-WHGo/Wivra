@@ -56,6 +56,13 @@ final class MetaB0Model {
     var lastCombinedVideoURL: URL?
     var lastAudioSyncOffsetSeconds: Double?
     var lastCaptureManifestURL: URL?
+    // A finished recording remains private until Save or confirmed Discard.
+    var pendingRecording: WivraPendingRecording?
+    var showPendingRecordingChoice = false
+    var showPendingRecordingDeletionConfirmation = false
+    var isCurrentRecordingPending: Bool {
+        lastRecordedURL.map { WivraPendingRecordingStore.isPendingVideo($0) } ?? false
+    }
     var selectedAudioDeviceName: String?
     var selectedAudioSourceKind: String?
     let audioRoute = WivraAudioRoute()
@@ -259,18 +266,36 @@ final class MetaB0Model {
             } else {
                 recordingStatus = "Video sin audio guardado."
             }
+            // Stage user consent BEFORE exposing the manifest to the native
+            // editor/library. Share controls also stay hidden while pending.
+            // Reserve the expected manifest file so confirmed Discard also
+            // removes it, even if the write is interrupted later.
+            let manifestURL = url.deletingPathExtension().appendingPathExtension("wivra.json")
             do {
-                lastCaptureManifestURL = try WivraCaptureManifest.write(
-                    videoURL: url, audioURL: lastSeparateAudioURL,
-                    mergedURL: lastCombinedVideoURL,
-                    audioOffsetSeconds: lastAudioSyncOffsetSeconds,
-                    audioPortName: selectedAudioDeviceName,
-                    audioSource: selectedAudioSourceKind ?? "unknown",
-                    audioSampleRateHz: sound?.sampleRate,
-                    audioChannelCount: sound?.channelCount
+                pendingRecording = try WivraPendingRecordingStore.stage(
+                    videoURL: url,
+                    related: [lastSeparateAudioURL, lastCombinedVideoURL, manifestURL].compactMap { $0 }
                 )
+                do {
+                    lastCaptureManifestURL = try WivraCaptureManifest.write(
+                        videoURL: url, audioURL: lastSeparateAudioURL,
+                        mergedURL: lastCombinedVideoURL,
+                        audioOffsetSeconds: lastAudioSyncOffsetSeconds,
+                        audioPortName: selectedAudioDeviceName,
+                        audioSource: selectedAudioSourceKind ?? "unknown",
+                        audioSampleRateHz: sound?.sampleRate,
+                        audioChannelCount: sound?.channelCount
+                    )
+                } catch {
+                    recordingStatus += " Advertencia: manifiesto pendiente, original protegido."
+                }
+                recordingStatus += " Decide si quieres guardar o descartar la captura."
+                showPendingRecordingChoice = true
             } catch {
-                recordingStatus += " Advertencia: no se guardó el manifiesto de proyecto."
+                // Never silently delete media if a marker cannot be written.
+                // No manifest is published to the editor in this error path.
+                recordingStatus += " No se pudo registrar la decisión; video privado conservado: " +
+                    error.localizedDescription
             }
         case .noFrames:
             if let sound { lastSeparateAudioURL = sound.url }
@@ -283,6 +308,61 @@ final class MetaB0Model {
         if endSessionAfterRecording {
             endSession()
         }
+    }
+
+    func refreshPendingRecordingChoice() {
+        guard !recordingArmed && !recordingFinishing,
+              !showPendingRecordingChoice && !showPendingRecordingDeletionConfirmation
+        else { return }
+        pendingRecording = WivraPendingRecordingStore.pending().first
+        showPendingRecordingChoice = pendingRecording != nil
+    }
+
+    func keepPendingRecording() {
+        guard let entry = pendingRecording else { return }
+        do {
+            try WivraPendingRecordingStore.keep(entry)
+            recordingStatus = "Grabación guardada en Wivra. Puedes compartirla desde la biblioteca."
+            pendingRecording = nil
+            showPendingRecordingChoice = false
+            refreshPendingRecordingChoice()
+        } catch {
+            recordingStatus = "No se pudo conservar la grabación: " + error.localizedDescription
+        }
+    }
+
+    func requestPendingDiscard() {
+        guard pendingRecording != nil else { return }
+        showPendingRecordingChoice = false
+        showPendingRecordingDeletionConfirmation = true
+    }
+
+    func discardPendingRecordingConfirmed() {
+        guard let entry = pendingRecording else { return }
+        do {
+            try WivraPendingRecordingStore.discardConfirmed(entry)
+            if lastRecordedURL?.lastPathComponent == entry.id {
+                lastRecordedURL = nil
+                lastSeparateAudioURL = nil
+                lastCombinedVideoURL = nil
+                lastCaptureManifestURL = nil
+                lastAudioSyncOffsetSeconds = nil
+            }
+            recordingStatus = "Grabación temporal eliminada por decisión confirmada."
+            pendingRecording = nil
+            showPendingRecordingDeletionConfirmation = false
+            refreshPendingRecordingChoice()
+        } catch {
+            recordingStatus = "No se pudo eliminar: " + error.localizedDescription +
+                ". Los archivos restantes se conservarán."
+            showPendingRecordingDeletionConfirmation = false
+        }
+    }
+
+    func decidePendingLater() {
+        showPendingRecordingChoice = false
+        showPendingRecordingDeletionConfirmation = false
+        recordingStatus = "Grabación temporal conservada. Podrás decidir después."
     }
 
     func register() {
