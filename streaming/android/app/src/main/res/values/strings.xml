@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">Sí, eliminar</string>
     <string name="recording_discarded">Grabación temporal eliminada.</string>
     <string name="recording_delete_failed">No se pudo eliminar el archivo temporal. Sigue disponible.</string>
+    <string name="recording_frames_checkpoints">Grabación: %1$d cuadros, %2$d segmentos MP4 protegidos.</string>
+    <string name="recording_pending_multiple_parts">Este video tiene %1$d segmentos MP4 independientes. Todavía no se han unido en un único archivo.</string>
+    <string name="recording_partially_saved">Se guardaron %1$d de %2$d segmentos. Los demás permanecen pendientes.</string>
 </resources>
