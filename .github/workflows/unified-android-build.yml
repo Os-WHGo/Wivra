@@ -35,6 +35,12 @@ jobs:
         run: node --test streaming/tests/android-meta-parity.test.mjs
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
+      - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
+        run: gradle -p streaming/android :app:assembleDebugAndroidTest --no-daemon --stacktrace
+      - name: Verify instrumentation APK contains MockDeviceKit cases
+        run: |
+          set -eu
+          test -s streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
       - name: Verify embedded editor and filter pack inside Android APK
         run: |
           set -eu
