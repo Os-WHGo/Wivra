@@ -74,7 +74,7 @@ def media_summary(report, filename):
                 "color_transfer": stream.get("color_transfer"),
                 "color_primaries": stream.get("color_primaries"),
             })
-            if original and average and abs(original-average)>0.05:
+            if original and average and abs(original-average)>0.01:
                 notes.append("Nominal and average FPS differ; inspect frame timestamps for possible VFR.")
         elif kind == "audio":
             audios.append({
