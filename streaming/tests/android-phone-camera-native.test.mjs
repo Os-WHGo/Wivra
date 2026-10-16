@@ -99,5 +99,5 @@ test('Instrumentation covers private files publish and deletion without Ray-Ban'
   assert.match(instrument,/WivraPhoneMediaStore\.pendingVideos\(context\)/);
   assert.match(instrument,/WivraPhoneMediaStore\.publish\(context, privateVideo\)/);
   assert.match(instrument,/WivraPhoneMediaStore\.discard\(context, privateVideo\)/);
-  assert.match(instrument,/contentResolver\.delete\(published, null, null\)/);
+  assert.match(instrument,/published\?\.let \{ context\.contentResolver\.delete\(it, null, null\) \}/);
 });
