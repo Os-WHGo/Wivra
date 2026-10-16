@@ -20,7 +20,7 @@ import java.nio.ByteBuffer
  * Original HEIC bytes are preserved when DAT supplies HEIC. Decoded bitmaps
  * are encoded once as JPEG. Saving does not need READ_MEDIA_IMAGES on API 31+.
  */
-internal object WivraMetaPhotoStore {
+object WivraMetaPhotoStore {
     private const val PHOTO_DIRECTORY = "Pictures/Wivra/"
     private const val FILE_PREFIX = "Wivra_RayBan_"
     private const val MAX_HEIC_BYTES = 40 * 1024 * 1024
@@ -90,6 +90,7 @@ internal object WivraMetaPhotoStore {
      * Only Wivra-owned captures in the dedicated local folder are offered to
      * the editor. Existing personal pictures are never enumerated or exposed.
      */
+    @JvmStatic
     fun latestCapturedPhoto(context: Context): Uri? {
         val projection = arrayOf(MediaStore.Images.Media._ID)
         val predicate = "${MediaStore.Images.Media.RELATIVE_PATH} = ? AND " +
