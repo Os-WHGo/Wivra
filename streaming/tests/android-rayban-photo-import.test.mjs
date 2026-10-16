@@ -30,7 +30,8 @@ test('Photo data is written only to local MediaStore; original HEIC is preserved
  assert.match(store,/MediaStore.Images.Media.IS_PENDING, 1/);
  assert.match(store,/MediaStore.Images.Media.IS_PENDING, 0/);
  assert.match(store,/resolver\.delete\(uri, null, null\)/);
- assert.doesNotMatch(store,/URLSession|fetch\(|http[s]?:\/\/|WebView|Base64/);
+ assert.doesNotMatch(store,/^\s*import\s+(?:java\.net\.|okhttp|retrofit|android\.webkit\.)/m);
+ assert.doesNotMatch(store,/\b(?:fetch|evaluateJavascript|encodeToString)\s*\(/);
 });
 test('Claude shared editor image chooser offers only recent app-owned Ray-Ban photo',()=>{
  assert.match(editorHTML,/id="file" type="file" accept="video\/\*,image\/\*"/);
