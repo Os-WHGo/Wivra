@@ -181,7 +181,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                             let originalName = url.lastPathComponent
                             let finalName = String(originalName.dropLast(".writing.mov".count))
                             let ready = url.deletingLastPathComponent()
-                                .appendingPathComponent(finalName + ".mov")
+                                .appendingPathComponent(finalName)
                             do {
                                 // Same-volume rename publishes only fully finalized MOV.
                                 guard !FileManager.default.fileExists(atPath: ready.path) else {
