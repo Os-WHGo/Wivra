@@ -33,3 +33,11 @@
 "ios.record.delete_confirm" = "Ja, Aufnahme löschen";
 "ios.record.pending_notice" = "Aufnahme wartet auf deine Entscheidung. Nicht im Editor verfügbar.";
 "ios.record.review_pending" = "Ausstehende Aufnahmen prüfen";
+"ios.record.review_video" = "Video prüfen";
+"ios.record.preview_title" = "Ausstehende Aufnahme ansehen";
+"ios.record.preview_unavailable" = "Temporäres Video kann nicht abgespielt werden.";
+"ios.record.preview_part" = "Teil %1$d von %2$d";
+"ios.record.preview_close" = "Vorschau schließen";
+"ios.record.preview_disclaimer" = "Die Vorschau ist privat. Kein Video wird gespeichert oder gelöscht, bevor du dich entscheidest.";
+"ios.record.preview_previous" = "Zurück";
+"ios.record.preview_next" = "Weiter";
