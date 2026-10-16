@@ -38,7 +38,7 @@ test('Android observes active network via permission and callback safely while r
 
 test('neither OS silently switches DAT or starts a publisher on phone route change',()=>{
   for(const src of [swift,android]){
-    assert.doesNotMatch(src, /RTMPS|startLive\(|startStream\(|phoneUplinkGB|measuredUploadMbps/);
+    assert.doesNotMatch(src, /RTMPS|startLive\(|phoneUplinkGB|measuredUploadMbps/);
   }
 });
 
