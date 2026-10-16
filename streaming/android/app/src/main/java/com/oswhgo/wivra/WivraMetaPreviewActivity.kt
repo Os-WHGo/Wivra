@@ -64,7 +64,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var recordingMode = false
     private var recordingFinalizing = false
     private var pendingRecordingMode = false
-    private var recorder: WivraHevcMp4Recorder? = null
+    private var recorder: WivraSegmentedHevcRecorder? = null
     private var compressedPackets = 0L
     private var pendingDialogVisible = false
     private lateinit var recordButton: Button
@@ -245,7 +245,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 recordingMode = recording
                 recordingFinalizing = false
                 compressedPackets = 0L
-                recorder = if (recording) WivraHevcMp4Recorder(applicationContext) else null
+                recorder = if (recording) WivraSegmentedHevcRecorder(applicationContext) else null
                 if (recording) {
                     show(getString(R.string.recording_wait_keyframe))
                     imagePreview.setImageDrawable(null)
@@ -292,8 +292,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             compressedPackets += 1
                             if (compressedPackets == 1L || compressedPackets % 24L == 0L) {
                                 withContext(Dispatchers.Main.immediate) {
-                                    show(getString(R.string.recording_frames,
-                                        recorder?.samples ?: 0))
+                                    show(getString(R.string.recording_frames_checkpoints,
+                                        recorder?.samples ?: 0,
+                                        recorder?.checkpointCount ?: 0))
                                 }
                             }
                             return@collect
@@ -408,20 +409,32 @@ class WivraMetaPreviewActivity : ComponentActivity() {
      */
     private fun offerPendingVideo() {
         if (pendingDialogVisible || recordingMode || recordingFinalizing || isFinishing) return
-        val pending = WivraHevcMp4Recorder.listPending(applicationContext).firstOrNull()
-            ?: return
+        val pending = WivraHevcMp4Recorder.listPendingRecordings(applicationContext)
+            .firstOrNull() ?: return
         pendingDialogVisible = true
+        val explanation = getString(R.string.recording_pending_explanation) +
+            if (pending.parts.size > 1) {
+                "\\n\\n" + getString(R.string.recording_pending_multiple_parts, pending.parts.size)
+            } else ""
         AlertDialog.Builder(this)
             .setTitle(R.string.recording_save_question)
-            .setMessage(R.string.recording_pending_explanation)
+            .setMessage(explanation)
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 scope.launch {
-                    val saved = withContext(Dispatchers.IO) {
-                        WivraHevcMp4Recorder.publishPending(applicationContext, pending)
+                    val savedCount = withContext(Dispatchers.IO) {
+                        pending.parts.count { part ->
+                            WivraHevcMp4Recorder.publishPending(applicationContext, part) != null
+                        }
                     }
-                    show(if (saved != null) getString(R.string.recording_saved)
-                         else getString(R.string.recording_keep_failed))
-                    if (saved != null) offerPendingVideo()
+                    show(when {
+                        savedCount == pending.parts.size -> getString(R.string.recording_saved)
+                        savedCount > 0 -> getString(R.string.recording_partially_saved,
+                            savedCount, pending.parts.size)
+                        else -> getString(R.string.recording_keep_failed)
+                    })
+                    if (savedCount > 0) {
+                        window.decorView.post { offerPendingVideo() }
+                    }
                 }
             }
             .setNegativeButton(R.string.recording_discard) { _, _ ->
@@ -434,18 +447,25 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .show()
     }
 
-    private fun confirmDiscardPending(pending: File) {
+    private fun confirmDiscardPending(pending: WivraHevcMp4Recorder.PendingRecording) {
         AlertDialog.Builder(this)
             .setTitle(R.string.recording_discard_confirm_title)
-            .setMessage(R.string.recording_discard_confirm_message)
+            .setMessage(getString(R.string.recording_discard_confirm_message) +
+                if (pending.parts.size > 1) {
+                    "\\n\\n" + getString(R.string.recording_pending_multiple_parts,
+                        pending.parts.size)
+                } else "")
             .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
                 scope.launch {
-                    val deleted = withContext(Dispatchers.IO) {
-                        WivraHevcMp4Recorder.discardPending(applicationContext, pending)
+                    val deletedCount = withContext(Dispatchers.IO) {
+                        pending.parts.count { part ->
+                            WivraHevcMp4Recorder.discardPending(applicationContext, part)
+                        }
                     }
-                    show(if (deleted) getString(R.string.recording_discarded)
+                    show(if (deletedCount == pending.parts.size)
+                         getString(R.string.recording_discarded)
                          else getString(R.string.recording_delete_failed))
-                    if (deleted) offerPendingVideo()
+                    if (deletedCount > 0) window.decorView.post { offerPendingVideo() }
                 }
             }
             .setNegativeButton(R.string.recording_later) { _, _ ->
