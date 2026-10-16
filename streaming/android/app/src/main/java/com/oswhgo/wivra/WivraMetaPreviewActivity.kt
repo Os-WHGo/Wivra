@@ -1,6 +1,7 @@
 package com.oswhgo.wivra
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -30,6 +31,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import java.io.File
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -63,6 +66,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var pendingRecordingMode = false
     private var recorder: WivraHevcMp4Recorder? = null
     private var compressedPackets = 0L
+    private var pendingDialogVisible = false
     private lateinit var recordButton: Button
     private lateinit var finishRecordButton: Button
 
@@ -133,6 +137,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         setContentView(ScrollView(this).apply { addView(root) })
         refreshButtons()
         checkBluetooth()
+        window.decorView.post { offerPendingVideo() }
     }
 
     private fun button(root: LinearLayout, label: String, action: () -> Unit): Button =
@@ -190,8 +195,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 sessionJob = scope.launch {
                     created.state.collect { state ->
                         if (state == DeviceSessionState.STOPPED) {
-                            cleanup()
-                            show(getString(R.string.session_finished))
+                            if (recordingMode && !recordingFinalizing) {
+                                finishRecording()
+                            } else if (!recordingFinalizing) {
+                                cleanup()
+                                show(getString(R.string.session_finished))
+                            }
                         } else {
                             show(getString(R.string.session_state, state.toString()))
                             refreshButtons()
@@ -322,7 +331,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 streamJob = scope.launch {
                     active.state.collect { state ->
                         if (state == StreamState.PAUSED) show(getString(R.string.video_paused))
-                        if (state == StreamState.CLOSED) show(getString(R.string.stream_closed))
+                        if (state == StreamState.CLOSED) {
+                            if (recordingMode && !recordingFinalizing) finishRecording()
+                            else if (!recordingFinalizing) show(getString(R.string.stream_closed))
+                        }
                     }
                 }
                 streamErrorJob = scope.launch {
@@ -373,15 +385,73 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         recordingFinalizing = true
         refreshButtons()
         show(getString(R.string.recording_finalizing))
-        framesJob?.cancel()
+        val finishingJob = framesJob
         framesJob = null
         scope.launch {
-            val uri = withContext(Dispatchers.IO) { recorder?.finishAndSave() }
+            // The HEVC collector must release the last sample before muxer.stop().
+            finishingJob?.cancelAndJoin()
+            val pending = withContext(Dispatchers.IO) { recorder?.finishToPending() }
             recorder = null
             stopAll()
-            show(if (uri != null) getString(R.string.recording_saved)
-                 else getString(R.string.recording_no_video))
+            if (pending != null) {
+                show(getString(R.string.recording_pending_ready))
+                offerPendingVideo()
+            } else {
+                show(getString(R.string.recording_no_video))
+            }
         }
+    }
+
+    /**
+     * Never discard an unanswered recording just because the dialog was
+     * dismissed or the activity was reopened. Pending videos live in filesDir.
+     */
+    private fun offerPendingVideo() {
+        if (pendingDialogVisible || recordingMode || recordingFinalizing || isFinishing) return
+        val pending = WivraHevcMp4Recorder.listPending(applicationContext).firstOrNull()
+            ?: return
+        pendingDialogVisible = true
+        AlertDialog.Builder(this)
+            .setTitle(R.string.recording_save_question)
+            .setMessage(R.string.recording_pending_explanation)
+            .setPositiveButton(R.string.recording_keep) { _, _ ->
+                scope.launch {
+                    val saved = withContext(Dispatchers.IO) {
+                        WivraHevcMp4Recorder.publishPending(applicationContext, pending)
+                    }
+                    show(if (saved != null) getString(R.string.recording_saved)
+                         else getString(R.string.recording_keep_failed))
+                    if (saved != null) offerPendingVideo()
+                }
+            }
+            .setNegativeButton(R.string.recording_discard) { _, _ ->
+                confirmDiscardPending(pending)
+            }
+            .setNeutralButton(R.string.recording_later) { _, _ ->
+                show(getString(R.string.recording_remains_pending))
+            }
+            .setOnDismissListener { pendingDialogVisible = false }
+            .show()
+    }
+
+    private fun confirmDiscardPending(pending: File) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.recording_discard_confirm_title)
+            .setMessage(R.string.recording_discard_confirm_message)
+            .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
+                scope.launch {
+                    val deleted = withContext(Dispatchers.IO) {
+                        WivraHevcMp4Recorder.discardPending(applicationContext, pending)
+                    }
+                    show(if (deleted) getString(R.string.recording_discarded)
+                         else getString(R.string.recording_delete_failed))
+                    if (deleted) offerPendingVideo()
+                }
+            }
+            .setNegativeButton(R.string.recording_later) { _, _ ->
+                show(getString(R.string.recording_remains_pending))
+            }
+            .show()
     }
 
     private fun cleanup() {
@@ -413,6 +483,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // Best effort on normal Android activity destruction. Android can kill
+        // a process without invoking onDestroy: crash-safe segments are a
+        // separate milestone and must not be claimed as already implemented.
+        val unfinished = recorder
+        if (unfinished != null) {
+            recorder = null
+            framesJob?.cancel()
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                unfinished.finishToPending()
+            }
+        }
         stopAll()
         scope.cancel()
         super.onDestroy()
