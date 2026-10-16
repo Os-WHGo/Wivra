@@ -37,7 +37,9 @@ test('chooser is explicitly user-triggered and remains one Claude editor',()=>{
   assert.match(host,/getString\(R.string.picker_browse_files\)/);
   assert.match(host,/clearPendingPicker\(\)/);
   assert.match(host,/editor.loadUrl\("file:\/\/\/android_asset\/agentcut.html"\)/);
-  assert.doesNotMatch(host,/evaluateJavascript\(/);
+  assert.match(host,/editor\.evaluateJavascript\(readOnly, encoded ->/);
+  assert.match(host,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.doesNotMatch(host,/addJavascriptInterface\(/);
 });
 
 test('no READ_MEDIA_VIDEO, file paths, app payments or automatic media ingestion',()=>{
