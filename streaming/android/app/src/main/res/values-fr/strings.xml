@@ -120,4 +120,10 @@
     <string name="phone_camera_mic_off">Microphone : désactivé</string>
     <string name="picker_phone_photo_named">Photo téléphone : %1$s</string>
     <string name="picker_phone_video_named">Vidéo téléphone : %1$s</string>
+    <string name="phone_camera_mic_wav">Micro : WAV indépendant</string>
+    <string name="phone_camera_recording_wav">Enregistrement MP4 sans son intégré et piste WAV séparée.</string>
+    <string name="phone_camera_wav_unavailable">Impossible de démarrer le WAV. La vidéo continue sans son.</string>
+    <string name="phone_camera_wav_failed">Échec du WAV. Vérifiez la vidéo privée avant de sauver.</string>
+    <string name="phone_camera_wav_unusable">WAV en attente incomplet ; aucune publication comme audio valide.</string>
+    <string name="picker_phone_audio_named">Piste WAV Wivra : %1$s</string>
 </resources>
