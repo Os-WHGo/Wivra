@@ -58,6 +58,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var photoInProgress = false
     private lateinit var photoButton: Button
     private lateinit var imagePreview: ImageView
+    private var recordingMode = false
+    private var recordingFinalizing = false
+    private var pendingRecordingMode = false
+    private var recorder: WivraHevcMp4Recorder? = null
+    private var compressedPackets = 0L
+    private lateinit var recordButton: Button
+    private lateinit var finishRecordButton: Button
 
     private data class LocalPreviewFrame(val bytes: ByteArray, val width: Int, val height: Int)
     private var sdkReady = false
@@ -76,7 +83,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private val cameraPermissionLauncher =
         registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
             result.onSuccess { permission ->
-                if (permission == PermissionStatus.Granted) startStream()
+                if (permission == PermissionStatus.Granted) startStream(pendingRecordingMode)
                 else show(getString(R.string.camera_denied))
             }.onFailure { error, _ ->
                 show(getString(R.string.permission_error, error.description))
@@ -111,9 +118,15 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
         connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
+        recordButton = button(root, getString(R.string.record_video_only)) {
+            checkCameraPermission(recording = true)
+        }
+        finishRecordButton = button(root, getString(R.string.stop_save_recording)) {
+            finishRecording()
+        }
         photoButton = button(root, getString(R.string.capture_photo)) { captureGlassesPhoto() }
-        button(root, getString(R.string.disconnect)) { stopAll() }
-        button(root, getString(R.string.back_editor)) { stopAll(); finish() }
+        button(root, getString(R.string.disconnect)) { if (recordingMode) finishRecording() else stopAll() }
+        button(root, getString(R.string.back_editor)) { if (recordingMode) finishRecording() else { stopAll(); finish() } }
         root.addView(TextView(this).apply {
             text = getString(R.string.preview_disclaimer)
         })
@@ -135,6 +148,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerButton.isEnabled = sdkReady
         connectButton.isEnabled = sdkReady && session == null
         previewButton.isEnabled = session?.state?.value == DeviceSessionState.STARTED && camera == null
+        recordButton.isEnabled = session?.state?.value == DeviceSessionState.STARTED &&
+            camera == null && !recordingFinalizing
+        finishRecordButton.isEnabled = recordingMode && !recordingFinalizing
         photoButton.isEnabled = stream != null && !photoInProgress &&
             lastFrameReceivedMs > 0L &&
             SystemClock.elapsedRealtime() - lastFrameReceivedMs < 4_000L
@@ -190,27 +206,41 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .onFailure { error, _ -> show(getString(R.string.connection_failed, error.description)) }
     }
 
-    private fun checkCameraPermission() {
+    private fun checkCameraPermission(recording: Boolean = false) {
         if (session?.state?.value != DeviceSessionState.STARTED || camera != null) {
             show(getString(R.string.wait_session))
             return
         }
+        pendingRecordingMode = recording
         scope.launch {
             Wearables.checkPermissionStatus(Permission.CAMERA)
                 .onSuccess { permission ->
-                    if (permission == PermissionStatus.Granted) startStream()
+                    if (permission == PermissionStatus.Granted) startStream(pendingRecordingMode)
                     else cameraPermissionLauncher.launch(Permission.CAMERA)
                 }
                 .onFailure { error, _ -> show(getString(R.string.permission_check_failed, error.description)) }
         }
     }
 
-    private fun startStream() {
+    private fun startStream(recording: Boolean = false) {
         val connected = session ?: return
         if (connected.state.value != DeviceSessionState.STARTED || camera != null) return
-        connected.addCamera(StreamConfiguration(videoQuality = VideoQuality.MEDIUM, frameRate = 24))
+        connected.addCamera(StreamConfiguration(
+            videoQuality = VideoQuality.MEDIUM, frameRate = 24,
+            // The video-only MP4 muxer needs the original HEVC stream.
+            // Decoded YUV is preserved for normal low-FPS preview mode.
+            compressVideo = recording
+        ))
             .onSuccess { capability ->
                 camera = capability
+                recordingMode = recording
+                recordingFinalizing = false
+                compressedPackets = 0L
+                recorder = if (recording) WivraHevcMp4Recorder(applicationContext) else null
+                if (recording) {
+                    show(getString(R.string.recording_wait_keyframe))
+                    imagePreview.setImageDrawable(null)
+                }
                 val active = capability.stream
                 stream = active
                 frames = 0
@@ -238,8 +268,27 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     }
                 }
                 // Subscribe before start so the first frame is not missed.
-                framesJob = scope.launch {
+                framesJob = scope.launch(
+                    if (recording) Dispatchers.IO else Dispatchers.Main.immediate
+                ) {
                     active.videoStream.collect { frame ->
+                        if (recording) {
+                            if (!frame.isCompressed) return@collect
+                            val copied = frame.buffer.duplicate()
+                            if (copied.remaining() !in 1..8 * 1024 * 1024) return@collect
+                            val bytes = ByteArray(copied.remaining())
+                            copied.get(bytes)
+                            recorder?.consume(bytes, frame.presentationTimeUs,
+                                frame.width, frame.height, frame.isCodecConfig)
+                            compressedPackets += 1
+                            if (compressedPackets == 1L || compressedPackets % 24L == 0L) {
+                                withContext(Dispatchers.Main.immediate) {
+                                    show(getString(R.string.recording_frames,
+                                        recorder?.samples ?: 0))
+                                }
+                            }
+                            return@collect
+                        }
                         frames += 1
                         lastFrameReceivedMs = SystemClock.elapsedRealtime()
                         if (frames == 1L || frames % 24L == 0L) {
@@ -319,7 +368,28 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         }
     }
 
+    private fun finishRecording() {
+        if (!recordingMode || recordingFinalizing) return
+        recordingFinalizing = true
+        refreshButtons()
+        show(getString(R.string.recording_finalizing))
+        framesJob?.cancel()
+        framesJob = null
+        scope.launch {
+            val uri = withContext(Dispatchers.IO) { recorder?.finishAndSave() }
+            recorder = null
+            stopAll()
+            show(if (uri != null) getString(R.string.recording_saved)
+                 else getString(R.string.recording_no_video))
+        }
+    }
+
     private fun cleanup() {
+        recorder?.discard()
+        recorder = null
+        recordingMode = false
+        recordingFinalizing = false
+        compressedPackets = 0L
         framesJob?.cancel(); framesJob = null
         decodeJob?.cancel(); decodeJob = null
         frameChannel?.close(); frameChannel = null

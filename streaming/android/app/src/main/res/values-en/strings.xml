@@ -8,7 +8,7 @@
     <string name="activate_video">3. Start video</string>
     <string name="disconnect">Disconnect</string>
     <string name="back_editor">Back to editor</string>
-    <string name="preview_disclaimer">Local preview (up to 6 FPS, provisional I420 YUV). No recording or broadcasting. Picture quality and colors require device testing. LIVE and separate audio are not ready.</string>
+    <string name="preview_disclaimer">Local 6 FPS diagnostic preview, or MP4 recording mode without audio. Recording mode has no picture preview yet; LIVE and audio are pending.</string>
     <string name="bluetooth_denied">Bluetooth permission denied. You can still use the editor.</string>
     <string name="camera_denied">Camera permission denied; video will not start.</string>
     <string name="permission_error">DAT permission error: %1$s</string>
@@ -38,4 +38,11 @@
     <string name="photo_save_failed">Could not save photo: %1$s</string>
     <string name="picker_last_photo">Use latest Wivra Ray-Ban photo</string>
     <string name="picker_browse_files">Browse Files</string>
+    <string name="record_video_only">3b. Record Ray-Ban video (no audio)</string>
+    <string name="stop_save_recording">Stop and save MP4</string>
+    <string name="recording_wait_keyframe">Receiving compressed video. Waiting for first keyframe…</string>
+    <string name="recording_frames">Local recording: %1$d video frames written (no audio)</string>
+    <string name="recording_finalizing">Finalizing MP4 file…</string>
+    <string name="recording_saved">MP4 saved in Movies/Wivra. Session closed.</string>
+    <string name="recording_no_video">Could not save MP4: insufficient frames or invalid HEVC data.</string>
 </resources>

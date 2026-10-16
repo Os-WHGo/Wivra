@@ -8,7 +8,7 @@
     <string name="activate_video">3. 映像を開始</string>
     <string name="disconnect">接続を解除</string>
     <string name="back_editor">エディターに戻る</string>
-    <string name="preview_disclaimer">ローカルプレビュー（最大6 FPS、暫定的なYUV I420）。録画・配信はできません。画質と色は実機確認が必要です。LIVEと別音声は未対応です。</string>
+    <string name="preview_disclaimer">ローカル診断プレビューは 6 FPS。MP4 録画は音声なしで、録画中の映像プレビューはまだありません。LIVE と音声は開発中です。</string>
     <string name="bluetooth_denied">Bluetooth の権限が拒否されました。エディターは利用できます。</string>
     <string name="camera_denied">カメラの権限が拒否されたため、映像を開始しません。</string>
     <string name="permission_error">DAT 権限エラー: %1$s</string>
@@ -38,4 +38,11 @@
     <string name="photo_save_failed">写真を保存できません: %1$s</string>
     <string name="picker_last_photo">最新の Wivra Ray-Ban 写真を使用</string>
     <string name="picker_browse_files">ファイルを参照</string>
+    <string name="record_video_only">3b. Ray-Ban 動画を録画（音声なし）</string>
+    <string name="stop_save_recording">停止して MP4 を保存</string>
+    <string name="recording_wait_keyframe">圧縮映像を受信中。最初のキーフレームを待っています…</string>
+    <string name="recording_frames">ローカル録画: %1$d フレーム保存（音声なし）</string>
+    <string name="recording_finalizing">MP4 ファイルを保存しています…</string>
+    <string name="recording_saved">MP4 を Movies/Wivra に保存しました。接続は終了しました。</string>
+    <string name="recording_no_video">MP4 を保存できませんでした。映像フレーム不足または HEVC データが無効です。</string>
 </resources>
