@@ -55,3 +55,14 @@ Revisión estática de archivos reales de GitHub en la rama `chatgpt/wivra-unifi
 - `.github/workflows/wivra-complete-beta-assembly.yml` exige HTML reproducible antes de compilar APK debug e IPA sin firmar; falla antes de esos jobs si dist difiere.
 - No confundir APK debug instalable con lanzamiento, ni IPA sin firmar con instalador iPhone utilizable.
 - **Limitación del procedimiento:** revisión por API de GitHub y Actions; sin checkout local ni dispositivos conectados en esta ejecución. El código puede corregirse, pero pruebas ejecutadas y reconstrucción reproducible siguen pendientes.
+
+## Bloque ampliado · seguridad, nativo, documentación y CI
+- `app/ai-client.mjs`: **P1 seguridad confirmado y mitigado**. La base personalizada se concatenaba directamente con `/chat/completions` y podía aceptar HTTP con una clave Bearer. Commit `1d87419` valida HTTPS, prohíbe usuario/contraseña, query y fragmento. Regresión `app/tests/ai-client.test.mjs` commit `eb20b5e`; CI pendiente.
+- `app/capture-manifest.mjs`: validación v1/v2, roles, pistas y no duplicar audio integrado; `planImportOps` evita reproducir archivo estéreo completo dos veces cuando se piden canales independientes. **No valida medios físicos**, canales deben extraerse antes.
+- `streaming/contracts/wivra-manifest-v2.schema.json`: contrato de offsets explícitos y `muxedFromTrackIDs`; calibración de latencia de dispositivos pendiente.
+- `streaming/android/app/src/main/AndroidManifest.xml`: permisos cámara, audio, red, Bluetooth y opt-out analítica/crash DAT declarados; revisar comportamiento de permisos en Android 12–16 y SDK nativo. `allowBackup=false` y `usesCleartextTraffic=false` visibles.
+- `docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md`: Claude dejó registro de pruebas de editor en CI de #124 y reconoce ausencia de QA real; la matriz aún describe velocidad solo individual y otras funciones que cambiaron posteriormente. **Desactualización documental**, no evidencia de funcionalidad.
+- `app/README.md`: contiene secciones históricas que dicen «No exporta todavía» aunque `app/export.mjs` ya implementa exportación; actualizar documentación consolidada tras CI.
+- `.github/workflows/wivra-audit-rebuild-editor.yml` commit `a8f7a1b`: workflow acotado exclusivamente a rama de auditoría, intenta regenerar dist y ejecutar pruebas antes de guardar el HTML. **No hay confirmación de ejecución** en las consultas de workflows de estos commits. Si las Actions no arrancan o token no puede escribir, reconstruir en un checkout con Node.
+- Se inspeccionó `app/tests/ai-client.test.mjs` y matriz de beta del editor; pruebas de seguridad añadidas sin ejecutar.
+- **Auditoría de nativo y hardware todavía abierta:** revisar fuente Swift/Kotlin completo, compilación real, permisos, grabación larga, RTMP, integración de librería y QA.
