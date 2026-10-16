@@ -139,3 +139,8 @@ Logs run `38978834240` de App Tests muestran fallos adicionales tras recuperar p
 - Corregidas tablas `app/i18n/strings-it.tsv` y `app/i18n/strings-3.tsv` para dos errores HTTPS, commits `8a92364` y `4d7f29a`. No se debilitó la validación de URLs.
 - Aún sin confirmación de nuevas pruebas: no reportar CI verde.
 - Bloqueador P0: ejecutar `node app/build.mjs` en runner con permisos de commit, sincronizar `app/dist/agentcut.html`, luego ejecutar `node --test app/tests/*.test.mjs` y ensamblaje móvil. El workflow de reconstrucción existe pero su ejecución efectiva no está demostrada; no sustituir evidencia de compilación con inspección estática.
+
+## CI posterior a corrección i18n · fallos precisos
+Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (`not ok 199–204`) debidos a `qaLinkedAudioOps is not defined` en slots; reparado import desde `quick-assembly.mjs` en commit `76b7da3`. Otros dos (`not ok 234–235`) son exclusivamente bundle `app/dist/agentcut.html` obsoleto respecto a `app/template.html` y las traducciones; `spAll` sí existe en fuente.
+- El workflow `wivra-audit-rebuild-editor.yml` fue ampliado para observar también `app/tests/**` y `app/dist/agentcut.html`, commit `e932834`; aún no existe evidencia de ejecución exitosa o commit de bundle.
+- No confundir el total de 8 fallos con 8 causas distintas. Bloqueadores: verificar que el runner de rebuild realmente arranque, ejecute suite, y pueda subir bundle sin carrera con otras escrituras. La beta móvil permanece no validada.
