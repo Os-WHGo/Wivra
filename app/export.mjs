@@ -191,6 +191,22 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
 
 const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
 const frame = () => new Promise((res) => requestAnimationFrame(res));
+/** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
+export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
+export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+/** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
+export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
+  return new Promise((res, rej) => {
+    let done = false, timer = 0, poll = 0;
+    const fin = (f, v) => { if (done) return; done = true; clearTimeout(timer); clearInterval(poll); el.removeEventListener(ev, onEv); el.removeEventListener('error', onErr); f(v); };
+    const onEv = () => fin(res), onErr = () => fin(rej, new Error(`No se pudo leer ${what.toLowerCase()} para exportar.`));
+    el.addEventListener(ev, onEv); el.addEventListener('error', onErr);
+    timer = setTimeout(() => fin(rej, new Error(`${what} tardó demasiado en responder (más de ${Math.round(ms / 1000)} s).`)), ms);
+    poll = setInterval(() => { if (isCancelled()) fin(res); }, 200);
+  });
+}
+export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
 export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30 }) {
@@ -271,7 +287,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   };
 
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined);
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
@@ -286,16 +302,20 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     photos.set(id, el); return el;
   };
+  // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
+  let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
+  const stopNow = () => isCancelled() || interrupted;
+  rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
   const t0 = performance.now(); let cancelled = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
     rec.start(1000);
     for (const seg of plan.segments) {
-      if (isCancelled()) { cancelled = true; break; }
+      if (stopNow()) { cancelled = true; break; }
       if (seg.type === 'gap') {
         const s = performance.now();
-        while (performance.now() - s < seg.dur * 1000 && !isCancelled()) {
+        while (performance.now() - s < seg.dur * 1000 && !stopNow()) {
           const tg = seg.start + (performance.now() - s) / 1000; audioTick(tg);
           drawFrame(g, W, H, null, project, tg, overlayTick(tg)); report(seg.start + (performance.now() - s) / 1000); await frame();
         }
@@ -307,21 +327,24 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         if (!el) throw new Error(`No se pudo abrir la foto «${m.name || c.asset_id}» para exportar.`);
         if (typeof el.currentTime === 'number' && m.gif) { try { el.currentTime = c.in; } catch { /* aún no */ } }
         const s = performance.now();
-        while (!isCancelled()) {
+        while (!stopNow()) {
           const dt = (performance.now() - s) / 1000; if (dt >= seg.dur) break;
           const tp = c.start + dt; audioTick(tp); drawFrame(g, W, H, el, project, tp, overlayTick(tp)); report(tp); await frame();
         }
         continue;
       }
-      if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await Promise.race([once(ev, 'loadedmetadata'), once(ev, 'error').then(() => { throw new Error('No se pudo leer un video para exportar.'); })]); }
-      if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await once(ev, 'seeked'); }
+      if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
+      if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
-      await ev.play();
-      await new Promise((res) => {
+      try { await ev.play(); } catch { throw new Error('El navegador no dejó reproducir un video para exportar.'); }
+      await new Promise((res, rej) => {
+        let last = -1, since = performance.now();
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in);
           audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
-          if (isCancelled() || cur >= c.out - 0.03 || ev.ended) return res();
+          if (stopNow() || cur >= c.out - 0.03 || ev.ended) return res();
+          if (cur !== last) { last = cur; since = performance.now(); }
+          else if (performance.now() - since > STALL_SECONDS * 1000) return rej(new Error(`El video se trabó y no avanzó durante ${STALL_SECONDS} s. Prueba de nuevo o con menos clips.`));
           requestAnimationFrame(tick);
         };
         tick();
@@ -337,8 +360,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
     photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
     ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+    document.removeEventListener('visibilitychange', onVis);
   }
+  if (interrupted) return { interrupted: true };
   if (cancelled || isCancelled()) return { cancelled: true };
-  const type = rec.mimeType || mime || 'video/webm';
-  return { blob: new Blob(chunks, { type }), mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
+  const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
+  if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
+  return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
