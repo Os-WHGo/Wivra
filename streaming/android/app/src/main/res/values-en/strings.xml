@@ -126,4 +126,16 @@
     <string name="phone_camera_wav_failed">WAV recording failed. Review the private video before saving.</string>
     <string name="phone_camera_wav_unusable">Pending WAV is incomplete; it will not be published as valid audio.</string>
     <string name="picker_phone_audio_named">Wivra WAV track: %1$s</string>
+    <string name="phone_camera_choose_shot">Choose a Director shot</string>
+    <string name="phone_camera_without_script">No script</string>
+    <string name="phone_camera_unnamed_shot">Shot %1$d</string>
+    <string name="teleprompter_accessible">Camera teleprompter overlay, not recorded</string>
+    <string name="teleprompter_start">Start scrolling</string>
+    <string name="teleprompter_pause">Pause scrolling</string>
+    <string name="teleprompter_slower">Slower</string>
+    <string name="teleprompter_faster">Faster</string>
+    <string name="teleprompter_smaller">Text −</string>
+    <string name="teleprompter_bigger">Text +</string>
+    <string name="teleprompter_hide">Hide / show</string>
+    <string name="teleprompter_wpm">Reading: %1$d words per minute</string>
 </resources>
