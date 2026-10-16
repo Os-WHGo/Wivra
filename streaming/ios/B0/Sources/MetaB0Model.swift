@@ -68,6 +68,7 @@ final class MetaB0Model {
     let audioRoute = WivraAudioRoute()
     private let audioSidecar = WivraAudioSidecar()
     private let clipRecorder = WivraHEVCRecorder()
+    private let segmentedRecorder = WivraSegmentedHEVCRecorder()
     private var audioRouteObserver: NSObjectProtocol?
 
     private let wearables: any WearablesInterface
@@ -212,7 +213,8 @@ final class MetaB0Model {
                 return
             }
         }
-        guard clipRecorder.arm() else {
+        let started = captureSelectedAudio ? clipRecorder.arm() : segmentedRecorder.arm()
+        guard started else {
             if audioSidecar.isRecording { _ = try? audioSidecar.finish() }
             recordingStatus = "Hay una grabación pendiente de finalizar."
             return
@@ -227,16 +229,37 @@ final class MetaB0Model {
         guard recordingArmed && !recordingFinishing else { return }
         recordingArmed = false
         recordingFinishing = true
-        let firstVideoClock = clipRecorder.firstVideoSampleUptime()
         let wantedAudio = captureSelectedAudio
+        let firstVideoClock = wantedAudio ? clipRecorder.firstVideoSampleUptime() : nil
         var sound: WivraAudioResult?
         var soundError: String?
         if wantedAudio {
             do { sound = try audioSidecar.finish() }
             catch { soundError = error.localizedDescription }
         }
-        let result = await clipRecorder.stop()
+        let result = wantedAudio
+            ? await clipRecorder.stop()
+            : await segmentedRecorder.stop()
         switch result {
+        case .savedSegments(let urls, let frames, let dropped):
+            guard let first = urls.first else {
+                recordingStatus = "No hay segmentos finalizados."
+                break
+            }
+            lastRecordedURL = first
+            do {
+                let manifests = urls.map {
+                    $0.deletingPathExtension().appendingPathExtension("wivra.json")
+                }
+                pendingRecording = try WivraPendingRecordingStore.stage(
+                    videoURL: first, related: urls + manifests
+                )
+                showPendingRecordingChoice = true
+                recordingStatus = "Recuperados \(urls.count) segmentos MOV (\(frames) cuadros, \(dropped) descartados). Aún no están unidos. Elige Guardar o Decidir después."
+            } catch {
+                recordingStatus = "Segmentos conservados en el iPhone, sin decisión publicada: " +
+                    error.localizedDescription
+            }
         case .saved(let url, let frames, let dropped):
             lastRecordedURL = url
             recordingStatus = "Video original guardado (\(frames) cuadros; \(dropped) descartados)."
@@ -314,6 +337,7 @@ final class MetaB0Model {
         guard !recordingArmed && !recordingFinishing,
               !showPendingRecordingChoice && !showPendingRecordingDeletionConfirmation
         else { return }
+        _ = WivraPendingRecordingStore.recoverUnstagedCheckpoints()
         pendingRecording = WivraPendingRecordingStore.pending().first
         showPendingRecordingChoice = pendingRecording != nil
     }
@@ -321,6 +345,28 @@ final class MetaB0Model {
     func keepPendingRecording() {
         guard let entry = pendingRecording else { return }
         do {
+            // Grouped video-only checkpoints receive a standard v2 manifest
+            // for EACH independent MOV. Do not misrepresent them as one clip.
+            if entry.id.range(
+                of: #"_part[0-9]{4}\\.mov$"#, options: .regularExpression
+            ) != nil {
+                let folder = FileManager.default.urls(
+                    for: .documentDirectory, in: .userDomainMask
+                )[0].appendingPathComponent("WivraRecordings", isDirectory: true)
+                let parts = entry.files
+                    .filter { $0.range(
+                        of: #"_part[0-9]{4}\\.mov$"#,
+                        options: .regularExpression
+                    ) != nil }
+                    .sorted()
+                for name in parts {
+                    let url = folder.appendingPathComponent(name)
+                    lastCaptureManifestURL = try WivraCaptureManifest.write(
+                        videoURL: url, tracks: [],
+                        mergedURL: nil, cameraSource: "meta-dat-hevc"
+                    )
+                }
+            }
             try WivraPendingRecordingStore.keep(entry)
             recordingStatus = "Grabación guardada en Wivra. Puedes compartirla desde la biblioteca."
             pendingRecording = nil
@@ -518,9 +564,15 @@ final class MetaB0Model {
 
             let compressed = receiveCompressedHEVC
             let recorder = clipRecorder
+            let checkpointRecorder = segmentedRecorder
+            let separateAudio = captureSelectedAudio
             stream.videoFramePublisher.listen { [weak self] frame in
                 if compressed {
-                    recorder.append(frame.sampleBuffer)
+                    if separateAudio {
+                        recorder.append(frame.sampleBuffer)
+                    } else {
+                        checkpointRecorder.append(frame.sampleBuffer)
+                    }
                     let dimensions = CMSampleBufferGetFormatDescription(frame.sampleBuffer)
                         .map { CMVideoFormatDescriptionGetDimensions($0) }
                     let width = Int(dimensions?.width ?? 0)
