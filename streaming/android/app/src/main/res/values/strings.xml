@@ -45,4 +45,17 @@
     <string name="recording_finalizing">Finalizando archivo MP4…</string>
     <string name="recording_saved">MP4 guardado en Videos/Wivra. La sesión se ha cerrado.</string>
     <string name="recording_no_video">No se pudo guardar MP4: faltan cuadros válidos o datos HEVC.</string>
+    <string name="recording_pending_ready">MP4 listo, pendiente de tu decisión.</string>
+    <string name="recording_save_question">¿Guardar esta grabación?</string>
+    <string name="recording_pending_explanation">El video se conservará de forma privada en Wivra hasta que lo guardes o confirmes eliminarlo. Cerrar esta ventana no lo borra.</string>
+    <string name="recording_keep">Guardar video</string>
+    <string name="recording_discard">No guardar</string>
+    <string name="recording_later">Decidir después</string>
+    <string name="recording_remains_pending">La grabación sigue guardada temporalmente.</string>
+    <string name="recording_keep_failed">No se pudo guardar en Videos/Wivra. Se conserva la copia pendiente.</string>
+    <string name="recording_discard_confirm_title">¿Eliminar esta grabación?</string>
+    <string name="recording_discard_confirm_message">Esto borra solo la copia temporal de Wivra, no el video que una plataforma pueda haber guardado.</string>
+    <string name="recording_discard_confirm">Sí, eliminar</string>
+    <string name="recording_discarded">Grabación temporal eliminada.</string>
+    <string name="recording_delete_failed">No se pudo eliminar el archivo temporal. Sigue disponible.</string>
 </resources>
