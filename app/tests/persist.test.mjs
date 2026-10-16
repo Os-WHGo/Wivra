@@ -84,3 +84,50 @@ test('resumen de «Mis proyectos»: nombre, clips, duración; ids y nombre por d
   assert.notEqual(newProjectId(1, 0.1), newProjectId(2, 0.1)); assert.match(newProjectId(), /^p[a-z0-9]+$/);
   assert.match(defaultName(Date.UTC(2026, 9, 14, 12, 5)), /^Proyecto \d+ oct \d\d:\d\d$/);
 });
+
+// ── Notas del Director dentro del proyecto ──
+import { cleanDirector, DIRECTOR_DRAFT_MAX } from '../persist.mjs';
+import { createShootPlan } from '../../core/shoot-checklist.mjs';
+import { createDirectorBrief } from '../../core/creative-director.mjs';
+import { createDirectorDraftRecord, restoreDirectorDraftRecord } from '../../core/director-intake.mjs';
+
+const plan = () => createShootPlan({ subject: 'el parque', platform: 'reels', durationSeconds: 30, shotCount: 4 });
+const draft = () => createDirectorDraftRecord(createDirectorBrief({ mode: 'automatic', goal: 'reel del parque', platforms: ['reels'], notes: 'tono alegre' }));
+
+test('el Director viaja con el proyecto: idea y lista de tomas sobreviven guardar → reabrir', () => {
+  const sp = plan(), dr = draft();
+  const snap = makeSnapshot({ project: sample(), director: { draft: dr, shootPlan: sp }, now: 5 });
+  const r = readSnapshot(JSON.parse(JSON.stringify(snap)));
+  assert.ok(r.ok, JSON.stringify(r)); assert.deepEqual(r.snapshot.director.shootPlan, sp); assert.equal(r.snapshot.director.draft, dr);
+  assert.equal(restoreDirectorDraftRecord(r.snapshot.director.draft).notes, 'tono alegre');
+});
+test('sin notas del Director no se agrega el campo; los proyectos viejos siguen abriendo', () => {
+  assert.equal('director' in makeSnapshot({ project: sample() }), false);
+  assert.equal('director' in makeSnapshot({ project: sample(), director: { draft: null, shootPlan: null } }), false);
+  const old = makeSnapshot({ project: sample() }); const r = readSnapshot(old); assert.ok(r.ok); assert.equal(r.snapshot.director, undefined); assert.deepEqual(r.warnings, []);
+});
+test('notas del Director dañadas se descartan con aviso y el proyecto abre igual', () => {
+  const snap = makeSnapshot({ project: sample() });
+  for (const bad of [{ draft: 42 }, { draft: 'x'.repeat(DIRECTOR_DRAFT_MAX + 1) }, { shootPlan: { schema: 'otro', shots: [] } }, { shootPlan: { schema: 'agentcut-shoot-plan-v0.1', shots: 'no' } }, { shootPlan: { schema: 'agentcut-shoot-plan-v0.1', shots: new Array(51).fill({}) } }]) {
+    const r = readSnapshot({ ...snap, director: bad });
+    assert.ok(r.ok, JSON.stringify(bad).slice(0, 40)); assert.equal(r.snapshot.director, undefined); assert.equal(r.warnings.length, 1);
+  }
+  const mixed = readSnapshot({ ...snap, director: { draft: draft(), shootPlan: { schema: 'x', shots: [] } } });
+  assert.ok(mixed.snapshot.director.draft && !mixed.snapshot.director.shootPlan);       // lo bueno se conserva
+  assert.deepEqual(cleanDirector('basura'), { director: null, warnings: [] });
+});
+test('el Director guardado es una copia: cambiarlo después no altera la instantánea', () => {
+  const sp = plan(), snap = makeSnapshot({ project: sample(), director: { shootPlan: sp } }); sp.shots[0].title = 'CAMBIADO';
+  assert.notEqual(snap.director.shootPlan.shots[0].title, 'CAMBIADO');
+});
+
+test('el estilo de los textos se guarda y se reabre; un estilo dañado se quita con aviso', () => {
+  const s = new Session(createProject({ assets: [] })); s.addAsset({ id: 'a1', duration: 10, name: 'a.mov' });
+  assert.ok(s.apply([{ op: 'add_clip', asset_id: 'a1', start: 0 }, { op: 'add_text', text: 'Hola', start: 0, duration: 2, pos: 'top', size: 'l', color: '#ffd24a', box: '#000000' }, { op: 'add_text', text: 'Chao', start: 2, duration: 2 }]).ok);
+  const raw = JSON.stringify(makeSnapshot({ project: s.project, media: {}, assetSeq: 1, tlTime: 0, stored: [] })), ok = readSnapshot(raw);
+  assert.deepEqual([ok.snapshot.project.texts[0].pos, ok.snapshot.project.texts[0].size, ok.snapshot.project.texts[0].color, ok.snapshot.project.texts[0].box], ['top', 'l', '#ffd24a', '#000000']);
+  const bad = JSON.parse(raw); bad.project.texts[1].pos = 'izquierda'; bad.project.texts[1].color = 'rojo'; bad.project.texts[0].box = 5;
+  const r = readSnapshot(JSON.stringify(bad)); assert.ok(r.ok !== false && r.snapshot, 'abre igual'); const t = r.snapshot.project.texts;
+  assert.equal(t[1].pos, undefined); assert.equal(t[1].color, undefined); assert.equal(t[0].box, undefined); assert.equal(t[0].pos, 'top');
+  assert.ok(r.warnings.some((w) => /estilo de texto/.test(w)));
+});

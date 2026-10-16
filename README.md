@@ -3,7 +3,7 @@
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
-> Estado / Status (15-10-2026): **prototipo en desarrollo, no es una app publicada.** El editor de este PR (#44) ya funciona en un navegador simulado (Chromium, 430×727): importar videos, línea de tiempo con capas y audio, filtros y efectos, texto, exportación real, proyectos guardados con recuperación, Director, IA con 14 operaciones validadas y interfaz en 8 idiomas (traducciones automáticas, sin revisar por nativos). **No está probado en un iPhone ni en Android reales.** Android: todavía sin trabajo nativo. Captura de cámara y LIVE están en PR aparte (ver #49). Detalles técnicos en [`app/README.md`](app/README.md). / Prototype in development, not a released app; tested only in simulated Chromium, not on real iPhone or Android.
+> Estado / Status (16-10-2026): **beta en ensamblaje, no es una app publicada y nada está verificado en un iPhone ni en un Android reales.** El editor (importar, línea de tiempo multipista, filtros, texto, subtítulos .srt/.vtt, plantillas, quitar silencios, volumen parejo, exportación 9:16, Director, 8 idiomas con traducciones automáticas sin revisar por nativos) está en la rama de integración y pasa sus pruebas automáticas y la CI; la **captura de cámara/Ray-Ban, el audio nativo y LIVE** son trabajo nativo de iPhone y Android con builds de prueba (APK de depuración, IPA **sin firmar**). Estado por función, con lo que falta (transcripción automática, AutoCut, teleprompter, transiciones…): [`docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md`](docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md). Política: Wivra es **100 % gratuita para el usuario** ([`docs/WIVRA_FREE_FOREVER_PRODUCT_POLICY_2026-10-16.md`](docs/WIVRA_FREE_FOREVER_PRODUCT_POLICY_2026-10-16.md)). Detalles técnicos del editor en [`app/README.md`](app/README.md). / Beta being assembled, not a released app, nothing verified on real iPhone or Android yet; status per feature in the matrix above; Wivra is 100% free for users.
 > Nombre: **Wivra** (antes "AgentCut"; renombrado el 13-10-2026 por decisión del propietario; el repositorio se renombra en GitHub a `wivra`). Pendiente: comprobar que no choque con marcas existentes antes de publicar.
 
 ---
@@ -42,7 +42,7 @@ Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), ve
 - **Reconocer:** texto en pantalla (carteles, nombres de calles), lugares (apoyándose en el GPS del video cuando exista), momentos clave y silencios. Los modelos con visión leen texto en los fotogramas, pero la precisión varía y hay que verificarla. No identificamos personas por su cara.
 - **Sugerir ideas:** ganchos de apertura, títulos, estructura del reel, guiones y hashtags a partir de lo que aparece en los videos.
 - **Teleprompter:** el guion se desplaza en pantalla mientras grabas, con velocidad ajustable.
-- **Cualquier IA:** una capa de proveedores intercambiable (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros). Cada persona trae su propia clave.
+- **IA opcional:** el editor y los comandos básicos funcionan en local, sin cuenta ni pago. Opcionalmente se puede conectar una IA externa (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros) con la clave propia de cada persona; **no es obligatoria y no forma parte de la promesa gratuita** (la paga cada quien a su proveedor).
 - **Privacidad y costo:** el video queda en el teléfono; solo se envían unos fotogramas y texto, con permiso, y se muestra una estimación del costo antes de analizar.
 
 **EN.** Wivra aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
@@ -65,7 +65,9 @@ Reglas del bucle del agente / agent-loop rules:
 3. Pedir confirmación al usuario antes de borrar, sobrescribir o exportar sobre un archivo existente.
 4. Las herramientas solo tocan el proyecto actual.
 
-## Proveedores de IA / AI providers
+## Proveedores de IA opcionales / Optional AI providers
+
+> Solo para quien **elija** traer su propia clave. Wivra no exige ninguno y no cobra nada: el costo, si lo hay, es entre la persona y el proveedor. / Optional, bring-your-own-key; Wivra requires none and charges nothing.
 
 | Proveedor | Cómo se conecta | Notas |
 | --- | --- | --- |
