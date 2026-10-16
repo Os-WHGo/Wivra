@@ -58,28 +58,44 @@ public final class MainActivity extends Activity {
                     pendingFilePicker.onReceiveValue(null);
                 }
                 pendingFilePicker = callback;
-                // Only offer Wivra's own most recent glasses photo when Claude's
-                // file input accepts images. The manifest/audio importer stays
-                // untouched, as do all unrelated photos on the device.
+                // Only saved and published Wivra media are offered as shortcuts.
+                // Pending Ray-Ban parts remain PRIVATE until "Guardar video".
+                // Manual "Buscar en Archivos" remains available at all times.
                 boolean acceptsImage = false;
+                boolean acceptsVideo = false;
                 for (String accept : params.getAcceptTypes()) {
-                    if (accept != null && accept.contains("image/")) {
-                        acceptsImage = true;
-                    }
+                    if (accept == null) continue;
+                    if (accept.contains("image/")) acceptsImage = true;
+                    if (accept.contains("video/")) acceptsVideo = true;
                 }
                 Uri recent = acceptsImage
                     ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
                     : null;
-                if (recent != null) {
+                java.util.List<WivraSavedRayBanVideos.SavedVideo> videos = acceptsVideo
+                    ? WivraSavedRayBanVideos.latestSaved(MainActivity.this)
+                    : java.util.Collections.emptyList();
+                if (recent != null || !videos.isEmpty()) {
+                    java.util.List<String> labels = new java.util.ArrayList<>();
+                    if (recent != null) labels.add(getString(R.string.picker_last_photo));
+                    for (WivraSavedRayBanVideos.SavedVideo video : videos) {
+                        labels.add(getString(R.string.picker_wivra_video_named, video.getTitle()));
+                    }
+                    labels.add(getString(R.string.picker_browse_files));
                     new AlertDialog.Builder(MainActivity.this)
-                        .setItems(new String[] {
-                            getString(R.string.picker_last_photo),
-                            getString(R.string.picker_browse_files)
-                        }, (dialog, item) -> {
-                            if (item == 0) {
+                        .setTitle(R.string.picker_wivra_media_title)
+                        .setItems(labels.toArray(new String[0]), (dialog, item) -> {
+                            if (recent != null && item == 0) {
                                 ValueCallback<Uri[]> completion = pendingFilePicker;
                                 pendingFilePicker = null;
                                 if (completion != null) completion.onReceiveValue(new Uri[]{recent});
+                                return;
+                            }
+                            int videoIndex = item - (recent != null ? 1 : 0);
+                            if (videoIndex >= 0 && videoIndex < videos.size()) {
+                                ValueCallback<Uri[]> completion = pendingFilePicker;
+                                pendingFilePicker = null;
+                                if (completion != null) completion.onReceiveValue(
+                                    new Uri[]{videos.get(videoIndex).getUri()});
                             } else {
                                 launchSystemPicker(params);
                             }
