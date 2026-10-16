@@ -61,4 +61,12 @@
     <string name="recording_frames_checkpoints">Grabación: %1$d cuadros, %2$d segmentos MP4 protegidos.</string>
     <string name="recording_pending_multiple_parts">Este video tiene %1$d segmentos MP4 independientes. Todavía no se han unido en un único archivo.</string>
     <string name="recording_partially_saved">Se guardaron %1$d de %2$d segmentos. Los demás permanecen pendientes.</string>
+    <string name="recording_review_video">Revisar video</string>
+    <string name="recording_review_title">Revisar grabación pendiente</string>
+    <string name="recording_review_part">Segmento %1$d de %2$d</string>
+    <string name="recording_review_close">Cerrar revisión</string>
+    <string name="recording_review_unavailable">No se pudo reproducir este segmento.</string>
+    <string name="recording_review_previous">Anterior</string>
+    <string name="recording_review_next">Siguiente</string>
+    <string name="recording_review_disclaimer">Esta revisión es local. No se guarda ni se elimina ningún archivo hasta que lo decidas.</string>
 </resources>
