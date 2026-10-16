@@ -47,3 +47,14 @@
 "ios.library.recovered_audio_title" = "Wiederhergestelltes Audio";
 "ios.library.recovered_audio_note" = "Gespeicherte Tonspuren ohne Video. Du kannst sie aus Wivra teilen.";
 "ios.library.share_recovered_audio" = "Wiederhergestellte CAF teilen";
+"ios.network.unknown" = "Wird geprüft";
+"ios.network.offline" = "Keine Route";
+"ios.network.wifi" = "WLAN";
+"ios.network.cellular" = "Mobilfunk";
+"ios.network.ethernet" = "Ethernet";
+"ios.network.other" = "Anderer Pfad";
+"ios.network.route" = "Telefonnetz: %@";
+"ios.network.no_verified_uplink" = "iOS meldet keinen bestätigten Netzwerkpfad.";
+"ios.network.constrained" = "Datensparmodus; Uploadrate nicht gemessen.";
+"ios.network.expensive" = "Netzwerk kann Datenkosten verursachen.";
+"ios.network.disclaimer" = "Nur Telefondiagnose, nicht Ray-Ban-Verbindung oder bestätigtes LIVE.";
