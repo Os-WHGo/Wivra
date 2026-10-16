@@ -117,7 +117,7 @@ enum WivraPendingRecordingStore {
               let urls = try? FileManager.default.contentsOfDirectory(
                   at: folder, includingPropertiesForKeys: nil
               ) else { return 0 }
-        let segmentPattern = #"^Wivra_Meta_[0-9a-f]{32}_part[0-9]{4}\\.mov$"#
+        let segmentPattern = #"^Wivra_Meta_[0-9a-f]{32}_part[0-9]{4}\.mov$"#
         let candidates = urls.filter {
             $0.lastPathComponent.range(of: segmentPattern, options: .regularExpression) != nil &&
             !((try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
