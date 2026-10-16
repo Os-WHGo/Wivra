@@ -7,12 +7,47 @@
 import SwiftUI
 import WebKit
 
+private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate {
+    // A remote page must never receive the file-origin native message bridge.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        // Only app-bundled local pages may replace the main editor document.
+        if navigationAction.targetFrame?.isMainFrame != false {
+            decisionHandler(url.isFileURL ? .allow : .cancel)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
+}
+
 private struct WivraEditorWebView: UIViewRepresentable {
+    func makeCoordinator() -> WivraEditorNavigationPolicy {
+        WivraEditorNavigationPolicy()
+    }
+
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        // Main-frame-only, fixed method list. JS gets metadata, never a file URL.
+        let script = WKUserScript(source: """
+            window.WivraHost = Object.freeze({
+              capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
+              listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'})
+            });
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        configuration.userContentController.addUserScript(script)
+        configuration.userContentController.addScriptMessageHandler(
+            WivraEditorNativeBridge(), contentWorld: .page, name: "wivraNative")
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         let view = WKWebView(frame: .zero, configuration: configuration)
+        view.navigationDelegate = context.coordinator
         view.isOpaque = false
         view.backgroundColor = .black
         view.scrollView.contentInsetAdjustmentBehavior = .never
