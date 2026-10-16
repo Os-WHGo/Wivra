@@ -58,4 +58,7 @@
     <string name="recording_discard_confirm">Sì, elimina</string>
     <string name="recording_discarded">Registrazione temporanea eliminata.</string>
     <string name="recording_delete_failed">Eliminazione non riuscita. Il video temporaneo rimane disponibile.</string>
+    <string name="recording_frames_checkpoints">Registrazione: %1$d fotogrammi, %2$d segmenti MP4 protetti.</string>
+    <string name="recording_pending_multiple_parts">Questa registrazione contiene %1$d segmenti MP4 separati. Non sono ancora uniti in un unico file.</string>
+    <string name="recording_partially_saved">Salvati %1$d segmenti su %2$d. Gli altri restano in attesa.</string>
 </resources>
