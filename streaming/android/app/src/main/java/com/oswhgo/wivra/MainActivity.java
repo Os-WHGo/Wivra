@@ -141,8 +141,7 @@ public final class MainActivity extends Activity {
         Button phone = new Button(this);
         phone.setText(R.string.phone_camera_open);
         phone.setContentDescription(getString(R.string.phone_camera_open));
-        phone.setOnClickListener(v -> startActivity(
-            new Intent(this, WivraPhoneCameraActivity.class)));
+        phone.setOnClickListener(v -> launchPhoneCameraFromDirector());
         // These are two capture sources feeding the same one-and-only editor.
         LinearLayout sources = new LinearLayout(this);
         sources.setOrientation(LinearLayout.HORIZONTAL);
@@ -156,6 +155,68 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(shell);
         editor.loadUrl("file:///android_asset/agentcut.html");
+    }
+
+    /**
+     * Read ONLY the already-saved local Director checklist, on the user's
+     * explicit "Phone camera" tap. No JavascriptInterface, HTTP, or upload.
+     * The selected text is carried in an app-private non-exported Intent.
+     */
+    private void launchPhoneCameraFromDirector() {
+        if (editor == null ||
+            !"file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+            startActivity(new Intent(this, WivraPhoneCameraActivity.class));
+            return;
+        }
+        final String readOnly = "(function(){try{" +
+            "const plan=JSON.parse(localStorage.getItem('agentcut-shoot-checklist-v1')||'null');" +
+            "if(!plan||plan.schema!=='agentcut-shoot-plan-v0.1'||!Array.isArray(plan.shots))return '[]';" +
+            "return JSON.stringify(plan.shots.filter(s=>(s.state==='todo'||s.state==='retry')" +
+            "&&typeof s.script==='string'&&s.script.trim().length>0)" +
+            ".slice(0,30).map(s=>({title:String(s.title||'')," +
+            "script:s.script.slice(0,2200)})));" +
+            "}catch(e){return '[]';}})();";
+        editor.evaluateJavascript(readOnly, encoded -> {
+            org.json.JSONArray shots = new org.json.JSONArray();
+            try {
+                Object payload = new org.json.JSONTokener(encoded).nextValue();
+                if (payload instanceof String) {
+                    shots = new org.json.JSONArray((String) payload);
+                }
+            } catch (Exception ignored) {
+                // A corrupt or missing checklist never blocks the phone camera.
+            }
+            if (shots.length() == 0) {
+                startActivity(new Intent(this, WivraPhoneCameraActivity.class));
+                return;
+            }
+            final org.json.JSONArray safeShots = shots;
+            String[] options = new String[safeShots.length() + 1];
+            options[0] = getString(R.string.phone_camera_without_script);
+            for (int i = 0; i < safeShots.length(); i++) {
+                org.json.JSONObject shot = safeShots.optJSONObject(i);
+                String title = shot == null ? "" : shot.optString("title", "").trim();
+                options[i + 1] = title.isEmpty() ?
+                    getString(R.string.phone_camera_unnamed_shot, i + 1) :
+                    title.substring(0, Math.min(75, title.length()));
+            }
+            new AlertDialog.Builder(this)
+                .setTitle(R.string.phone_camera_choose_shot)
+                .setItems(options, (dialog, index) -> {
+                    Intent launch = new Intent(this, WivraPhoneCameraActivity.class);
+                    if (index > 0) {
+                        org.json.JSONObject shot = safeShots.optJSONObject(index - 1);
+                        if (shot != null) {
+                            String script = shot.optString("script", "");
+                            if (script.length() <= 2200 && !script.trim().isEmpty()) {
+                                launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_SCRIPT, script);
+                            }
+                        }
+                    }
+                    startActivity(launch);
+                })
+                .show();
+        });
     }
 
     private void launchSystemPicker(WebChromeClient.FileChooserParams params) {

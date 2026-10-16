@@ -229,6 +229,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <button class="tool" id="bFormat" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M3 8v8M21 8v8"/></svg>Formato</button>
   <button class="tool" id="bOver" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="9" y="10" width="12" height="9" rx="2"/></svg>Capa</button>
   <button class="tool" id="bFx" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 16 8M14 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/></svg>Efectos</button>
+  <button class="tool" id="bSpeed" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-6M7 16h.01M12 8v.01M17 16h.01"/></svg>Velocidad</button>
   <button class="tool" id="bFilt" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="10" r="5"/><circle cx="15" cy="10" r="5"/><circle cx="12" cy="15" r="5"/></svg>Filtros</button>
   <button class="tool" id="bScreen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/></svg>Pantalla</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
@@ -319,8 +320,16 @@ body.dock .back{pointer-events:none;background:transparent}
   <div class="chips" id="fxTabs"><button type="button" data-t="fxIn" class="on">Al aparecer</button><button type="button" data-t="fxOut">Al desaparecer</button></div>
   <div class="fgrid" id="fxIn"></div>
   <div class="fgrid" id="fxOut" style="display:none"></div>
+  <p class="m" style="margin-bottom:0">Transición en todos los cortes entre clips:</p>
+  <div class="chips" id="fxCut" role="group" aria-label="Transición en los cortes"></div><p class="m" id="fxCutOut" role="status"></p>
   <label class="m more">Duración: <span id="fxDurTxt">0.5</span> s<input id="fxDur" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
+<div class="sheet" id="sSpeed"><h2>Velocidad</h2><p class="m" id="spInfo">Elige un video, una capa o un audio en la línea de tiempo.</p>
+  <div class="chips" id="spChips" role="group" aria-label="Velocidad"></div>
+  <p class="m more">1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre.</p>
+  <p class="m more" id="spNote" style="display:none">Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip.</p>
+  <p class="m" id="spOut" role="status"></p>
+  <button id="spDone" class="btn" type="button">✓ Listo</button></div>
 <div class="sheet" id="sFilt"><h2>Filtros</h2><p class="m more" id="fltInfo">Elige un video en la línea de tiempo.</p>
   <div class="chips" id="fltScope"><button type="button" data-s="one" class="on">Solo este clip</button><button type="button" data-s="all">Todos los clips</button></div>
   <div class="fgrid" id="fltLooks"></div>
@@ -665,7 +674,7 @@ $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onc
 function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
 function auSync() {
   const c = anyClip(selId);
-  $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(c.out - c.in)} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
+  $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(clipLength(c))} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
   for (const id of ['auMute', 'auVol']) $(id).disabled = !c;
   $('auMute').checked = !!(c && c.muted); const vol = c && typeof c.volume === 'number' ? c.volume : 1; $('auVol').value = Math.round(vol * 100); $('auVolTxt').textContent = Math.round(vol * 100) + '%';
 }
@@ -699,7 +708,7 @@ function render() {
   const p = session?.project, on = !!p;
   if($('dirApplyEdit'))$('dirApplyEdit').disabled=!on||!quickPending;
   for (const id of ['trim','copy','apply','play','zo','zi','split','addtxt','bText','bAI','bObs','bVids','bExp','bAudio','bFilt']) $(id).disabled = !on;
-  const selc = anyClip(selId); $('bOver').disabled = !(selc && kindOf(selc.id) === 'overlay'); $('bFormat').disabled = !on; $('bAdd').disabled = !on; $('bFx').disabled = !(selc && kindOf(selc.id) !== 'audio');
+  const selc = anyClip(selId); $('bOver').disabled = !(selc && kindOf(selc.id) === 'overlay'); $('bFormat').disabled = !on; $('bAdd').disabled = !on; $('bFx').disabled = !(selc && kindOf(selc.id) !== 'audio'); $('bSpeed').disabled = !(selc && (media[selc.asset_id] || {}).kind !== 'image');
   $('del').lastChild.textContent = selc && selPart === 'a' && kindOf(selc.id) !== 'audio' ? (selc.muted ? 'Poner audio' : 'Quitar audio') : 'Borrar';
   $('observe').disabled = !on || visualBusy; aiSync();
   $('undo').disabled = !on || !session.undoStack.length;
@@ -786,10 +795,11 @@ function syncAudioPreview() {
   const list = session ? (session.project.audioClips || []) : [];
   for (const c of list) {
     const m = media[c.asset_id], a0 = apool[c.id];
-    const on = playing && m && !c.muted && tlTime >= c.start && tlTime < c.start + (c.out - c.in);
+    const on = playing && m && !c.muted && tlTime >= c.start && tlTime < c.start + (clipLength(c));
     if (!on) { if (a0 && !a0.paused) a0.pause(); continue; }
     const a = a0 || (apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }));
-    const want = c.in + (tlTime - c.start);
+    const want = srcTime(c, tlTime);
+    try { a.playbackRate = speedOf(c); } catch {}
     try { a.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {}   // iOS ignora el volumen: allí solo funciona silenciar
     if (a.paused || Math.abs(a.currentTime - want) > 0.3) { try { a.currentTime = want; } catch {} a.play().catch(() => {}); }
   }
@@ -825,7 +835,7 @@ function syncOverlays() {
   { const mh = session ? clipAt(session.project, tlTime) : null, fx = fxAt(mh && mh.clip, tlTime); $('v').style.opacity = String(fx.alpha); $('v').style.transform = (fx.dx || fx.scale !== 1) ? `translateX(${fx.dx * 100}%) scale(${fx.scale})` : ''; }
   for (const c0 of list) {
     const m = media[c0.asset_id], c = (ovDrag && ovDrag.id === c0.id) ? { ...c0, ...ovDrag } : c0;
-    const want = (tlTime >= c.start && tlTime < c.start + (c.out - c.in) - 0.001) ? c.in + (tlTime - c.start) : null;
+    const want = (tlTime >= c.start && tlTime < c.start + (clipLength(c)) - 0.001) ? srcTime(c, tlTime) : null;
     const el0 = opool[c.id];
     if (want == null || !m || !ok) { if (el0) { el0.parentElement.style.display = 'none'; if (!el0.paused) el0.pause(); } continue; }
     const el = ensureOverlayEl(c);
@@ -841,6 +851,7 @@ function syncOverlays() {
     el.style.visibility = ''; if (fltOverlay(el, wr, c)) fltAny = true;
     if (c.id === selId) { const hh = $('ovHandle'); hh.style.display = 'block'; hh.style.left = Math.max(0, Math.min(vr.width - 16, c.x * vr.width + w / 2 - 8)) + 'px'; hh.style.top = Math.max(0, Math.min(vr.height - 16, c.y * vr.height + h / 2 - 8)) + 'px'; handleShown = true; }
     if (playing) {
+      if (el.playbackRate !== speedOf(c)) { try { el.playbackRate = speedOf(c); } catch {} }
       if (el.paused) { try { el.currentTime = want; } catch {} el.play().catch(() => {}); }
       else if (Math.abs(el.currentTime - want) > 0.35) { try { el.currentTime = want; } catch {} }
     } else { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - want) > 0.04) { try { el.currentTime = want; } catch {} } }
@@ -949,6 +960,26 @@ function fxCommit(args) {
   if (!selId) return; const ops = fxTargets().filter(Boolean).map(k => ({ op: 'set_clip_fx', clip_id: k.id, ...args }));
   const r = edit(ops); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fxSync(); syncOverlays();
 }
+// ---- Velocidad (cámara lenta / rápida): planSpeed arma todas las operaciones (clip, audio ligado y lo que sigue) y se aplican de una vez ----
+$('spChips').innerHTML = SPEED_CHOICES.map(v => `<button type="button" data-v="${v}">${speedLabel(v)}</button>`).join('');
+function spSync() {
+  const c = anyClip(selId), ok = !!c && (media[c.asset_id] || {}).kind !== 'image', cur = ok ? speedOf(c) : 1;
+  $('spInfo').textContent = ok ? `${kindOf(c.id) === 'overlay' ? 'Capa' : kindOf(c.id) === 'audio' ? 'Audio' : 'Video'} · ${(media[c.asset_id] || {}).name || ''} · ${fmt(clipLength(c))} s` : 'Elige un video, una capa o un audio en la línea de tiempo.';
+  document.querySelectorAll('#spChips button').forEach(b => { b.disabled = !ok; b.classList.toggle('on', ok && Math.abs(Number(b.dataset.v) - cur) < 0.0005); });
+  $('spNote').style.display = ok && (cur < SPEED_SAFE_MIN || cur > SPEED_SAFE_MAX) ? '' : 'none';
+}
+$('bSpeed').onclick = () => { $('spOut').textContent = ''; spSync(); openSheet('sSpeed'); };
+$('spDone').onclick = closeSheets;
+$('spChips').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.disabled || !selId) return;
+  const plan = planSpeed(session.project, selId, Number(b.dataset.v));
+  if (!plan.ok) { $('spOut').textContent = plan.error; say(plan.error, 'bad'); return; }
+  if (!plan.ops.length) { $('spOut').textContent = plan.warnings[0] || ''; return; }
+  stopPlayIfAny(); const r = edit(plan.ops, { ripple: false });
+  if (!r.ok) { $('spOut').textContent = 'No se pudo: ' + r.message; say('No se pudo: ' + r.message, 'bad'); return; }
+  $('spOut').textContent = `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).` + (plan.warnings.length ? ' ' + plan.warnings.join(' ') : '');
+  spSync(); syncMedia();
+});
 $('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
 $('fxTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#fxTabs button').forEach(x => x.classList.toggle('on', x === b)); $('fxIn').style.display = b.dataset.t === 'fxIn' ? '' : 'none'; $('fxOut').style.display = b.dataset.t === 'fxOut' ? '' : 'none'; dockMeasure(); });
 $('fxScope').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) scopeSet(b.dataset.s); });
@@ -956,6 +987,14 @@ $('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'
 $('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
 $('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDur').value; });
 $('fxDur').addEventListener('change', () => fxCommit({ dur: Number($('fxDur').value) }));
+$('fxCut').innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}">${n}</button>`).join('');
+$('fxCut').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || !session) return;
+  const plan = planCutTransitions(session.project, b.dataset.v, Number($('fxDur').value));
+  if (!plan.ok) { $('fxCutOut').textContent = plan.error; say(plan.error, 'bad'); return; }
+  const r = edit(plan.ops, { ripple: false }); if (!r.ok) { $('fxCutOut').textContent = 'No se pudo: ' + r.message; return; }
+  $('fxCutOut').textContent = `Listo en ${plan.cuts} ${plan.cuts === 1 ? 'corte' : 'cortes'}. ` + plan.warnings.join(' '); fxSync(); syncOverlays();
+});
 $('bFormat').onclick = () => { fmtSync(); openSheet('sFormat'); }; $('fmtDone').onclick = closeSheets;
 $('fmtAspect').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || !session) return; const r = edit([{ op: 'set_format', aspect: b.dataset.a }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
 $('fmtSafe').addEventListener('change', () => { if (!session) return; const r = edit([{ op: 'set_format', safe: $('fmtSafe').checked }]); if (!r.ok) say('No se pudo: ' + r.message, 'bad'); fmtSync(); });
@@ -986,13 +1025,13 @@ $('ovOrder').addEventListener('click', (e) => {
   if (e.target.closest('button') && e.target.closest('button').dataset.o === 'screen') { const cc = anyClip(selId); if (cc && kindOf(cc.id) === 'overlay') ovCommit({ shape: 'rounded', frame: 0.02, frameColor: '#ffffff', scale: 0.32, x: 0.8, y: 0.8 }); return; }       // adelante / atrás: cambia de pista con la capa vecina que coincida en el tiempo
   const b = e.target.closest('button'), c = anyClip(selId); if (!b || b.disabled || !c || kindOf(c.id) !== 'overlay') return;
   const d = b.dataset.o === 'front' ? 1 : -1, nt = c.track + d; if (nt < 1 || nt > UI_MAX_OVERLAY) return say(d > 0 ? 'Ya está lo más adelante posible.' : 'Ya está lo más atrás posible.', 'bad');
-  const other = session.project.overlayClips.find(k => k.id !== c.id && k.track === nt && k.start < c.start + (c.out - c.in) && k.start + (k.out - k.in) > c.start);
+  const other = session.project.overlayClips.find(k => k.id !== c.id && k.track === nt && k.start < c.start + (clipLength(c)) && k.start + (clipLength(k)) > c.start);
   const r = edit([...(other ? [{ op: 'set_overlay', clip_id: other.id, track: c.track }] : []), { op: 'set_overlay', clip_id: c.id, track: nt }]);
   say(r.ok ? (d > 0 ? 'Ahora va más adelante.' : 'Ahora va más atrás.') : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad'); ovSync(); syncOverlays();
 });
 function ovSync() {
   const c = anyClip(selId), ok = !!c && kindOf(c.id) === 'overlay';
-  $('ovInfo').textContent = ok ? `${(media[c.asset_id] || {}).name || 'Video'} · pista ${c.track} · ${fmt(c.out - c.in)} s` : 'Toca un video superpuesto en la línea de tiempo para elegirlo.';
+  $('ovInfo').textContent = ok ? `${(media[c.asset_id] || {}).name || 'Video'} · pista ${c.track} · ${fmt(clipLength(c))} s` : 'Toca un video superpuesto en la línea de tiempo para elegirlo.';
   for (const id of ['ovSize', 'ovX', 'ovY', 'ovMute', 'ovZoom', 'ovPx', 'ovPy', 'ovFrame', 'ovOpac']) $(id).disabled = !ok;
   document.querySelectorAll('#ovColors button').forEach(b => { b.disabled = !ok; });
   document.querySelectorAll('#ovShapes button, #ovOrder button').forEach(b => { b.disabled = !ok; if (ok && b.dataset.s) b.classList.toggle('on', (c.shape || 'none') === b.dataset.s); });
@@ -1015,7 +1054,7 @@ $('ovScope').addEventListener('click', (e) => { const b = e.target.closest('butt
 $('bOver').onclick = () => { ovSync(); openSheet('sOver'); ovThumbs(anyClip(selId)); }; $('ovDone').onclick = closeSheets; $('trkDone').onclick = closeSheets;
 // ---- Agregar pista (botón ＋ Pista): video encima del video, o audio ----
 function freeOverlayTrack(start, end) {
-  for (let t = 1; t <= UI_MAX_OVERLAY; t++) if (!(session.project.overlayClips || []).some(c => c.track === t && c.start < end && c.start + (c.out - c.in) > start)) return t;
+  for (let t = 1; t <= UI_MAX_OVERLAY; t++) if (!(session.project.overlayClips || []).some(c => c.track === t && c.start < end && c.start + (clipLength(c)) > start)) return t;
   return null;
 }
 async function addTrackFile(file, kind) {
@@ -1032,7 +1071,7 @@ async function addTrackFile(file, kind) {
       const len = kind === 'image' ? IMG_CLIP : pr.duration, track = freeOverlayTrack(start, start + len);
       if (!track) { say(`Ya hay ${UI_MAX_OVERLAY} pistas de video encima ocupadas en ese momento. Mueve la línea blanca o borra una.`, 'bad'); return; }
       op = { op: 'add_overlay_clip', asset_id: id, start, track, ...(kind === 'image' ? { out: IMG_CLIP, x: 0.8, y: 0.15, scale: 0.28 } : {}) };
-    } else { let tr = 1; const au = session.project.audioClips || []; while (tr < UI_MAX_AUDIO && au.some(c => (c.track || 1) === tr && c.start < start + pr.duration && c.start + (c.out - c.in) > start)) tr++; op = { op: 'add_audio_clip', asset_id: id, start, role: 'other', ...(tr > 1 ? { track: tr } : {}) }; }
+    } else { let tr = 1; const au = session.project.audioClips || []; while (tr < UI_MAX_AUDIO && au.some(c => (c.track || 1) === tr && c.start < start + pr.duration && c.start + (clipLength(c)) > start)) tr++; op = { op: 'add_audio_clip', asset_id: id, start, role: 'other', ...(tr > 1 ? { track: tr } : {}) }; }
     const r = run([op]); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
     if (kind === 'video' || kind === 'image') {
       const nc = session.project.overlayClips[session.project.overlayClips.length - 1]; selId = nc.id; selPart = 'v'; render();
@@ -1164,7 +1203,7 @@ async function importSelectedFiles(files) {
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
-    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (k.out - k.in)])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
     const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: round2(k.start + D) }));
     let start = at; const insertedAt = at;
     const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: round2(start) }; start += mainLen(id); return o; })];
@@ -1315,7 +1354,7 @@ function renderVids() {
   clips.forEach((c, i) => {
     const m = media[c.asset_id], r = document.createElement('div'); r.className = 'vrow'; r.dataset.id = c.id;
     const th = m?.thumbs?.[0]?.url || m?.photoThumb;
-    r.innerHTML = `<div class="n">${i + 1}</div><div class="th"${th ? ` style="background-image:url(${th})"` : ''}></div><div class="nm"><b></b><span>${fmt(c.out - c.in)} s</span></div><div class="mv"><button aria-label="Subir">▲</button><button aria-label="Bajar">▼</button></div><div class="hd2" aria-label="Arrastrar">≡</div>`;
+    r.innerHTML = `<div class="n">${i + 1}</div><div class="th"${th ? ` style="background-image:url(${th})"` : ''}></div><div class="nm"><b></b><span>${fmt(clipLength(c))} s</span></div><div class="mv"><button aria-label="Subir">▲</button><button aria-label="Bajar">▼</button></div><div class="hd2" aria-label="Arrastrar">≡</div>`;
     r.querySelector('b').textContent = m ? m.name : c.asset_id;
     const [up, dn] = r.querySelectorAll('.mv button'); up.disabled = i === 0; dn.disabled = i === clips.length - 1;
     up.onclick = () => moveClip(c.id, i - 1); dn.onclick = () => moveClip(c.id, i + 1);
@@ -1452,8 +1491,8 @@ const inWindow = (b, win) => { const l = parseFloat(b.style.left), r = l + parse
 function fillThumbs(b, c) {
   const mm = media[c.asset_id]; if (!mm || mm.kind === 'image' || b.dataset.th) return; b.dataset.th = '1'; const step = mm.step || 1, fr = document.createDocumentFragment();
   for (const th of mm.thumbs) {
-    const left = (th.t - step / 2 - c.in) * pps, w = step * pps;
-    if (left + w < 0 || left > (c.out - c.in) * pps) continue;
+    const sp = speedOf(c), left = (th.t - step / 2 - c.in) / sp * pps, w = step / sp * pps;
+    if (left + w < 0 || left > (clipLength(c)) * pps) continue;
     const im = document.createElement('img'); im.src = th.url; im.alt = ''; im.style.left = left + 'px'; im.style.width = w + 'px'; fr.appendChild(im);
   }
   b.insertBefore(fr, b.firstChild);      // debajo de la etiqueta y de los bordes de recorte
@@ -1467,10 +1506,10 @@ $('tlwrap').addEventListener('scroll', () => { if (tlFillTimer) return; tlFillTi
 function buildMain(c0, L, win) {
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk' + (c.id === selId && selPart === 'v' ? ' sel mv' : ''); b.dataset.id = c.id;
-    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (c.out - c.in) * pps) + 'px';
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(8, (clipLength(c)) * pps) + 'px';
     const mm = media[c.asset_id], photo = !!mm && mm.kind === 'image';
     if (photo && mm.photoThumb) { b.style.backgroundImage = `url(${mm.photoThumb})`; b.style.backgroundSize = 'auto 100%'; b.style.backgroundRepeat = 'repeat-x'; }
-    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (photo ? '▣ ' : '') + fmt(c.out - c.in) + ' s'; b.appendChild(lb);
+    const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = (photo ? '▣ ' : '') + fmt(clipLength(c)) + ' s'; b.appendChild(lb);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('vtrack').appendChild(b);
     if (!photo && inWindow(b, win)) fillThumbs(b, c);      // miniaturas solo de lo que se ve (y un poco alrededor); el resto se llena al desplazarse
@@ -1484,7 +1523,7 @@ function buildOverlay(c0, nOv, L) {
     if (c0.track > nOv) return;
     const c = (drag && drag.id === c0.id) ? { ...c0, in: drag.in, out: drag.out } : c0;
     const b = document.createElement('div'); b.className = 'blk oblk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); b.dataset.id = c.id;
-    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (c.out - c.in) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
+    b.style.left = (L + c.start * pps) + 'px'; b.style.width = Math.max(60, (clipLength(c)) * pps) + 'px'; b.style.top = ((nOv - c.track) * OV_ROW) + 'px'; b.style.height = '30px';
     const t = document.createElement('span'); t.className = 'ulb'; t.textContent = ((media[c.asset_id] || {}).kind === 'image' ? '▣ ' : '') + ((media[c.asset_id] || {}).name || 'Video'); b.appendChild(t);
     for (const side of ['l', 'r']) { const h = document.createElement('div'); h.className = 'hd ' + side; h.dataset.side = side; b.appendChild(h); }
     $('otrack').appendChild(b);
@@ -1549,7 +1588,7 @@ function renderTimeline() {
   // Pistas de audio aparte (micrófono de una captura, música…): una barra por clip, con su parlante.
   for (const c of (p.audioClips || [])) {
     const ab = document.createElement('div'); ab.className = 'blk ablk' + (c.muted ? ' off' : '') + (c.id === selId ? ' sel mv' : ''); ab.dataset.id = c.id;
-    ab.style.left = (L + c.start * pps) + 'px'; ab.style.width = Math.max(30, (c.out - c.in) * pps) + 'px'; ab.style.top = (((c.track || 1) - 1) * AU_ROW) + 'px'; ab.style.height = '30px';
+    ab.style.left = (L + c.start * pps) + 'px'; ab.style.width = Math.max(30, (clipLength(c)) * pps) + 'px'; ab.style.top = (((c.track || 1) - 1) * AU_ROW) + 'px'; ab.style.height = '30px';
     const nm = (media[c.asset_id] || {}).name || 'Audio'; const t = document.createElement('span'); t.className = 'ulb'; t.textContent = nm; ab.appendChild(t);
     $('utrack').appendChild(ab);
   }
@@ -1581,7 +1620,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
   const x0 = e.clientX, side = h.dataset.side; drag = { id, in: c.in, out: c.out };
   e.preventDefault();
   const mv = (ev) => {
-    const d = (ev.clientX - x0) / pps;
+    const d = (ev.clientX - x0) / pps * speedOf(c);      // segundos del ORIGINAL (con otra velocidad, 1 s de pantalla ≠ 1 s del medio)
     if (side === 'l') drag.in = round2(Math.max(0, Math.min(c.in + d, c.out - 0.2)));
     else drag.out = round2(Math.min(a.duration, Math.max(c.out + d, c.in + 0.2)));
     dragRender();
@@ -1591,7 +1630,7 @@ $('tlinner').addEventListener('pointerdown', (e) => {       // arrastrar los bor
     const d = drag; drag = null;
     if (Math.abs(d.in - c.in) > 0.01 || Math.abs(d.out - c.out) > 0.01) {
       const ops = [{ op: 'trim_clip', clip_id: id, in: d.in, out: d.out }];
-      if (kind !== 'main' && d.in !== c.in) ops.push({ op: 'move_clip', clip_id: id, start: round2(Math.max(0, c.start + (d.in - c.in))) });   // fuera del video principal el contenido no se corre al recortar el inicio
+      if (kind !== 'main' && d.in !== c.in) ops.push({ op: 'move_clip', clip_id: id, start: round2(Math.max(0, c.start + (d.in - c.in) / speedOf(c))) });   // fuera del video principal el contenido no se corre al recortar el inicio
       const r = edit(ops);
       say(r.ok ? `Recortado: usa ${fmt(d.in)}–${fmt(d.out)} s del original.` : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
     } else render();
@@ -1636,10 +1675,10 @@ $('tlinner').addEventListener('pointerdown', (e) => {
     if (!moved) { if (byHold) { suppressClick = true; setTimeout(() => { suppressClick = false; }, 80); render(); } return; }
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 80);
     const dx = (ev.clientX - x0) / pps, dy = ev.clientY - y0, p = session.project; let r;
-    const orect = $('otrack').getBoundingClientRect(), vrect = $('vtrack').getBoundingClientRect(), nid = p.nextId, start0 = round2(Math.max(0, c.start + dx)), len = c.out - c.in;
+    const orect = $('otrack').getBoundingClientRect(), vrect = $('vtrack').getBoundingClientRect(), nid = p.nextId, start0 = round2(Math.max(0, c.start + dx)), len = clipLength(c);
     const rowTrack = (y) => Math.max(1, Math.min(UI_MAX_OVERLAY, nOvShown - Math.floor((y - orect.top) / OV_ROW)));
-    const fxOps = (nidClip) => (c.fxIn || c.fxOut || c.fxDur) ? [{ op: 'set_clip_fx', clip_id: nidClip, intro: c.fxIn || 'none', outro: c.fxOut || 'none', ...(c.fxDur ? { dur: c.fxDur } : {}) }] : [];
-    const occupied = (t, a, z) => (p.overlayClips || []).some(k => k.id !== id && k.track === t && k.start < z && k.start + (k.out - k.in) > a);
+    const fxOps = (nidClip) => [...(c.speed ? [{ op: 'set_clip_speed', clip_id: nidClip, speed: c.speed }] : []), ...((c.fxIn || c.fxOut || c.fxDur) ? [{ op: 'set_clip_fx', clip_id: nidClip, intro: c.fxIn || 'none', outro: c.fxOut || 'none', ...(c.fxDur ? { dur: c.fxDur } : {}) }] : [])];
+    const occupied = (t, a, z) => (p.overlayClips || []).some(k => k.id !== id && k.track === t && k.start < z && k.start + (clipLength(k)) > a);
     if (kind === 'main' && nOvShown && ev.clientY >= orect.top - 4 && ev.clientY <= orect.bottom + 8) {          // clip principal soltado en las filas de capas (abajo) → pasa a ser una capa
       const t = rowTrack(ev.clientY); if (occupied(t, start0, start0 + len)) { say('Esa capa ya está ocupada en ese momento. Suéltalo en otra fila.', 'bad'); render(); return; }
       r = edit([{ op: 'add_overlay_clip', asset_id: c.asset_id, start: start0, in: c.in, out: c.out, track: t, ...(c.muted !== undefined ? { muted: c.muted } : {}), ...(typeof c.volume === 'number' ? { volume: c.volume } : {}) }, ...fxOps('o' + nid), { op: 'delete_clip', clip_id: id }], { ripple: false });
@@ -1647,14 +1686,14 @@ $('tlinner').addEventListener('pointerdown', (e) => {
       return;
     }
     if (kind === 'overlay' && ev.clientY < orect.top - 10) {                  // capa soltada arriba, en el video principal → pasa a ser parte del video
-      const clash = p.clips.some(k => k.start < start0 + len && k.start + (k.out - k.in) > start0), at = clash ? round2(totalDuration(p)) : start0;
+      const clash = p.clips.some(k => k.start < start0 + len && k.start + (clipLength(k)) > start0), at = clash ? round2(totalDuration(p)) : start0;
       r = edit([{ op: 'add_clip', asset_id: c.asset_id, start: at }, { op: 'trim_clip', clip_id: 'c' + nid, in: c.in, out: c.out }, ...((c.muted !== undefined || typeof c.volume === 'number') ? [{ op: 'set_clip_audio', clip_id: 'c' + nid, ...(c.muted !== undefined ? { muted: c.muted } : {}), ...(typeof c.volume === 'number' ? { volume: c.volume } : {}) }] : []), ...fxOps('c' + nid), { op: 'delete_clip', clip_id: id }], { ripple: false });
       if (r.ok) { selId = 'c' + nid; selPart = 'v'; render(); say(clash ? 'Ese lugar estaba ocupado: quedó al final del video principal.' : 'Ahora es parte del video principal.', 'ok'); syncMedia(); } else { say('No se pudo: ' + r.message, 'bad'); render(); }
       return;
     }
     if (kind === 'main') {
-      const ordered = sortedClips(p).filter(k => k.id !== id), center = c.start + (c.out - c.in) / 2 + dx;
-      const idx = ordered.filter(k => k.start + (k.out - k.in) / 2 < center).length; ordered.splice(idx, 0, c);
+      const ordered = sortedClips(p).filter(k => k.id !== id), center = c.start + (clipLength(c)) / 2 + dx;
+      const idx = ordered.filter(k => k.start + (clipLength(k)) / 2 < center).length; ordered.splice(idx, 0, c);
       const ops = reorderOps(p, ordered.map(k => k.id));
       if (!ops || !ops.length) { render(); return; }
       r = edit(ops, { ripple: false });
@@ -1684,8 +1723,8 @@ $('delBoth').onclick = () => deleteMain(false); $('delVideo').onclick = () => de
 $('split').onclick = () => {
   const sc = anyClip(selId);
   if (sc && kindOf(sc.id) !== 'main') {            // pista de audio o video superpuesto elegido: se corta ese clip
-    if (tlTime <= sc.start + 0.1 || tlTime >= sc.start + (sc.out - sc.in) - 0.1) return say('Mueve la línea blanca al interior del clip elegido (no en el borde).', 'bad');
-    const r0 = edit([{ op: 'split_clip', clip_id: sc.id, at: round2(sc.in + (tlTime - sc.start)) }]); syncMedia();
+    if (tlTime <= sc.start + 0.1 || tlTime >= sc.start + (clipLength(sc)) - 0.1) return say('Mueve la línea blanca al interior del clip elegido (no en el borde).', 'bad');
+    const r0 = edit([{ op: 'split_clip', clip_id: sc.id, at: round2(srcTime(sc, tlTime)) }]); syncMedia();
     return say(r0.ok ? 'Cortado en la línea blanca.' : 'No se pudo: ' + r0.message, r0.ok ? 'ok' : 'bad');
   }
   const r = splitAt(session.project, tlTime); if (!r.ok) return say(r.message, 'bad');
@@ -1701,7 +1740,7 @@ $('del').onclick = () => {
     return say(r1.ok ? 'Audio de este tramo quitado (queda vacío). Toca ese tramo y «Poner audio» para devolverlo.' : 'No se pudo: ' + r1.message, r1.ok ? 'ok' : 'bad');
   }
   if (kind === 'main') {
-    const c = anyClip(selId); $('delInfo').textContent = `Clip de ${fmt(c.out - c.in)} s. Si borras solo el video, el sonido de este tramo se queda y la imagen queda en negro.`;
+    const c = anyClip(selId); $('delInfo').textContent = `Clip de ${fmt(clipLength(c))} s. Si borras solo el video, el sonido de este tramo se queda y la imagen queda en negro.`;
     $('delVideo').disabled = !!c.muted; $('delVideo').textContent = c.muted ? 'Solo el video (este clip ya está silenciado)' : 'Solo el video: el audio se queda';
     openSheet('sDel'); return;
   }
@@ -2004,8 +2043,9 @@ $('play').onclick = () => {
     gapT = 0; $('v').style.visibility = '';
     if (pendingSeek != null) { requestAnimationFrame(frame); return; }          // esperando a que cargue el siguiente video
     if (cur !== hit.clip.id) { cur = hit.clip.id; previewAudio(hit.clip); const sw = curAsset !== hit.clip.asset_id; useAsset(hit.clip.asset_id, hit.assetTime); if (sw) { requestAnimationFrame(frame); return; } $('v').play().catch(() => {}); }
-    const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
-    if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
+    const c = hit.clip; if ($('v').playbackRate !== speedOf(c)) { try { $('v').playbackRate = speedOf(c); } catch {} }
+    tlTime = c.start + ($('v').currentTime - c.in) / speedOf(c);
+    if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (clipLength(c)) + 0.001; cur = null; }
     syncMedia();
     renderTexts();
     wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);

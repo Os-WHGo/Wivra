@@ -70,7 +70,9 @@ test('Saved phone media reaches SAME editor through selected content URI',()=>{
   assert.match(editor,/pendingFilePicker = null/);
   assert.match(editor,/launchSystemPicker\(params\)/);
   assert.match(editor,/editor.loadUrl\("file:\/\/\/android_asset\/agentcut.html"\)/);
-  assert.doesNotMatch(editor,/evaluateJavascript\(/);
+  assert.match(editor,/editor\.evaluateJavascript\(readOnly, encoded ->/);
+  assert.match(editor,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.doesNotMatch(editor,/addJavascriptInterface\(/);
   assert.doesNotMatch(manifest,/READ_MEDIA_VIDEO|READ_MEDIA_IMAGES|READ_EXTERNAL_STORAGE/);
   assert.match(store,/MediaStore.MediaColumns.OWNER_PACKAGE_NAME/);
   assert.match(store,/MediaStore.MediaColumns.IS_PENDING\} = 0/);

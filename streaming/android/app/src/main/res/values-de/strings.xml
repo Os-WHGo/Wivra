@@ -126,4 +126,16 @@
     <string name="phone_camera_wav_failed">WAV-Aufnahme fehlgeschlagen. Privates Video vor dem Speichern prüfen.</string>
     <string name="phone_camera_wav_unusable">WAV ist unvollständig und wird nicht als gültiges Audio veröffentlicht.</string>
     <string name="picker_phone_audio_named">Wivra-WAV-Spur: %1$s</string>
+    <string name="phone_camera_choose_shot">Regie-Aufnahme wählen</string>
+    <string name="phone_camera_without_script">Ohne Skript</string>
+    <string name="phone_camera_unnamed_shot">Aufnahme %1$d</string>
+    <string name="teleprompter_accessible">Teleprompter auf dem Kamerabild, nicht aufgezeichnet</string>
+    <string name="teleprompter_start">Scrollen starten</string>
+    <string name="teleprompter_pause">Scrollen pausieren</string>
+    <string name="teleprompter_slower">Langsamer</string>
+    <string name="teleprompter_faster">Schneller</string>
+    <string name="teleprompter_smaller">Text −</string>
+    <string name="teleprompter_bigger">Text +</string>
+    <string name="teleprompter_hide">Aus- / einblenden</string>
+    <string name="teleprompter_wpm">Lesen: %1$d Wörter pro Minute</string>
 </resources>

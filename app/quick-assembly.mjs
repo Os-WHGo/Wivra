@@ -2,6 +2,7 @@
 // Es una regla simple y honesta, NO análisis de contenido: cada clip aporta un tramo del CENTRO (así se evitan los titubeos del inicio y del final),
 // las fotos duran lo mismo, el orden se respeta y todo queda pegado sin huecos. Devuelve operaciones normales del editor (un solo paso en «deshacer»).
 // Nombre propio a propósito: no usamos nombres de funciones de otras apps.
+import { clipLength } from '../core/project.mjs';
 export const QA_TARGETS = [15, 30, 45, 60];
 export const QA_MIN_TARGET = 3, QA_MAX_TARGET = 600, QA_PHOTO_SECONDS = 2, QA_MIN_CLIP = 1, QA_FLOOR = 0.5;
 const qaR = (x) => Math.round(x * 100) / 100;
@@ -24,8 +25,8 @@ export function qaLinkedAudioOps(project, items) {
   const ops = []; let linked = 0, other = 0;
   const byId = new Map(items.map((it) => [it.id, it])), mains = (project.clips || []).filter((c) => byId.has(c.id) && !byId.get(c.id).photo);
   for (const a of project.audioClips || []) {
-    const alen = a.out - a.in, as = a.start, ae = a.start + alen; let home = null, best = 0;
-    for (const c of mains) { const ov = Math.min(ae, c.start + (c.out - c.in)) - Math.max(as, c.start); if (ov > best) { best = ov; home = c; } }
+    const alen = clipLength(a), as = a.start, ae = a.start + alen; let home = null, best = 0;
+    for (const c of mains) { const ov = Math.min(ae, c.start + clipLength(c)) - Math.max(as, c.start); if (ov > best) { best = ov; home = c; } }
     if (!home || alen <= 0 || best < 0.8 * alen) { other++; continue; }
     linked++;
     const it = byId.get(home.id), wS = home.start + (it.to[0] - it.from[0]), wE = home.start + (it.to[1] - it.from[0]), shift = it.start - wS;
@@ -46,6 +47,7 @@ const qa3 = (x) => Math.round(x * 1000) / 1000;
 export function planQuickAssembly(project, { targetSeconds = 30, photoSeconds = QA_PHOTO_SECONDS, pick = null } = {}) {
   const T = Number(targetSeconds);
   if (!project || !Array.isArray(project.clips) || !project.clips.length) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if ((project.clips || []).concat(project.audioClips || []).some((c) => c.speed)) return { ok: false, error: 'Hay clips en cámara lenta o rápida. Vuelve su velocidad a 1× para usar esta función.' };
   if (!Number.isFinite(T) || T < QA_MIN_TARGET || T > QA_MAX_TARGET) return { ok: false, error: `La duración debe estar entre ${QA_MIN_TARGET} y ${QA_MAX_TARGET} s.` };
   const ph = Number.isFinite(Number(photoSeconds)) ? Math.max(0.5, Math.min(30, Number(photoSeconds))) : QA_PHOTO_SECONDS;
   const kind = new Map((project.assets || []).map((a) => [a.id, a.kind])), clips = [...project.clips].sort((a, b) => a.start - b.start || String(a.id).localeCompare(String(b.id)));

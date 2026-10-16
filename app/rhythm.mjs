@@ -1,6 +1,7 @@
 // Revisión de ritmo del Director: mira el proyecto (tiempos, cortes, textos) y avisa en español de lo que suele restar atención. Solo lógica pura, sin DOM. — Claude
 // NO ve ni oye el video: solo cuenta tiempos. Los avisos «warn» son problemas objetivos (huecos, textos que no da tiempo a leer, música que sobra);
 // los «tip» son GUÍA EDITORIAL de Wivra (gancho en los primeros 3 s, planos largos, cierre) y cada autor puede ignorarlos. No cambia nada por sí sola.
+import { clipLength } from '../core/project.mjs';
 import { safeZoneOn } from '../core/text-style.mjs';
 
 export const RH = {
@@ -21,7 +22,7 @@ export const rhClock = (s) => { const t = Math.max(0, Math.round(s)); return `${
 export function analyzeRhythm(project) {
   if (!project || !Array.isArray(project.clips) || !project.clips.length) return { ok: false, error: 'Primero agrega videos a la línea de tiempo.' };
   const kind = new Map((project.assets || []).map((a) => [a.id, a.kind])), mains = [...project.clips].sort((a, b) => a.start - b.start);
-  const len = (c) => c.out - c.in, endOf = (c) => c.start + len(c), texts = project.texts || [], overlays = project.overlayClips || [], audio = project.audioClips || [];
+  const len = clipLength, endOf = (c) => c.start + len(c), texts = project.texts || [], overlays = project.overlayClips || [], audio = project.audioClips || [];
   const mainEnd = mains.reduce((m, c) => Math.max(m, endOf(c)), 0), items = [];
   const long = mainEnd >= RH.longVideoFrom, add = (level, code, text, at = 0, extra = {}) => items.push({ level, code, text, at: Math.max(0, rhR(at)), ...extra });
   const group = (list, code, level, line, more) => {      // muestra hasta `listMax` casos y resume el resto

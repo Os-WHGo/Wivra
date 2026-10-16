@@ -81,6 +81,7 @@ function silCutOps(x, prefix, regions, ctr) {
  */
 export function planSilenceCut(project, cutsByClip, { texts = true } = {}) {
   if (!project || !Array.isArray(project.clips) || !project.clips.length) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
+  if ((project.clips || []).concat(project.audioClips || []).some((c) => c.speed)) return { ok: false, error: 'Hay clips en cámara lenta o rápida. Vuelve su velocidad a 1× para usar esta función.' };
   const kind = new Map((project.assets || []).map((a) => [a.id, a.kind])), mains = [...project.clips].sort((a, b) => a.start - b.start);
   const tl = [];                                                      // pausas en tiempo de la línea de tiempo
   const perClip = new Map();

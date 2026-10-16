@@ -5,8 +5,14 @@ import android.app.AlertDialog
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore
+import android.graphics.Color
+import android.view.Gravity
+import android.view.View
+import android.widget.FrameLayout
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
@@ -45,6 +51,42 @@ import java.util.concurrent.Executor
  * - Neither separate input switching nor LIVE transport is implemented here.
  */
 class WivraPhoneCameraActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_SHOT_SCRIPT = "com.oswhgo.wivra.director.SHOT_SCRIPT"
+    }
+
+    // Local Director text lives ONLY in native overlay widgets, never in the
+    // CameraX VideoCapture/ImageCapture input frames or published MP4/JPEG.
+    private val teleHandler = Handler(Looper.getMainLooper())
+    private lateinit var teleScroll: ScrollView
+    private lateinit var teleText: TextView
+    private lateinit var telePlay: Button
+    private var teleRunning = false
+    private var teleWpm = 140
+    private var teleSizeSp = 26f
+    private var teleLastTickMs = 0L
+    private var teleY = 0f
+    private val teleTick = object : Runnable {
+        override fun run() {
+            if (!teleRunning || !::teleScroll.isInitialized) return
+            val now = SystemClock.uptimeMillis()
+            val dt = ((now - teleLastTickMs).coerceIn(0L, 120L)) / 1000f
+            teleLastTickMs = now
+            val totalScroll = (teleText.height - teleScroll.height).coerceAtLeast(0)
+            val words = teleText.text.split(Regex("\\s+")).count { it.isNotBlank() }
+            if (totalScroll > 0 && words > 0) {
+                val seconds = words * 60f / teleWpm
+                teleY = (teleY + dt * totalScroll / seconds).coerceAtMost(totalScroll.toFloat())
+                teleScroll.scrollTo(0, teleY.toInt())
+                if (teleY >= totalScroll) {
+                    stopTeleprompter()
+                    return
+                }
+            }
+            teleHandler.postDelayed(this, 40L)
+        }
+    }
+
     private lateinit var viewfinder: PreviewView
     private lateinit var status: TextView
     private lateinit var photoButton: Button
@@ -125,15 +167,97 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
         viewfinder = PreviewView(this).apply {
+            // TextureView-based preview avoids device-specific SurfaceView Z order
+            // that could hide the native Director teleprompter overlay.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             contentDescription = getString(R.string.phone_camera_preview)
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
-        layout.addView(viewfinder, LinearLayout.LayoutParams(
+        val cameraFrame = FrameLayout(this)
+        cameraFrame.addView(viewfinder, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        val shotScript = intent.getStringExtra(EXTRA_SHOT_SCRIPT)
+            ?.takeIf { it.length <= 2200 }?.trim()
+        if (!shotScript.isNullOrEmpty()) {
+            setupTeleprompter(controls, cameraFrame, shotScript)
+        }
+        layout.addView(cameraFrame, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
         ))
         setContentView(layout)
         refreshControls()
         requireCamera()
+    }
+
+    private fun setupTeleprompter(
+        controls: LinearLayout, cameraFrame: FrameLayout, script: String
+    ) {
+        teleText = TextView(this).apply {
+            text = script
+            textSize = teleSizeSp
+            setTextColor(Color.WHITE)
+            setPadding(dp(14), dp(14), dp(14), dp(28))
+            contentDescription = getString(R.string.teleprompter_accessible)
+        }
+        teleScroll = ScrollView(this).apply {
+            setBackgroundColor(Color.argb(190, 0, 0, 0))
+            isFillViewport = false
+            addView(teleText)
+            contentDescription = getString(R.string.teleprompter_accessible)
+        }
+        cameraFrame.addView(teleScroll, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(210), Gravity.TOP
+        ).apply { setMargins(dp(10), dp(12), dp(10), 0) })
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        telePlay = button(R.string.teleprompter_start) {
+            if (teleRunning) stopTeleprompter() else startTeleprompter()
+        }
+        row.addView(telePlay, weight())
+        row.addView(button(R.string.teleprompter_slower) {
+            teleWpm = when (teleWpm) { 180 -> 140; else -> 100 }
+            message(R.string.teleprompter_wpm, teleWpm)
+        }, weight())
+        row.addView(button(R.string.teleprompter_faster) {
+            teleWpm = when (teleWpm) { 100 -> 140; else -> 180 }
+            message(R.string.teleprompter_wpm, teleWpm)
+        }, weight())
+        controls.addView(row)
+        val fonts = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fonts.addView(button(R.string.teleprompter_smaller) {
+            teleSizeSp = (teleSizeSp - 4f).coerceAtLeast(20f)
+            teleText.textSize = teleSizeSp
+        }, weight())
+        fonts.addView(button(R.string.teleprompter_bigger) {
+            teleSizeSp = (teleSizeSp + 4f).coerceAtMost(44f)
+            teleText.textSize = teleSizeSp
+        }, weight())
+        fonts.addView(button(R.string.teleprompter_hide) {
+            val visible = teleScroll.visibility == View.VISIBLE
+            teleScroll.visibility = if (visible) View.GONE else View.VISIBLE
+            if (visible) stopTeleprompter()
+        }, weight())
+        controls.addView(fonts)
+    }
+
+    private fun dp(n: Int): Int =
+        (n * resources.displayMetrics.density + 0.5f).toInt()
+
+    private fun startTeleprompter() {
+        if (!::teleScroll.isInitialized) return
+        teleRunning = true
+        teleLastTickMs = SystemClock.uptimeMillis()
+        teleY = teleScroll.scrollY.toFloat()
+        telePlay.setText(R.string.teleprompter_pause)
+        teleHandler.removeCallbacks(teleTick)
+        teleHandler.post(teleTick)
+    }
+
+    private fun stopTeleprompter() {
+        teleRunning = false
+        teleHandler.removeCallbacks(teleTick)
+        if (::telePlay.isInitialized) telePlay.setText(R.string.teleprompter_start)
     }
 
     private fun weight(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
@@ -487,6 +611,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        stopTeleprompter()
         resumed = false
         super.onPause()
     }
@@ -506,6 +631,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     override fun onBackPressed() = safeFinish()
 
     override fun onDestroy() {
+        stopTeleprompter()
         if (activeRecording != null) activeRecording?.stop()
         wavRecorder?.stop()
         provider?.unbindAll()

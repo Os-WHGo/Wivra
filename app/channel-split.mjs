@@ -4,6 +4,7 @@
 // y en su propia fila de la línea de tiempo (assignAudioLanes).
 
 /** Tope del archivo a separar: el navegador lo decodifica ENTERO en memoria y en el teléfono eso pesa. */
+import { clipLength } from '../core/project.mjs';
 export const SPLIT_MAX_BYTES = 80 * 1024 * 1024;
 
 /** Nombre del archivo de un canal: «entrevista.wav», canal 1 → «entrevista.canal2.wav» (canal 0 = izquierdo = «canal1»). */
@@ -30,7 +31,7 @@ export function wavFromChannel(samples, sampleRate) {
  * (no se escribe `track`); si todas las filas hasta `max` están ocupadas se queda en la última. Devuelve operaciones nuevas, no modifica las de entrada.
  */
 export function assignAudioLanes(ops, existing = [], max = 3) {
-  const taken = existing.map((c) => ({ track: c.track || 1, a: c.start, b: c.start + (c.out - c.in) }));
+  const taken = existing.map((c) => ({ track: c.track || 1, a: c.start, b: c.start + clipLength(c) }));
   return ops.map((o) => {
     if (o.op !== 'add_audio_clip') return o;
     const a = o.start ?? 0, b = a + ((o.out ?? 0) - (o.in ?? 0));
