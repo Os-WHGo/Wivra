@@ -30,7 +30,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   #frame { position:relative; height:100%; max-width:100%; aspect-ratio:var(--ar, 9/16); background:#000; border-radius:6px; overflow:hidden; display:none; }
   .stage.on #frame { display:block; }
   #frame > #v { position:absolute; inset:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; object-fit:var(--fit, contain); }
-  #ov { position:absolute; left:4%; right:4%; bottom:10%; text-align:center; font-weight:800; font-size:22px; text-shadow:0 0 8px #000, 0 0 2px #000; pointer-events:none; }
+  #ov { position:absolute; inset:0; padding:7% 4% 11%; display:flex; flex-direction:column; text-align:center; font-weight:800; font-size:22px; line-height:1.2; pointer-events:none; }
+  #ov .tz { display:flex; flex-direction:column; align-items:center; gap:.3em; } #ov .tzm { flex:1; justify-content:center; } #ov .tzb { justify-content:flex-end; } #ov .tzt, #ov .tzb { flex:0 0 auto; } #ov .tzb { margin-top:auto; }
+  #ov .tx { max-width:100%; text-shadow:0 0 8px #000, 0 0 2px #000; } #ov .tx.bx { text-shadow:none; padding:.28em; border-radius:.3em; }
   .empty { position:absolute; inset:14px; border:1.5px dashed var(--line); border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--mut); padding:20px; }
   .stage.on .empty { display:none; }
   .empty .pill { font-size:16px; height:46px; padding:0 22px; }
@@ -76,6 +78,9 @@ try { const z = JSON.parse(localStorage.getItem('wivra.screen') || 'null') || {}
   #olay video { position:absolute; inset:0; width:100%; height:100%; display:block; max-width:none; max-height:none; object-fit:cover; pointer-events:auto; touch-action:none; border-radius:0; border:0; }
   input[type=checkbox] { width:auto; flex:0 0 auto; }
   .chips button.shp { display:flex; flex-direction:column; align-items:center; gap:2px; width:74px; padding:6px 2px; font-size:11px; } .chips button.shp svg { width:30px; height:30px; } #ovColors button { width:40px; min-width:40px; height:40px; border-radius:20px; border:2px solid #0006; } #ovColors button.on { border-color:#fff; }
+  .trow { display:flex; align-items:center; gap:8px; } .trow > .m { flex:0 0 54px; margin:0; font-size:12px; }
+  .sheet.dock:not(.exp) .chips.sw button { width:30px; min-width:30px; height:30px; min-height:30px; padding:0; border-radius:15px; } .sheet.dock:not(.exp) .chips.sw button.none { width:auto; padding:0 10px; }
+.chips.sw button { width:40px; min-width:40px; height:40px; padding:0; border-radius:20px; border:2px solid #0006; } .chips.sw button.on { border-color:#fff; box-shadow:0 0 0 2px var(--ac); } .chips.sw button.none { background:#2a2f3b; font-size:12px; width:auto; padding:0 12px; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; } .chips button { flex:0 0 auto; min-width:44px; min-height:40px; padding:6px 10px; border-radius:10px; background:#2a2f3b; color:var(--fg); font-size:14px; } .chips button.on { background:var(--ac); color:#0c1022; }
   .ulb { position:absolute; left:30px; right:4px; top:0; line-height:30px; font-size:11px; color:#cfeee4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; pointer-events:none; }
   .spk { position:absolute; left:0; top:0; width:26px; height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#0006; border:0; color:#fff; padding:0; }
@@ -334,12 +339,22 @@ body.dock .back{pointer-events:none;background:transparent}
   <button id="trkDone" class="btn sec">Cerrar</button></div>
 <div class="sheet" id="sText"><h2>Texto en pantalla</h2><p class="m">Aparece 3 s desde donde está la línea blanca.</p>
   <input id="txt" placeholder="Vancouver"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
-  <div id="txEdit" style="display:none"><h3>Editar texto</h3><input id="txtE" maxlength="120" aria-label="Texto">
-    <div class="row"><label>Empieza (s)<input id="txtS" type="number" step="0.1" min="0" inputmode="decimal"></label><label>Dura (s)<input id="txtD" type="number" step="0.1" min="0.1" inputmode="decimal"></label></div>
-    <div class="row"><button id="txSave" class="btn">Guardar cambios</button><button id="txDel" class="btn sec">Borrar texto</button></div></div>
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
   <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
+
+<div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
+  <div id="txEdit">
+    <div class="trow"><span class="m">Lugar</span><div class="chips" id="txPos"><button type="button" data-k="pos" data-v="top">Arriba</button><button type="button" data-k="pos" data-v="middle">Centro</button><button type="button" data-k="pos" data-v="bottom">Abajo</button></div></div>
+    <div class="trow"><span class="m">Tamaño</span><div class="chips" id="txSize"><button type="button" data-k="size" data-v="s">Chico</button><button type="button" data-k="size" data-v="m">Mediano</button><button type="button" data-k="size" data-v="l">Grande</button><button type="button" data-k="size" data-v="xl">Enorme</button></div></div>
+    <div class="trow"><span class="m">Color</span><div class="chips sw" id="txColor" role="group" aria-label="Color del texto"></div></div>
+    <div class="trow"><span class="m">Caja</span><div class="chips sw" id="txBox" role="group" aria-label="Caja de fondo"></div></div>
+    <input id="txtE" maxlength="120" aria-label="Texto" placeholder="Texto">
+    <div class="more">
+      <div class="row"><label>Empieza (s)<input id="txtS" type="number" step="0.1" min="0" inputmode="decimal"></label><label>Dura (s)<input id="txtD" type="number" step="0.1" min="0.1" inputmode="decimal"></label></div>
+      <div class="row"><button id="txSave" class="btn">Guardar cambios</button><button id="txDel" class="btn sec">Borrar texto</button></div>
+      <button id="txAll" class="btn sec" type="button">Aplicar este estilo a todos los textos</button></div></div>
+  <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="txDone" class="btn" type="button">✓ Listo</button></div></div>
 
 <div class="sheet ai-chat" id="sAI"><h2>Asistente Wivra</h2>
   <p class="m ai-intro">Pide cambios escribiendo o dictando. Primero te mostraremos una propuesta; tú decides si aplicarla.</p>
@@ -584,7 +599,7 @@ fltLooksRender();
     g.addEventListener('pointerup', end); g.addEventListener('pointercancel', end);
   });
 })();
-const DOCKS = ['sFilt', 'sFx', 'sOver'];
+const DOCKS = ['sFilt', 'sFx', 'sOver', 'sTxStyle'];
 function dockMeasure() { const sh = document.querySelector('.sheet.dock.on'); document.body.style.setProperty('--dockh', sh ? Math.ceil(sh.getBoundingClientRect().height) + 'px' : '0px'); }
 function openSheet(id) { closeSheets(); const sh = $(id); sh.classList.add('on'); $('back').classList.add('on'); document.body.classList.add('sheetopen'); document.body.classList.toggle('sov', id === 'sOver'); const d = DOCKS.includes(id); sh.classList.toggle('dock', d); sh.classList.remove('exp'); document.body.classList.remove('dockexp'); sh.querySelectorAll('[data-more]').forEach(b => b.textContent = 'Ver más'); document.body.classList.toggle('dock', d); if (d) { requestAnimationFrame(() => { dockMeasure(); try { showFrame(); syncOverlays(); } catch {} }); } }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-more]'); if (!b) return; const sh = b.closest('.sheet'), o = !sh.classList.contains('exp'); sh.classList.toggle('exp', o); document.body.classList.toggle('dockexp', o && sh.classList.contains('dock')); b.textContent = o ? 'Ver menos' : 'Ver más'; dockMeasure(); try { showFrame(); syncOverlays(); } catch {} });
@@ -1248,12 +1263,25 @@ $('observe').onclick=async()=>{
 /* ---------- Línea de tiempo: la línea blanca está fija al centro y el contenido se desliza por debajo ---------- */
 function edit(ops, opts) { const plan = planEdit(session.project, ops, opts); if (!plan.ok) return plan; return run(plan.ops); }
 const wrap = () => $('tlwrap'), padL = () => wrap().clientWidth / 2;
+// Pinta los textos del instante `tlTime` en la vista previa (misma regla que app/export.mjs → drawTexts).
+function renderTexts() {
+  const ov = $('ov'), p = session && session.project; if (!p) { ov.textContent = ''; return; }
+  const now = p.texts.filter(t => tlTime >= t.start && tlTime < t.end), fr = $('frame'), base = Math.min(fr.clientWidth, fr.clientHeight) * 0.06 || 22;
+  const key = base.toFixed(1) + '|' + now.map(t => [t.id, t.text, t.pos, t.size, t.color, t.box].join('~')).join('|');
+  if (ov.dataset.k === key) return; ov.dataset.k = key; ov.textContent = ''; ov.style.fontSize = base + 'px';
+  const g = groupTextsByPos(now);
+  for (const [pos, cls] of [['top', 'tzt'], ['middle', 'tzm'], ['bottom', 'tzb']]) {
+    const z = document.createElement('div'); z.className = 'tz ' + cls;
+    for (const t of g[pos]) { const st = textStyleOf(t), d = document.createElement('div'); d.className = 'tx' + (st.box !== 'none' ? ' bx' : ''); d.textContent = t.text; d.style.fontSize = TEXT_SIZES[st.size] + 'em'; d.style.color = st.color; if (st.box !== 'none') d.style.background = st.box; z.appendChild(d); }
+    ov.appendChild(z);
+  }
+}
 function showFrame() {
   const hit = clipAt(session.project, tlTime);
   $('v').style.visibility = hit && !isPhoto(hit.clip) ? '' : 'hidden';   // en un hueco se ve negro; una foto se dibuja en #fxMain
   if (hit && isPhoto(hit.clip)) { $('v').pause(); photoOf(hit.clip); }
   else if (hit) { useAsset(hit.clip.asset_id, hit.assetTime); previewAudio(hit.clip); }
-  $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+  renderTexts();
   syncOverlays();
 }
 function labels() { if (!session) return; $('tcur').textContent = fmtTime(tlTime); $('ttot').textContent = fmtTime(timelineEnd(session.project)); }
@@ -1542,18 +1570,49 @@ $('del').onclick = () => {
 $('addtxt').onclick = () => {
   const tot = totalDuration(session.project);
   const r = run([{ op: 'add_text', text: $('txt').value, start: Math.min(tlTime, Math.max(0, tot - 0.1)), duration: 3 }]);
-  if (r.ok) closeSheets(); say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+  if (r.ok) { const nt = session.project.texts[session.project.texts.length - 1]; if (nt) openTextEditor(nt.id); else closeSheets(); } say(r.ok ? 'Texto agregado.' : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
 };
 // Editar / borrar un texto y subtítulos SRT/VTT (lógica pura en app/subtitles.mjs).
 let selText = null;
 function textEditorSync() {
   const t = selText && session && session.project.texts.find(k => k.id === selText); if (selText && !t) selText = null;
   $('txEdit').style.display = t ? 'block' : 'none';
-  if (t) { $('txtE').value = t.text; $('txtS').value = String(round2(t.start)); $('txtD').value = String(round2(t.end - t.start)); }
+  if (t) { $('txtE').value = t.text; $('txtS').value = String(round2(t.start)); $('txtD').value = String(round2(t.end - t.start)); txMark(t); }
 }
+const TX_COLORS = ['#ffffff', '#ffd24a', '#000000', '#ff4d4d', '#4da3ff', '#5ee08a'], TX_COLOR_NAMES = { '#ffffff': 'Blanco', '#ffd24a': 'Amarillo', '#000000': 'Negro', '#ff4d4d': 'Rojo', '#4da3ff': 'Azul', '#5ee08a': 'Verde' };
+(function txBuild() {
+  const mk = (box, k, withNone) => {
+    if (withNone) { const n = document.createElement('button'); n.type = 'button'; n.className = 'none'; n.dataset.k = k; n.dataset.v = 'none'; n.textContent = 'Sin caja'; box.appendChild(n); }
+    for (const c of TX_COLORS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.k = k; b.dataset.v = c; b.style.background = c; b.setAttribute('aria-label', TX_COLOR_NAMES[c]); b.dataset.notr = '1'; box.appendChild(b); }
+  };
+  mk($('txColor'), 'color', false); mk($('txBox'), 'box', true);
+})();
+function txMark(t) {      // marca (en cada fila) la opción que tiene el texto
+  const st = textStyleOf(t);
+  for (const b of $('txEdit').querySelectorAll('.chips button[data-k]')) b.classList.toggle('on', st[b.dataset.k] === b.dataset.v);
+}
+$('txEdit').addEventListener('click', (e) => {
+  const b = e.target.closest('.chips button[data-k]'); if (!b || !selText) return;
+  const r = run([{ op: 'set_text', text_id: selText, [b.dataset.k]: b.dataset.v }]);
+  if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+  const t = session.project.texts.find(k => k.id === selText); if (t) txMark(t); renderTexts(); render();
+});
+$('txDone').onclick = () => closeSheets();
+$('txtE').addEventListener('change', () => {      // el texto se guarda al salir del campo o al pulsar «Listo» del teclado (sin tener que abrir «Ver más»)
+  const t = selText && session && session.project.texts.find(k => k.id === selText); if (!t || $('txtE').value === t.text) return;
+  const r = run([{ op: 'set_text', text_id: selText, text: $('txtE').value }]);
+  if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); $('txtE').value = t.text; return; }
+  renderTexts(); render();
+});
+$('txAll').onclick = () => {
+  const t = selText && session.project.texts.find(k => k.id === selText); if (!t) return;
+  const st = textStyleOf(t), ops = session.project.texts.filter(k => k.id !== t.id).map(k => ({ op: 'set_text', text_id: k.id, pos: st.pos, size: st.size, color: st.color, box: st.box }));
+  if (!ops.length) { say(aiT('No hay otros textos.'), 'bad'); return; }
+  const r = run(ops); renderTexts(); render(); say(r.ok ? aiT('Estilo aplicado a {1} textos.', ops.length + 1) : 'No se pudo: ' + r.message, r.ok ? 'ok' : 'bad');
+};
 function openTextEditor(id) {
   selText = id; const t = session.project.texts.find(k => k.id === id); if (!t) return;
-  tlTime = Math.min(t.start, Math.max(0, timelineEnd(session.project) - 0.01)); showFrame(); syncScroll(); render(); textEditorSync(); openSheet('sText');
+  tlTime = Math.min(t.start, Math.max(0, timelineEnd(session.project) - 0.01)); showFrame(); syncScroll(); render(); textEditorSync(); openSheet('sTxStyle');
 }
 $('txSave').onclick = () => {
   if (!selText) return;
@@ -1773,7 +1832,7 @@ $('play').onclick = () => {
       $('v').style.visibility = 'hidden';
       if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
       tlTime += dt; syncMedia();
-      $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+      renderTexts();
       wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame); return;
     }
     if (isPhoto(hit.clip)) {                      // foto: no hay <video>; el tiempo corre con el reloj, como en un hueco, y la foto se dibuja en #fxMain
@@ -1782,7 +1841,7 @@ $('play').onclick = () => {
       $('v').style.visibility = 'hidden'; photoOf(hit.clip);
       if (tlTime >= timelineEnd(session.project) - 0.01) { stopPlay(); return; }
       tlTime += dt; syncMedia();
-      $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+      renderTexts();
       wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame); return;
     }
     gapT = 0; $('v').style.visibility = '';
@@ -1791,7 +1850,7 @@ $('play').onclick = () => {
     const c = hit.clip; tlTime = c.start + ($('v').currentTime - c.in);
     if ($('v').currentTime >= c.out - 0.03) { tlTime = c.start + (c.out - c.in) + 0.001; cur = null; }
     syncMedia();
-    $('ov').textContent = session.project.texts.filter(t => tlTime >= t.start && tlTime < t.end).map(t => t.text).join(' ');
+    renderTexts();
     wrap().scrollLeft = tlTime * pps; labels(); requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

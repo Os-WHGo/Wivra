@@ -304,3 +304,28 @@ Título «{}» los primeros {} s || Title “{}” for the first {} s || Título
 Agregar videos o fotos a la pista de video || Add videos or photos to the video track || Adicionar vídeos ou fotos à faixa de vídeo || Ajouter des vidéos ou des photos à la piste vidéo || Videos oder Fotos zur Videospur hinzufügen || ビデオトラックに動画や写真を追加 || 向视频轨道添加视频或照片
 Agregar otra capa de video encima || Add another video layer on top || Adicionar outra camada de vídeo por cima || Ajouter un autre calque vidéo au-dessus || Weitere Videoebene darüber hinzufügen || 上に動画レイヤーを追加 || 在上方再添加一个视频图层
 Video o foto encima (capa) || Video or photo on top (layer) || Vídeo ou foto por cima (camada) || Vidéo ou photo au-dessus (calque) || Video oder Foto darüber (Ebene) || 上に重ねる動画・写真（レイヤー） || 叠加在上方的视频或照片（图层）
+estilo || style || estilo || style || Stil || スタイル || 样式
+Estilo || Style || Estilo || Style || Stil || スタイル || 样式
+Dónde va en la pantalla || Where it goes on the screen || Onde vai na tela || Où il va sur l'écran || Wo es auf dem Bildschirm steht || 画面のどこに表示するか || 显示在屏幕的位置
+Tamaño || Size || Tamanho || Taille || Größe || サイズ || 大小
+Arriba || Top || Em cima || En haut || Oben || 上 || 顶部
+Abajo || Bottom || Embaixo || En bas || Unten || 下 || 底部
+Chico || Small || Pequeno || Petit || Klein || 小 || 小
+Mediano || Medium || Médio || Moyen || Mittel || 中 || 中
+Grande || Large || Grande || Grand || Groß || 大 || 大
+Enorme || Huge || Enorme || Énorme || Riesig || 特大 || 特大
+Color del texto || Text color || Cor do texto || Couleur du texte || Textfarbe || 文字の色 || 文字颜色
+Caja de fondo || Background box || Caixa de fundo || Boîte d'arrière-plan || Hintergrundfeld || 背景ボックス || 背景框
+Sin caja || No box || Sem caixa || Sans boîte || Ohne Feld || ボックスなし || 无背景框
+Aplicar este estilo a todos los textos || Apply this style to all texts || Aplicar este estilo a todos os textos || Appliquer ce style à tous les textes || Diesen Stil auf alle Texte anwenden || このスタイルをすべての文字に適用 || 将此样式应用于所有文字
+No hay otros textos. || There are no other texts. || Não há outros textos. || Il n'y a pas d'autres textes. || Es gibt keine anderen Texte. || 他の文字はありません。 || 没有其他文字。
+Estilo aplicado a {1} textos. || Style applied to {1} texts. || Estilo aplicado a {1} textos. || Style appliqué à {1} textes. || Stil auf {1} Texte angewendet. || {1} 件の文字にスタイルを適用しました。 || 已将样式应用于 {1} 条文字。
+Blanco || White || Branco || Blanc || Weiß || 白 || 白色
+Amarillo || Yellow || Amarelo || Jaune || Gelb || 黄 || 黄色
+Negro || Black || Preto || Noir || Schwarz || 黒 || 黑色
+Rojo || Red || Vermelho || Rouge || Rot || 赤 || 红色
+Azul || Blue || Azul || Bleu || Blau || 青 || 蓝色
+Verde || Green || Verde || Vert || Grün || 緑 || 绿色
+Lugar || Place || Local || Emplacement || Ort || 位置 || 位置
+Color || Color || Cor || Couleur || Farbe || 色 || 颜色
+Caja || Box || Caixa || Boîte || Box || ボックス || 背景框

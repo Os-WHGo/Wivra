@@ -1,9 +1,10 @@
-// Wivra · guardar y reabrir el proyecto en el propio teléfono (IndexedDB). Sin dependencias, sin imports.
+// Wivra · guardar y reabrir el proyecto en el propio teléfono (IndexedDB). Sin dependencias (solo el estilo de texto del núcleo).
 // Todo queda en el dispositivo: nada se sube a ningún servidor. — Claude
 //
 // Qué se guarda: el proyecto (JSON), la lista de archivos (nombre, duración, tamaño) y, si cabe, los archivos mismos.
 // Qué NO se guarda: el historial de deshacer (al reabrir se empieza con el historial vacío).
 // Si el navegador no deja guardar un archivo (poco espacio), el proyecto igual se guarda y al reabrir pide ese archivo de nuevo.
+import { TEXT_STYLE_KEYS, textStyleProblem } from '../core/text-style.mjs';
 
 export const PERSIST_SCHEMA = 'wivra-project';
 export const PERSIST_VERSION = 1;
@@ -73,6 +74,7 @@ export function readSnapshot(raw) {
     });
   }
   p.texts = p.texts.filter((t) => { const good = t && typeof t.text === 'string' && pzNum(t.start) && pzNum(t.end) && t.end > t.start; if (!good) warnings.push('Se descartó un texto dañado.'); return good; });
+  for (const t of p.texts) for (const k of TEXT_STYLE_KEYS) if (t[k] !== undefined && textStyleProblem(k, t[k])) { delete t[k]; warnings.push('Se quitó un estilo de texto dañado.'); }      // pos, size, color y box inválidos vuelven al valor por defecto
 
   // nextId siempre mayor que cualquier id usado, para que los clips nuevos no choquen con los viejos.
   let maxId = 0;

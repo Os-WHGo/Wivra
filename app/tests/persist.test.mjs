@@ -120,3 +120,14 @@ test('el Director guardado es una copia: cambiarlo después no altera la instant
   const sp = plan(), snap = makeSnapshot({ project: sample(), director: { shootPlan: sp } }); sp.shots[0].title = 'CAMBIADO';
   assert.notEqual(snap.director.shootPlan.shots[0].title, 'CAMBIADO');
 });
+
+test('el estilo de los textos se guarda y se reabre; un estilo dañado se quita con aviso', () => {
+  const s = new Session(createProject({ assets: [] })); s.addAsset({ id: 'a1', duration: 10, name: 'a.mov' });
+  assert.ok(s.apply([{ op: 'add_clip', asset_id: 'a1', start: 0 }, { op: 'add_text', text: 'Hola', start: 0, duration: 2, pos: 'top', size: 'l', color: '#ffd24a', box: '#000000' }, { op: 'add_text', text: 'Chao', start: 2, duration: 2 }]).ok);
+  const raw = JSON.stringify(makeSnapshot({ project: s.project, media: {}, assetSeq: 1, tlTime: 0, stored: [] })), ok = readSnapshot(raw);
+  assert.deepEqual([ok.snapshot.project.texts[0].pos, ok.snapshot.project.texts[0].size, ok.snapshot.project.texts[0].color, ok.snapshot.project.texts[0].box], ['top', 'l', '#ffd24a', '#000000']);
+  const bad = JSON.parse(raw); bad.project.texts[1].pos = 'izquierda'; bad.project.texts[1].color = 'rojo'; bad.project.texts[0].box = 5;
+  const r = readSnapshot(JSON.stringify(bad)); assert.ok(r.ok !== false && r.snapshot, 'abre igual'); const t = r.snapshot.project.texts;
+  assert.equal(t[1].pos, undefined); assert.equal(t[1].color, undefined); assert.equal(t[0].box, undefined); assert.equal(t[0].pos, 'top');
+  assert.ok(r.warnings.some((w) => /estilo de texto/.test(w)));
+});

@@ -19,7 +19,7 @@ export function describeOperation(o, { T = (s, ...a) => fillTemplate(s, a), f = 
     case 'set_clip_audio': return T('Audio de {1}: {2}', o.clip_id, list([o.muted === undefined ? '' : T(o.muted ? 'silenciar' : 'con sonido'), o.volume === undefined ? '' : T('volumen {1}%', Math.round(o.volume * 100))]));
     case 'add_clip': return T('Agregar {1} en {2} s', o.asset_id, f(o.start ?? 0));
     case 'add_photo_clip': return T('Foto {1} en {2} s por {3} s', o.asset_id, f(o.start ?? 0), f(o.duration ?? 3));
-    case 'set_text': return T('Texto {1}: {2}', o.text_id, list([o.text !== undefined ? T('«{1}»', o.text) : '', o.start !== undefined ? T('desde {1} s', f(o.start)) : '', o.duration !== undefined ? T('por {1} s', f(o.duration)) : '']));
+    case 'set_text': return T('Texto {1}: {2}', o.text_id, list([o.text !== undefined ? T('«{1}»', o.text) : '', o.start !== undefined ? T('desde {1} s', f(o.start)) : '', o.duration !== undefined ? T('por {1} s', f(o.duration)) : '', ['pos', 'size', 'color', 'box'].some((k) => o[k] !== undefined) ? T('estilo') : '']));
     case 'delete_text': return T('Borrar texto {1}', o.text_id);
     case 'add_text': return T('Texto «{1}» en {2} s por {3} s', o.text, f(o.start), f(o.duration));
     case 'add_audio_clip': return T('Pista de audio {1} en {2} s', o.asset_id, f(o.start ?? 0));
