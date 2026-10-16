@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_title">Wivra · Ray-Ban Meta</string>
+    <string name="waiting_permission">権限を確認しています…</string>
+    <string name="preview_accessibility">Ray-Ban カメラのプレビュー</string>
+    <string name="connect_meta">1. Meta AI で接続</string>
+    <string name="connect_glasses">2. メガネに接続</string>
+    <string name="activate_video">3. 映像を開始</string>
+    <string name="disconnect">接続を解除</string>
+    <string name="back_editor">エディターに戻る</string>
+    <string name="preview_disclaimer">ローカルプレビュー（最大6 FPS、暫定的なYUV I420）。録画・配信はできません。画質と色は実機確認が必要です。LIVEと別音声は未対応です。</string>
+    <string name="bluetooth_denied">Bluetooth の権限が拒否されました。エディターは利用できます。</string>
+    <string name="camera_denied">カメラの権限が拒否されたため、映像を開始しません。</string>
+    <string name="permission_error">DAT 権限エラー: %1$s</string>
+    <string name="sdk_ready">Meta DAT の準備ができました。Meta AI で Wivra を登録してください。</string>
+    <string name="sdk_error">DAT エラー: %1$s</string>
+    <string name="authorize_meta">Meta AI で Wivra を許可し、アプリに戻ってください。</string>
+    <string name="starting_session">メガネへの接続を開始しています…</string>
+    <string name="session_finished">セッションが終了しました。</string>
+    <string name="session_state">メガネ: %1$s</string>
+    <string name="session_error">セッションエラー: %1$s</string>
+    <string name="connection_failed">接続できません: %1$s</string>
+    <string name="wait_session">映像を開始する前に、接続状態が STARTED になるまでお待ちください。</string>
+    <string name="permission_check_failed">権限を確認できません: %1$s</string>
+    <string name="camera_failed">カメラエラー: %1$s</string>
+    <string name="yuv_unsupported">非対応の YUV 形式です。接続は維持されますが映像は表示されません。</string>
+    <string name="yuv_mismatch">映像を受信しましたが、I420 形式ではありません。表示できません。</string>
+    <string name="frames_status">Ray-Ban: %1$d フレーム · %2$d×%3$d · ローカルプレビュー</string>
+    <string name="video_paused">メガネ側で映像が一時停止されました。</string>
+    <string name="stream_closed">映像ストリームが終了しました。</string>
+    <string name="stream_failed">映像エラー: %1$s</string>
+    <string name="stream_start_failed">映像を開始できません: %1$s</string>
+    <string name="disconnected">接続を解除しました。エディターは変更されていません。</string>
+</resources>
