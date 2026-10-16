@@ -122,7 +122,7 @@ export function drawOverlay(g, el, c, r, t = 0) {
   g.save();
   g.translate(r.x, r.y);
   if (d) { g.scale(r.w, r.h); g.clip(new Path2D(d)); g.scale(1 / r.w, 1 / r.h); } else { g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip(); }
-  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t)) || el;
+  const src = (c.filter && globalThis.fxRender && globalThis.fxRender(el, c.filter, t, Math.max(r.w, r.h) * 1.5)) || el;      // sin bajar la resolución: el filtro se calcula al tamaño con que se dibuja (+50 % para zoom)
   try { g.drawImage(src, cr.x, cr.y, cr.w, cr.h); } catch { /* fotograma aún no listo */ }
   if (c.frame > 0) {       // el marco se dibuja por dentro del recorte: el grosor visible es `frame` × ancho
     g.strokeStyle = c.frameColor || '#ffffff'; g.lineWidth = 2 * c.frame * r.w; g.lineJoin = 'round';
@@ -169,7 +169,7 @@ export function drawFrame(g, W, H, video, project, t, overlays = []) {
   if (video && video.videoWidth > 0) {
     const mc = project.clips.find((k) => t >= k.start && t < k.start + (k.out - k.in)), fx = fxAt(mc, t);
     const r = withFx(fitRect(video.videoWidth, video.videoHeight, W, H, effectiveFit(project.format)), fx, W);
-    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t)) || video;   // filtro de color en la tarjeta gráfica
+    const src = (mc && mc.filter && globalThis.fxRender && globalThis.fxRender(video, mc.filter, t, Math.max(W, H))) || video;   // filtro de color en la tarjeta gráfica
     g.save(); g.globalAlpha = fx.alpha; try { g.drawImage(src, r.x, r.y, r.w, r.h); } catch { /* fotograma aún no listo */ } g.restore();
   }
   for (const o of overlays) {   // videos superpuestos: pista 1 abajo, las mayores encima
