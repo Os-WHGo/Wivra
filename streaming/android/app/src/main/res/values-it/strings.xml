@@ -81,4 +81,6 @@
     <string name="mobile_network_disclaimer">NON misura velocità, collegamento Ray-Ban o disponibilità LIVE.</string>
     <string name="mobile_network_checking">Verifica rete del telefono…</string>
     <string name="mobile_network_unavailable">Impossibile verificare la rete del telefono.</string>
+    <string name="picker_wivra_media_title">Scegli foto o video Wivra</string>
+    <string name="picker_wivra_video_named">Video Ray-Ban salvato: %1$s</string>
 </resources>
