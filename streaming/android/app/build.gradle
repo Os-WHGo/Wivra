@@ -1,0 +1,27 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.oswhgo.wivra'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.oswhgo.wivra'
+        minSdk 31
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-dev'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // One HTML editor source shared with the iOS binary, never a copied fork.
+    sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/wivra-assets'))
+}
+
+// Only static HTML and JSON. No cloud, runtime code downloads or paid services.
+tasks.register('syncWivraAssets', Sync) {
+    from(rootProject.file('../../app/dist')) { include 'agentcut.html' }
+    from(rootProject.file('../../app/packs')) { into 'packs' }
+    into(layout.buildDirectory.dir('generated/wivra-assets'))
+}
+tasks.named('preBuild') { dependsOn 'syncWivraAssets' }
