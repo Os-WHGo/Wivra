@@ -45,4 +45,17 @@
     <string name="recording_finalizing">MP4-Datei wird abgeschlossen…</string>
     <string name="recording_saved">MP4 in Filme/Wivra gespeichert. Sitzung beendet.</string>
     <string name="recording_no_video">MP4 nicht gespeichert: zu wenige Bilder oder ungültige HEVC-Daten.</string>
+    <string name="recording_pending_ready">MP4 bereit, Entscheidung ausstehend.</string>
+    <string name="recording_save_question">Diese Aufnahme speichern?</string>
+    <string name="recording_pending_explanation">Dieses Video bleibt in Wivra privat gespeichert, bis du es sicherst oder das Löschen bestätigst. Schließen löscht es nicht.</string>
+    <string name="recording_keep">Video speichern</string>
+    <string name="recording_discard">Nicht speichern</string>
+    <string name="recording_later">Später entscheiden</string>
+    <string name="recording_remains_pending">Die Aufnahme bleibt vorläufig gespeichert.</string>
+    <string name="recording_keep_failed">Speichern in Filme/Wivra fehlgeschlagen. Die private Kopie bleibt erhalten.</string>
+    <string name="recording_discard_confirm_title">Diese Aufnahme löschen?</string>
+    <string name="recording_discard_confirm_message">Dies löscht nur die lokale Wivra-Kopie, keine Aufzeichnung der Streaming-Plattform.</string>
+    <string name="recording_discard_confirm">Ja, löschen</string>
+    <string name="recording_discarded">Temporäre Aufnahme gelöscht.</string>
+    <string name="recording_delete_failed">Löschen fehlgeschlagen. Die Aufnahme bleibt erhalten.</string>
 </resources>
