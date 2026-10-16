@@ -1,40 +1,44 @@
-# Wivra | Coordinación Claude ↔ ChatGPT ↔ Meta AI
-Fecha de coordinación: 15-oct-2026. Decisión operativa del propietario: integrar sin duplicar, ChatGPT encargado de todas las traducciones nativas y coordinación de los idiomas compartidos. Usuario autoriza seguir desarrollo, NO autoriza por sí solo merge a main.
+# Wivra | Coordinación autónoma Claude + ChatGPT e internacionalización
 
-## Estado verificable antes de actuar
-- El editor de Claude existe en PR #44 (draft, abierto, no fusionado). Incluye 8 idiomas de editor: es, en, pt, fr, de, ja, zh, it, en app/i18n.mjs. No reescribir ni reemplazar ese sistema sin acuerdo.
-- PR #73 depende de #44; PR #74 de #73; PR #75 de #74; PR #77 de #75; PR #78 de #77; PR #79 de #78. Todos son PRs draft apilados, NO se han fusionado a main.
-- PR #76 es rama hermana de #75, basada en #74; requiere unión intencionada del selector de capturas del iPhone al árbol integrado, no suponer que viene automáticamente en #79.
-- PR #65 documenta seis idiomas P0 de interfaz: en/es/fr/de/it/ja, con pt-BR/id P1. Esta estrategia NO sustituye el inventario ya presente de 8 idiomas del Editor Claude (pt, zh).
-- PR de i18n nativo (derivado de #79) implementa en Android 31 cadenas para es/en/fr/de/it/ja, con recursos y tests para claves/parámetros. NO modifica app/template.html, app/i18n.mjs ni el motor de Claude.
+**Regla vigente del propietario, 15 oct 2026:** solo Claude y ChatGPT desarrollan y se reparten el trabajo. No asignar tareas ni requerir respuestas de terceros; no depender de acceso a Drive ajeno para continuar. La documentación SDK previamente consultada puede permanecer como referencia técnica histórica.
 
-## Responsabilidades, dueño de archivos y entregables
-| Responsable | Módulos propios | Entregables siguientes | Prohibición de conflicto |
-| --- | --- | --- | --- |
-| Claude | app/, core/ del Editor, timeline, persistencia, operaciones IA/Director, renders/export | Declarar HEAD+PR+tests actuales; cerrar edición y export de clips + audio; contrato de medios/fotos con ChatGPT; coherencia de selector de idioma del Editor | No sobrescribir streaming/ios o streaming/android ni traducir pantallas nativas que lleva ChatGPT; no reescribir el motor |
-| ChatGPT | streaming/ios, streaming/android, adapters cámara/Meta/audio, integración de archivos, LIVE, traducciones nativas y QA de idiomas | Mantener iOS/Android sin app duplicada; plan explícito PR #76 dentro de rama unificada; i18n nativa 6 idiomas con tests, luego P1 y accesibilidad; preparar cámara→editor | No cambiar app/template.html ni app/i18n.mjs sin contrato acordado con Claude |
-| Meta AI | investigación y verificación SDK Meta/Meta AI, HFP/PCM, permisos, releases y mocks | Entregar evidencia/caveats en Drive carpeta 'Wivra - Meta AI Specialist' y enlaces de primera fuente | Sin commits sobre código base por defecto; sin declarar QA física de documentación |
-| Propietario | prioridades, costos, permisos, releases, merge final | Aprobar integración a main y decisiones de producto cuando haya evidencia | Ningún agente modifica main por iniciativa propia |
+## Responsabilidades y autonomía
 
-## Política de fusiones
-1. Trabajar en ramas actuales con fetch sobre refs remotas vigentes después de la limpieza de historial (15-oct-2026 10:04 Vancouver). Evitar antiguos clones; jamás force-push tras rechazo. No citar SHA histórico anterior a esa limpieza.
-2. La unión funcional en PRs apilados ya reutiliza el editor de Claude para el host iOS y Android. Esto es INTEGRACIÓN DE CÓDIGO, NO merge al trunk ni E2E comprobado.
-3. Orden de revisión: primero PR #44, luego #73, #74; crear rama de integración temporal si hace falta incorporar la rama lateral #76; después #75, #77, #78, #79 y la i18n nativa. No declarar merge realizado hasta verificar git ancestry y CI.
-4. No fusionar main sin autorización explícita del propietario. Tampoco declarar un solo producto listo hasta probar captura→editor→guardar/reabrir→export en teléfonos reales.
-5. Toda contribución: ruta de archivos, contratos usados, tests CI, tipo de prueba (estática, emulador o hardware) y bloqueo actual; actualizar issue #49 o PR respectivo.
+| Responsable | Propiedad principal | Instrucción permanente de ejecución |
+| --- | --- | --- |
+| **Claude** | Editor compartido de Wivra (`app/`, `core/`): timeline, proyectos, importador del editor, filtros, efectos, Director, IA de edición, subtítulos, export | **Implementar → probar → corregir → seguir**. Tomar decisiones técnicas y de UI menores sin preguntar al propietario repetidamente. No esperar aprobaciones frecuentes para acciones normales de desarrollo. |
+| **ChatGPT** | Integración nativa iPhone/Android, SDK Ray-Ban Meta, cámara, audio, LIVE, manifiestos de captura, sincronización nativo↔editor, **todas las traducciones e i18n del producto** | Resolver cruces entre ambos equipos, integrar PRs apilados y rama lateral #76 en un árbol seguro, implementar catálogos nativos, mantener paridad de funciones, no reemplazar el editor. |
+| **Propietario** | Autorización de merge a main, costos, publicación, privacidad sensible, cambios de alcance | Solo interviene ante decisiones mayores que no se deben presumir autorizadas. |
 
-## Traducción e internacionalización, a cargo de ChatGPT
-- Fuente de verdad del Editor: app/i18n.mjs y catálogos existentes de Claude. Catálogos Android: res/values[-locale]/strings.xml. iOS se localizará con recursos String Catalog/Localizable; no copiar textos del Editor por DOM ni fusionar diccionarios a ciegas.
-- P0 nativo: es/en/fr/de/it/ja; P1: pt-BR e id según PR #65, respetando pt y zh existentes del Editor. Clarificar con propietario antes de eliminar locales o alinear etiquetas del selector.
-- Los subtítulos/traducción automática son una función distinta de traducción de interfaz. Los 20 destinos del PR #65 no son 20 idiomas de UI implementados.
-- Para cualquier plantilla de cadena preservar marcadores, plurales, unidades, cortes en pantalla y accesibilidad. Mantener nombre Wivra, Ray-Ban, Meta AI y LIVE según contexto sin traducir marcas.
-- La pantalla nativa Android sigue el idioma del sistema. El editor tiene selección guardada propia; una sincronización automática nativo↔web es una tarea futura que requiere acordar contrato y comprobar WebView.
+## Protocolo cuando hay un cruce o bloqueo
+1. Claude **no toca** módulos nativos ChatGPT para resolver una colisión. Publica en https://github.com/Os-WHGo/Wivra/issues/49 comentario con prefijo `BLOCKED: ChatGPT`, ruta, rama/PR, archivo, contrato afectado, reproducción, recomendación y evidencia CI.
+2. **ChatGPT decide y realiza la integración** de los cruces dentro del alcance autorizado, sin redirigir la decisión al propietario por rutina.
+3. Mientras tanto Claude **continúa con otra tarea independiente del editor**. No se bloquea esperando aprobación o respuesta de ChatGPT.
+4. Para bugs normales, Claude elige solución conservadora compatible, añade regresiones y continúa. ChatGPT aplica la misma autonomía en su área.
+5. Los entregables intermedios no precisan revisión cruzada salvo interfaz compartida/compatibilidad de datos. En interfaces de ambos, documentar contrato y probar cambios antes de declararlos integrados.
 
-## Mensaje de respuesta solicitado a Claude (para pegar en su chat)
-1) ¿Qué rama y PR estás modificando ahora? Reporta último HEAD remoto, resultados CI, y archivos propios. 2) ¿Qué funciones del Editor están funcionando y cuáles solo simuladas? 3) Confirma si preservas app/i18n.mjs, los 8 locales actuales, el contrato de manifiesto .wivra.json y el audio L/R. 4) Propón un contrato mínimo de fotos como clips y el intercambio de archivos locales sin duplicarlos. 5) Confirma que no modificarás streaming/ios, streaming/android ni fusionarás main; informa conflictos encontrados sin force-push. 6) Responde en issue #49 o PR #44 con compromisos, dudas y bloqueos.
+## Solo preguntar al propietario para
+- Fusionar a `main`, publicar/distribuir build, aceptar licencias nuevas restrictivas, cambiar nombre/licencia/dirección central del producto.
+- Gastos no aprobados, suscripciones, claves API, servicios externos obligatorios o almacenar datos privados en nubes.
+- Riesgos de seguridad/privacidad significativos, pérdidas de datos, cambios destructivos, reescritura de historial o requerimientos legales relevantes.
+- Contradicciones reales con decisiones explícitas de producto para las que no exista una opción conservadora.
 
-## Criterio de aceptación de la fase
-- Tests editor + app nativas verdes en PRs, comprobación explícita de diferencias iOS/Android y de flujo de captura/importación; no reemplazar funciones existentes.
-- Idiomas nativos P0 completos en pantallas activas mediante catálogos, con tests de paridad, sin duplicar traducción de Editor.
-- PR #76 incorporado de manera segura a la rama integrada antes de llamar a la cadena Android/iOS 'unificada'.
-- Las pruebas físicas necesarias declaradas pendientes hasta ejecución verificada.
+**Límites permanentes:** no forzar push o pushes de clones anteriores a limpieza Git del 15-oct-2026 a las 10:04 Vancouver; no fusionar `main` sin autorización; no fingir pruebas físicas o funcionalidad no implementada; no crear un segundo editor. Hacer PR pequeños, documentar evidencia; no pedir autorización por cada commit.
+
+## Estado de integración comprobado en GitHub
+- [PR #44](https://github.com/Os-WHGo/Wivra/pull/44) Editor Claude abierto en draft, no fusionado a main.
+- Cadena [#73](https://github.com/Os-WHGo/Wivra/pull/73) → [#74](https://github.com/Os-WHGo/Wivra/pull/74) → [#75](https://github.com/Os-WHGo/Wivra/pull/75) → [#77](https://github.com/Os-WHGo/Wivra/pull/77) → [#78](https://github.com/Os-WHGo/Wivra/pull/78) → [#79](https://github.com/Os-WHGo/Wivra/pull/79) → [#80](https://github.com/Os-WHGo/Wivra/pull/80). Código incorporado en branches apiladas; merges de estos PR todavía pendientes.
+- [PR #76](https://github.com/Os-WHGo/Wivra/pull/76) es rama lateral de importación iPhone que ChatGPT integrará cuidadosamente con la cadena principal.
+
+## Internacionalización asumida por ChatGPT
+- **Editor Claude existente:** `app/i18n.mjs` reconoce `es`, `en`, `pt`, `fr`, `de`, `ja`, `zh`, `it`. No borrar idiomas ni sustituir catálogo del editor por otro al integrar.
+- **Interfaz nativa Android:** 31 cadenas de la pantalla Ray-Ban en `es`, `en`, `fr`, `de`, `it`, `ja`, guardadas como Android resources y verificadas por tests. Todavía no significa que TODAS las pantallas de Wivra estén traducidas.
+- **Plan LIVE #65:** propone seis locales P0 y pt-BR/id para expansión; su plan de subtítulos de 20 destinos NO es equivalente a 20 traducciones UI terminadas.
+- ChatGPT mantiene términos, placeholders, pluralización/accesibilidad y paridad nativa Android/iOS. Coordinará el selector nativo y el idioma guardado del editor **sin invadir sus operaciones funcionales**.
+- Claude se concentra en UI funcional del editor, no en producir traducciones nuevas. Cuando agregue texto nuevo debe identificar claves sin traducir; ChatGPT las localizará.
+
+## Próximos hitos
+**Claude:** robustecer persistencia y exportación, fotos como clips y temporalidad, bugs del timeline y Director, pruebas de editor. Definir solo interfaz de medios que necesite pedir a ChatGPT mediante nota de bloqueo. **No esperar** la respuesta de ChatGPT para otras tareas.
+**ChatGPT:** incorporar #76 a la integración real sin perder cambios, continuar pantalla nativa iOS/Android y traducciones, QA de contratos del importador, cámara/micrófonos/LIVE.
+
+**Coordinación y bloqueos exclusivamente en issue #49. No exigir reportes de terceros.**
