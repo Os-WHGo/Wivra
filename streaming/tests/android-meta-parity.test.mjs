@@ -24,3 +24,23 @@ test('Android keeps Claude shared editor; DAT declared does not imply connection
   assert.match(policy,/conexi[oó]n PENDIENTE/);
   assert.match(policy,/igualdad de objetivos/i);
 });
+
+test('Android has a real DAT lifecycle screen, not just a declared dependency',()=>{
+ const preview=readFileSync(new URL('../android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt',import.meta.url),'utf8');
+ assert.match(preview,/Wearables\.initialize\(applicationContext\)/);
+ assert.match(preview,/Wearables\.startRegistration\(this\)/);
+ assert.match(preview,/Wearables\.createSession\(AutoDeviceSelector\(\)\)/);
+ assert.match(preview,/Wearables\.checkPermissionStatus\(Permission\.CAMERA\)/);
+ assert.match(preview,/Wearables\.RequestPermissionContract\(\)/);
+ assert.match(preview,/DeviceSessionState\.STARTED/);
+ assert.match(preview,/connected\.addCamera\(/);
+ assert.match(preview,/active\.videoStream\.collect/);
+ assert.match(preview,/active\.start\(\)/);
+ assert.match(preview,/session\?\.stop\(\)/);
+ assert.match(preview,/scope\.cancel\(\)/);
+ assert.doesNotMatch(preview,/startRecording\(/);
+ assert.doesNotMatch(preview,/live\.start/);
+ const activity=readFileSync(new URL('../android/app/src/main/java/com/oswhgo/wivra/MainActivity.java',import.meta.url),'utf8');
+ assert.match(activity,/WivraMetaPreviewActivity\.class/);
+ assert.match(activity,/file:\/\/\/android_asset\/agentcut\.html/);
+});
