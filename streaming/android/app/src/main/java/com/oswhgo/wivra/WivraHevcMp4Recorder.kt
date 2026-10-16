@@ -47,7 +47,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     if (type in 16..21) syncFrame = true
                 }
                 if (!started && sets.keys.containsAll(setOf(32, 33, 34)) && syncFrame) {
-                    val output = File.createTempFile("wivra_rayban_", ".mp4", context.cacheDir)
+                    val output = File.createTempFile("wivra_rayban_", ".writing", pendingDir(context))
                     val writer = MediaMuxer(output.absolutePath,
                         MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
                     val videoFormat = MediaFormat.createVideoFormat(
@@ -88,9 +88,15 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
      * Finalize and publish only after a decodable stream actually produced data.
      * MediaStore IS_PENDING means partial copies never become visible.
      */
-    fun finishAndSave(): Uri? = synchronized(lock) {
+    /**
+     * Finalize to durable, app-private pending storage. Do not publish to the
+     * device's gallery or delete the valid recording until the user decides.
+     */
+    fun finishToPending(): File? = synchronized(lock) {
         val local = file
-        val valid = started && !failed && writtenSamples >= 2
+        // A later malformed sample must not erase previously written valid frames.
+        // MediaMuxer.stop() is still required to succeed before offering a file.
+        val valid = started && writtenSamples >= 2
         val finalized = try {
             if (started) muxer?.stop()
             valid
@@ -103,37 +109,75 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
             local?.delete()
             return@synchronized null
         }
-        try {
-            val resolver = context.contentResolver
-            val values = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME,
-                    "Wivra_RayBan_" + System.currentTimeMillis() + ".mp4")
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Wivra/")
-                put(MediaStore.Video.Media.IS_PENDING, 1)
+        // Only ready-to-review, fully finalized files get the .mp4 extension.
+        // A process killed before MediaMuxer.stop() leaves .writing instead of
+        // a misleading, apparently completed movie in the recovery list.
+        val ready = File(local.parentFile, local.name.removeSuffix(".writing") + ".mp4")
+        if (!local.renameTo(ready)) return@synchronized null
+        ready
+    }
+
+    // Kept for existing instrumentation callers; recording UI uses the explicit
+    // finishToPending + publishPending path instead.
+    fun finishAndSave(): Uri? = finishToPending()?.let { publishPending(context, it) }
+
+    companion object {
+        private fun pendingDir(context: Context): File =
+            File(context.filesDir, "wivra_pending_videos").apply {
+                if (!exists() && !mkdirs()) throw IOException("Cannot create pending recordings")
             }
-            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                ?: throw IOException("Video collection refused new file")
+
+        private fun isPending(context: Context, file: File): Boolean =
             try {
-                resolver.openOutputStream(uri, "w")?.use { output ->
-                    local.inputStream().use { it.copyTo(output) }
-                } ?: throw IOException("Video collection refused write")
-                val published = ContentValues().apply {
-                    put(MediaStore.Video.Media.IS_PENDING, 0)
+                file.isFile && file.name.startsWith("wivra_rayban_") &&
+                    file.extension == "mp4" &&
+                    file.canonicalFile.parentFile == pendingDir(context).canonicalFile
+            } catch (_: IOException) { false }
+
+        fun listPending(context: Context): List<File> =
+            try {
+                pendingDir(context).listFiles()
+                    ?.filter { isPending(context, it) && it.length() > 0L }
+                    ?.sortedByDescending { it.lastModified() } ?: emptyList()
+            } catch (_: IOException) { emptyList() }
+
+        /** Publish to Movies/Wivra ONLY after a user selects Save. */
+        fun publishPending(context: Context, local: File): Uri? {
+            if (!isPending(context, local) || local.length() <= 0L) return null
+            try {
+                val resolver = context.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Video.Media.DISPLAY_NAME,
+                        "Wivra_RayBan_" + System.currentTimeMillis() + ".mp4")
+                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Wivra/")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
-                if (resolver.update(uri, published, null, null) != 1) {
-                    throw IOException("Video could not be published")
+                val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IOException("Video collection refused new file")
+                return try {
+                    resolver.openOutputStream(uri, "w")?.use { output ->
+                        local.inputStream().use { it.copyTo(output) }
+                    } ?: throw IOException("Video collection refused write")
+                    if (resolver.update(uri, ContentValues().apply {
+                        put(MediaStore.Video.Media.IS_PENDING, 0)
+                    }, null, null) != 1) throw IOException("Video could not be published")
+                    // If the private copy cannot be deleted, avoid claiming the
+                    // pending folder is empty: recovery UI can resolve it later.
+                    local.delete()
+                    uri
+                } catch (_: Exception) {
+                    resolver.delete(uri, null, null)
+                    null // Pending source remains available for retry.
                 }
-                uri
             } catch (_: Exception) {
-                resolver.delete(uri, null, null)
-                null
+                return null
             }
-        } catch (_: Exception) {
-            null
-        } finally {
-            local.delete()
         }
+
+        /** Only invoke following a second, destructive-action confirmation. */
+        fun discardPending(context: Context, local: File): Boolean =
+            isPending(context, local) && local.delete()
     }
 
     fun discard() = synchronized(lock) {

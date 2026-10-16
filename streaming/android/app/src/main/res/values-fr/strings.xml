@@ -45,4 +45,17 @@
     <string name="recording_finalizing">Finalisation du fichier MP4…</string>
     <string name="recording_saved">MP4 enregistré dans Films/Wivra. Session fermée.</string>
     <string name="recording_no_video">MP4 non enregistré : images insuffisantes ou données HEVC invalides.</string>
+    <string name="recording_pending_ready">MP4 prêt, en attente de votre décision.</string>
+    <string name="recording_save_question">Enregistrer cette vidéo ?</string>
+    <string name="recording_pending_explanation">Cette vidéo reste conservée dans Wivra jusqu’à son enregistrement ou la confirmation de sa suppression. Fermer cette fenêtre ne la supprime pas.</string>
+    <string name="recording_keep">Enregistrer</string>
+    <string name="recording_discard">Ne pas conserver</string>
+    <string name="recording_later">Décider plus tard</string>
+    <string name="recording_remains_pending">La vidéo reste conservée temporairement.</string>
+    <string name="recording_keep_failed">Impossible d’enregistrer dans Films/Wivra. La copie en attente est conservée.</string>
+    <string name="recording_discard_confirm_title">Supprimer cet enregistrement ?</string>
+    <string name="recording_discard_confirm_message">Cette action supprime uniquement la copie temporaire de Wivra, pas la rediffusion éventuelle de la plateforme.</string>
+    <string name="recording_discard_confirm">Oui, supprimer</string>
+    <string name="recording_discarded">Enregistrement temporaire supprimé.</string>
+    <string name="recording_delete_failed">Suppression impossible. Le fichier temporaire est conservé.</string>
 </resources>

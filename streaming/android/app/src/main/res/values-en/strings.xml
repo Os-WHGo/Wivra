@@ -45,4 +45,17 @@
     <string name="recording_finalizing">Finalizing MP4 file…</string>
     <string name="recording_saved">MP4 saved in Movies/Wivra. Session closed.</string>
     <string name="recording_no_video">Could not save MP4: insufficient frames or invalid HEVC data.</string>
+    <string name="recording_pending_ready">MP4 ready. Choose whether to save it.</string>
+    <string name="recording_save_question">Save this recording?</string>
+    <string name="recording_pending_explanation">This video stays privately stored in Wivra until you save it or confirm deletion. Closing this dialog will not delete it.</string>
+    <string name="recording_keep">Save video</string>
+    <string name="recording_discard">Do not save</string>
+    <string name="recording_later">Decide later</string>
+    <string name="recording_remains_pending">The recording remains safely pending.</string>
+    <string name="recording_keep_failed">Could not save to Movies/Wivra. The pending copy remains available.</string>
+    <string name="recording_discard_confirm_title">Delete this recording?</string>
+    <string name="recording_discard_confirm_message">This deletes only the Wivra temporary copy, not any replay saved by the streaming platform.</string>
+    <string name="recording_discard_confirm">Yes, delete</string>
+    <string name="recording_discarded">Temporary recording deleted.</string>
+    <string name="recording_delete_failed">Could not delete the temporary file. It remains available.</string>
 </resources>
