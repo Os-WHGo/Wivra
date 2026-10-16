@@ -46,6 +46,15 @@ jobs:
             -derivedDataPath "$PWD/.build" \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee device-build.log
+      - name: Verify combined native app includes Claude Editor and offline filter pack
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          app_path=".build/Build/Products/Debug-iphoneos/WivraMetaB0.app"
+          test -s "$app_path/agentcut.html"
+          grep -q 'id="sAI"' "$app_path/agentcut.html"
+          test -s "$app_path/packs/catalog.json"
+          echo "Wivra embedded Editor and color packs verified in unsigned iOS app"
       - name: Package unsigned iPhone test build for later owner-side signing
         working-directory: streaming/ios/B0
         run: |
