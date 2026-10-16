@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Used only if the user explicitly connects an external AI provider. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Phone camera permissions are requested only when the native activity opens.
+         Microphone permission is optional, asked only when enabling sound. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <!-- Read default network type and OS validation; never inspect SSIDs or credentials. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
