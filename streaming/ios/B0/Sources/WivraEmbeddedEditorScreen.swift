@@ -57,7 +57,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                         self?.finishSelection(nil)
                         return
                     }
-                    let urls = [item.manifestURL, video] + item.audioURLs
+                    let urls = [item.manifestURL, video] +
+                        (item.alternateVideoURL.map { [$0] } ?? []) + item.audioURLs
                     self?.finishSelection(urls)
                 })
             }
