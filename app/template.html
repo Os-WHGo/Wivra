@@ -279,6 +279,13 @@ body.dock .back{pointer-events:none;background:transparent}
     <p class="m" id="qaInfo" role="status" aria-live="polite">Elige una duración para ver cómo quedaría.</p>
     <button class="btn" id="qaApply" type="button" disabled>Aplicar montaje</button>
   </details>
+  <details id="siBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Quitar silencios</summary>
+    <p class="m">Busca las pausas largas de tus clips y las corta. Mide el volumen (no entiende palabras) y todo pasa en tu teléfono: no se envía nada. Revisa el resultado. Se puede deshacer.</p>
+    <div id="siChips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><button class="btn sec" type="button" data-l="soft" style="margin:0;width:auto">Suave</button><button class="btn sec" type="button" data-l="normal" aria-pressed="true" style="margin:0;width:auto">Normal</button><button class="btn sec" type="button" data-l="strong" style="margin:0;width:auto">Fuerte</button></div>
+    <button class="btn sec" id="siScan" type="button" style="margin-top:8px">Buscar pausas</button>
+    <div id="siInfo" class="m" role="status" aria-live="polite">Toca «Buscar pausas» para ver cuánto se puede quitar.</div>
+    <button class="btn" id="siApply" type="button" disabled>Quitar las pausas</button>
+  </details>
   <label class="btn sec" for="file" style="cursor:pointer">Agregar más videos</label>
   <button id="vdone" class="btn">Listo</button></div>
 <div class="sheet" id="sMiss"><h2>Faltan archivos</h2><p class="m">Tu proyecto se guardó, pero el teléfono no guardó estos videos o audios. Elígelos otra vez (con el mismo nombre) y todo vuelve a su lugar.</p>
@@ -1167,6 +1174,58 @@ $('qaApply').onclick = () => {
   if (!pl.ok || !pl.ops.length) { qaPreview(qaTarget); return; }
   const r = edit(pl.ops, { ripple: false }); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
   say('Montaje rápido aplicado. Puedes deshacerlo.', 'ok'); renderVids(); qaPreview(qaTarget);
+};
+/* Quitar silencios (app/silence.mjs): se lee el volumen de cada video UNA vez (en el teléfono) y se guarda solo un resumen; cambiar la sensibilidad es instantáneo. */
+let siLevel = 'normal', siBusy = false; const siEnv = new Map();      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
+async function siAnalyze(assetId) {
+  if (siEnv.has(assetId)) return siEnv.get(assetId);
+  const AC = window.AudioContext || window.webkitAudioContext, f = mediaFiles[assetId]; let res = null;
+  if (AC && f && f.size <= SPLIT_MAX_BYTES * 4) {
+    const ctx = new AC();
+    try {
+      const ab = await f.arrayBuffer(), buf = await new Promise((ok, no) => { const p = ctx.decodeAudioData(ab, ok, no); if (p && p.catch) p.catch(no); });
+      const mono = new Float32Array(buf.length); for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
+      res = envelopeFromSamples(mono, buf.sampleRate);
+    } catch { res = null; } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch {} }
+  }
+  siEnv.set(assetId, res); return res;
+}
+function siCuts() {          // pausas de cada video de la línea principal, con el nivel elegido
+  const cuts = {}; let missing = 0, done = 0;
+  for (const c of session.project.clips) {
+    const a = session.project.assets.find(x => x.id === c.asset_id); if (!a || a.kind === 'image') continue;
+    const e = siEnv.get(c.asset_id); if (e === undefined) { missing++; continue; } if (e === null) { continue; }
+    const r = silencesFromEnvelope(e.env, e.win, c.in, c.out, SIL_LEVELS[siLevel]); done++; if (r.cuts.length) cuts[c.id] = r.cuts;
+  }
+  return { cuts, missing, done };
+}
+function siPreview() {
+  const info = $('siInfo'), btn = $('siApply'); info.replaceChildren(); btn.disabled = true;
+  for (const b of document.querySelectorAll('#siChips button')) b.setAttribute('aria-pressed', String(b.dataset.l === siLevel));
+  const add = (t, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = t; info.appendChild(d); };
+  if (!session || !session.project.clips.length) { add('No hay clips en la línea de tiempo.', 'bad'); return; }
+  const { cuts, missing, done } = siCuts();
+  if (missing) { add('Toca «Buscar pausas» para ver cuánto se puede quitar.'); return; }
+  if (!done) { add('Ningún video tiene sonido que se pueda leer.', 'bad'); return; }
+  const pl = planSilenceCut(session.project, cuts);
+  if (!pl.ok) { add(pl.error, 'bad'); return; }
+  if (!pl.ops.length) { add('No encontré pausas para quitar con esta sensibilidad.'); return; }
+  add(`Pausas encontradas: ${pl.pauses} (${fmt(pl.removed)} s). El video pasaría de ${fmt(pl.before)} s a ${fmt(pl.after)} s.`); for (const w of pl.warnings) add(w); btn.disabled = false;
+}
+$('siChips').addEventListener('click', (e) => { const b = e.target.closest('button[data-l]'); if (b && SIL_LEVELS[b.dataset.l]) { siLevel = b.dataset.l; siPreview(); } });
+$('siScan').onclick = async () => {
+  if (!session || siBusy) return; siBusy = true; $('siScan').disabled = true;
+  try {
+    const ids = [...new Set(session.project.clips.map(c => c.asset_id))].filter(id => { const a = session.project.assets.find(x => x.id === id); return a && a.kind !== 'image'; });
+    let n = 0, fail = 0; for (const id of ids) { $('siInfo').textContent = `Buscando pausas… ${++n} de ${ids.length}`; if (!(await siAnalyze(id))) fail++; }
+    siPreview(); if (fail) { const d = document.createElement('div'); d.textContent = 'Algún video no tiene sonido o es demasiado grande para leerlo aquí: ese no se toca.'; $('siInfo').appendChild(d); }
+  } finally { siBusy = false; $('siScan').disabled = false; }
+};
+$('siApply').onclick = () => {
+  if (!session) return; const { cuts, missing } = siCuts(); if (missing) { siPreview(); return; }
+  const pl = planSilenceCut(session.project, cuts); if (!pl.ok || !pl.ops.length) { siPreview(); return; }
+  const r = edit(pl.ops, { ripple: false }); if (!r.ok) { say('No se pudo: ' + r.message, 'bad'); return; }
+  say('Pausas quitadas. Puedes deshacerlo.', 'ok'); renderVids(); siPreview();
 };
 function renderVids() {
   const L = $('vlist'); L.replaceChildren(); if (!session) return;
