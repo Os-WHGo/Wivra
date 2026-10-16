@@ -124,3 +124,11 @@ Comparación GitHub **`chatgpt/wivra-unified-owner-20261016...claude/beta-editor
 - Pruebas de Claude recuperadas en `app/tests/collage.test.mjs` y `app/tests/slots.test.mjs`: commits `84aba3f` y `ac20fe7`. La rama de Claude sigue intacta.
 - **No declarar UI completa:** `app/template.html` no ha incorporado aún los controles de las plantillas nuevas. **No declarar tests verdes:** falta confirmación de ejecución CI, HTML generado y hardware.
 - Siguiente: conectar catálogo y biblioteca musical a interfaz única, reconstruir bundle, corregir CI; luego Whisper con hash de modelos y validación de worker.
+
+## CI inspeccionado · regresiones confirmadas
+GitHub Actions en commit `ab3e0a3`: run App Tests `38977996441`, job `117231943694`: **258 pruebas, 256 pasan, 2 fallan**. 
+1. `not ok 221`: falta el control `id="spAll"` de **velocidad a todos los videos** en el HTML final. `app/speed.mjs` tiene `planSpeedAll`, pero `app/template.html` aún usa solo `planSpeed`. Es una **regresión real de interfaz**.
+2. `not ok 228`: prueba de traducción de errores del cliente IA fallida, incluido el mensaje de reintentos; revisar `app/ai-client.mjs`, claves de i18n y test antes de cambiar cadenas.
+Run UI Smoke `38977996566` también falla al comparar bundle HTML obsoleto contra fuentes; diferencia mostrada incluye UI de velocidad. La reconstrucción automática **no está confirmada**.
+**Intento de reparación:** escritura completa de `app/template.html` (~260 KB) para conectar biblioteca musical mediante `addTrackFile` y rol `music` fue bloqueada por herramienta antes de commit. **Ninguna edición de interfaz fue publicada**. Reintentar por mecanismo de parche seguro, no fingir integración UI.
+**Prioridad:** corregir `spAll`, fallo i18n, reconstruir `app/dist/agentcut.html`, ejecutar CI y recién entonces conectar biblioteca musical y Whisper.
