@@ -50,6 +50,8 @@ jobs:
         run: node --test streaming/tests/android-rayban-mp4-recording.test.mjs
       - name: Verify pending video decisions and explicit delete consent
         run: node --test streaming/tests/android-rayban-pending-video.test.mjs
+      - name: Verify Ray-Ban recoverable HEVC checkpoint contracts
+        run: node --test streaming/tests/android-rayban-checkpoint-recovery.test.mjs
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
