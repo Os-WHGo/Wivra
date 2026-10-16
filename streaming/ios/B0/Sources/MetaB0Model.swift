@@ -348,14 +348,14 @@ final class MetaB0Model {
             // Grouped video-only checkpoints receive a standard v2 manifest
             // for EACH independent MOV. Do not misrepresent them as one clip.
             if entry.id.range(
-                of: #"_part[0-9]{4}\\.mov$"#, options: .regularExpression
+                of: #"_part[0-9]{4}\.mov$"#, options: .regularExpression
             ) != nil {
                 let folder = FileManager.default.urls(
                     for: .documentDirectory, in: .userDomainMask
                 )[0].appendingPathComponent("WivraRecordings", isDirectory: true)
                 let parts = entry.files
                     .filter { $0.range(
-                        of: #"_part[0-9]{4}\\.mov$"#,
+                        of: #"_part[0-9]{4}\.mov$"#,
                         options: .regularExpression
                     ) != nil }
                     .sorted()
