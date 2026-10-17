@@ -199,3 +199,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Commit `9a71c43fc390d1b2512a52b947ecee30e76f4c39`: `app/template.html` incorpora selector de `MUSIC_TRACKS` y botón que genera WAV local con `musicWav`, lo convierte en `File` y usa `addTrackFile(..., 'audio')` para respetar el flujo existente de pistas y archivos.
 - En la primera CI de ese commit, `App Tests` run `38991607698` **success**, pero los smoke/contratos y ensamblaje fallaron por `git diff --exit-code -- app/dist/agentcut.html` tras reconstruir un bundle obsoleto. El workflow de reconstrucción run `38991607674` finalizó **success** y una lectura posterior de la rama confirmó `wivraMusicAdd` en `app/dist/agentcut.html` (~809 KB).
 - La generación de música, uso de memoria, reproducción y exportación en WebView física **no están validados**. Comprobar nuevas ejecuciones CI posteriores al commit automático de HTML antes de cerrar regresión.
+
+## Accesibilidad de plantillas y sincronización del bundle
+- Commit `ee8a4127b54845e0e7dee65b5472d8aed4b68661`: botones de las diez plantillas incorporan `title` y `aria-label` con su descripción.
+- CI de ese SHA: `App Tests` run `38991740587` y `Meta LIVE Preflight Tests` run `38991740590` terminaron en success. Otros flujos fallaron en la primera ejecución; el workflow de reconstrucción `38991740564` terminó en success. La lectura posterior de `app/dist/agentcut.html` confirmó `b.title = t.desc`.
+- Pendiente: confirmar CI en un SHA posterior y VoiceOver/TalkBack en dispositivos reales.
