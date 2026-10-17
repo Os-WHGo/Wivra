@@ -5,7 +5,7 @@
 - **Línea de tiempo visual** (`timeline.mjs` + `template.html`): bloques con miniaturas, línea blanca, tocar para elegir un clip, arrastrar los bordes amarillos para recortar, cortar, borrar (cierra el hueco), texto, deshacer/rehacer y zoom (botones ＋/− o **pellizco con dos dedos** sobre la línea: separar = expandir, juntar = achicar; la línea blanca queda en el mismo instante). Cada gesto es un solo paso de deshacer.
 - Recorte por números: queda como opción avanzada.
 - Con tu IA, sin API: la app arma un mensaje, lo pegas en ChatGPT o Claude normales, pegas la respuesta de vuelta y el validador la aplica o la rechaza.
-- Vista previa básica del resultado. **No exporta todavía.**
+- Vista previa y exportación local mediante canvas + MediaRecorder, con mezcla de audio cuando el navegador la admite. **No validado todavía en hardware físico.**
 
 Regenerar el archivo: `node app/build.mjs`.
 
@@ -29,7 +29,7 @@ Regenerar el archivo: `node app/build.mjs`.
 - **Formato:** MP4 si el navegador lo permite (Safari), si no WebM. Tamaño: forma del primer video, máx. 1080 en el lado corto.
 - **Probado:** 2 clips con tonos de 440 y 880 Hz + texto → salida de 7 s con audio correcto, texto visible y cambio de clip (Chromium con iPhone simulado).
 - **NO probado / por validar en iPhone real:** que Safari grabe el audio de los clips (`createMediaElementSource`), formato MP4 resultante, ".mov" HEVC, y el menú "Guardar o compartir".
-- **Límite conocido:** no hay mezcla de audio por pistas ni música aparte; el audio es el de cada clip.
+- **Estado actual:** el motor mezcla pistas de audio independientes y música local, con preflight que bloquea por defecto la exportación cuando faltan voces o el navegador no puede producir el audio requerido. La pérdida de sonido sólo puede autorizarse expresamente con una casilla del editor. La duración de salida sigue la línea visual principal (9 s de video + 30 s de música → 9 s). Las pruebas automatizadas y la compilación nativa no certifican funcionamiento real en Safari/Android WebView.
 - Alternativa futura, más rápida que tiempo real: WebCodecs con Mediabunny (MPL-2.0; sin verificar en Safari/HEVC).
 
 ## IA directa (sin copiar y pegar)
@@ -64,7 +64,8 @@ Une en UN solo archivo: editor multivideo (#38) + Director creativo (#39) + chec
 - Se abre el video original; si el navegador no puede, se usa el video combinado (MOV) si fue elegido. Con el video combinado, las pistas que ya trae **no se importan dos veces**; si se dan también sueltas y se abren todas, quedan como pistas aparte y el audio del video se silencia.
 - Cada pista de audio entra como **clip de audio** (`audioClips`, ids `u1`, `u2`…) con su desfase (`startOffsetSeconds`; si cae antes del inicio se recorta ese tramo). Todo en **un solo lote** (un solo deshacer).
 - Las pistas de audio se ven en su propia fila con parlante, suenan en la vista previa y se **mezclan en la exportación** (verificado con análisis de frecuencias en Chromium simulado: arranca y termina en el tiempo esperado).
-- **No hecho / no verificado:** separar canales de un mismo archivo (se reproduce el archivo completo y se avisa), volumen en la vista previa de iPhone (iOS ignora `volume`; solo silenciar), decodificar CAF/HEVC en Safari, prueba en iPhone real, audio por encima de 1 en la vista previa (solo en la exportación).
+- **Actualización 16-10:** se implementó separación explícita de canales de un WAV/CAF multicanal antes de usar pistas distintas, y se bloquea la duplicación accidental de estéreo. En Android la captura de teléfono con WAV guardada se ofrece como un paquete JSON v2 + MP4 + WAV mediante selección múltiple y FileProvider no exportado. Sigue sin verificarse la lectura efectiva y sincronización física en Android ni CAF/HEVC en Safari.
+- **No verificado:** volumen en la vista previa del iPhone (iOS ignora `volume` salvo silenciar), tiempos reales de decodificación CAF/HEVC, latencia y deriva de micrófonos externos.o por encima de 1 en la vista previa (solo en la exportación).
 
 
 ## Pistas, superposición y selección por partes · 14-10-2026 (tarde)

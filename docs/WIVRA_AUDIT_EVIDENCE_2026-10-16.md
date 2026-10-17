@@ -215,3 +215,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - `recordProject` ahora ejecuta `exportAudioPreflight` antes de iniciar MediaRecorder. Cuando una voz/audio independiente no pudo decodificarse o el navegador no puede crear una salida de audio requerida, interrumpe antes de gastar tiempo ni producir un archivo engañoso.
 - El editor advierte las pistas perdidas y sólo permite proseguir sin ellas cuando el propietario marca expresamente `expAllowAudioGaps`. Se restablece desmarcado en cada exportación, se conserva el aviso final y no se modifica el material fuente.
 - Nuevas pruebas unitarias verifican WAV faltante, falta de AudioContext, proyecto silencioso, pistas silenciadas y mezcla correcta. **Pendiente** bundle generado en `app/dist/agentcut.html`, CI y pruebas de exportación reales en WebView.
+
+## Reconciliación documental y bundle, 16-10-2026 (continuación)
+- `app/README.md` corregido: sus afirmaciones iniciales «No exporta todavía», «no hay mezcla de audio» y «no se separan canales» ya eran históricas y contradictorias con `app/export.mjs`, `app/channel-split.mjs` y la integración Android nueva.
+- `app/tests/export-audio-preflight.test.mjs` comprueba también que el HTML fuente y el generado contienen la casilla de autorización, desmarcada de inicio, y la ruta de bloqueo. La exportación silenciosa no puede convertirse en éxito por una diferencia de bundle.
+- El HTML determinista fue regenerado automáticamente por el workflow en commit bot `5ef6a698`; los workflows que arrancan desde ese commit de `github-actions[bot]` aparecen `action_required`, no equivalen a pruebas ejecutadas. Esta actualización desde el propietario debe activar una ronda de CI normal. Estado de beta física permanece PENDIENTE.

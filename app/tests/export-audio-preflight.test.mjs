@@ -32,3 +32,18 @@ test('video with requested sound and missing AudioContext is not silently export
   assert.equal(r.needsConfirmation,true);
   assert.equal(r.unavailableAudio,true);
 });
+
+import { readFileSync } from 'node:fs';
+test('UI and generated bundle require a deliberate override before exporting with missing audio',()=>{
+  const engine = readFileSync(new URL('../export.mjs', import.meta.url),'utf8');
+  assert.match(engine,/audioPreflight\.needsConfirmation && !allowIncompleteAudio/);
+  assert.match(engine,/return \{ audioBlocked: true/);
+  assert.match(engine,/stream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
+  for(const file of ['../template.html','../dist/agentcut.html']){
+    const s=readFileSync(new URL(file,import.meta.url),'utf8');
+    assert.match(s,/id="expAllowAudioGaps"/,file);
+    assert.match(s,/\$\('expAllowAudioGaps'\)\.checked = false/,file);
+    assert.match(s,/if \(r\.audioBlocked\)/,file);
+    assert.match(s,/allowIncompleteAudio: \$\('expAllowAudioGaps'\)\.checked/,file);
+  }
+});
