@@ -310,3 +310,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 ## WebView real: pruebas instrumentadas del editor offline
 - Tras completar 4/4 pruebas MediaStore en emulador API35 (`39059722083`), se añade `WivraEditorWebViewTest.java`, que lanza la **MainActivity real** y evalúa el HTML `file:///android_asset/agentcut.html`. Comprueba los ajustes de aislamiento de acceso entre URLs locales, `#capFile`, `parseManifest`, `captureSelectionPlan`, `importPlan` y `planImportOps` sobre datos MP4/WAV sintéticos dentro de Android System WebView.
 - Nuevo job emulador ejecuta juntas las cuatro pruebas MediaStore y la prueba WebView. El test no exige credenciales, cámara, red ni hardware externo; no inventa grabación ni exportación física. Resultado debe verificarse en CI posterior al commit.
+
+## Fallo real de inicio de MainActivity hallado por instrumentación WebView
+- En [run 39066458330](https://github.com/Os-WHGo/Wivra/actions/runs/39066458330) las 4 pruebas MediaStore aprobaron, pero `WivraEditorWebViewTest` falló al lanzar la MainActivity con `IllegalStateException: The specified child already has a parent`.
+- Causa: se añadía `glasses` a `shell` antes de añadir el mismo `Button` a `sources`; Android no permite dos padres para una misma View. **Esto causaba un crash de inicio de Android**, invisible para compilación, contratos de Node y MediaStore.
+- Se eliminó la primera inserción y se conservan ambos botones dentro de `sources`, distribuidos a partes iguales. Prueba de contrato de fuente asegura que `shell.addView(glasses)` no reaparezca. Revalidar arranque de editor JS en emulador; pruebas físicas continúan pendientes.

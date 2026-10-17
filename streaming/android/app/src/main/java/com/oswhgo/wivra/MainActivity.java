@@ -158,8 +158,8 @@ public final class MainActivity extends Activity {
         glasses.setContentDescription(getString(R.string.connect_glasses_accessibility));
         glasses.setOnClickListener(v -> startActivity(
             new Intent(this, WivraMetaPreviewActivity.class)));
-        shell.addView(glasses, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        // A View can have only one parent. The glasses shortcut belongs to
+        // the horizontal sources row; adding it to shell first crashes startup.
         Button phone = new Button(this);
         phone.setText(R.string.phone_camera_open);
         phone.setContentDescription(getString(R.string.phone_camera_open));
@@ -167,7 +167,8 @@ public final class MainActivity extends Activity {
         // These are two capture sources feeding the same one-and-only editor.
         LinearLayout sources = new LinearLayout(this);
         sources.setOrientation(LinearLayout.HORIZONTAL);
-        sources.addView(glasses);
+        sources.addView(glasses, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         sources.addView(phone, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         shell.addView(sources, new LinearLayout.LayoutParams(
