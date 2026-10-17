@@ -89,3 +89,37 @@ export function bestTimedWindow(input, from, to, duration) {
   return { start: acsRound2(moved?best:center),score:acsRound2(bestScore),centerScore:acsRound2(centerScore),moved,
     granularity:data.granularity,source:data.source,method:'timestamped_speech_boundaries' };
 }
+
+// IMPORTED captions are timeline hints, not verified ASR measurements.
+// Only attribute them to a media asset when one video clip is on the main track.
+export function timedSpeechFromSingleClipCues(project, cues) {
+  if (!Array.isArray(project?.clips) || project.clips.length !== 1 ||
+      !Array.isArray(cues) || !cues.length || cues.length > AUTOCUT_MAX_SEGMENTS) return null;
+  const clip = project.clips[0];
+  const asset = (project.assets || []).find(a => a.id === clip.asset_id);
+  if (!asset || asset.kind === 'image' ||
+      !acsIsFinite(asset.duration) || asset.duration <= 0 || asset.duration > 86400 ||
+      !acsIsFinite(clip.start) || !acsIsFinite(clip.in) || !acsIsFinite(clip.out) ||
+      clip.in < 0 || clip.out <= clip.in || clip.out > asset.duration + 0.02 ||
+      (clip.speed !== undefined && clip.speed !== 1)) return null;
+  const timelineEnd = clip.start + clip.out - clip.in;
+  const segments = [];
+  for (const cue of cues) {
+    if (!cue || !acsIsFinite(cue.start) || !acsIsFinite(cue.end) ||
+        cue.end <= cue.start || typeof cue.text !== 'string' ||
+        !cue.text.trim() || cue.text.length > 512) continue;
+    const start = Math.max(clip.start, cue.start), end = Math.min(timelineEnd, cue.end);
+    if (end - start < 0.02) continue;
+    segments.push({
+      start: Math.max(0, Math.min(asset.duration, clip.in + start - clip.start)),
+      end: Math.max(0, Math.min(asset.duration, clip.in + end - clip.start)),
+      text: cue.text.trim()
+    });
+  }
+  if (!segments.length) return null;
+  const evidence = {
+    schema: AUTOCUT_TIMED_SCHEMA, source:'timestamped_import',
+    granularity:'segment', durationSeconds:asset.duration, segments
+  };
+  return normalizeTimedSpeech(evidence) ? { assetId:clip.asset_id, evidence } : null;
+}
