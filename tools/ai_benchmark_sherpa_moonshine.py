@@ -165,7 +165,7 @@ def main():
             "best_chunk_seconds":best["chunk_seconds"],
             "fair_comparison_to_continuous_whisper":False,
             "total_seconds_including_download":round(time.perf_counter()-overall,3),
-            "process_peak_rss_kib":resource.getrusage(resource.RUSAGE_SELF).ru_max,
+            "process_peak_rss_kib":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
             "mobile_weights_integrated":False,
             "not_measured":"WER in any other audio, iOS/Android performance, wind/music, energy, latency of streaming, licenses of non-English Moonshine weights"
         }
