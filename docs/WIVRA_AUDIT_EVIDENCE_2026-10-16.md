@@ -173,3 +173,7 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - iOS run `38984681698`: **success**, artefacto arm64 sin firmar registrado arriba. Requiere firma/provisioning para instalar en iPhone.
 - `Wivra Complete Beta Assembly (Mobile)` run `38984681721`: suite inicial `success`, pero trabajos de paquetes completos `cancelled`; por tanto, no afirmar que la beta ensamblada final esté lista.
 - Pruebas manuales pospuestas por decisión del propietario hasta la etapa final. No solicitar intervención antes de que sea necesaria.
+
+## Corrección del flujo de ensamblaje de beta
+- El workflow `.github/workflows/wivra-complete-beta-assembly.yml` tenía `concurrency.cancel-in-progress: true`, lo que permite cancelar empaquetados Android/iOS al llegar otra ejecución del mismo PR/ref. Es una **causa plausible**, no demostración concluyente, de los dos jobs `cancelled` en run `38984681721`.
+- Commit `bd6f90ca2151bd6e50554b2b639f6a82dd74ad25`: `cancel-in-progress: false` y activación `push` para la rama de integración `chatgpt/wivra-unified-owner-20261016`. Debe confirmarse con una nueva ejecución completa y artefactos publicados.
