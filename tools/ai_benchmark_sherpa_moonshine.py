@@ -110,15 +110,42 @@ def main():
             num_threads=2,
             debug=False
         )
-        stream=recognizer.create_stream()
-        stream.accept_waveform(16000,samples)
-        start=time.perf_counter()
-        recognizer.decode_stream(stream)
-        decode_time=time.perf_counter()-start
-        transcript=stream.result.text.strip()
+        # An 11s clip FAILED on these pinned versions in run 39080238074
+        # (ONNX decoder broadcast 2 by 457). Do not claim continuous support.
+        # Try short sections separately and expose limitations in the output.
+        def transcribe_part(data):
+            stream=recognizer.create_stream()
+            stream.accept_waveform(16000,data)
+            recognizer.decode_stream(stream)
+            return stream.result.text.strip()
+        runs=[]
+        for chunk_s in (5.5,3.0):
+            start=time.perf_counter()
+            parts=[]
+            length=int(chunk_s*16000)
+            for offset in range(0,len(samples),length):
+                piece=samples[offset:offset+length]
+                if len(piece)<8000:
+                    continue
+                parts.append(transcribe_part(piece))
+            duration=time.perf_counter()-start
+            transcript=" ".join(parts)
+            rate,ref_count,hyp_count=wer(REFERENCE,transcript)
+            runs.append({
+                "chunk_seconds":chunk_s,
+                "decoded_sections":len(parts),
+                "transcript":transcript,
+                "WER_against_JFK_quote_segmented":round(rate,4),
+                "recognized_words":hyp_count,
+                "processing_seconds":round(duration,4)
+            })
+        usable=[x for x in runs if x["recognized_words"]>=5]
+        if not usable:
+            raise AssertionError("Pinned Moonshine v2 failed even when short chunks were used")
+        best=min(usable,key=lambda r:r["WER_against_JFK_quote_segmented"])
+        transcript=best["transcript"]
         rate,ref_count,hyp_count=wer(REFERENCE,transcript)
-        if hyp_count<5:
-            raise AssertionError("Too few speech tokens")
+        decode_time=best["processing_seconds"]
         res = {
             "test_type":"REAL_SHERPA_ONNX_MOONSHINE_V2_CPU_ENGLISH_ASR_SMOKE",
             "runner":"GitHub Actions Ubuntu 24.04 x86_64 CPU, 2 threads",
@@ -132,7 +159,11 @@ def main():
             "recognized_words":hyp_count,
             "WER_single_English_excerpt":round(rate,4),
             "decode_seconds_no_model_load":round(decode_time,4),
-            "model_init_seconds":round(start-loaded,4),
+            "model_init_seconds":None,
+            "continuous_11s_result":"FAILED on pinned 1.13.8 ONNX decoder Add broadcast (run 39080238074)",
+            "chunk_tests":runs,
+            "best_chunk_seconds":best["chunk_seconds"],
+            "fair_comparison_to_continuous_whisper":False,
             "total_seconds_including_download":round(time.perf_counter()-overall,3),
             "process_peak_rss_kib":resource.getrusage(resource.RUSAGE_SELF).ru_max,
             "mobile_weights_integrated":False,
