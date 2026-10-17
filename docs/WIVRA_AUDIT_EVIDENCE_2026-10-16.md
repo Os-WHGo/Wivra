@@ -187,3 +187,10 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Archivos `streaming/ios/B0/Resources/{es,en,pt,fr,de,ja,zh,it}.lproj/Localizable.strings` verificados en la rama: **59 claves `ios.*` en cada idioma**. Este recuento verifica cobertura de claves, no revisión lingüística ni presentación en dispositivos.
 - SHA `45966edaba5f0d2063de56f62ec73a2bae4de496`: Actions `App Tests` run `38989859101`, `Wivra Audit · Rebuild Editor Bundle` `38989859189`, `Meta LIVE Preflight Tests` `38989859090`, `Local Visual Evidence Tests` `38989859107`, `In-App Director and Editor Controls` `38989859066`, `Creative Director Brief Tests` `38989859146`, `Wivra AI Chat-First UI Smoke` `38989859075` y `Meta B0 iOS Native Build` `38989859305` reportan `success`.
 - `Wivra Complete Beta Assembly (Mobile)` run `38989859058`: suite integrada `success`, empaquetados Android e iOS `in_progress` al revisar. Android independiente `38989859176` en ejecución. No afirmar artefactos completos antes de verificarlos.
+
+## Ensamblaje completo aprobado: run 38989859058
+- `Editor + Director + Native Contract Suite`: `completed/success`.
+- `Android APK · same unified editor`: `completed/success`. Artefacto `Wivra-BETA-Android-DEBUG-apk`, ID `12084322754`, 16,070,869 bytes, no expirado al comprobar.
+- `iPhone arm64 IPA · UNSIGNED`: `completed/success`. Artefacto `Wivra-BETA-iOS-UNSIGNED-ipa`, ID `12084832004`, 6,177,018 bytes, no expirado al comprobar. **No instalable en iPhone sin firma**.
+- `Wivra-BETA-Assembly-Status`: ID `12084686756`, 499 bytes. Android independiente run `38989859176` `success`, artefacto `WivraUnifiedAndroid-DEBUG`, ID `12085235062`.
+- El éxito de CI prueba ensamblaje y contratos automatizados, no uso real de cámaras, gafas, micrófonos, LIVE ni exportación en hardware. Mantener esas verificaciones abiertas hasta QA de dispositivos.
