@@ -1122,9 +1122,12 @@ async function importCapture(files) {
   try {
     const mf = files.find(f => /\.json$/i.test(f.name));
     if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
+    if (!(mf.size > 0) || mf.size > 128 * 1024) { say('El manifiesto debe medir entre 1 byte y 128 KB.', 'bad'); return; }
     const r = parseManifest(await mf.text());
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
-    const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
+    const m = r.manifest, selection = captureSelectionPlan(m, files);
+    if (!selection.ok) { say(selection.errors.join('\n') + '\nNo se modificó la línea de tiempo. Usa Video para importar un clip sin sus pistas.', 'bad'); return; }
+    const byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
     const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
     if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
     $('info').textContent = 'Leyendo la captura…';
@@ -1138,7 +1141,7 @@ async function importCapture(files) {
       } catch (e) { failed.push(e.message); return null; }
     };
     let videoFile = null, usedMuxed = false;
-    for (const [name, isMux] of [[m.videoFile, false], [m.muxedVideoFile, true]]) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
+    for (const { name, muxed: isMux } of selection.candidates) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
     if (!videoFile) { say('No pude abrir el video de la captura. ' + failed.join(' · '), 'bad'); return; }
     if (usedMuxed && m.videoFile) notes.push(`Se usó ${m.muxedVideoFile} (el video original no se pudo abrir en este navegador).`);
     // Audio: con el video combinado, las pistas que ya trae no se importan dos veces. Si el usuario dio los audios sueltos y se abren todos, se importan aparte y se silencia el audio del video.
@@ -1174,6 +1177,12 @@ async function importCapture(files) {
     const plan = { videoFile, audioTracks: tracks };
     const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
     const out = planImportOps(plan, { videoStart: startAt, assets, splitChannelAssets: split });
+    if (out.skipped.length) {
+      say('No se importó la captura: las pistas no están completas o el navegador no pudo leerlas.\n' +
+        [...failed, ...out.skipped.map(x => `${x.id || x.file}: ${x.reason}`)].join('\n') +
+        '\nLa línea de tiempo no se modificó.', 'bad');
+      return;
+    }
     out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
     if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
     const first = !session.project.clips.length;

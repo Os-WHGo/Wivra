@@ -11,3 +11,15 @@ for (const f of ['../template.html', '../dist/agentcut.html']) {
     assert.match(h, /else if \(capNote\) say\(capNote/);
   });
 }
+
+for (const f of ['../template.html','../dist/agentcut.html']) {
+  test(`captura multipista falla de forma segura ante audio faltante o ilegible (${f})`,()=>{
+    const h=readFileSync(new URL(f,import.meta.url),'utf8');
+    assert.match(h,/mf\.size > 128 \* 1024/);
+    assert.match(h,/captureSelectionPlan\(m, files\)/);
+    assert.match(h,/if \(!selection\.ok\)/);
+    assert.match(h,/for \(const \{ name, muxed: isMux \} of selection\.candidates\)/);
+    assert.match(h,/if \(out\.skipped\.length\) \{/);
+    assert.match(h,/La línea de tiempo no se modificó/);
+  });
+}
