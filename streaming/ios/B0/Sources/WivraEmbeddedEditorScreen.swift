@@ -143,7 +143,8 @@ private struct WivraEditorWebView: UIViewRepresentable {
         let script = WKUserScript(source: """
             window.WivraHost = Object.freeze({
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
-              listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'})
+              listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
+              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId})
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
