@@ -150,3 +150,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Mobile Assembly run `38982403453`: suite inicial falla antes de iniciar trabajos `Android APK` e `iPhone arm64 IPA UNSIGNED`, ambos `skipped`. No hay instaladores nuevos verificados.
 - Actualizado workflow de reconstrucción `wivra-audit-rebuild-editor.yml` para aceptar también PR interno dirigido a la rama base de integración y proteger escritura con validación de head ref y repo, commit `e83c885`. Su ejecución y permisos efectivos aún requieren confirmación; no afirmar que el bundle esté sincronizado.
 - Riesgo operativo: GitHub Actions de PR puede no cargar workflows añadidos solo en head, o tener permisos de escritura restringidos; si no corre, usar un flujo autorizado de reconstrucción que efectivamente pueda commitear el HTML generado, sin forzar pushes ni saltar pruebas.
+
+## Bloque adicional: regeneración del HTML en CI
+- Commit `c9c0e5c`: workflow existente `.github/workflows/app-tests.yml` reconstruye `app/dist/agentcut.html` con `node app/build.mjs` antes de `node --test app/tests/*.test.mjs`, y adjunta HTML como artefacto de 7 días.
+- El cambio permite comprobar el código fuente real en la suite sin depender de un HTML antiguo del repositorio. **No sincroniza todavía el archivo versionado**; debe realizarse commit del bundle generado en la rama de integración después de verificarlo. No hay evidencia de 271/271 aún.
+- Separar: CI de editor, artefactos Android/iOS y QA físico. Mantener estado pendiente hasta pruebas verificadas.
