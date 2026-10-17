@@ -155,3 +155,10 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Commit `c9c0e5c`: workflow existente `.github/workflows/app-tests.yml` reconstruye `app/dist/agentcut.html` con `node app/build.mjs` antes de `node --test app/tests/*.test.mjs`, y adjunta HTML como artefacto de 7 días.
 - El cambio permite comprobar el código fuente real en la suite sin depender de un HTML antiguo del repositorio. **No sincroniza todavía el archivo versionado**; debe realizarse commit del bundle generado en la rama de integración después de verificarlo. No hay evidencia de 271/271 aún.
 - Separar: CI de editor, artefactos Android/iOS y QA físico. Mantener estado pendiente hasta pruebas verificadas.
+
+## Verificación automatizada satisfactoria posterior
+- Workflow `Wivra Audit · Rebuild Editor Bundle` run `38984681705`: `success`; logs registran **271 passed / 0 failed**. HTML versionado `app/dist/agentcut.html` consultado en rama de integración: contiene `id="spAll"` y tamaño ~808 KB.
+- `App Tests` run `38984681693`: `success`.
+- `Wivra Complete Beta Assembly (Mobile)` run `38984681721`: etapa `Editor + Director + Native Contract Suite` `success`; trabajos `iPhone arm64 IPA · UNSIGNED` y `Android APK` todavía `in_progress` en consulta. No afirmar artefactos instalables antes de su conclusión.
+- Auditoría de dependencias remotas: `app/ai-client.mjs` declara proveedores BYOK HTTPS; `app/persist.mjs` y `app/subtitles.mjs` no contienen endpoints HTTP directos. Esto no constituye una auditoría de red completa.
+- Usuario pospone pruebas manuales hasta disponer de beta. No bloquear integración por pruebas que requieren dispositivo; documentar y realizar al final.
