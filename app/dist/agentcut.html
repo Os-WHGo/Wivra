@@ -4619,7 +4619,7 @@ $('directorCamera').addEventListener('change',async()=>{
 let qaTarget = 0, tpSel = '';
 function tpRender() {      // la lista de plantillas (nombres traducibles: cada botón es un texto propio)
   const l = $('tpList'); l.replaceChildren();
-  for (const t of TPL_CATALOG) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.dataset.id = t.id; b.textContent = t.name; b.setAttribute('aria-pressed', String(t.id === tpSel)); l.appendChild(b); }
+  for (const t of TPL_CATALOG) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.dataset.id = t.id; b.textContent = t.name; b.title = t.desc; b.setAttribute('aria-label', t.name + ': ' + t.desc); b.setAttribute('aria-pressed', String(t.id === tpSel)); l.appendChild(b); }
 }
 function tpPreview() {
   const info = $('tpInfo'), btn = $('tpApply'); info.replaceChildren(); btn.disabled = true; $('tpTitleBox').style.display = 'none';
