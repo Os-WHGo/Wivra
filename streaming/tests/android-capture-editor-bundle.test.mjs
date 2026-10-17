@@ -113,3 +113,16 @@ test('Unified Android assembly actually executes MediaStore capture instrumentat
  assert.match(workflow,/Wivra-Android-MediaStore-Emulator-Results/);
  assert.doesNotMatch(workflow,/continue-on-error: true/);
 });
+
+test('CI instrumented emulator launches real offline WebView and validates capture import JS',()=>{
+ const workflow=read('../../.github/workflows/wivra-complete-beta-assembly.yml');
+ const instrumented=read('../android/app/src/androidTest/java/com/oswhgo/wivra/WivraEditorWebViewTest.java');
+ assert.match(workflow,/com\.oswhgo\.wivra\.WivraPhoneMediaStoreTest,com\.oswhgo\.wivra\.WivraEditorWebViewTest/);
+ assert.match(instrumented,/startActivitySync\(launch\)/);
+ assert.match(instrumented,/file:\/\/\/android_asset\/agentcut\.html/);
+ assert.match(instrumented,/evaluateJavascript\(source/);
+ assert.match(instrumented,/getAllowUniversalAccessFromFileURLs\(\)/);
+ assert.match(instrumented,/captureSelectionPlan\(parsed\.manifest/);
+ assert.match(instrumented,/planImportOps\(importPlan\(parsed\.manifest\)/);
+ assert.match(instrumented,/op\.ops\[1\]\.start===0\.22/);
+});

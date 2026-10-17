@@ -174,7 +174,7 @@ jobs:
   # synthetic and has no Meta glasses, external mic, camera QA or RTMP service.
   # Public repository + standard GitHub-hosted Ubuntu runner; no paid device lab.
   android-media-emulator:
-    name: Android emulator · MP4/WAV → MediaStore → editor manifest
+    name: Android emulator · MediaStore + offline WebView editor
     needs: android-beta
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -210,7 +210,7 @@ jobs:
             adb install -r .ci/media-app/app-debug.apk
             adb install -r .ci/media-tests/app-debug-androidTest.apk
             mkdir -p .ci/results
-            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest,com.oswhgo.wivra.WivraEditorWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
             grep -Eq '^OK \([0-9]+ tests?\)' .ci/results/media-handoff.txt
             ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' .ci/results/media-handoff.txt
       - name: Preserve emulator instrumentation evidence
