@@ -54,3 +54,15 @@ test('Embedded editor subframes stay inside bundled resources', () => {
   assert.match(source, /url\.absoluteString == "about:blank"/);
   assert.match(source, /decisionHandler\(localResource \|\| safeBlankDocument \? \.allow : \.cancel\)/);
 });
+
+test('Native capture readiness is validated without exposing private media paths', () => {
+  const bridge = readFileSync(new URL('../ios/B0/Sources/WivraEditorNativeBridge.swift', import.meta.url), 'utf8');
+  assert.match(bridge, /case "library\.importSelection":/);
+  assert.match(bridge, /captureId\.count <= 200/);
+  assert.match(bridge, /\$0\.id == captureId && \$0\.videoURL != nil/);
+  assert.match(bridge, /"readyForPicker": true/);
+  assert.match(bridge, /"nativeMediaImport": "file_picker"/);
+  assert.doesNotMatch(bridge, /"videoPath"\s*:/);
+  assert.match(source, /checkCapture: \(captureId\)/);
+  assert.match(html, /WivraEditorImport/);
+});
