@@ -263,3 +263,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Si faltan pistas independientes, se bloquea la importación. Como alternativa segura, si existe un MOV combinado y **todos** los audios ausentes figuran explícitamente en `muxedFromTrackIDs`, se importa el MOV con esas pistas integradas sin duplicar audio. Un MOV no sustituye una voz externa no mezclada.
 - Si la decodificación/splitting produce `planImportOps.skipped`, el editor detiene la operación antes de `run(out.ops)` y explica qué pistas faltan, sin presentar un éxito parcial. Puede haber assets previamente procesados en el catálogo de la sesión; no se modifica la línea de tiempo. La limpieza transaccional completa del cache de assets sigue pendiente.
 - Se limita a 128 KiB el JSON seleccionado manualmente, consistente con el escáner iOS. Se agregaron pruebas del contrato de selección y del HTML fuente y generado. La ejecución real de WebView/WKWebView y persistencia deben probarse en hardware; no declarar sincronización física.
+
+## Regresión de bundle determinista detectada en CI y corregida
+- GitHub Actions del commit `4a978f07` mostró `git diff --exit-code -- app/dist/agentcut.html`: el nuevo helper `captureSelectionPlan` estaba en el módulo ESM, pero no en el HTML embebido; el editor HTML no podía invocarlo. Se sincronizó el helper respetando la eliminación de `export` de `app/build.mjs`.
+- Test corregido para informar los **dos** WAV ausentes en el caso hipotético (audio original no presente + voz invitada no mezclada). El comportamiento esperado era correcto; la expectativa del test omitía uno.
+- La compilación y la suite deben comprobarse de nuevo sobre este SHA antes de declarar éxito.

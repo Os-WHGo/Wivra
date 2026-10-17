@@ -135,7 +135,7 @@ test('un MOV combinado no compensa audio independiente que nunca se mezcló',()=
  m.tracks.push(extra);
  const result=captureSelectionPlan(m,[m.muxedVideoFile]);
  assert.equal(result.ok,false);
- assert.deepEqual(result.missing,['guest.caf']);
+ assert.deepEqual(result.missing,[m.tracks[0].file,'guest.caf']);
 });
 test('video silencioso sigue siendo válido; nombres duplicados o archivos vacíos no',()=>{
  const m=parseManifest(byName('silent-video-no-audio')).manifest;
