@@ -115,9 +115,9 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
             // The offline editor may load local resources, but embedded remote
             // documents must not be able to reach the native file bridge.
             let bundledDirectory = Bundle.main.url(forResource: "agentcut", withExtension: "html")?
-                .deletingLastPathComponent().standardizedFileURL
+                .deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
             let localResource = url.isFileURL && bundledDirectory.map { root in
-                let file = url.standardizedFileURL
+                let file = url.resolvingSymlinksInPath().standardizedFileURL
                 return file.path.hasPrefix(root.path + "/")
             } == true
             let safeBlankDocument = url.absoluteString == "about:blank"
