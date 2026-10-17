@@ -100,3 +100,16 @@ test('Missing or JSON-null input name does not become a fake string "null" on An
  assert.match(bundle,/put\("inputName", safeInput\)/);
  assert.match(bundle,/put\("selectedInputName", safeInput\)/);
 });
+
+test('Unified Android assembly actually executes MediaStore capture instrumentation on an emulator',()=>{
+ const workflow=read('../../../.github/workflows/wivra-complete-beta-assembly.yml');
+ assert.match(workflow,/android-media-emulator:/);
+ assert.match(workflow,/needs: android-beta/);
+ assert.match(workflow,/api-level: 35/);
+ assert.match(workflow,/ReactiveCircus\/android-emulator-runner@[0-9a-f]{40}/);
+ assert.match(workflow,/adb install -r \.ci\/media-app\/app-debug\.apk/);
+ assert.match(workflow,/adb install -r \.ci\/media-tests\/app-debug-androidTest\.apk/);
+ assert.match(workflow,/com\.oswhgo\.wivra\.WivraPhoneMediaStoreTest/);
+ assert.match(workflow,/Wivra-Android-MediaStore-Emulator-Results/);
+ assert.doesNotMatch(workflow,/continue-on-error: true/);
+});

@@ -284,3 +284,9 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - La UI advierte y comunica segundos de voz truncados; casilla de aceptación continúa desmarcada. No se cambia el original ni se requiere API remota.
 - `app/tests/capture-export-roundtrip.test.mjs` prueba la cadena completa **en objetos y contratos JS**: Android MP4+WAV → selector → timeline multipista → serialización/reapertura → preflight de exportación; iOS MOV mezclado y CAF ausente con autorización explícita del manifest; pérdida de voz fuera del metraje. Es simulación, no prueba de cámaras/WebViews/hardware.
 - Código, plantilla y `app/dist/agentcut.html` editados en conjunto. Confirmar reproducibilidad del generador y CI sobre este SHA.
+
+## Ejecución instrumentada de integración MediaStore en emulador Android
+- Antes el pipeline solo `assembleDebugAndroidTest` compilaba WivraPhoneMediaStoreTest y nunca lo ejecutaba, por lo que la publicación MP4/WAV y la apertura real de FileProvider eran exclusivamente contratos de fuente.
+- `.github/workflows/wivra-complete-beta-assembly.yml` ahora incluye un job separado que instala el APK Debug y el APK de instrumentación en **Android Emulator API 35** y ejecuta `com.oswhgo.wivra.WivraPhoneMediaStoreTest`. Solo finaliza verde si `am instrument` devuelve `OK (N tests)` sin fallos; resultados guardados como artefacto.
+- Motor de emulador de código abierto Apache-2.0 `ReactiveCircus/android-emulator-runner` fijado al commit `a421e43855164a8197daf9d8d40fe71c6996bb0d`. Se ejecuta en un runner estándar Ubuntu de GitHub para este repositorio público; no se habilitan servicios comerciales ni laboratorios de dispositivos externos.
+- Esta prueba usa contenido AV sintético y ejecuta APIs reales del SO virtualizado, **no valida cámara, voz, WebView físico, Ray-Ban Meta, LIVE o sincronía de minutos**. Resultado efectivo aún pendiente de verificación en Actions del nuevo SHA.
