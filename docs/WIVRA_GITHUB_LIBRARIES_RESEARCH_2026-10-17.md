@@ -73,3 +73,41 @@ MP4/MOV + audio integrado/WAV y offsets (local, sin subir)
 6. **Control Git:** solo PR #131, nunca merge a main ni reescritura de ramas colaboradoras. Documentación exclusiva de Wivra; Proyecto Cero ejecuta reorganización central cuando corresponda.
 
 **Conclusión:** la diferencia técnica clave para «45 min caminando por Whistler -> 60 s» no es instalar otro editor, sino seleccionar varias ventanas de escenas/voz de un mismo vídeo y entregarlas como lote reversible al editor propio. Los motores externos siguen siendo candidatos, no funciones integradas.
+
+## ANEXO: contraste con investigaciones de Claude y pruebas reales aisladas (17-10-2026)
+
+**Clasificación de evidencia:** investigación técnica y comparativa; una ejecución REAL de Silero ONNX en CPU Linux; **ningún motor ASR/LLM/VAD se agregó a los binarios iOS o Android**. Las afirmaciones anteriores sobre "Whisper WASM ya integrado en rama Claude" no están corroboradas: el árbol actual del PR histórico #44 (`6333848e`) no tiene módulo ni peso Whisper identificable, al igual que la rama de integración de Wivra; el parser manual SRT/VTT sí funciona.
+
+### Priorización por tarea, no por estrellas
+| Tarea | Primera opción para POC aislado | Alternativa | Motivo y prueba aún necesaria |
+|---|---|---|---|
+| Detección de actividad de voz, AutoCut/Quitar silencios | Silero VAD ONNX | energía actual como fallback / sherpa-onnx VAD | **modelo REAL ejecutado** en Linux, controla ruido y tono, probar viento/música/teléfono |
+| Transcribir y temporizar subtítulos de videos | whisper.cpp multilingüe | sherpa-onnx con un modelo multilingüe concreto | ambos modelos por instalar/probar en CI aislado y después dispositivos, WER/CER, marcas por palabra, RAM, tamaño, ocho idiomas |
+| Transcripción en tiempo real/órdenes breves | sherpa-onnx o Moonshine streaming (pesos específicos) | WhisperKit Apple | evaluar latencia, idiomas y licencias, NO asumido como universal |
+| Exportación rápida WebView | Mediabunny + WebCodecs en sandbox de CI | Media3 Android / AVFoundation Apple | reproducibilidad y compatibilidad WebView primero; no adoptar motor nuevo por nombre |
+| Director creativo textual | validador actual + propuestas estructuradas locales | llama.cpp + Qwen cuantizado tras beta | memoria móvil, seguridad de operaciones, licencias y alucinaciones aún sin medir |
+| Visión de escenas ligera | estadísticas de fotogramas existentes, histogramas PySceneDetect adaptados | TransNetV2 | cambio de plano no significa mejor paisaje; no instalar Python o red neuronal pesada en beta |
+
+### Ensayo ejecutado: Silero ONNX real, modelo fijado
+Fuente y script: https://github.com/Os-WHGo/Wivra/blob/chatgpt/wivra-unified-owner-20261016/tools/ai_benchmark_silero.py
+
+CI: https://github.com/Os-WHGo/Wivra/actions/runs/39073016439 **SUCCESS**, artifact "Wivra-AI-Silero-CPU-Smoke-Only". Modelo oficial y audio oficial fijados a Silero commit 1e261b036686cd0017d500ee96acd1c4ba572a9d con validación de tamaño y blob. ONNX Runtime 1.22.1 + numpy 2.2.6 solo en job temporal. Nunca en app.
+| Señal | Duración | Silero p(voz)>=0.5 | RMS fijo >0.03 | Tiempo de inferencia CPU |
+|---|---:|---:|---:|---:|
+| Voz del WAV oficial (sin transcripción de referencia) | 60 s | 77.44% | 46.13% | 0.2021 s |
+| Silencio absoluto | 6 s | 0% | 0% | 0.0203 s |
+| Tono 440 Hz | 6 s | 0% | 100% | 0.0202 s |
+| Ruido aleatorio amplio | 6 s | 0% | 49.47% | 0.0201 s |
+
+Proceso peak RSS: ~101704 KiB en CPU GitHub Actions Linux. El RMS de este ensayo es un umbral fijo de control, **no** el algoritmo adaptativo oficial de Wivra. El WAV oficial no tiene etiquetas de voz de referencia en nuestro benchmark; porcentajes NO son precisión, recall, WER ni CER. No se probó en Android/iPhone, con viento real ni español. Este resultado justifica continuar evaluación de Silero; **no demuestra que ya sea mejor en todo escenario**.
+
+### Correcciones críticas a material investigado antes
+1. La **Tenor API** está descontinuada para integradores desde el 30 de junio de 2026. Fuente oficial: https://support.google.com/tenor/answer/10455265?hl=es . NO integrarla aunque documentos históricos la recomendaran; no presupone que los memes de terceros sean redistribuibles.
+2. **WhisperKitAndroid** es un proyecto archivado desde el 24 de enero de 2026. https://github.com/argmaxinc/WhisperKitAndroid . No introducirlo; evaluar solo su sucesor activo cuando se confirme disponibilidad/licencia. WhisperKit Apple sigue candidato distinto.
+3. **Moonshine** fue actualizado: el repositorio y los modelos MIT por defecto incluyen streaming multilingüe, pero la lista de modelos legacy no streaming multilingües sigue con licencia restrictiva. https://github.com/moonshine-ai/moonshine/blob/main/LICENSE . No asumir "Moonshine español no comercial" para todos los modelos ni distribuir alguno sin fijar la versión concreta.
+4. **Silero VAD LICENSE** oficial declara MIT: https://github.com/snakers4/silero-vad/blob/master/LICENSE . La advertencia de badges contradictorios de la biblioteca histórica requiere aclaración con los modelos/derivados exactos, pero NO invalida el LICENSE del repo original.
+5. No copiar indiscriminadamente Memes/Imgflip, LUTs, sonidos Pixabay/Mixkit o GIFs. Verificar licencia por asset, redistribución, nombres e imagen/derechos de terceros. Evitar sustituir componentes Wivra actuales por Harbeth, VLCKit, MPVKit, FFmpegKit, OpenReel, OpenCut o Remotion sin déficit comprobado.
+6. Investigación de Claude que SÍ ayuda sin reemplazar arquitectura: benchmark Mediabunny vs exportador; Playwright/WebKit de CI para smoke Safari aproximado; formato Agent Skills y skill-pack local existente; opciones específicas de HaishinKit/StreamPack para LIVE, tras ensayar el transporte ya implementado.
+
+### Protocolo del siguiente ensayo de IA
+Crear corpus público/consentido ES/EN/PT/FR/DE/JA/ZH/IT con transcripción humana de referencia, música y viento; ejecutar exacto mismo clip en whisper.cpp y sherpa-onnx con versiones y pesos licenciados, guardar WER/CER, timecodes, RTF, pico RAM, binario, temperatura si móvil; separar diarización y subtítulos. No proclamar "ganador absoluto" antes de comparar iguales. Cerrar beta probada antes de empaquetar motores pesados.
