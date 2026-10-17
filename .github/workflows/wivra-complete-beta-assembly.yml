@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - chatgpt/wivra-beta-complete-assembly-20261016
+      - chatgpt/wivra-unified-owner-20261016
   pull_request:
     paths:
       - '.github/workflows/wivra-complete-beta-assembly.yml'
@@ -18,7 +19,7 @@ permissions:
   contents: read
 concurrency:
   group: wivra-beta-assembly-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   integrated-contracts:
