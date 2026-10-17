@@ -34,8 +34,11 @@ enum WivraLocalCaptureScanner {
         let resolvedFolder = folder.resolvingSymlinksInPath().standardizedFileURL
         let resolvedFile = url.resolvingSymlinksInPath().standardizedFileURL
         guard resolvedFile.deletingLastPathComponent() == resolvedFolder else { return false }
-        let values = try? resolvedFile.resourceValues(forKeys: [.isRegularFileKey])
-        return values?.isRegularFile == true
+        let values = try? resolvedFile.resourceValues(
+            forKeys: [.isRegularFileKey, .fileSizeKey]
+        )
+        // A zero-byte MP4/MOV/CAF (or manifest) is not an importable capture.
+        return values?.isRegularFile == true && (values?.fileSize ?? 0) > 0
     }
 
     static func read() -> (days: [WivraStoredCaptureDay], rejected: Int) {

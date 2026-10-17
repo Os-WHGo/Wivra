@@ -83,3 +83,13 @@ test('iOS capture bundles cannot appear in the ordinary multi-video chooser',()=
  assert.doesNotMatch(source,/if parameters\.allowsMultipleSelection \{\s*for item in ready/);
  assert.match(source,/UIDocumentPickerViewController\(forOpeningContentTypes: \[\.item\], asCopy: false\)/);
 });
+
+test('iOS editor presents chooser from visible SwiftUI sheet and refuses zero-byte capture files',()=>{
+ assert.match(source,/private func visiblePresenter\(for webView: WKWebView\) -> UIViewController\?/);
+ assert.match(source,/while let presented = current\?\.presentedViewController/);
+ assert.match(source,/let presenter = visiblePresenter\(for: webView\)/);
+ assert.doesNotMatch(source,/let presenter = webView\.window\?\.rootViewController/);
+ const scanner=readFileSync(new URL('../ios/B0/Sources/WivraNativeCaptureLibrary.swift',import.meta.url),'utf8');
+ assert.match(scanner,/\.fileSizeKey/);
+ assert.match(scanner,/\(values\?\.fileSize \?\? 0\) > 0/);
+});

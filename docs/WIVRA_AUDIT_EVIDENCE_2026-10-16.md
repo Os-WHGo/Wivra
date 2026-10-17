@@ -247,3 +247,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 
 ## Corrección de semántica JSON null en procedencia del micrófono
 - `JSONObject.optString("selectedInputName")` puede devolver el texto "null" para `JSONObject.NULL`. Ahora se usa primero `raw.isNull("selectedInputName")`: el modo automático queda con nombre de entrada **null real**, no un micrófono ficticio llamado «null». Regresión añadida a contrato del importador Android.
+
+## Endurecimiento y prueba de captura iOS/Android
+- iOS: `WKUIDelegate` presenta la hoja desde el controlador realmente visible cuando el editor está dentro de un sheet de SwiftUI. El escáner de capturas no ofrece archivos no regulares ni de 0 bytes, aun cuando tengan un manifiesto. Se mantienen los controles de symlink y ruta.
+- Android: el test instrumentado existente ahora verifica que los metadatos sintéticos de una entrada USB seleccionada lleguen del sidecar al manifiesto y sus pistas; **no constituye una prueba física de micrófono USB**.
+- Ambas pruebas requieren CI actualizada y la instrumentación debe ejecutarse en un emulador/dispositivo antes de declarar validación física.

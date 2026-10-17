@@ -13,6 +13,16 @@ import UniformTypeIdentifiers
 private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate {
     private var pendingFileSelection: (@MainActor @Sendable ([URL]?) -> Void)?
 
+    // SwiftUI can present the editor inside a sheet or navigation container.
+    // Present the chooser from the visible controller, not a hidden root.
+    private func visiblePresenter(for webView: WKWebView) -> UIViewController? {
+        var current = webView.window?.rootViewController
+        while let presented = current?.presentedViewController {
+            current = presented
+        }
+        return current
+    }
+
     private func finishSelection(_ urls: [URL]?) {
         guard let completion = pendingFileSelection else { return }
         pendingFileSelection = nil
@@ -36,7 +46,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
               let requestURL = frame.request.url,
               requestURL.isFileURL,
               approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
-              let presenter = webView.window?.rootViewController else {
+              let presenter = visiblePresenter(for: webView) else {
             completionHandler(nil)
             return
         }

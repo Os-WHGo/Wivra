@@ -127,8 +127,11 @@ class WivraPhoneMediaStoreTest {
                 u16(2); u16(16); f.writeBytes("data"); u32(4L)
                 f.write(byteArrayOf(1,2,3,4))
             }
+            // Synthetic USB provenance validates metadata propagation,
+            // NOT a real USB microphone or hardware route.
             WivraPhoneMediaStore.saveSidecarTiming(
-                context, video, 1_000_000_000L, 1_220_000_000L, 4L
+                context, video, 1_000_000_000L, 1_220_000_000L, 4L,
+                "android-usb-mic", "USB test microphone"
             )
             assertTrue(WivraPhoneMediaStore.hasUsableWav(context, video))
             assertFalse(WivraCaptureImport.bundles(context).any {
@@ -148,8 +151,14 @@ class WivraPhoneMediaStoreTest {
             val manifest = org.json.JSONObject(body)
             assertEquals(2, manifest.getInt("schemaVersion"))
             assertEquals("android-phone-camerax", manifest.getString("cameraSource"))
+            assertEquals("android-usb-mic", manifest.getString("audioSource"))
+            assertEquals("USB test microphone", manifest.getString("selectedInputName"))
             assertEquals(imported.title, manifest.getString("originalVideoFile"))
             assertEquals(1, manifest.getJSONArray("tracks").length())
+            assertEquals("android-usb-mic",
+                manifest.getJSONArray("tracks").getJSONObject(0).getString("source"))
+            assertEquals("USB test microphone",
+                manifest.getJSONArray("tracks").getJSONObject(0).getString("inputName"))
             assertEquals(0.22, manifest.getJSONArray("tracks").getJSONObject(0)
                 .getDouble("startOffsetSeconds"), 0.00001)
             assertEquals("video/mp4", context.contentResolver.getType(uris[1]))
