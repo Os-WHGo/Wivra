@@ -111,3 +111,10 @@ Proceso peak RSS: ~101704 KiB en CPU GitHub Actions Linux. El RMS de este ensayo
 
 ### Protocolo del siguiente ensayo de IA
 Crear corpus público/consentido ES/EN/PT/FR/DE/JA/ZH/IT con transcripción humana de referencia, música y viento; ejecutar exacto mismo clip en whisper.cpp y sherpa-onnx con versiones y pesos licenciados, guardar WER/CER, timecodes, RTF, pico RAM, binario, temperatura si móvil; separar diarización y subtítulos. No proclamar "ganador absoluto" antes de comparar iguales. Cerrar beta probada antes de empaquetar motores pesados.
+
+### Segundo ensayo ejecutado: whisper.cpp real ASR en CPU Linux (NO móvil)
+- GitHub Actions: https://github.com/Os-WHGo/Wivra/actions/runs/39073410691 **SUCCESS** y artifact JSON Wivra-Whisper-CPU-English-Smoke-Only. Workflow: .github/workflows/wivra-whisper-cpu-smoke.yml.
+- Fuente oficial code commit 0c7be696371069e0baa2515ed7aa08d5a5473aa6. Modelo tiny.en-q5_1 (~31 MiB), descargado solo en runner y SHA1 3fb92ec865cbbc769f08137f22470d6b66e071b6 comprobado; audio oficial samples/jfk.wav, Git blob SHA verificado 3184d372cd2f8b804d3a540c70ec50d927b335d2.
+- Transcribió las 22 palabras del extracto JFK en **11.002 s** de audio: **WER 0.0000** contra esa frase conocida, **0.94 s** transcurridos incluyendo carga del modelo, **136212 KiB RSS** pico del proceso Linux CPU con dos hilos.
+- Interpretación: un caso limpio en inglés especializado NO mide calidad ES/EN/PT/FR/DE/JA/ZH/IT ni robustez a viento/music/acentos. No valida marcas por palabra, batería, temperatura ni rendimiento Android/iPhone. No es comparación directa con sherpa-onnx. No se añadieron pesos ni IA a APK/IPA.
+- Recomendación: whisper.cpp para primer POC ASR y Silero para VAD, pero no certificar hasta un corpus multilingüe igualado frente a sherpa-onnx y una auditoría de licencias/modelos.
