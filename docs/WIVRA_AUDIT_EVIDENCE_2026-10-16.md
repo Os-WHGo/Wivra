@@ -293,3 +293,7 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 
 ## Corrección de prueba CI: ruta de workflow
 - La ejecución de `Meta LIVE Preflight Tests` del SHA `ff4e7b8c` detectó una ruta de lectura errónea en el test nuevo: desde `streaming/tests` el workflow reside en `../../.github/workflows` y no `../../../.github/workflows`. Corregida la referencia; la regresión no provenía del módulo LIVE ni de captura nativa. También se corrigió un texto en castellano del aviso de exportación.
+
+## Corrección de lanzamiento de prueba instrumentada Android
+- En run `39058232313`, el emulador Android API 35 arrancó e instaló APKs correctamente; falló **antes de ejecutar cualquier prueba** porque android-emulator-runner interpreta las líneas del campo script de forma separada. Las continuaciones de shell `\\` partían el comando `adb shell am instrument` y producían `Argument expected after "-r"`.
+- Ahora se ejecuta la orden completa en una única línea sin continuaciones, preservando el pipe de log y el gate `OK (N tests)`. No se cambia el APK de producción; solo la invocación de CI. Revalidar la ejecución posterior antes de atribuir éxito.
