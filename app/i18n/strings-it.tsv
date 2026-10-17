@@ -563,8 +563,8 @@ El audio que iba con cada video se mueve con él || L'audio che accompagnava ogn
 Si tu voz suena en los dos videos, silencia uno: toca el clip y elige Audio. || Se la tua voce è in entrambi i video, silenzia uno: tocca la clip e scegli Audio.
 Los demás videos siguen en la línea principal, uno tras otro. || Gli altri video restano sulla traccia principale, uno dopo l'altro.
 Esta plantilla necesita dos videos en la línea de tiempo: el 1.º es tu pantalla y el 2.º tu cara. || Questo modello richiede due video nella timeline: il 1º è il tuo schermo e il 2º il tuo volto.
-Elegir el tramo de cada clip donde más se oye (en vez del centro) || Scegli in ogni clip il tratto dove si sente di più (invece del centro)
-Usa el volumen del audio, en tu teléfono: no entiende palabras ni imágenes. Si un clip tiene volumen parejo, queda el centro. || Usa il volume dell'audio, sul tuo telefono: non capisce parole né immagini. Se una clip ha un volume uniforme, resta il centro.
+Elegir el tramo de cada clip usando audio y subtítulos importados (en vez del centro) || Scegli la parte di ogni clip usando audio e sottotitoli importati (invece del centro)
+Analiza el audio en tu teléfono. Si importaste SRT/VTT para un solo video, también usa sus tiempos aproximados. No verifica lo que se dijo. || Analizza l'audio sul telefono. Se hai importato SRT/VTT per un solo video, usa anche i tempi approssimativi. Non verifica ciò che è stato detto.
 Escuchando el volumen de tus videos… || Sto ascoltando il volume dei tuoi video…
 {} de {} tomas hechas. || {} di {} riprese fatte.
 Por repetir: {} || Da rifare: {}

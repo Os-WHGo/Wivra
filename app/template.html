@@ -284,8 +284,8 @@ body.dock .back{pointer-events:none;background:transparent}
   <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
     <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
     <div id="qaChips"><button class="btn sec" type="button" data-s="15">15 s</button><button class="btn sec" type="button" data-s="30">30 s</button><button class="btn sec" type="button" data-s="45">45 s</button><button class="btn sec" type="button" data-s="60">60 s</button></div>
-    <label class="m" style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="qaVoice"> <span>Elegir el tramo de cada clip donde más se oye (en vez del centro)</span></label>
-    <p class="m" id="qaVoiceNote">Usa el volumen del audio, en tu teléfono: no entiende palabras ni imágenes. Si un clip tiene volumen parejo, queda el centro.</p>
+    <label class="m" style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="qaVoice"> <span>Elegir el tramo de cada clip usando audio y subtítulos importados (en vez del centro)</span></label>
+    <p class="m" id="qaVoiceNote">Analiza el audio en tu teléfono. Si importaste SRT/VTT para un solo video, también usa sus tiempos aproximados. No verifica lo que se dijo.</p>
     <label for="qaOther" style="display:block;margin-top:8px">Otra duración (s)</label><input id="qaOther" type="number" min="3" max="600" step="1" inputmode="numeric" style="width:100%">
     <p class="m" id="qaInfo" role="status" aria-live="polite">Elige una duración para ver cómo quedaría.</p>
     <button class="btn" id="qaApply" type="button" disabled>Aplicar montaje</button>
