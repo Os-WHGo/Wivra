@@ -194,3 +194,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - `iPhone arm64 IPA · UNSIGNED`: `completed/success`. Artefacto `Wivra-BETA-iOS-UNSIGNED-ipa`, ID `12084832004`, 6,177,018 bytes, no expirado al comprobar. **No instalable en iPhone sin firma**.
 - `Wivra-BETA-Assembly-Status`: ID `12084686756`, 499 bytes. Android independiente run `38989859176` `success`, artefacto `WivraUnifiedAndroid-DEBUG`, ID `12085235062`.
 - El éxito de CI prueba ensamblaje y contratos automatizados, no uso real de cámaras, gafas, micrófonos, LIVE ni exportación en hardware. Mantener esas verificaciones abiertas hasta QA de dispositivos.
+
+## Biblioteca musical conectada al editor
+- Commit `9a71c43fc390d1b2512a52b947ecee30e76f4c39`: `app/template.html` incorpora selector de `MUSIC_TRACKS` y botón que genera WAV local con `musicWav`, lo convierte en `File` y usa `addTrackFile(..., 'audio')` para respetar el flujo existente de pistas y archivos.
+- En la primera CI de ese commit, `App Tests` run `38991607698` **success**, pero los smoke/contratos y ensamblaje fallaron por `git diff --exit-code -- app/dist/agentcut.html` tras reconstruir un bundle obsoleto. El workflow de reconstrucción run `38991607674` finalizó **success** y una lectura posterior de la rama confirmó `wivraMusicAdd` en `app/dist/agentcut.html` (~809 KB).
+- La generación de música, uso de memoria, reproducción y exportación en WebView física **no están validados**. Comprobar nuevas ejecuciones CI posteriores al commit automático de HTML antes de cerrar regresión.
