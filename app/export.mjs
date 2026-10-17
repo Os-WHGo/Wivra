@@ -240,12 +240,32 @@ export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what 
 }
 export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
 
+// Fail closed when an original is missing or audible output cannot be mixed.
+// Muting a clip or track explicitly permits a silent export.
+export function preflightExportMedia(project, media, audioContextSupported = true) {
+  const picture = project.clips || [], overlays = project.overlayClips || [];
+  const audible = (c) => !c.muted && clipGain(c) > 0;
+  for (const c of [...picture, ...overlays]) {
+    if (!media[c.asset_id]) throw new Error('Falta un archivo visual original para exportar.');
+  }
+  const audio = (project.audioClips || []).filter(audible);
+  for (const c of audio) {
+    if (!media[c.asset_id]) throw new Error('Falta un archivo de audio original para exportar. Reimpórtalo o silencia esa pista.');
+  }
+  const needsAudio = audio.length > 0 || [...picture, ...overlays].some((c) => audible(c) && media[c.asset_id].kind !== 'image');
+  if (needsAudio && !audioContextSupported)
+    throw new Error('El motor de audio no está disponible. No se exportará un video silencioso por error. Puedes silenciar las pistas y volver a intentarlo.');
+  return { needsAudio };
+}
+
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
 export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0 }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
   if (typeof MediaRecorder === 'undefined') throw new Error('Este navegador no puede grabar video (falta MediaRecorder).');
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const { needsAudio } = preflightExportMedia(project, media, Boolean(AC));
   const firstVideo = plan.segments.find((s) => s.type === 'clip' && media[s.clip.asset_id] && media[s.clip.asset_id].kind !== 'image');   // el cuadro 'original' sigue al primer VIDEO, no a una foto
   const first = (firstVideo && media[firstVideo.clip.asset_id]) || (firstClip && media[firstClip.clip.asset_id]) || (project.overlayClips || []).map((c) => media[c.asset_id]).find((m) => m && m.kind !== 'image') || {};
   const { w: W, h: H } = formatSize(project.format, first.w, first.h);
@@ -257,7 +277,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   ev.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
   document.body.appendChild(ev);
 
-  const AC = window.AudioContext || window.webkitAudioContext; let ac = null, dest = null, gainNode = null, bus = null;
+  let ac = null, dest = null, gainNode = null, bus = null;
   const stream = canvas.captureStream(fps);
   try {
     ac = new AC(); await ac.resume().catch(() => {});
@@ -266,7 +286,16 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     if (Number.isFinite(loudnessGainDb) && Math.abs(loudnessGainDb) >= 0.05) { const master = ac.createGain(); master.gain.value = 10 ** (Math.max(-12, Math.min(12, loudnessGainDb)) / 20); master.connect(dest); bus = master; }
     gainNode = ac.createGain(); ac.createMediaElementSource(ev).connect(gainNode); gainNode.connect(bus);
     dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
-  } catch { ac = null; /* sin audio: se avisa al final */ }
+  } catch {
+    if (needsAudio) {
+      stream.getTracks().forEach((track) => track.stop());
+      ev.remove();
+      try { await ac?.close(); } catch { /* best effort */ }
+      throw new Error('No se pudo iniciar el motor de audio. Exportación cancelada para no perder el sonido.');
+    }
+    try { await ac?.close(); } catch { /* best effort */ }
+    ac = null;
+  }
   const hasAudio = stream.getAudioTracks().length > 0;
 
   // Pistas de audio aparte (p. ej. el micrófono de una captura): se decodifican antes y se lanzan según el tiempo del timeline.
@@ -279,6 +308,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       catch { skippedAudio.push(c.asset_id); }
     }
   } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  if (skippedAudio.length) {
+    stream.getTracks().forEach((track) => track.stop());
+    ev.remove();
+    try { await ac?.close(); } catch { /* best effort */ }
+    throw new Error('No se pudo decodificar una pista de audio. Reimpórtala o silénciala antes de exportar.');
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
