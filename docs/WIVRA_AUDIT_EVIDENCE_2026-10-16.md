@@ -162,3 +162,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - `Wivra Complete Beta Assembly (Mobile)` run `38984681721`: etapa `Editor + Director + Native Contract Suite` `success`; trabajos `iPhone arm64 IPA · UNSIGNED` y `Android APK` todavía `in_progress` en consulta. No afirmar artefactos instalables antes de su conclusión.
 - Auditoría de dependencias remotas: `app/ai-client.mjs` declara proveedores BYOK HTTPS; `app/persist.mjs` y `app/subtitles.mjs` no contienen endpoints HTTP directos. Esto no constituye una auditoría de red completa.
 - Usuario pospone pruebas manuales hasta disponer de beta. No bloquear integración por pruebas que requieren dispositivo; documentar y realizar al final.
+
+## Compilación iOS comprobada (sin firma)
+- `Meta B0 iOS Native Build` run `38984681698`: trabajo `compile-ios` **success**.
+- Artefacto GitHub Actions `WivraMetaB1-UNSIGNED-arm64`, ID `12082463594`, 6,172,528 bytes, SHA-256 del archivo de artefacto publicado por GitHub `6842401798dbe0b7c806ec262be79d833e0c005ff35824740600872c3e498976`, expiración 2026-10-24 UTC. **No firmado**, por tanto no es instalador listo para el usuario ni acredita pruebas físicas.
+- El ensamblaje completo run `38984681721` superó contrato nativo pero trabajos de empaquetado quedaron `cancelled`; auditar por separado. Android run `38984681709` seguía ejecutándose al consultar.
