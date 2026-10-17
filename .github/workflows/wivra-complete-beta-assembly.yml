@@ -145,7 +145,7 @@ jobs:
           app=.build/Build/Products/Debug-iphoneos/WivraMetaB0.app
           test -s "$app/agentcut.html"
           test -s "$app/packs/catalog.json"
-          for language in es en fr de it ja; do
+          for language in es en pt fr de ja it; do
             test -s "$app/${language}.lproj/Localizable.strings"
           done
       - name: Package UNSIGNED IPA (owner must sign before installing)
