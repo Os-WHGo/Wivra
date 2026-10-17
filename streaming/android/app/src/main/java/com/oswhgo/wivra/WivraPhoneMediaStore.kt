@@ -9,6 +9,9 @@ import android.provider.MediaStore
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.nio.file.Files
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.StandardCopyOption
 
 /**
  * Private capture first; publication to the system gallery only after the
@@ -200,23 +203,38 @@ object WivraPhoneMediaStore {
                 context, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 "$name.wav", "audio/wav", "Music/Wivra/", wav
             )
+            // Persist the actual pair identity BEFORE making either MediaStore
+            // row public or deleting the private originals. A broken/missing
+            // sidecar must never turn WAV+MP4 into two unlinked editor assets.
+            val timingFile = File(directory(context),
+                video.name.removeSuffix(".mp4") + ".wivra.json")
+            require(timingFile.isFile && !Files.isSymbolicLink(timingFile.toPath())) {
+                "Finalized WAV association not available"
+            }
+            val data = org.json.JSONObject(timingFile.readText())
+            require(data.optString("originalVideoFile") == video.name &&
+                data.optString("originalAudioFile") == wav.name &&
+                data.optString("audioStatus") == "ready") {
+                "WAV association no longer matches capture"
+            }
+            data.put("publishedVideoUri", videoUri.toString())
+            data.put("publishedAudioUri", audioUri.toString())
+            val tmp = Files.createTempFile(timingFile.parentFile.toPath(),
+                "wivra-association-", ".tmp")
+            try {
+                Files.writeString(tmp, data.toString(2), Charsets.UTF_8)
+                try {
+                    Files.move(tmp, timingFile.toPath(),
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(tmp, timingFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            } finally { Files.deleteIfExists(tmp) }
             val visible = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             if (resolver.update(videoUri, visible, null, null) != 1 ||
                 resolver.update(audioUri, visible, null, null) != 1) {
                 throw IOException("Could not publish complete recording")
             }
-            val timingFile = File(directory(context),
-                video.name.removeSuffix(".mp4") + ".wivra.json")
-            // An optional private sync record never contains vocal samples.
-            // Keep it for Claude's future single-library media association.
-            try {
-                if (timingFile.exists()) {
-                    val data = org.json.JSONObject(timingFile.readText())
-                    data.put("publishedVideoUri", videoUri.toString())
-                    data.put("publishedAudioUri", audioUri.toString())
-                    timingFile.writeText(data.toString(2))
-                }
-            } catch (_: Exception) { /* media is already safely published */ }
             video.delete()
             wav.delete()
             return SavedPair(videoUri, audioUri)

@@ -87,3 +87,17 @@ test('WAV UI text exists in eight Android resource dictionaries',()=>{
     }
   }
 });
+
+test('pair association survives crashes and never silently loses WAV identity before publication',()=>{
+  const idxAssociation=store.indexOf('data.put("publishedVideoUri"');
+  const idxWav=store.indexOf('data.put("publishedAudioUri"');
+  const idxVisible=store.indexOf('if (resolver.update(videoUri, visible, null, null)');
+  const idxDelete=store.indexOf('video.delete()',store.indexOf('fun publishPair('));
+  assert.ok(idxAssociation>=0 && idxWav>idxAssociation && idxVisible>idxWav && idxDelete>idxVisible);
+  assert.match(store,/Files\.createTempFile\(timingFile\.parentFile\.toPath\(\)/);
+  assert.match(store,/StandardCopyOption\.ATOMIC_MOVE/);
+  assert.match(store,/Files\.deleteIfExists\(tmp\)/);
+  assert.match(store,/require\(timingFile\.isFile && !Files\.isSymbolicLink/);
+  assert.match(store,/data\.optString\("audioStatus"\) == "ready"/);
+  assert.doesNotMatch(store,/catch \(_:\s*Exception\) \{ \/\* media is already safely published \*\//);
+});
