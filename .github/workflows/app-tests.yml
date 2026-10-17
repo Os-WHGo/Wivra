@@ -18,5 +18,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Rebuild deterministic editor HTML from source
+        run: node app/build.mjs
       - name: All app tests (languages, Settings guards, persistence, packs, export, timeline)
         run: node --test app/tests/*.test.mjs
+      - name: Upload generated editor bundle for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wivra-generated-editor-html
+          path: app/dist/agentcut.html
+          retention-days: 7

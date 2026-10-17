@@ -59,7 +59,13 @@ export function parseManifest(input) {
     if (muxedFrom.length && !m.muxedVideoFile) errors.push('muxedFromTrackIDs indica pistas mezcladas pero no hay muxedVideoFile.');
     // Mismo archivo en dos pistas solo tiene sentido con canales distintos.
     const byFile = new Map(); for (const t of tracks) { if (!byFile.has(t.file)) byFile.set(t.file, []); byFile.get(t.file).push(t); }
-    for (const [f, ts] of byFile) if (ts.length > 1 && new Set(ts.map((t) => t.channelIndex)).size < ts.length) warnings.push(`Varias pistas usan ${f} sin canales distintos: el audio se duplicaría.`);
+    for (const [f, ts] of byFile) if (ts.length > 1) {
+      const channels = ts.map(t => t.channelIndex);
+      // A full-file track cannot coexist with isolated channels of the same
+      // file; duplicate channel indexes would play the same voice twice.
+      if (channels.includes(null) || new Set(channels).size !== channels.length)
+        errors.push(`Varias pistas usan ${f} sin canales exclusivos: audio duplicado.`);
+    }
     const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs']);
     for (const k of Object.keys(m)) if (!known.has(k)) warnings.push(`Campo desconocido ignorado: ${k}.`);
   }
@@ -71,6 +77,37 @@ export function parseManifest(input) {
 // Qué debe importar el editor sin duplicar audio. `useMuxed`: usar el MOV combinado como video (ya trae sus pistas) o el original.
 // - Con el MOV combinado, las pistas de muxedFromTrackIDs NO se importan aparte (ya suenan dentro del video).
 // - Con el original, se importan todas las pistas (el video HEVC original no trae ese audio).
+// Require the complete audio contract BEFORE touching the timeline. A bundled
+// MOV may replace missing standalone tracks only when the manifest explicitly
+// confirms those tracks are already muxed into that MOV.
+export function captureSelectionPlan(manifest, files) {
+  if (!manifest || manifest.schemaVersion !== 2 || !Array.isArray(manifest.tracks)) throw new Error('Manifiesto sin validar.');
+  const names = new Set(), duplicates = [], empty = [];
+  for (const file of files) {
+    const name = typeof file === 'string' ? file : file?.name;
+    if (!isName(name)) return { ok: false, candidates: [], missing: [], errors: ['Nombre de archivo inválido.'] };
+    if (names.has(name)) duplicates.push(name);
+    names.add(name);
+    if (typeof file !== 'string' && typeof file?.size === 'number' && file.size <= 0) empty.push(name);
+  }
+  const available = name => names.has(name) && !empty.includes(name);
+  if (duplicates.length) return { ok: false, candidates: [], missing: [], errors: ['Archivos con el mismo nombre: ' + [...new Set(duplicates)].join(', ')] };
+  const hasOriginal = available(manifest.videoFile);
+  const hasMuxed = manifest.muxedVideoFile && available(manifest.muxedVideoFile);
+  const missingStandalone = manifest.tracks.filter(t => !available(t.file));
+  const included = new Set(manifest.muxedFromTrackIDs || []);
+  const muxCanSupplyMissing = hasMuxed && missingStandalone.every(t => included.has(t.id));
+  const candidates = [];
+  if (hasOriginal && !missingStandalone.length) candidates.push({ name: manifest.videoFile, muxed: false });
+  if (muxCanSupplyMissing) candidates.push({ name: manifest.muxedVideoFile, muxed: true });
+  const missing = [...new Set([
+    ...(!hasOriginal && !hasMuxed ? [manifest.videoFile] : []),
+    ...(candidates.length ? [] : missingStandalone.map(t => t.file))
+  ])];
+  return { ok: !!candidates.length, candidates, missing,
+    errors: candidates.length ? [] : ['Captura incompleta: faltan archivos de video o pistas de audio necesarias: ' + missing.join(', ')] };
+}
+
 export function importPlan(manifest, { useMuxed = false } = {}) {
   if (!manifest || manifest.schemaVersion !== 2 || !Array.isArray(manifest.tracks)) throw new Error('importPlan necesita un manifiesto ya normalizado por parseManifest.');
   const muxed = useMuxed && manifest.muxedVideoFile;

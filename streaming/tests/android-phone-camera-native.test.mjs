@@ -85,8 +85,8 @@ test('Photo during video is attempted only with device-supported binding',()=>{
   assert.match(activity,/photoButton.isEnabled = imageCapture != null/);
   assert.match(activity,/capture\.takePicture\(output, captureExecutor/);
 });
-test('Six native languages include camera permission, audio and chooser strings',()=>{
-  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja']){
+test('Eight native languages include camera permission, audio and chooser strings',()=>{
+  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja','values-pt','values-zh']){
     const file=read('../android/app/src/main/res/'+loc+'/strings.xml');
     for(const key of ['phone_camera_open','phone_camera_title','phone_camera_preview',
       'phone_camera_mic_off','phone_camera_photo_saved','phone_camera_review_pending',

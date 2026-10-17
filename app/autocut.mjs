@@ -2,6 +2,7 @@
 // Usa la curva de volumen de app/silence.mjs: NO entiende palabras ni imágenes. Si el volumen es parejo (música o ruido continuo) no hay evidencia y se usa el centro.
 // Evita empezar o terminar en medio de una frase: un tramo que arranca o acaba con sonido fuerte pierde puntos.
 import { SIL_MIN_DYNAMIC_DB } from './silence.mjs';
+import { bestTimedWindow } from './autocut-evidence.mjs';
 
 export const AC_STEP = 0.1, AC_EDGE_PENALTY = 0.2, AC_MIN_GAIN = 0.05;      // paso de búsqueda (s), castigo por cortar en sonido fuerte, mejora mínima sobre el centro para cambiar de tramo
 const acPct = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(p * (sorted.length - 1))))];
@@ -32,5 +33,5 @@ export function bestWindow(env, win, from, to, d) {
 
 /** makeAutoPicker(envOf) → pick(clip, d): inicio (en el medio) del mejor tramo de `d` s del clip, o null si no hay evidencia. `envOf(asset_id)` → { env, win } | null. */
 export function makeAutoPicker(envOf) {
-  return (c, d) => { const e = envOf(c.asset_id); if (!e) return null; const r = bestWindow(e.env, e.win, c.in, c.out, d); return r && r.moved ? r.start : null; };
+  return (c, d) => { const e = envOf(c.asset_id); if (!e) return null; const spoken = e.timedSpeech ? bestTimedWindow(e.timedSpeech, c.in, c.out, d) : null; if (spoken) return spoken.moved ? spoken.start : null; const r = bestWindow(e.env, e.win, c.in, c.out, d); return r && r.moved ? r.start : null; };
 }

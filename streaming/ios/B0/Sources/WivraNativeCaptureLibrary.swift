@@ -28,6 +28,21 @@ enum WivraLocalCaptureScanner {
         !name.contains("\n") && !name.contains("\r") && !name.contains("\0")
     }
 
+    // A safe basename alone is insufficient: a symlink inside the recording
+    // directory could point outside the app's private capture folder.
+    private static func regularCaptureFile(_ url: URL, in folder: URL) -> Bool {
+        let rawProperties = try? url.resourceValues(forKeys: [.isSymbolicLinkKey])
+        guard rawProperties?.isSymbolicLink != true else { return false }
+        let resolvedFolder = folder.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedFile = url.resolvingSymlinksInPath().standardizedFileURL
+        guard resolvedFile.deletingLastPathComponent() == resolvedFolder else { return false }
+        let values = try? resolvedFile.resourceValues(
+            forKeys: [.isRegularFileKey, .fileSizeKey]
+        )
+        // A zero-byte MP4/MOV/CAF (or manifest) is not an importable capture.
+        return values?.isRegularFile == true && (values?.fileSize ?? 0) > 0
+    }
+
     static func read() -> (days: [WivraStoredCaptureDay], rejected: Int) {
         let fm = FileManager.default
         let root = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -43,14 +58,41 @@ enum WivraLocalCaptureScanner {
             let folder = root.appendingPathComponent(folderName, isDirectory: true)
             guard let urls = try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { continue }
             for manifestURL in urls where manifestURL.lastPathComponent.hasSuffix(".wivra.json") {
+                guard regularCaptureFile(manifestURL, in: folder),
+                      let manifestBytes = try? manifestURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                      manifestBytes <= 128 * 1024 else {
+                        rejected += 1
+                        continue
+                    }
                 do {
                     let data = try Data(contentsOf: manifestURL)
                     let m = try JSONDecoder().decode(WivraCaptureManifest.self, from: data)
-                    guard m.schemaVersion == 2, !m.captureID.isEmpty,
+                    // Disk manifests are untrusted until their format and
+                    // references have been checked. Never offer malformed
+                    // channel indexes or nonexistent mux references as ready.
+                    let trackIds = Set(m.tracks.map(\.id))
+                    let muxIds = Set(m.muxedFromTrackIDs)
+                    guard m.schemaVersion == 2,
+                          !m.captureID.isEmpty, m.captureID.count <= 200,
                           !seen.contains(m.captureID),
+                          !m.cameraSource.isEmpty,
                           safeName(m.originalVideoFile),
                           m.muxedVideoFile.map(safeName) ?? true,
-                          m.tracks.allSatisfy({ safeName($0.file) }) else {
+                          m.tracks.count <= 32,
+                          trackIds.count == m.tracks.count,
+                          muxIds.count == m.muxedFromTrackIDs.count,
+                          muxIds.isSubset(of: trackIds),
+                          m.muxedVideoFile != nil || muxIds.isEmpty,
+                          m.tracks.allSatisfy({
+                              $0.kind == "audio" && !$0.id.isEmpty &&
+                              safeName($0.file) &&
+                              ($0.channelIndex.map { $0 >= 0 } ?? true) &&
+                              ($0.channelCount.map { $0 > 0 } ?? true) &&
+                              ($0.channelIndex == nil || $0.channelCount == nil ||
+                                  $0.channelIndex! < $0.channelCount!) &&
+                              ($0.sampleRateHz.map { $0.isFinite && $0 > 0 } ?? true) &&
+                              ($0.startOffsetSeconds.map { $0.isFinite } ?? true)
+                          }) else {
                         rejected += 1
                         continue
                     }
@@ -68,20 +110,20 @@ enum WivraLocalCaptureScanner {
                     seen.insert(m.captureID)
                     let original = folder.appendingPathComponent(m.originalVideoFile)
                     let combined = m.muxedVideoFile.map { folder.appendingPathComponent($0) }
-                    let video = fm.fileExists(atPath: original.path) ? original :
-                        (combined.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil })
+                    let video = regularCaptureFile(original, in: folder) ? original :
+                        (combined.flatMap { regularCaptureFile($0, in: folder) ? $0 : nil })
                     let alternateVideoURL = video == original && combined != nil &&
-                        fm.fileExists(atPath: combined!.path) ? combined : nil
+                        regularCaptureFile(combined!, in: folder) ? combined : nil
                     let audio = Set(m.tracks.map(\.file)).sorted()
                     let audioURLs = audio.compactMap { name -> URL? in
                         let url = folder.appendingPathComponent(name)
-                        return fm.fileExists(atPath: url.path) ? url : nil
+                        return regularCaptureFile(url, in: folder) ? url : nil
                     }
                     var names = Set(audio)
                     names.insert(m.originalVideoFile)
                     if let muxed = m.muxedVideoFile { names.insert(muxed) }
                     let missing = names.sorted().filter {
-                        !fm.fileExists(atPath: folder.appendingPathComponent($0).path)
+                        !regularCaptureFile(folder.appendingPathComponent($0), in: folder)
                     }
                     items.append(WivraStoredCapture(
                         id: m.captureID, recordedAt: date,

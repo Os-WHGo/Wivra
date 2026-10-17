@@ -19,13 +19,15 @@ test('native app ships Claude editor from original source without duplicate edit
  assert.match(html,/id="sAI"/);
  assert.equal(JSON.parse(pack).schema,'wivra-packs');
 });
-test('read-only bridge exposes safe metadata and explicitly denies paths, raw media and LIVE',()=>{
+test('restricted bridge exposes safe metadata and picker readiness without paths, raw media or LIVE',()=>{
  assert.match(bridge,/case "host\.capabilities"/);
  assert.match(bridge,/case "library\.list"/);
  assert.match(bridge,/method = body\["method"\]/);
  assert.match(bridge,/message\.frameInfo\.isMainFrame/);
  assert.match(bridge,/message\.frameInfo\.request\.url\?\.isFileURL == true/);
- assert.match(bridge,/nativeMediaImport": "not_available"/);
+ assert.match(bridge,/nativeMediaImport": "file_picker"/);
+ assert.match(bridge,/case "library\.importSelection"/);
+ assert.match(bridge,/readyForPicker": true/);
  assert.match(bridge,/live": "not_verified"/);
  assert.match(bridge,/captureId/);
  assert.doesNotMatch(bridge,/replyHandler\(\s*\[\s*"filePath"/);

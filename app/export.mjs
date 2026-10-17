@@ -15,9 +15,14 @@ export function exportPlan(project) {
     segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
     cursor = Math.max(cursor, c.start + clipLength(c));
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
-  if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
-  const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
+  // When a main picture exists, it determines export length. Music and
+  // overlays extending beyond the last picture must not append black frames.
+  // Audio/overlay-only projects retain their full duration for the planner.
+  if (!clips.length) {
+    const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
+    if (end > 0.05) { segments.push({ type: 'gap', dur: r2(end), start: 0 }); cursor = end; }
+  }
+  const textEnd = (project.texts || []).reduce((m, t) => Math.max(m, t.end), 0);
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
 }
 
@@ -236,7 +241,38 @@ export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what 
 export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0 }) {
+// Fail closed before recording when a requested voice track was not decoded.
+// This is deliberately pure so its decision can be tested without a browser.
+export function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds = [] } = {}) {
+  const active = (project.audioClips || []).filter(c => !c.muted && clipGain(c) > 0);
+  const decoded = new Set(decodedAudioIds);
+  const missingAudio = [...new Set(active.map(c => c.asset_id).filter(id => !decoded.has(id)))];
+  const hasAudibleVideo = [...(project.clips || []), ...(project.overlayClips || [])]
+    .some(c => media[c.asset_id]?.kind !== 'image' && !c.muted && clipGain(c) > 0);
+  // A main video determines the recorded duration. Extra music may legitimately
+  // be longer, but the end of a primary/guest voice must never be lost silently
+  // if its timeline extends beyond the last video frame. This catches a large
+  // native A/V offset and manual trims before starting MediaRecorder.
+  const videoEnd = (project.clips || []).reduce((end, c) => {
+    const length = clipLength(c);
+    return Number.isFinite(length) && Number.isFinite(c.start) ?
+      Math.max(end, c.start + length) : end;
+  }, 0);
+  const truncatedVoices = videoEnd > 0 ? active
+    .filter(c => c.role === 'voice_primary' || c.role === 'voice_guest')
+    .map(c => ({ id: c.id, role: c.role, end: c.start + clipLength(c) }))
+    .filter(c => Number.isFinite(c.end) && c.end > videoEnd + 0.05)
+    .map(c => ({ id: c.id, role: c.role, secondsLost: Math.round((c.end - videoEnd) * 100) / 100 }))
+    : [];
+  return {
+    needsConfirmation: missingAudio.length > 0 || truncatedVoices.length > 0 ||
+      (!hasAudio && (active.length > 0 || hasAudibleVideo)),
+    missingAudio,
+    truncatedVoices,
+    unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
+  };
+}
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
@@ -274,6 +310,17 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       catch { skippedAudio.push(c.asset_id); }
     }
   } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  // A failed track must not disappear silently from an irreversible export.
+  // The user may explicitly opt in to an incomplete export in the UI.
+  const audioPreflight = exportAudioPreflight(project, media, {
+    hasAudio, decodedAudioIds: [...buffers.keys()]
+  });
+  if (audioPreflight.needsConfirmation && !allowIncompleteAudio) {
+    stream.getTracks().forEach(track => track.stop());
+    ev.remove();
+    try { if (ac) await ac.close(); } catch { /* context already released */ }
+    return { audioBlocked: true, ...audioPreflight };
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {

@@ -61,60 +61,82 @@ public final class MainActivity extends Activity {
                 // Only saved and published Wivra media are offered as shortcuts.
                 // Pending Ray-Ban parts remain PRIVATE until "Guardar video".
                 // Manual "Buscar en Archivos" remains available at all times.
+                boolean acceptsJson = false;
                 boolean acceptsImage = false;
                 boolean acceptsVideo = false;
                 boolean acceptsAudio = false;
                 for (String accept : params.getAcceptTypes()) {
                     if (accept == null) continue;
+                    if (accept.contains(".json") || accept.contains("application/json")) acceptsJson = true;
                     if (accept.contains("image/")) acceptsImage = true;
                     if (accept.contains("video/")) acceptsVideo = true;
                     if (accept.contains("audio/")) acceptsAudio = true;
                 }
+                boolean captureChooser = acceptsJson && params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
                 Uri recent = acceptsImage
                     ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
                     : null;
                 java.util.List<String> labels = new java.util.ArrayList<>();
                 java.util.List<Uri> choices = new java.util.ArrayList<>();
-                if (recent != null) {
+                java.util.List<Uri[]> multiChoices = new java.util.ArrayList<>();
+                if (captureChooser) {
+                    // Original editor receives JSON + MP4 + WAV as one FileList.
+                    for (WivraCaptureImport.Bundle bundle : WivraCaptureImport.bundles(MainActivity.this)) {
+                        labels.add(getString(R.string.picker_phone_capture_bundle, bundle.getTitle()));
+                        choices.add(null);
+                        multiChoices.add(bundle.getUris());
+                    }
+                }
+                if (!captureChooser && recent != null) {
                     labels.add(getString(R.string.picker_last_photo));
                     choices.add(recent);
+                    multiChoices.add(null);
                 }
-                if (acceptsImage) {
+                if (!captureChooser && acceptsImage) {
                     for (WivraPhoneMediaStore.SavedMedia photo :
                             WivraPhoneMediaStore.latestSavedPhotos(MainActivity.this)) {
                         labels.add(getString(R.string.picker_phone_photo_named, photo.getTitle()));
                         choices.add(photo.getUri());
+                        multiChoices.add(null);
                     }
                 }
-                if (acceptsVideo) {
+                if (!captureChooser && acceptsVideo) {
                     for (WivraSavedRayBanVideos.SavedVideo video :
                             WivraSavedRayBanVideos.latestSaved(MainActivity.this)) {
                         labels.add(getString(R.string.picker_wivra_video_named, video.getTitle()));
                         choices.add(video.getUri());
+                        multiChoices.add(null);
                     }
                     for (WivraPhoneMediaStore.SavedMedia video :
                             WivraPhoneMediaStore.latestSavedVideos(MainActivity.this)) {
                         labels.add(getString(R.string.picker_phone_video_named, video.getTitle()));
                         choices.add(video.getUri());
+                        multiChoices.add(null);
                     }
                 }
-                if (acceptsAudio) {
+                if (!captureChooser && acceptsAudio) {
                     for (WivraPhoneMediaStore.SavedMedia audio :
                             WivraPhoneMediaStore.latestSavedWav(MainActivity.this)) {
                         labels.add(getString(R.string.picker_phone_audio_named, audio.getTitle()));
                         choices.add(audio.getUri());
+                        multiChoices.add(null);
                     }
                 }
                 if (!choices.isEmpty()) {
                     labels.add(getString(R.string.picker_browse_files));
                     new AlertDialog.Builder(MainActivity.this)
-                        .setTitle(R.string.picker_wivra_media_title)
+                        .setTitle(captureChooser ? R.string.picker_capture_title : R.string.picker_wivra_media_title)
                         .setItems(labels.toArray(new String[0]), (dialog, item) -> {
                             if (item >= 0 && item < choices.size()) {
                                 ValueCallback<Uri[]> completion = pendingFilePicker;
                                 pendingFilePicker = null;
-                                if (completion != null) completion.onReceiveValue(
-                                    new Uri[]{choices.get(item)});
+                                if (completion != null) {
+                                    if (multiChoices.get(item) != null) {
+                                        completion.onReceiveValue(multiChoices.get(item));
+                                    } else {
+                                        completion.onReceiveValue(new Uri[]{choices.get(item)});
+                                    }
+                                }
                             } else {
                                 launchSystemPicker(params);
                             }
@@ -133,11 +155,11 @@ public final class MainActivity extends Activity {
         shell.setOrientation(LinearLayout.VERTICAL);
         Button glasses = new Button(this);
         glasses.setText("Ray-Ban Meta");
-        glasses.setContentDescription("Conectar gafas Ray-Ban Meta");
+        glasses.setContentDescription(getString(R.string.connect_glasses_accessibility));
         glasses.setOnClickListener(v -> startActivity(
             new Intent(this, WivraMetaPreviewActivity.class)));
-        shell.addView(glasses, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        // A View can have only one parent. The glasses shortcut belongs to
+        // the horizontal sources row; adding it to shell first crashes startup.
         Button phone = new Button(this);
         phone.setText(R.string.phone_camera_open);
         phone.setContentDescription(getString(R.string.phone_camera_open));
@@ -145,7 +167,8 @@ public final class MainActivity extends Activity {
         // These are two capture sources feeding the same one-and-only editor.
         LinearLayout sources = new LinearLayout(this);
         sources.setOrientation(LinearLayout.HORIZONTAL);
-        sources.addView(glasses);
+        sources.addView(glasses, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         sources.addView(phone, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         shell.addView(sources, new LinearLayout.LayoutParams(

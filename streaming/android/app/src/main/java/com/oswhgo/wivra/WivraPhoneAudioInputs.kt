@@ -53,6 +53,19 @@ object WivraPhoneAudioInputs {
     fun resolve(context: Context, id: Int): AudioDeviceInfo? =
         available(context).firstOrNull { it.id == id }
 
+    // Stable source category from Android-reported device type, not brand.
+    // Only a specifically requested route is checked throughout WAV capture.
+    fun sourceTag(device: AudioDeviceInfo?): String = when (device?.type) {
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "android-phone-mic"
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "android-wired-mic"
+        AudioDeviceInfo.TYPE_USB_DEVICE,
+        AudioDeviceInfo.TYPE_USB_HEADSET,
+        AudioDeviceInfo.TYPE_USB_ACCESSORY -> "android-usb-mic"
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        AudioDeviceInfo.TYPE_BLE_HEADSET -> "android-bluetooth-mic"
+        else -> "android-system-mic"
+    }
+
     fun label(context: Context, device: AudioDeviceInfo): String {
         val category = when (device.type) {
             AudioDeviceInfo.TYPE_BUILTIN_MIC -> context.getString(R.string.phone_camera_source_built_in)

@@ -48,3 +48,22 @@ test('solveContent limita zoom a 1..4 y deja el contenido cubriendo la ventana a
   const s = solveContent(win, { X: 500, Y: -500, W: 200, H: 200 }, 100, 100); assert.ok(s.px >= 0 && s.px <= 1 && s.py >= 0 && s.py <= 1);
   assert.equal(contentRect(100, 100, 100, 100, 1, 0.2, 0.9).x, 0, 'sin sobrante a este zoom, px no mueve nada');
 });
+
+test('regresión: 9 s de video + 30 s de música exportan 9 s, sin negro al final', () => {
+  const p = { clips: [{ id: 'v1', asset_id: 'v', start: 0, in: 0, out: 9 }],
+    audioClips: [{ id: 'm1', asset_id: 'music', role: 'music', start: 0, in: 0, out: 30 }],
+    overlayClips: [], texts: [] };
+  const plan = exportPlan(p);
+  assert.equal(plan.total, 9);
+  assert.deepEqual(plan.segments.map(x => x.type), ['clip']);
+  assert.equal(plan.segments[0].dur, 9);
+});
+test('regresión: superposición visual más larga no añade negro tras el video', () => {
+  const p = { clips: [{ id: 'v', asset_id: 'v', start: 0, in: 0, out: 5 }],
+    audioClips: [], overlayClips: [{ id: 'o', start: 2, in: 0, out: 20 }], texts: [] };
+  assert.equal(exportPlan(p).total, 5);
+});
+test('el plan sin video principal mantiene la duración de audio/capas para diagnóstico', () => {
+  const p = { clips: [], audioClips: [{ id: 'a', start: 0, in: 0, out: 7 }], overlayClips: [], texts: [] };
+  assert.equal(exportPlan(p).total, 7);
+});
