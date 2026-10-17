@@ -167,3 +167,9 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - `Meta B0 iOS Native Build` run `38984681698`: trabajo `compile-ios` **success**.
 - Artefacto GitHub Actions `WivraMetaB1-UNSIGNED-arm64`, ID `12082463594`, 6,172,528 bytes, SHA-256 del archivo de artefacto publicado por GitHub `6842401798dbe0b7c806ec262be79d833e0c005ff35824740600872c3e498976`, expiración 2026-10-24 UTC. **No firmado**, por tanto no es instalador listo para el usuario ni acredita pruebas físicas.
 - El ensamblaje completo run `38984681721` superó contrato nativo pero trabajos de empaquetado quedaron `cancelled`; auditar por separado. Android run `38984681709` seguía ejecutándose al consultar.
+
+## Builds nativos completados (17-10-2026 UTC)
+- Android `Wivra Unified Android Native Build` run `38984681709`, job `android-editor-shell`: **success**. Artefacto `WivraUnifiedAndroid-DEBUG` ID `12082785569`, ZIP de 16,070,871 bytes, digest del artefacto `sha256:e6e732c413a87fce172380495ab67c8e2ccfceab6973887ee14c2e61570823e4`; expira 2026-10-24 UTC. No equivale a QA en dispositivo.
+- iOS run `38984681698`: **success**, artefacto arm64 sin firmar registrado arriba. Requiere firma/provisioning para instalar en iPhone.
+- `Wivra Complete Beta Assembly (Mobile)` run `38984681721`: suite inicial `success`, pero trabajos de paquetes completos `cancelled`; por tanto, no afirmar que la beta ensamblada final esté lista.
+- Pruebas manuales pospuestas por decisión del propietario hasta la etapa final. No solicitar intervención antes de que sea necesaria.
