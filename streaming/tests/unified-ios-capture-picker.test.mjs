@@ -28,7 +28,9 @@ test('Only completed app-local recordings are offered, system file picker still 
   assert.match(source, /asCopy: false/);
   assert.match(source, /finishSelection\(nil\)/);
   assert.match(source, /frame\.isMainFrame/);
-  assert.match(source, /frame\.request\.url\?\.isFileURL == true/);
+  assert.match(source, /requestURL\.isFileURL/);
+  assert.match(source, /approvedEditor\?\.standardizedFileURL == requestURL\.standardizedFileURL/);
+  assert.match(source, /let approvedEditor = Bundle\.main\.url\(forResource: "agentcut", withExtension: "html"\)/);
   assert.doesNotMatch(source, /evaluateJavaScript\(/);
   assert.doesNotMatch(source, /live\.start/);
 });
