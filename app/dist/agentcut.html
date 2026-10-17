@@ -4546,7 +4546,15 @@ async function importCapture(files) {
   } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
   finally { loading = false; }
 }
-$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await importCapture(chosen); });
+// The same import path handles user-selected files and a native host picker.
+// Never accept arbitrary native paths or a capture payload from a remote page.
+window.WivraEditorImport = Object.freeze({
+  importFiles: async (files) => {
+    if (!Array.isArray(files) || !files.every(f => f instanceof File)) throw new TypeError('Archivos de captura inválidos');
+    await importCapture(files);
+  }
+});
+$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await window.WivraEditorImport.importFiles(chosen); });
 function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
   const v = $('v'), m = media[id]; if (!m) return;
   if (curAsset !== id) {
