@@ -204,3 +204,9 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Commit `ee8a4127b54845e0e7dee65b5472d8aed4b68661`: botones de las diez plantillas incorporan `title` y `aria-label` con su descripción.
 - CI de ese SHA: `App Tests` run `38991740587` y `Meta LIVE Preflight Tests` run `38991740590` terminaron en success. Otros flujos fallaron en la primera ejecución; el workflow de reconstrucción `38991740564` terminó en success. La lectura posterior de `app/dist/agentcut.html` confirmó `b.title = t.desc`.
 - Pendiente: confirmar CI en un SHA posterior y VoiceOver/TalkBack en dispositivos reales.
+
+## Android · importación de capturas con WAV (continuación 16-10-2026)
+- Brecha encontrada: el selector Android ofrecía MP4 y WAV por separado; `input#capFile` requiere manifiesto JSON y medios a la vez. Las grabaciones sincronizadas quedaban sin enlace en la línea de tiempo.
+- Se implementó catálogo bajo demanda de pares previamente **guardados** por el propietario. Se comprueba su procedencia en MediaStore mediante `OWNER_PACKAGE_NAME`, `IS_PENDING=0` y URI de publicación en sidecar privado. Un manifiesto v2 reducido se entrega mediante `FileProvider` privado, con video y WAV publicados como los otros dos URI. Ningún audio/video grande se copia a caché ni se pasa ruta a JavaScript.
+- Sólo se ofrece a `input#capFile` (selector múltiple de JSON); se conserva el selector de archivos y el importador multipista de Claude. Audio y video en espera no son seleccionables.
+- La prueba de contrato coteja la estructura nativa con el importador JS, incluido desplazamiento de WAV de 0,22 segundos. **Pendiente** verificación CI Android/ensamblaje y QA física de tiempos, WebView/ContentProvider, permisos y recuperación. La precisión de inicio WAV/CameraX sigue estimada.

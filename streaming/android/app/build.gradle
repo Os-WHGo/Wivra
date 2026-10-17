@@ -37,6 +37,7 @@ dependencies {
     implementation 'com.meta.wearable:mwdat-core:1.0.1'
     implementation 'com.meta.wearable:mwdat-camera:1.0.1'
     implementation 'androidx.activity:activity-ktx:1.10.1'
+    implementation 'androidx.core:core:1.16.0'
     // Free Apache-2.0 AndroidX CameraX, same phone cameras across Android devices.
     // No external app/service. Pin one tested stable version to avoid API drift.
     implementation 'androidx.camera:camera-camera2:1.5.3'

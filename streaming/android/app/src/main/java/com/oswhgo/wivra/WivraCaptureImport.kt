@@ -26,7 +26,7 @@ object WivraCaptureImport {
             it.isFile && !java.nio.file.Files.isSymbolicLink(it.toPath()) &&
                 it.canonicalFile.parentFile == privateDir.canonicalFile &&
                 it.name.startsWith("pending-phone-") && it.name.endsWith(".wivra.json") &&
-                it.length() in 1..32768
+                it.length() in 1L..32768L
         }?.sortedByDescending { it.lastModified() } ?: return emptyList()
         val destinationDir = File(context.cacheDir, "wivra-capture-import")
         if (!destinationDir.isDirectory && !destinationDir.mkdirs()) return emptyList()
