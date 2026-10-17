@@ -31,6 +31,8 @@ enum WivraLocalCaptureScanner {
     // A safe basename alone is insufficient: a symlink inside the recording
     // directory could point outside the app's private capture folder.
     private static func regularCaptureFile(_ url: URL, in folder: URL) -> Bool {
+        let rawProperties = try? url.resourceValues(forKeys: [.isSymbolicLinkKey])
+        guard rawProperties?.isSymbolicLink != true else { return false }
         let resolvedFolder = folder.resolvingSymlinksInPath().standardizedFileURL
         let resolvedFile = url.resolvingSymlinksInPath().standardizedFileURL
         guard resolvedFile.deletingLastPathComponent() == resolvedFolder else { return false }
@@ -56,15 +58,41 @@ enum WivraLocalCaptureScanner {
             let folder = root.appendingPathComponent(folderName, isDirectory: true)
             guard let urls = try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { continue }
             for manifestURL in urls where manifestURL.lastPathComponent.hasSuffix(".wivra.json") {
-                guard regularCaptureFile(manifestURL, in: folder) else { rejected += 1; continue }
+                guard regularCaptureFile(manifestURL, in: folder),
+                      let manifestBytes = try? manifestURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                      manifestBytes <= 128 * 1024 else {
+                        rejected += 1
+                        continue
+                    }
                 do {
                     let data = try Data(contentsOf: manifestURL)
                     let m = try JSONDecoder().decode(WivraCaptureManifest.self, from: data)
-                    guard m.schemaVersion == 2, !m.captureID.isEmpty,
+                    // Disk manifests are untrusted until their format and
+                    // references have been checked. Never offer malformed
+                    // channel indexes or nonexistent mux references as ready.
+                    let trackIds = Set(m.tracks.map(\.id))
+                    let muxIds = Set(m.muxedFromTrackIDs)
+                    guard m.schemaVersion == 2,
+                          !m.captureID.isEmpty, m.captureID.count <= 200,
                           !seen.contains(m.captureID),
+                          !m.cameraSource.isEmpty,
                           safeName(m.originalVideoFile),
                           m.muxedVideoFile.map(safeName) ?? true,
-                          m.tracks.allSatisfy({ safeName($0.file) }) else {
+                          m.tracks.count <= 32,
+                          trackIds.count == m.tracks.count,
+                          muxIds.count == m.muxedFromTrackIDs.count,
+                          muxIds.isSubset(of: trackIds),
+                          m.muxedVideoFile != nil || muxIds.isEmpty,
+                          m.tracks.allSatisfy({
+                              $0.kind == "audio" && !$0.id.isEmpty &&
+                              safeName($0.file) &&
+                              ($0.channelIndex.map { $0 >= 0 } ?? true) &&
+                              ($0.channelCount.map { $0 > 0 } ?? true) &&
+                              ($0.channelIndex == nil || $0.channelCount == nil ||
+                                  $0.channelIndex! < $0.channelCount!) &&
+                              ($0.sampleRateHz.map { $0.isFinite && $0 > 0 } ?? true) &&
+                              ($0.startOffsetSeconds.map { $0.isFinite } ?? true)
+                          }) else {
                         rejected += 1
                         continue
                     }

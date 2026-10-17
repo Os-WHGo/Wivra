@@ -252,3 +252,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - iOS: `WKUIDelegate` presenta la hoja desde el controlador realmente visible cuando el editor está dentro de un sheet de SwiftUI. El escáner de capturas no ofrece archivos no regulares ni de 0 bytes, aun cuando tengan un manifiesto. Se mantienen los controles de symlink y ruta.
 - Android: el test instrumentado existente ahora verifica que los metadatos sintéticos de una entrada USB seleccionada lleguen del sidecar al manifiesto y sus pistas; **no constituye una prueba física de micrófono USB**.
 - Ambas pruebas requieren CI actualizada y la instrumentación debe ejecutarse en un emulador/dispositivo antes de declarar validación física.
+
+## Scanner de capturas iOS: integridad del manifiesto previo a la importación
+- Se limitan manifiestos locales a 128 KiB, identidades de captura a 200 caracteres y 32 pistas. Además del basename seguro y directorio privado, se rechazan los enlaces simbólicos de entrada, archivo de 0 bytes, IDs de pista repetidos, canales imposibles, offset/sampleRate no finitos y referencias a pistas inexistentes o MOV combinado ausente.
+- Un manifiesto corrupto ya no se anuncia como captura lista para WebKit y no puede consumir memoria sin límites mediante `Data(contentsOf:)` para JSON arbitrariamente largo.
+- La versión actual sigue requiriendo pruebas en dispositivo iOS para verificar el panel, descodificación CAF/HEVC y persistencia de recursos.

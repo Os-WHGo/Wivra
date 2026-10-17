@@ -93,3 +93,17 @@ test('iOS editor presents chooser from visible SwiftUI sheet and refuses zero-by
  assert.match(scanner,/\.fileSizeKey/);
  assert.match(scanner,/\(values\?\.fileSize \?\? 0\) > 0/);
 });
+
+test('iOS scanner rejects huge or logically inconsistent sidecars before WebKit chooser',()=>{
+ const s=readFileSync(new URL('../ios/B0/Sources/WivraNativeCaptureLibrary.swift',import.meta.url),'utf8');
+ assert.match(s,/isSymbolicLinkKey/);
+ assert.match(s,/rawProperties\?\.isSymbolicLink != true/);
+ assert.match(s,/manifestBytes <= 128 \* 1024/);
+ assert.match(s,/m\.captureID\.count <= 200/);
+ assert.match(s,/m\.tracks\.count <= 32/);
+ assert.match(s,/trackIds\.count == m\.tracks\.count/);
+ assert.match(s,/muxIds\.isSubset\(of: trackIds\)/);
+ assert.match(s,/m\.muxedVideoFile != nil \|\| muxIds\.isEmpty/);
+ assert.match(s,/\$0\.sampleRateHz\.map \{ \$0\.isFinite && \$0 > 0 \}/);
+ assert.match(s,/\$0\.startOffsetSeconds\.map \{ \$0\.isFinite \}/);
+});
