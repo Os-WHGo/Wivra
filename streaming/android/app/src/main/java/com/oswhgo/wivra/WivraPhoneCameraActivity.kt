@@ -543,7 +543,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                         WivraPhoneMediaStore.saveSidecarTiming(
                             this, video, videoStartNs,
                             result.estimatedFirstReadElapsedRealtimeNs,
-                            result.bytesWritten
+                            result.bytesWritten,
+                            WivraPhoneAudioInputs.sourceTag(chosen),
+                            chosen?.let { WivraPhoneAudioInputs.label(this, it) }
                         )
                     } catch (_: Exception) {
                         // Never pretend offset is measured if the sidecar record failed.

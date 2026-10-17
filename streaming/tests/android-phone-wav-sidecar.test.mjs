@@ -101,3 +101,22 @@ test('pair association survives crashes and never silently loses WAV identity be
   assert.match(store,/data\.optString\("audioStatus"\) == "ready"/);
   assert.doesNotMatch(store,/catch \(_:\s*Exception\) \{ \/\* media is already safely published \*\//);
 });
+
+test('The WAV manifest retains the explicitly selected route and microphone name',()=>{
+ const inputs=read(base+'WivraPhoneAudioInputs.kt');
+ const importBundle=read(base+'WivraCaptureImport.kt');
+ for(const tag of ['android-phone-mic','android-wired-mic','android-usb-mic','android-bluetooth-mic','android-system-mic']){
+   assert.match(inputs,new RegExp('"'+tag+'"'));
+   assert.match(importBundle,new RegExp('"'+tag+'"'));
+ }
+ assert.match(camera,/WivraPhoneAudioInputs\.sourceTag\(chosen\)/);
+ assert.match(camera,/chosen\?\.let \{ WivraPhoneAudioInputs\.label\(this, it\) \}/);
+ assert.match(store,/put\("audioSource", audioSource\)/);
+ assert.match(store,/put\("selectedInputName", selectedInputName \?: org\.json\.JSONObject\.NULL\)/);
+ assert.match(store,/put\("source", audioSource\)/);
+ assert.match(store,/put\("inputName", selectedInputName \?: org\.json\.JSONObject\.NULL\)/);
+ assert.match(importBundle,/put\("source", source\)/);
+ assert.match(importBundle,/put\("inputName", safeInput\)/);
+ assert.match(importBundle,/put\("selectedInputName", safeInput\)/);
+ assert.doesNotMatch(importBundle,/put\("audioSource", "android-phone-mic"\)/);
+});

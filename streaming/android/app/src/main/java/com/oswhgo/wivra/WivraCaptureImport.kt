@@ -60,8 +60,18 @@ object WivraCaptureImport {
                 val rawOffset = raw.opt("audioStartOffsetSeconds")
                 val offset = if (rawOffset is Number && rawOffset.toDouble().isFinite())
                     rawOffset else JSONObject.NULL
+                // Older sidecars lacked provenance. Never invent a USB or
+                // Bluetooth input from their filenames or current OS routes.
+                val source = raw.optString("audioSource", "android-system-mic")
+                    .takeIf { it in setOf("android-phone-mic", "android-wired-mic",
+                        "android-usb-mic", "android-bluetooth-mic", "android-system-mic") }
+                    ?: "android-system-mic"
+                val inputName = raw.optString("selectedInputName").trim()
+                    .take(96).takeIf { it.isNotEmpty() && it.all { c -> c >= ' ' && c != '\u007f' } }
+                val safeInput: Any = inputName ?: JSONObject.NULL
                 val track = JSONObject().put("id", "audio-1").put("kind", "audio")
-                    .put("role", "voice_primary").put("source", "android-phone-mic")
+                    .put("role", "voice_primary").put("source", source)
+                    .put("inputName", safeInput)
                     .put("file", wav.title).put("channelIndex", JSONObject.NULL)
                     .put("channelCount", 1).put("sampleRateHz", 48000)
                     .put("startOffsetSeconds", offset)
@@ -69,8 +79,8 @@ object WivraCaptureImport {
                     .put("schemaVersion", 2)
                     .put("captureID", "android-phone:$stem")
                     .put("cameraSource", "android-phone-camerax")
-                    .put("audioSource", "android-phone-mic")
-                    .put("selectedInputName", JSONObject.NULL)
+                    .put("audioSource", source)
+                    .put("selectedInputName", safeInput)
                     .put("originalVideoFile", video.title)
                     .put("originalAudioFile", wav.title)
                     .put("muxedVideoFile", JSONObject.NULL)

@@ -234,3 +234,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 
 ## Corrección Kotlin observada en GitHub Actions
 - `Wivra Unified Android Native Build` run `39009671382` falló al compilar `WivraCaptureImport.kt:84`: `Unresolved reference 'writeString'`. No era un fallo de recursos ni del contrato: Android no expone esa variante de Files bajo la configuración de compilación. Sustituido por `Files.write(tmp, text.toByteArray(Charsets.UTF_8))` en ambos módulos, manteniendo la escritura temporal y el movimiento atómico. Regresión adicional para evitar reintroducir esa API. Nueva CI pendiente.
+
+## Procedencia del micrófono, WAV → manifiesto Android → editor
+- Reparación: la selección activa USB/Bluetooth/cable se había monitorizado con AudioRecord, pero el manifiesto exportado mentía identificando siempre `android-phone-mic`. El audio independiente ahora guarda categoría del dispositivo seleccionado, nombre de entrada local y desfase estimado. El importador reconoce sólo categorías conocidas, limita el nombre y conserva información compatible con `app/capture-manifest.mjs`.
+- Categorías: `android-phone-mic`, `android-wired-mic`, `android-usb-mic`, `android-bluetooth-mic`; modo predeterminado `android-system-mic` porque no se ha verificado cuál eligió el SO. No atribuir grabación de audio a Ray-Ban DAT. El dispositivo elegido continúa supervisado en cada lectura; el cambio de ruta invalida WAV.
+- Nuevos contratos JS revisan propagación de procedencia y offset negativo. Pruebas reales con accesorios Bluetooth/USB y deriva larga siguen pendientes.

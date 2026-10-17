@@ -74,3 +74,22 @@ test('Android API source uses supported Files.write byte arrays, not unavailable
  assert.doesNotMatch(bundle,/Files\.writeString/);
  assert.doesNotMatch(mediaStore,/Files\.writeString/);
 });
+
+test('Editor contract retains selected USB mic identity and negative WAV offset',()=>{
+ const manifest=parseManifest({schemaVersion:2,captureID:'usb-audio-recording',
+  cameraSource:'android-phone-camerax',audioSource:'android-usb-mic',
+  selectedInputName:'USB microphone',createdAtISO8601:'2026-10-16T23:00:00Z',
+  originalVideoFile:'Wivra_Phone_20.mp4',originalAudioFile:'Wivra_Phone_20.wav',
+  muxedVideoFile:null,tracks:[{id:'audio-1',kind:'audio',role:'voice_primary',
+    source:'android-usb-mic',inputName:'USB microphone',file:'Wivra_Phone_20.wav',
+    channelCount:1,sampleRateHz:48000,channelIndex:null,startOffsetSeconds:-0.13}],
+  muxedFromTrackIDs:[]});
+ assert.equal(manifest.ok,true,manifest.errors.join('; '));
+ assert.equal(manifest.manifest.tracks[0].source,'android-usb-mic');
+ assert.equal(manifest.manifest.tracks[0].inputName,'USB microphone');
+ const plan=importPlan(manifest.manifest);
+ const r=planImportOps(plan,{videoStart:0,assets:{
+   'Wivra_Phone_20.mp4':{id:'v',duration:9},
+   'Wivra_Phone_20.wav':{id:'a',duration:9}}});
+ assert.deepEqual([r.ops[1].start,r.ops[1].in],[0,0.13]);
+});

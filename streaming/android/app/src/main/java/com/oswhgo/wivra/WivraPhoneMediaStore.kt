@@ -284,12 +284,16 @@ object WivraPhoneMediaStore {
      */
     fun saveSidecarTiming(
         context: Context, video: File, videoStartNs: Long, audioReadNs: Long,
-        audioBytes: Long
+        audioBytes: Long,
+        audioSource: String = "android-system-mic",
+        selectedInputName: String? = null
     ) {
         require(isWivraPrivate(context, video)) { "Invalid video path" }
         val track = org.json.JSONObject().apply {
             put("schemaVersion", 2)
             put("cameraSource", "android-phone-camerax")
+            put("audioSource", audioSource)
+            put("selectedInputName", selectedInputName ?: org.json.JSONObject.NULL)
             put("originalVideoFile", video.name)
             put("originalAudioFile", privateWav(context, video).name)
             put("audioFormat", "pcm16-48000-mono-wav")
@@ -306,7 +310,11 @@ object WivraPhoneMediaStore {
                 put("id", "audio-1")
                 put("kind", "audio")
                 put("role", "voice_primary")
-                put("source", "android-phone-mic")
+                put("source", audioSource)
+                put("inputName", selectedInputName ?: org.json.JSONObject.NULL)
+                put("startOffsetSeconds", if (videoStartNs > 0L && audioReadNs > 0L)
+                    (audioReadNs - videoStartNs) / 1_000_000_000.0
+                    else org.json.JSONObject.NULL)
                 put("file", privateWav(context, video).name)
                 put("channelCount", 1)
                 put("sampleRateHz", 48000)
