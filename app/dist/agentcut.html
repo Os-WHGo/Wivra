@@ -363,6 +363,7 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
   <label class="btn" for="file" style="cursor:pointer">Video</label><label class="btn sec" for="ovFile" style="cursor:pointer">Video o foto encima (capa)</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label for="wivraMusicSelect">Música original Wivra (30 s)</label><select id="wivraMusicSelect" aria-label="Música original Wivra"><option value="">Elegir pista</option></select><button id="wivraMusicAdd" class="btn sec" type="button">Agregar música</button>
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
   <button id="trkDone" class="btn sec">Cerrar</button></div>
@@ -4439,6 +4440,21 @@ async function addTrackFile(file, kind) {
 }
 $('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
 $('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+// Música original local: usa la misma importación y persistencia que cualquier WAV del usuario.
+if (typeof MUSIC_TRACKS !== 'undefined') {
+  const select = $('wivraMusicSelect');
+  for (const track of MUSIC_TRACKS) { const option = document.createElement('option'); option.value = track.id; option.textContent = track.name + ' · ' + track.mood; select.appendChild(option); }
+  $('wivraMusicAdd').addEventListener('click', async () => {
+    if (!select.value || !session || loading) { say('Abre un proyecto y elige una pista.', 'bad'); return; }
+    try {
+      const wav = musicWav(select.value);
+      if (!wav) throw new Error('Pista no disponible');
+      const file = new File([wav.bytes], wav.fileName, { type: 'audio/wav' });
+      await addTrackFile(file, 'audio');
+    } catch (e) { say('No se pudo crear la música: ' + (e.message || e), 'bad'); }
+  });
+}
+
 // Los canales pedidos de un audio (p. ej. dos micrófonos grabados en un estéreo) → un WAV mono por canal. Decodifica el archivo entero UNA vez (por eso hay tope de tamaño). Ver app/channel-split.mjs.
 async function decodeChannelWavs(file, channelIndexes) {
   if (file.size > SPLIT_MAX_BYTES) throw new Error(`pesa demasiado para separar sus canales aquí (máximo ${Math.round(SPLIT_MAX_BYTES / 1048576)} MB)`);
