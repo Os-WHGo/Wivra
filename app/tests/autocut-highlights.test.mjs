@@ -89,3 +89,25 @@ test('UI uses AutoCut multisegment planner only as an opt-in before existing pla
  assert.match(html,/if \(highlights\?\.ok\) return highlights/);
  assert.match(html,/edit\(pl\.ops, \{ ripple: false \}\)/);
 });
+
+test('two independent microphone tracks retain each source offset after 6-way montage',()=>{
+ let p=make(240,[{id:'m1',duration:240,kind:'audio'},{id:'m2',duration:240,kind:'audio'}]);
+ const batch=applyBatch(p,[
+  {op:'add_audio_clip',asset_id:'m1',start:0,in:0,out:240,role:'voice_primary'},
+  {op:'add_audio_clip',asset_id:'m2',start:1,in:0,out:239,role:'voice_guest'}]);
+ assert.ok(batch.ok,JSON.stringify(batch));p=batch.project;
+ const q=verify(p,planAutoHighlights(p,{targetSeconds:30}),3,30),v=sorted(q);
+ for(const id of ['m1','m2']){
+  const parts=q.audioClips.filter(c=>c.asset_id===id).sort((a,b)=>a.start-b.start);
+  assert.equal(parts.length,3,id);
+  for(let i=0;i<3;i++){
+   assert.ok(Math.abs(parts[i].start-v[i].start)<0.005);
+   assert.ok(Math.abs((v[i].in-parts[i].in)-(id==='m1'?0:1))<0.005,'source offset '+id);
+  }
+ }
+});
+test('async AutoCut analysis must guard against a changed project revision',()=>{
+ const html=readFileSync(new URL('../template.html',import.meta.url),'utf8');
+ assert.match(html,/const active = session, revision = session.project.revision/);
+ assert.match(html,/active !== session \|\| session.project.revision !== revision/);
+});
