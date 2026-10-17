@@ -1339,6 +1339,9 @@ async function qaPlan(sec) {      // con «donde más se oye» se lee antes el v
   const ids = [...new Set(session.project.clips.map(c => c.asset_id))].filter(id => { const a = session.project.assets.find(x => x.id === id); return a && a.kind !== 'image' && !siEnv.has(id); });
   for (const id of ids) await siAnalyze(id);
   const timed = siTimed.get(session);
+  const evidence = id => { const env = siEnv.get(id), captions = timed?.get(id); return captions ? { ...(env || {}), timedSpeech: captions } : (env || null); };
+  const highlights = planAutoHighlights(session.project, { targetSeconds: sec, envOf: evidence });
+  if (highlights?.ok) return highlights;
   return planQuickAssembly(session.project, { targetSeconds: sec,
     pick: makeAutoPicker(id => {
       const env = siEnv.get(id), captions = timed?.get(id);
@@ -1351,7 +1354,7 @@ async function qaPreview(sec) {
   if ($('qaVoice').checked) { btn.disabled = true; info.textContent = 'Escuchando el volumen de tus videos…'; }
   const pl = await qaPlan(sec); if (my !== qaSeq) return;      // si se tocó otra opción mientras tanto, esa respuesta manda
   if (!pl.ok) { info.textContent = pl.error; btn.disabled = true; return; }
-  info.textContent = `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
+  info.textContent = pl.highlights ? `Quedaría en ${fmt(pl.after)} s, con ${pl.highlights} momentos distintos.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : '') : `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
 }
 $('qaChips').addEventListener('click', (e) => { const b = e.target.closest('button[data-s]'); if (b) { $('qaOther').value = ''; qaPreview(Number(b.dataset.s)); } });
 $('qaOther').addEventListener('input', () => { const v = Number($('qaOther').value); if ($('qaOther').value.trim() !== '') qaPreview(v); });
