@@ -3556,6 +3556,40 @@ function bestTimedWindow(input, from, to, duration) {
     granularity:data.granularity,source:data.source,method:'timestamped_speech_boundaries' };
 }
 
+// IMPORTED captions are timeline hints, not verified ASR measurements.
+// Only attribute them to a media asset when one video clip is on the main track.
+function timedSpeechFromSingleClipCues(project, cues) {
+  if (!Array.isArray(project?.clips) || project.clips.length !== 1 ||
+      !Array.isArray(cues) || !cues.length || cues.length > AUTOCUT_MAX_SEGMENTS) return null;
+  const clip = project.clips[0];
+  const asset = (project.assets || []).find(a => a.id === clip.asset_id);
+  if (!asset || asset.kind === 'image' ||
+      !acsIsFinite(asset.duration) || asset.duration <= 0 || asset.duration > 86400 ||
+      !acsIsFinite(clip.start) || !acsIsFinite(clip.in) || !acsIsFinite(clip.out) ||
+      clip.in < 0 || clip.out <= clip.in || clip.out > asset.duration + 0.02 ||
+      (clip.speed !== undefined && clip.speed !== 1)) return null;
+  const timelineEnd = clip.start + clip.out - clip.in;
+  const segments = [];
+  for (const cue of cues) {
+    if (!cue || !acsIsFinite(cue.start) || !acsIsFinite(cue.end) ||
+        cue.end <= cue.start || typeof cue.text !== 'string' ||
+        !cue.text.trim() || cue.text.length > 512) continue;
+    const start = Math.max(clip.start, cue.start), end = Math.min(timelineEnd, cue.end);
+    if (end - start < 0.02) continue;
+    segments.push({
+      start: Math.max(0, Math.min(asset.duration, clip.in + start - clip.start)),
+      end: Math.max(0, Math.min(asset.duration, clip.in + end - clip.start)),
+      text: cue.text.trim()
+    });
+  }
+  if (!segments.length) return null;
+  const evidence = {
+    schema: AUTOCUT_TIMED_SCHEMA, source:'timestamped_import',
+    granularity:'segment', durationSeconds:asset.duration, segments
+  };
+  return normalizeTimedSpeech(evidence) ? { assetId:clip.asset_id, evidence } : null;
+}
+
 // AutoCut (v1, determinista y local): al acortar un clip, elige el tramo donde MÁS se oye (voz/actividad) en vez de quedarse con el centro. Solo lógica pura. — Claude
 // Usa la curva de volumen de app/silence.mjs: NO entiende palabras ni imágenes. Si el volumen es parejo (música o ruido continuo) no hay evidencia y se usa el centro.
 // Evita empezar o terminar en medio de una frase: un tramo que arranca o acaba con sonido fuerte pierde puntos.
@@ -4865,7 +4899,12 @@ async function qaPlan(sec) {      // con «donde más se oye» se lee antes el v
   if (!$('qaVoice').checked) return planQuickAssembly(session.project, { targetSeconds: sec });
   const ids = [...new Set(session.project.clips.map(c => c.asset_id))].filter(id => { const a = session.project.assets.find(x => x.id === id); return a && a.kind !== 'image' && !siEnv.has(id); });
   for (const id of ids) await siAnalyze(id);
-  return planQuickAssembly(session.project, { targetSeconds: sec, pick: makeAutoPicker(id => siEnv.get(id) || null) });
+  const timed = siTimed.get(session);
+  return planQuickAssembly(session.project, { targetSeconds: sec,
+    pick: makeAutoPicker(id => {
+      const env = siEnv.get(id), captions = timed?.get(id);
+      return captions ? { ...(env || {}), timedSpeech: captions } : (env || null);
+    }) });
 }
 async function qaPreview(sec) {
   qaTarget = sec; const info = $('qaInfo'), btn = $('qaApply'), my = ++qaSeq;
@@ -4885,7 +4924,7 @@ $('qaApply').onclick = async () => {
   say('Montaje rápido aplicado. Puedes deshacerlo.', 'ok'); renderVids(); qaPreview(qaTarget);
 };
 /* Quitar silencios (app/silence.mjs): se lee el volumen de cada video UNA vez (en el teléfono) y se guarda solo un resumen; cambiar la sensibilidad es instantáneo. */
-let siLevel = 'normal', siBusy = false; const siEnv = new Map();      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
+let siLevel = 'normal', siBusy = false; const siEnv = new Map(), siTimed = new WeakMap();  // Imported SRT/VTT evidence is session-local only.      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
 async function loadPcm16(assetId) {      // sonido de un medio (izquierda y derecha) a 16 kHz (null si no se puede leer); se usa para medir pausas y volumen
   const AC = window.AudioContext || window.webkitAudioContext; let f = mediaFiles[assetId];
   if (!f && media[assetId] && media[assetId].url) { try { f = await (await fetch(media[assetId].url)).blob(); } catch { f = null; } }
@@ -5410,6 +5449,14 @@ $('subFile').addEventListener('change', async () => {
     const { ops, late } = cuesToOps(r.cues, totalDuration(session.project));
     if (!ops.length) { say(aiT('Ningún subtítulo cabe dentro del video.'), 'bad'); return; }
     const res = run(ops); if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    // Keep evidence only from a successfully imported SRT/VTT, linked to this session.
+    // No automatic word accuracy claims or cross-clip guesses.
+    const timed = timedSpeechFromSingleClipCues(session.project, r.cues);
+    if (timed) {
+      const items = siTimed.get(session) || new Map();
+      items.set(timed.assetId, timed.evidence);
+      siTimed.set(session, items);
+    }
     const notes = [aiT('Se importaron {1} subtítulos.', ops.length)];
     if (r.stats.dropped) notes.push(aiT('{1} subtítulo(s) con tiempos o texto inválidos no se importaron.', r.stats.dropped));
     if (r.stats.split) notes.push(aiT('{1} subtítulo(s) eran muy largos y se partieron en trozos de hasta {2} caracteres.', r.stats.split, MAX_TEXT));
