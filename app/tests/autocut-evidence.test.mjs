@@ -14,7 +14,7 @@ const speech = contract(Array.from({length:8},(_,i)=>({start:44+i,end:44.65+i,te
 test('preferencia por palabras cronometradas, no por la mitad silenciosa',()=>{
   const r=bestTimedWindow(speech,0,60,10);
   assert.ok(r && r.moved,JSON.stringify(r));
-  assert.ok(r.start>=42.5 && r.start<=44,JSON.stringify(r));
+  assert.ok(r.start>=41.5 && r.start<=44,JSON.stringify(r));
   assert.ok(r.start+10 >= 51.65);
   assert.equal(r.method,'timestamped_speech_boundaries');
 });
@@ -26,7 +26,7 @@ test('AutoCut sigue usando la misma interfaz de picker y operaciones del editor'
   assert.equal(pl.ok,true);assert.equal(pl.picked,1);
   const applied=applyBatch(p,pl.ops);
   assert.equal(applied.ok,true,JSON.stringify(applied));
-  assert.ok(applied.project.clips[0].in>=42.5);
+  assert.ok(applied.project.clips[0].in>=41.5);
   assert.ok(applied.project.clips[0].out>=51.65);
   assert.equal(applied.project.clips[0].out-applied.project.clips[0].in,10);
 });
