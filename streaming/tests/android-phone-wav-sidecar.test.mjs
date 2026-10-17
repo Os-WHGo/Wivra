@@ -77,8 +77,8 @@ test('Claude editor gets only user-picked published WAV via content URI',()=>{
   assert.match(picker,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
   assert.doesNotMatch(picker,/addJavascriptInterface\(/);
 });
-test('WAV UI text exists in six Android resource dictionaries',()=>{
-  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja']){
+test('WAV UI text exists in eight Android resource dictionaries',()=>{
+  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja','values-pt','values-zh']){
     const strings=read('../android/app/src/main/res/'+loc+'/strings.xml');
     for(const key of ['phone_camera_mic_wav','phone_camera_recording_wav',
       'phone_camera_wav_unavailable','phone_camera_wav_failed',

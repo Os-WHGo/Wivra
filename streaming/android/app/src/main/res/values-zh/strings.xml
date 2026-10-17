@@ -152,4 +152,7 @@
     <string name="phone_camera_wav_salvage_explanation">无法验证 WAV。你可以只保存视频；未完成的音频将保留在私人存储中，以便尝试恢复。也可以稍后决定。</string>
     <string name="phone_camera_save_video_only">仅保存视频</string>
     <string name="phone_camera_video_only_saved">视频已保存。未完成的 WAV 仍保存在私人存储中。</string>
+    <string name="picker_phone_capture_bundle">导入包含 WAV 的拍摄内容：%1$s</string>
+    <string name="picker_capture_title">选择 Wivra 拍摄内容</string>
+    <string name="connect_glasses_accessibility">连接 Ray-Ban Meta 眼镜</string>
 </resources>

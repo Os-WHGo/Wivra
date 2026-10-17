@@ -152,4 +152,7 @@
     <string name="phone_camera_wav_salvage_explanation">WAVを検証できませんでした。動画のみ保存できます。不完全な音声は復旧に備えて非公開のまま保持されます。</string>
     <string name="phone_camera_save_video_only">動画だけ保存</string>
     <string name="phone_camera_video_only_saved">動画を保存しました。不完全なWAVは非公開のままです。</string>
+    <string name="picker_phone_capture_bundle">WAV付き撮影を読み込む：%1$s</string>
+    <string name="picker_capture_title">Wivraの撮影を選択</string>
+    <string name="connect_glasses_accessibility">Ray-Ban Metaグラスを接続</string>
 </resources>

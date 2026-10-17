@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
                 if (captureChooser) {
                     // Original editor receives JSON + MP4 + WAV as one FileList.
                     for (WivraCaptureImport.Bundle bundle : WivraCaptureImport.bundles(MainActivity.this)) {
-                        labels.add(getString(R.string.picker_phone_video_named, bundle.getTitle()) + " + WAV");
+                        labels.add(getString(R.string.picker_phone_capture_bundle, bundle.getTitle()));
                         choices.add(null);
                         multiChoices.add(bundle.getUris());
                     }
@@ -125,7 +125,7 @@ public final class MainActivity extends Activity {
                 if (!choices.isEmpty()) {
                     labels.add(getString(R.string.picker_browse_files));
                     new AlertDialog.Builder(MainActivity.this)
-                        .setTitle(R.string.picker_wivra_media_title)
+                        .setTitle(captureChooser ? R.string.picker_capture_title : R.string.picker_wivra_media_title)
                         .setItems(labels.toArray(new String[0]), (dialog, item) -> {
                             if (item >= 0 && item < choices.size()) {
                                 ValueCallback<Uri[]> completion = pendingFilePicker;
@@ -155,7 +155,7 @@ public final class MainActivity extends Activity {
         shell.setOrientation(LinearLayout.VERTICAL);
         Button glasses = new Button(this);
         glasses.setText("Ray-Ban Meta");
-        glasses.setContentDescription("Conectar gafas Ray-Ban Meta");
+        glasses.setContentDescription(getString(R.string.connect_glasses_accessibility));
         glasses.setOnClickListener(v -> startActivity(
             new Intent(this, WivraMetaPreviewActivity.class)));
         shell.addView(glasses, new LinearLayout.LayoutParams(
