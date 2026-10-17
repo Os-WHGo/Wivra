@@ -273,3 +273,7 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - Si la lectura de WAV/CAF o separación de canales falla antes de ejecutar `run(out.ops)`, los archivos previamente decodificados podían persistir como assets huérfanos en el proyecto y sus instantáneas de deshacer/rehacer.
 - `importCapture` ahora acumula los IDs de assets añadidos durante ese intento. Al abortar, conserva cualquier asset que ya esté referenciado por clips del proyecto o del historial y libera únicamente los nuevos no utilizados en todas las instantáneas, recursos `blob:` y `mediaFiles`. Si se creó una sesión vacía exclusivamente por el intento, se descarta. El contador de IDs mantiene monotonía para evitar colisiones.
 - Se conserva un único batch para timeline cuando todas las pistas requeridas se abren. Los cambios son locales; ninguna captura nativa original se borra o altera. Pruebas de contratos adicionales en HTML fuente y generado; la restauración de IndexedDB y WebView física requiere QA.
+
+## Prevención de audio repetido en el manifiesto multipista
+- `parseManifest` ahora **rechaza** un mismo archivo de audio referenciado por varias pistas con el mismo `channelIndex` o una mezcla de canal completo `null` y canales individuales. Antes sólo avisaba y permitía insertar voces duplicadas en el timeline, especialmente con receptores USB estéreo. Los dos canales diferentes L/R siguen siendo válidos.
+- Contratos unitarios actualizados y HTML generado sincronizado. No se modifica la grabación original ni se inventan capacidades de hardware.

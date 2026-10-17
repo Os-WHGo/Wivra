@@ -59,7 +59,13 @@ export function parseManifest(input) {
     if (muxedFrom.length && !m.muxedVideoFile) errors.push('muxedFromTrackIDs indica pistas mezcladas pero no hay muxedVideoFile.');
     // Mismo archivo en dos pistas solo tiene sentido con canales distintos.
     const byFile = new Map(); for (const t of tracks) { if (!byFile.has(t.file)) byFile.set(t.file, []); byFile.get(t.file).push(t); }
-    for (const [f, ts] of byFile) if (ts.length > 1 && new Set(ts.map((t) => t.channelIndex)).size < ts.length) warnings.push(`Varias pistas usan ${f} sin canales distintos: el audio se duplicaría.`);
+    for (const [f, ts] of byFile) if (ts.length > 1) {
+      const channels = ts.map(t => t.channelIndex);
+      // A full-file track cannot coexist with isolated channels of the same
+      // file; duplicate channel indexes would play the same voice twice.
+      if (channels.includes(null) || new Set(channels).size !== channels.length)
+        errors.push(`Varias pistas usan ${f} sin canales exclusivos: audio duplicado.`);
+    }
     const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs']);
     for (const k of Object.keys(m)) if (!known.has(k)) warnings.push(`Campo desconocido ignorado: ${k}.`);
   }

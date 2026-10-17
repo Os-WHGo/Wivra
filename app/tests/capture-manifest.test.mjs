@@ -42,10 +42,10 @@ test('rechaza: rol inválido, kind distinto de audio, ids repetidos, canal fuera
   assert.equal(mk((m) => { m.tracks[0].startOffsetSeconds = '0.1'; }).ok, false);
   assert.equal(mk((m) => { m.tracks[0].sampleRateHz = 0; }).ok, false);
 });
-test('rechaza muxedFromTrackIDs inconsistente y avisa de audio duplicado o campos nuevos', () => {
+test('rechaza muxedFromTrackIDs inconsistente y canales de audio duplicados; avisa de campos nuevos', () => {
   const a = byName('single-hfp-sidecar'); a.muxedFromTrackIDs = ['no-existe']; assert.equal(parseManifest(a).ok, false);
   const b = byName('single-hfp-sidecar'); b.muxedVideoFile = null; assert.equal(parseManifest(b).ok, false);
-  const c = byName('usb-stereo-two-transmitters-hypothetical'); c.tracks[1].channelIndex = 0; const rc = parseManifest(c); assert.ok(rc.ok); assert.ok(rc.warnings.some((w) => /duplic/.test(w)));
+  const c = byName('usb-stereo-two-transmitters-hypothetical'); c.tracks[1].channelIndex = 0; const rc = parseManifest(c); assert.equal(rc.ok, false); assert.ok(rc.errors.some((e) => /duplicado/.test(e)));
   const d = byName('silent-video-no-audio'); d.futuro = 1; const rd = parseManifest(d); assert.ok(rd.ok); assert.ok(rd.warnings.some((w) => /futuro/.test(w)));
 });
 test('versión desconocida, JSON roto y entradas no objeto', () => {
@@ -143,4 +143,14 @@ test('video silencioso sigue siendo válido; nombres duplicados o archivos vací
  assert.equal(captureSelectionPlan(m,[m.videoFile,m.videoFile]).ok,false);
  assert.equal(captureSelectionPlan(m,[{name:m.videoFile,size:0}]).ok,false);
  assert.equal(captureSelectionPlan(m,[{name:m.videoFile,size:1024}]).ok,true);
+});
+
+test('nunca se reproduce dos veces el mismo WAV mezclando archivo completo y canal aislado',()=>{
+ const m=byName('usb-stereo-two-transmitters-hypothetical');
+ m.tracks[1].channelIndex=null;
+ const r=parseManifest(m);
+ assert.equal(r.ok,false);
+ assert.ok(r.errors.some(e=>/audio duplicado/.test(e)));
+ const distinct=parseManifest(byName('usb-stereo-two-transmitters-hypothetical'));
+ assert.equal(distinct.ok,true);
 });
