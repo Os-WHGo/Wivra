@@ -31,7 +31,12 @@ test('Only completed app-local recordings are offered, system file picker still 
   assert.match(source, /requestURL\.isFileURL/);
   assert.match(source, /approvedEditor\?\.standardizedFileURL == requestURL\.standardizedFileURL/);
   assert.match(source, /let approvedEditor = Bundle\.main\.url\(forResource: "agentcut", withExtension: "html"\)/);
-  assert.doesNotMatch(source, /evaluateJavaScript\(/);
+  assert.match(source, /webView\.evaluateJavaScript\("window\.__wivraCaptureInputIntent === true"\)/);
+  assert.match(source, /offerCaptureBundles: multiple && result as\? Bool == true/);
+  assert.match(source, /if offerCaptureBundles \{/);
+  assert.match(source, /picker\.allowsMultipleSelection = allowsMultiple/);
+  assert.match(source, /el\?\.id === 'capFile'/);
+  assert.doesNotMatch(source, /evaluateJavaScript\(".*file:|evaluateJavaScript\(".*videoPath/);
   assert.doesNotMatch(source, /live\.start/);
 });
 
@@ -65,4 +70,16 @@ test('Native capture readiness is validated without exposing private media paths
   assert.doesNotMatch(bridge, /"videoPath"\s*:/);
   assert.match(source, /checkCapture: \(captureId\)/);
   assert.match(html, /WivraEditorImport/);
+});
+
+test('iOS capture bundles cannot appear in the ordinary multi-video chooser',()=>{
+ const sourceFile=source.indexOf('window.__wivraCaptureInputIntent === true');
+ const choice=source.indexOf('if offerCaptureBundles {');
+ assert.ok(sourceFile>0 && choice>sourceFile);
+ assert.match(source,/window\.__wivraCaptureInputIntent = false/);
+ assert.match(source,/document\.addEventListener\('click'/);
+ assert.match(source,/input\[type="file"\]/);
+ assert.match(source,/let multiple = parameters\.allowsMultipleSelection/);
+ assert.doesNotMatch(source,/if parameters\.allowsMultipleSelection \{\s*for item in ready/);
+ assert.match(source,/UIDocumentPickerViewController\(forOpeningContentTypes: \[\.item\], asCopy: false\)/);
 });

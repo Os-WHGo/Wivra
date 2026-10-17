@@ -41,6 +41,27 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
             return
         }
         pendingFileSelection = completionHandler
+        // WKOpenPanelParameters exposes only multiple/directory switches, NOT
+        // the HTML input's accept= types. Both #file and #capFile are multiple.
+        // Read one fixed, boolean-only marker from the verified offline editor.
+        // Do not inject URLs, script from captures or arbitrary HTML into JS.
+        let multiple = parameters.allowsMultipleSelection
+        webView.evaluateJavaScript("window.__wivraCaptureInputIntent === true") {
+            [weak self, weak webView, weak presenter] result, _ in
+            guard let self, let webView, let presenter else {
+                self?.finishSelection(nil)
+                return
+            }
+            self.presentFileSelection(in: webView, from: presenter,
+                allowsMultiple: multiple,
+                offerCaptureBundles: multiple && result as? Bool == true)
+        }
+    }
+
+    private func presentFileSelection(
+        in webView: WKWebView, from presenter: UIViewController,
+        allowsMultiple: Bool, offerCaptureBundles: Bool
+    ) {
         let all = WivraLocalCaptureScanner.read().days.flatMap { $0.captures }
         let ready = all.filter { $0.videoURL != nil }
             .sorted { $0.recordedAt > $1.recordedAt }
@@ -52,7 +73,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
 
         // A capture requires a manifest AND a video (and optional CAF tracks),
         // so it is only offered for multi-file input elements.
-        if parameters.allowsMultipleSelection {
+        if offerCaptureBundles {
             for item in ready.prefix(12) {
                 let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
                 sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
@@ -69,7 +90,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
             guard let self else { return }
             let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
-            picker.allowsMultipleSelection = parameters.allowsMultipleSelection
+            picker.allowsMultipleSelection = allowsMultiple
             picker.delegate = self
             presenter.present(picker, animated: true)
         })
@@ -141,6 +162,13 @@ private struct WivraEditorWebView: UIViewRepresentable {
         )
         // Main-frame-only, fixed method list. JS gets metadata, never a file URL.
         let script = WKUserScript(source: """
+            // Remember only which trusted local input the user actually used.
+            // A label-click is forwarded to the input's own click event.
+            window.__wivraCaptureInputIntent = false;
+            document.addEventListener('click', (event) => {
+              const el = event.target?.closest?.('input[type="file"]');
+              window.__wivraCaptureInputIntent = el?.id === 'capFile';
+            }, true);
             window.WivraHost = Object.freeze({
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
