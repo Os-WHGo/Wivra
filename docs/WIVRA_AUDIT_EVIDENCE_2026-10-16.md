@@ -177,3 +177,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 ## Corrección del flujo de ensamblaje de beta
 - El workflow `.github/workflows/wivra-complete-beta-assembly.yml` tenía `concurrency.cancel-in-progress: true`, lo que permite cancelar empaquetados Android/iOS al llegar otra ejecución del mismo PR/ref. Es una **causa plausible**, no demostración concluyente, de los dos jobs `cancelled` en run `38984681721`.
 - Commit `bd6f90ca2151bd6e50554b2b639f6a82dd74ad25`: `cancel-in-progress: false` y activación `push` para la rama de integración `chatgpt/wivra-unified-owner-20261016`. Debe confirmarse con una nueva ejecución completa y artefactos publicados.
+
+## Nueva revisión: localización de la interfaz nativa iOS
+- El proyecto exige ES/EN/PT/FR/DE/JA/ZH/IT. `streaming/ios/B0/Resources/es.lproj/Localizable.strings` existe, pero `Resources/pt.lproj/Localizable.strings` y `Resources/zh.lproj/Localizable.strings` no existen en la rama de integración a esta revisión. El workflow de beta iOS solo comprueba `es en fr de it ja`, por lo que una compilación verde no garantiza ocho idiomas en la interfaz nativa.
+- El editor HTML tiene su propia localización; **no confundir idiomas del editor con traducciones del shell iOS**. Completar PT/ZH y ampliar la puerta de CI a los ocho antes de declarar localización finalizada.
+- Tras corregir `cancel-in-progress`, nuevo run de ensamblaje `38988203542` encolado; no atribuir éxito hasta ver trabajos Android/iOS y artefactos.
