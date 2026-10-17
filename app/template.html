@@ -1195,7 +1195,7 @@ async function importCapture(files) {
 // Never accept arbitrary native paths or a capture payload from a remote page.
 window.WivraEditorImport = Object.freeze({
   importFiles: async (files) => {
-    if (!Array.isArray(files) || !files.every(f => f instanceof File)) throw new TypeError('Archivos de captura inválidos');
+    if (!Array.isArray(files) || !files.every(f => typeof File !== 'undefined' && f instanceof File)) throw new TypeError('Archivos de captura inválidos');
     await importCapture(files);
   }
 });
