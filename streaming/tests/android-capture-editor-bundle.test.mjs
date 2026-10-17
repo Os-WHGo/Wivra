@@ -93,3 +93,10 @@ test('Editor contract retains selected USB mic identity and negative WAV offset'
    'Wivra_Phone_20.wav':{id:'a',duration:9}}});
  assert.deepEqual([r.ops[1].start,r.ops[1].in],[0,0.13]);
 });
+
+test('Missing or JSON-null input name does not become a fake string "null" on Android',()=>{
+ assert.match(bundle,/if \(raw\.isNull\("selectedInputName"\)\) null else/);
+ assert.match(bundle,/val safeInput: Any = inputName \?: JSONObject\.NULL/);
+ assert.match(bundle,/put\("inputName", safeInput\)/);
+ assert.match(bundle,/put\("selectedInputName", safeInput\)/);
+});

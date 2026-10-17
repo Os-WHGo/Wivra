@@ -66,8 +66,11 @@ object WivraCaptureImport {
                     .takeIf { it in setOf("android-phone-mic", "android-wired-mic",
                         "android-usb-mic", "android-bluetooth-mic", "android-system-mic") }
                     ?: "android-system-mic"
-                val inputName = raw.optString("selectedInputName").trim()
-                    .take(96).takeIf { it.isNotEmpty() && it.all { c -> c >= ' ' && c != '\u007f' } }
+                // JSONObject.NULL may stringify as "null" via optString.
+                // Do not create a fake microphone name for automatic routing.
+                val inputName = if (raw.isNull("selectedInputName")) null else
+                    raw.optString("selectedInputName").trim().take(96)
+                        .takeIf { it.isNotEmpty() && it.all { c -> c >= ' ' && c != '\u007f' } }
                 val safeInput: Any = inputName ?: JSONObject.NULL
                 val track = JSONObject().put("id", "audio-1").put("kind", "audio")
                     .put("role", "voice_primary").put("source", source)
