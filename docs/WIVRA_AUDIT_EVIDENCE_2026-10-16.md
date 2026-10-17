@@ -315,3 +315,7 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - En [run 39066458330](https://github.com/Os-WHGo/Wivra/actions/runs/39066458330) las 4 pruebas MediaStore aprobaron, pero `WivraEditorWebViewTest` falló al lanzar la MainActivity con `IllegalStateException: The specified child already has a parent`.
 - Causa: se añadía `glasses` a `shell` antes de añadir el mismo `Button` a `sources`; Android no permite dos padres para una misma View. **Esto causaba un crash de inicio de Android**, invisible para compilación, contratos de Node y MediaStore.
 - Se eliminó la primera inserción y se conservan ambos botones dentro de `sources`, distribuidos a partes iguales. Prueba de contrato de fuente asegura que `shell.addView(glasses)` no reaparezca. Revalidar arranque de editor JS en emulador; pruebas físicas continúan pendientes.
+
+## Ajuste de test Android WebView a hilo principal
+- Run [39066902427](https://github.com/Os-WHGo/Wivra/actions/runs/39066902427): desapareció el crash por padre duplicado; cuatro pruebas MediaStore continúan aprobadas. Quinto caso aún falla **por una llamada del propio test a `WebView.getSettings()` desde el hilo de instrumentación**, antes de ejercer el importador JS.
+- Se reubicaron ambas comprobaciones de seguridad WebView dentro de `instrumentation.runOnMainSync`, igual que `evaluateJavascript`. No se modifica código productivo adicional; la prueba real del JS sigue pendiente de ejecutar. No marcar WebView como aprobado antes de CI.

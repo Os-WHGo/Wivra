@@ -122,6 +122,7 @@ test('CI instrumented emulator launches real offline WebView and validates captu
  assert.match(instrumented,/file:\/\/\/android_asset\/agentcut\.html/);
  assert.match(instrumented,/evaluateJavascript\(source/);
  assert.match(instrumented,/getAllowUniversalAccessFromFileURLs\(\)/);
+ assert.match(instrumented,/instrumentation\.runOnMainSync\(\(\) -> secureFileSettings\.set/);
  assert.match(instrumented,/captureSelectionPlan\(parsed\.manifest/);
  assert.match(instrumented,/planImportOps\(importPlan\(parsed\.manifest\)/);
  assert.match(instrumented,/op\.ops\[1\]\.start===0\.22/);

@@ -16,8 +16,8 @@ import org.junit.runner.RunWith;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -62,8 +62,13 @@ public class WivraEditorWebViewTest {
         try {
             WebView editor = findEditor(activity.getWindow().getDecorView());
             assertNotNull("Native Wivra shell must use its embedded WebView editor", editor);
-            assertFalse(editor.getSettings().getAllowFileAccessFromFileURLs());
-            assertFalse(editor.getSettings().getAllowUniversalAccessFromFileURLs());
+            // Android WebView getters are confined to its UI/main Looper too.
+            // The instrumentation runner itself executes tests off that thread.
+            AtomicBoolean secureFileSettings = new AtomicBoolean(false);
+            instrumentation.runOnMainSync(() -> secureFileSettings.set(
+                !editor.getSettings().getAllowFileAccessFromFileURLs() &&
+                !editor.getSettings().getAllowUniversalAccessFromFileURLs()));
+            assertTrue("Editor WebView must isolate local file URLs", secureFileSettings.get());
 
             final String probe = "(function(){try{" +
                 "const input=document.getElementById('capFile');" +
