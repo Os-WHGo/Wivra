@@ -81,7 +81,7 @@ object WivraCaptureImport {
                 // A unique temp file avoids following a stale symlink from a crash.
                 val tmp = Files.createTempFile(destinationDir.toPath(), "wivra-", ".tmp")
                 try {
-                    Files.writeString(tmp, manifest.toString(), Charsets.UTF_8)
+                    Files.write(tmp, manifest.toString().toByteArray(Charsets.UTF_8))
                     try {
                         Files.move(tmp, jsonFile.toPath(),
                             StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)

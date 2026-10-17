@@ -222,7 +222,7 @@ object WivraPhoneMediaStore {
             val tmp = Files.createTempFile(timingFile.parentFile.toPath(),
                 "wivra-association-", ".tmp")
             try {
-                Files.writeString(tmp, data.toString(2), Charsets.UTF_8)
+                Files.write(tmp, data.toString(2).toByteArray(Charsets.UTF_8))
                 try {
                     Files.move(tmp, timingFile.toPath(),
                         StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)

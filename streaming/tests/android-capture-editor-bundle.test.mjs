@@ -66,3 +66,11 @@ test('v2 capture manifest preserves native approximate WAV offset in editor time
   assert.equal(ops.ops[1].start,3.22);
   assert.equal(ops.skipped.length,0);
 });
+
+test('Android API source uses supported Files.write byte arrays, not unavailable writeString',()=>{
+ const mediaStore=read(dir+'java/com/oswhgo/wivra/WivraPhoneMediaStore.kt');
+ assert.match(bundle,/Files\.write\(tmp, manifest\.toString\(\)\.toByteArray\(Charsets\.UTF_8\)\)/);
+ assert.match(mediaStore,/Files\.write\(tmp, data\.toString\(2\)\.toByteArray\(Charsets\.UTF_8\)\)/);
+ assert.doesNotMatch(bundle,/Files\.writeString/);
+ assert.doesNotMatch(mediaStore,/Files\.writeString/);
+});
