@@ -34,3 +34,14 @@ test('Only completed app-local recordings are offered, system file picker still 
   assert.doesNotMatch(source, /evaluateJavaScript\(/);
   assert.doesNotMatch(source, /live\.start/);
 });
+
+test('Native capture scanner refuses symlink escapes and nonregular media', () => {
+  const library = readFileSync(new URL('../ios/B0/Sources/WivraNativeCaptureLibrary.swift', import.meta.url), 'utf8');
+  assert.match(library, /private static func regularCaptureFile\(/);
+  assert.match(library, /resolvingSymlinksInPath\(\)/);
+  assert.match(library, /resolvedFile\.deletingLastPathComponent\(\) == resolvedFolder/);
+  assert.match(library, /\.isRegularFileKey/);
+  assert.match(library, /regularCaptureFile\(manifestURL, in: folder\)/);
+  assert.match(library, /regularCaptureFile\(original, in: folder\)/);
+  assert.match(library, /regularCaptureFile\(url, in: folder\)/);
+});
