@@ -30,9 +30,12 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
     ) {
+        let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard pendingFileSelection == nil,
               frame.isMainFrame,
-              frame.request.url?.isFileURL == true,
+              let requestURL = frame.request.url,
+              requestURL.isFileURL,
+              approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
               let presenter = webView.window?.rootViewController else {
             completionHandler(nil)
             return
