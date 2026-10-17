@@ -26,7 +26,7 @@ test('restricted bridge exposes safe metadata and picker readiness without paths
  assert.match(bridge,/message\.frameInfo\.isMainFrame/);
  assert.match(bridge,/message\.frameInfo\.request\.url\?\.isFileURL == true/);
  assert.match(bridge,/nativeMediaImport": "file_picker"/);
- assert.match(bridge,/case "library\\.importSelection"/);
+ assert.match(bridge,/case "library\.importSelection"/);
  assert.match(bridge,/readyForPicker": true/);
  assert.match(bridge,/live": "not_verified"/);
  assert.match(bridge,/captureId/);
