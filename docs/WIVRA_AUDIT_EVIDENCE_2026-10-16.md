@@ -297,3 +297,7 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 ## Corrección de lanzamiento de prueba instrumentada Android
 - En run `39058232313`, el emulador Android API 35 arrancó e instaló APKs correctamente; falló **antes de ejecutar cualquier prueba** porque android-emulator-runner interpreta las líneas del campo script de forma separada. Las continuaciones de shell `\\` partían el comando `adb shell am instrument` y producían `Argument expected after "-r"`.
 - Ahora se ejecuta la orden completa en una única línea sin continuaciones, preservando el pipe de log y el gate `OK (N tests)`. No se cambia el APK de producción; solo la invocación de CI. Revalidar la ejecución posterior antes de atribuir éxito.
+
+## Hallazgo **ejecutado** en emulador Android API35
+- Run `39058668549`: 3/4 tests instrumentados ejecutados OK; `savedPhoneMp4AndWavBecomeOneReadableCaptureManifest` falló en `Published media pair should be available`. El pipeline correctamente quedó ROJO, aunque las compilaciones iOS/Android y suites JS fueron verdes. Se investiga el desacuerdo entre filas propietarias MediaStore, URI publicado y sidecar privado; no declarar la importación nativa verificada todavía.
+- Instrumentación reforzada con aserciones separadas para video/WAV propiedad de Wivra y diagnóstico de los URI publicados, sin datos del usuario (archivos y medios sintéticos en emulador), antes de la consulta a `WivraCaptureImport.bundles`. El siguiente resultado permitirá aislar la causa y corregir producción.

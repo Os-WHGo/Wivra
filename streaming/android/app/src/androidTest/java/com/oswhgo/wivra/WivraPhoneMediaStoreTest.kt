@@ -140,10 +140,27 @@ class WivraPhoneMediaStoreTest {
             val saved = WivraPhoneMediaStore.publishPair(context, video)
             publishedVideo = saved.video
             publishedWav = saved.audio
+            val savedVideos = WivraPhoneMediaStore.latestSavedVideos(context)
+            val savedWavs = WivraPhoneMediaStore.latestSavedWav(context)
+            assertTrue("Published MP4 missing in owner-filtered MediaStore video query: " +
+                "expected=" + saved.video + ", found=" + savedVideos.joinToString {
+                    it.title + "=" + it.uri
+                }, savedVideos.any { it.uri == saved.video })
+            assertTrue("Published WAV missing in owner-filtered MediaStore audio query: " +
+                "expected=" + saved.audio + ", found=" + savedWavs.joinToString {
+                    it.title + "=" + it.uri
+                }, savedWavs.any { it.uri == saved.audio })
             val imported = WivraCaptureImport.bundles(context).firstOrNull {
                 it.uris.size == 3 && it.uris[1] == saved.video && it.uris[2] == saved.audio
             }
-            assertTrue("Published media pair should be available", imported != null)
+            val sid = File(context.filesDir, "phone-pending/" +
+                video.name.removeSuffix(".mp4") + ".wivra.json")
+            val sidecar = if (sid.isFile) org.json.JSONObject(sid.readText()) else null
+            assertTrue("Published pair should be discoverable: sidecar=" +
+                (sidecar?.optString("publishedVideoUri") ?: "missing") + "/" +
+                (sidecar?.optString("publishedAudioUri") ?: "missing") +
+                " videos=" + savedVideos.map { it.title } +
+                " wavs=" + savedWavs.map { it.title }, imported != null)
             val uris = imported!!.uris
             assertEquals("content", uris[0].scheme)
             val body = context.contentResolver.openInputStream(uris[0])!!
