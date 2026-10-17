@@ -45,3 +45,12 @@ test('Native capture scanner refuses symlink escapes and nonregular media', () =
   assert.match(library, /regularCaptureFile\(original, in: folder\)/);
   assert.match(library, /regularCaptureFile\(url, in: folder\)/);
 });
+
+test('Embedded editor subframes stay inside bundled resources', () => {
+  assert.match(source, /let bundledDirectory = Bundle\.main\.url/);
+  assert.match(source, /let localResource = url\.isFileURL/);
+  assert.match(source, /file\.path\.hasPrefix\(root\.path \+ "\/"\)/);
+  assert.match(source, /url\.resolvingSymlinksInPath\(\)/);
+  assert.match(source, /url\.absoluteString == "about:blank"/);
+  assert.match(source, /decisionHandler\(localResource \|\| safeBlankDocument \? \.allow : \.cancel\)/);
+});
