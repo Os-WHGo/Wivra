@@ -30,6 +30,10 @@ test('Only a non-exported cache JSON is generated, not media copies or remote UR
   assert.match(bundle,/put\("startOffsetSeconds", offset\)/);
   assert.match(bundle,/arrayOf\(manifestUri, video\.uri, wav\.uri\)/);
   assert.match(bundle,/FileProvider\.getUriForFile/);
+  assert.match(bundle,/Files\.createTempFile/);
+  assert.match(bundle,/Files\.move/);
+  assert.match(bundle,/safeMediaName/);
+  assert.doesNotMatch(bundle,/tmp\.copyTo/);
   assert.match(android,/android:exported="false" android:grantUriPermissions="true"/);
   assert.match(paths,/cache-path[^>]+path="wivra-capture-import\/"/);
   assert.match(build,/androidx\.core:core:/);
@@ -39,6 +43,7 @@ test('Multi-selection of capture JSON uses the existing editor, simple choices s
   assert.match(main,/accept\.contains\("application\/json"\)/);
   assert.match(main,/FileChooserParams\.MODE_OPEN_MULTIPLE/);
   assert.match(main,/WivraCaptureImport\.bundles\(MainActivity\.this\)/);
+  assert.match(main,/R\.string\.picker_phone_capture_bundle/);
   assert.match(main,/completion\.onReceiveValue\(multiChoices\.get\(item\)\)/);
   assert.match(main,/new Uri\[\]\{choices\.get\(item\)\}/);
   assert.match(main,/launchSystemPicker\(params\)/);
