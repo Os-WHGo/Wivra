@@ -102,7 +102,7 @@ test('Missing or JSON-null input name does not become a fake string "null" on An
 });
 
 test('Unified Android assembly actually executes MediaStore capture instrumentation on an emulator',()=>{
- const workflow=read('../../../.github/workflows/wivra-complete-beta-assembly.yml');
+ const workflow=read('../../.github/workflows/wivra-complete-beta-assembly.yml');
  assert.match(workflow,/android-media-emulator:/);
  assert.match(workflow,/needs: android-beta/);
  assert.match(workflow,/api-level: 35/);

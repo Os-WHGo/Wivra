@@ -1991,7 +1991,7 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder audio. ' +
         (r.missingAudio.length ? r.missingAudio.length + ' pista(s) independientes no se pudieron decodificar. ' : '') +
         (r.unavailableAudio ? 'Este navegador no permite mezclar/grabar sonido. ' : '') +
-        (r.truncatedVoices?.length ? r.truncatedVoices.length + ' voz/veces se cortarían al finalizar el video (' +
+        (r.truncatedVoices?.length ? r.truncatedVoices.length + ' pista(s) de voz se cortarían al finalizar el video (' +
           r.truncatedVoices.map(v => v.secondsLost + ' s').join(', ') + '). Acorta/reubica las voces o extiende los clips visuales. ' : '') +
         'Puedes revisar/reimportar las pistas, o marcar la casilla para aceptar expresamente una exportación incompleta.';
       return;
