@@ -28,6 +28,16 @@ enum WivraLocalCaptureScanner {
         !name.contains("\n") && !name.contains("\r") && !name.contains("\0")
     }
 
+    // A safe basename alone is insufficient: a symlink inside the recording
+    // directory could point outside the app's private capture folder.
+    private static func regularCaptureFile(_ url: URL, in folder: URL) -> Bool {
+        let resolvedFolder = folder.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedFile = url.resolvingSymlinksInPath().standardizedFileURL
+        guard resolvedFile.deletingLastPathComponent() == resolvedFolder else { return false }
+        let values = try? resolvedFile.resourceValues(forKeys: [.isRegularFileKey])
+        return values?.isRegularFile == true
+    }
+
     static func read() -> (days: [WivraStoredCaptureDay], rejected: Int) {
         let fm = FileManager.default
         let root = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -43,6 +53,7 @@ enum WivraLocalCaptureScanner {
             let folder = root.appendingPathComponent(folderName, isDirectory: true)
             guard let urls = try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { continue }
             for manifestURL in urls where manifestURL.lastPathComponent.hasSuffix(".wivra.json") {
+                guard regularCaptureFile(manifestURL, in: folder) else { rejected += 1; continue }
                 do {
                     let data = try Data(contentsOf: manifestURL)
                     let m = try JSONDecoder().decode(WivraCaptureManifest.self, from: data)
@@ -68,20 +79,20 @@ enum WivraLocalCaptureScanner {
                     seen.insert(m.captureID)
                     let original = folder.appendingPathComponent(m.originalVideoFile)
                     let combined = m.muxedVideoFile.map { folder.appendingPathComponent($0) }
-                    let video = fm.fileExists(atPath: original.path) ? original :
-                        (combined.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil })
+                    let video = regularCaptureFile(original, in: folder) ? original :
+                        (combined.flatMap { regularCaptureFile($0, in: folder) ? $0 : nil })
                     let alternateVideoURL = video == original && combined != nil &&
-                        fm.fileExists(atPath: combined!.path) ? combined : nil
+                        regularCaptureFile(combined!, in: folder) ? combined : nil
                     let audio = Set(m.tracks.map(\.file)).sorted()
                     let audioURLs = audio.compactMap { name -> URL? in
                         let url = folder.appendingPathComponent(name)
-                        return fm.fileExists(atPath: url.path) ? url : nil
+                        return regularCaptureFile(url, in: folder) ? url : nil
                     }
                     var names = Set(audio)
                     names.insert(m.originalVideoFile)
                     if let muxed = m.muxedVideoFile { names.insert(muxed) }
                     let missing = names.sorted().filter {
-                        !fm.fileExists(atPath: folder.appendingPathComponent($0).path)
+                        !regularCaptureFile(folder.appendingPathComponent($0), in: folder)
                     }
                     items.append(WivraStoredCapture(
                         id: m.captureID, recordedAt: date,
