@@ -114,7 +114,14 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         } else {
             // The offline editor may load local resources, but embedded remote
             // documents must not be able to reach the native file bridge.
-            decisionHandler(url.isFileURL || url.scheme == "about" ? .allow : .cancel)
+            let bundledDirectory = Bundle.main.url(forResource: "agentcut", withExtension: "html")?
+                .deletingLastPathComponent().standardizedFileURL
+            let localResource = url.isFileURL && bundledDirectory.map { root in
+                let file = url.standardizedFileURL
+                return file.path.hasPrefix(root.path + "/")
+            } == true
+            let safeBlankDocument = url.absoluteString == "about:blank"
+            decisionHandler(localResource || safeBlankDocument ? .allow : .cancel)
         }
     }
 }
