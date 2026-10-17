@@ -268,3 +268,8 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 - GitHub Actions del commit `4a978f07` mostró `git diff --exit-code -- app/dist/agentcut.html`: el nuevo helper `captureSelectionPlan` estaba en el módulo ESM, pero no en el HTML embebido; el editor HTML no podía invocarlo. Se sincronizó el helper respetando la eliminación de `export` de `app/build.mjs`.
 - Test corregido para informar los **dos** WAV ausentes en el caso hipotético (audio original no presente + voz invitada no mezclada). El comportamiento esperado era correcto; la expectativa del test omitía uno.
 - La compilación y la suite deben comprobarse de nuevo sobre este SHA antes de declarar éxito.
+
+## Recuperación de una importación no aplicada (17-10-2026)
+- Si la lectura de WAV/CAF o separación de canales falla antes de ejecutar `run(out.ops)`, los archivos previamente decodificados podían persistir como assets huérfanos en el proyecto y sus instantáneas de deshacer/rehacer.
+- `importCapture` ahora acumula los IDs de assets añadidos durante ese intento. Al abortar, conserva cualquier asset que ya esté referenciado por clips del proyecto o del historial y libera únicamente los nuevos no utilizados en todas las instantáneas, recursos `blob:` y `mediaFiles`. Si se creó una sesión vacía exclusivamente por el intento, se descarta. El contador de IDs mantiene monotonía para evitar colisiones.
+- Se conserva un único batch para timeline cuando todas las pistas requeridas se abren. Los cambios son locales; ninguna captura nativa original se borra o altera. Pruebas de contratos adicionales en HTML fuente y generado; la restauración de IndexedDB y WebView física requiere QA.
