@@ -120,3 +120,14 @@ test('The WAV manifest retains the explicitly selected route and microphone name
  assert.match(importBundle,/put\("selectedInputName", safeInput\)/);
  assert.doesNotMatch(importBundle,/put\("audioSource", "android-phone-mic"\)/);
 });
+
+test('Android WAV discovery tolerates system-normalized WAV MIME while retaining app ownership',()=>{
+ const fn=store.slice(store.indexOf('fun latestSavedWav('),store.indexOf('fun saveSidecarTiming('));
+ assert.match(fn,/Music\/Wivra\//);
+ assert.match(fn,/OWNER_PACKAGE_NAME/);
+ assert.match(fn,/IS_PENDING/);
+ assert.match(fn,/SIZE/);
+ assert.match(fn,/PUBLISHED_PREFIX/);
+ assert.doesNotMatch(fn,/MediaStore\.Audio\.Media\.MIME_TYPE} = \?/);
+ assert.doesNotMatch(fn,/arrayOf\("Music\/Wivra\/", "\$PUBLISHED_PREFIX%", "audio\/wav"/);
+});

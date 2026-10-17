@@ -251,14 +251,16 @@ object WivraPhoneMediaStore {
         val results = mutableListOf<SavedMedia>()
         val where = "${MediaStore.Audio.Media.RELATIVE_PATH} = ? AND " +
             "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? AND " +
-            "${MediaStore.Audio.Media.MIME_TYPE} = ? AND " +
+            // Android's media scanner may normalize WAV to audio/x-wav,
+            // audio/wave or another supported variant after publication.
+            // Do not hard-require the originally inserted MIME value.
             "${MediaStore.Audio.Media.IS_PENDING} = 0 AND " +
             "${MediaStore.Audio.Media.SIZE} > 44 AND " +
             "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?"
         return try {
             context.contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, columns, where,
-                arrayOf("Music/Wivra/", "$PUBLISHED_PREFIX%", "audio/wav", context.packageName),
+                arrayOf("Music/Wivra/", "$PUBLISHED_PREFIX%", context.packageName),
                 "${MediaStore.Audio.Media.DATE_ADDED} DESC"
             )?.use { cursor ->
                 val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)

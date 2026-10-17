@@ -146,10 +146,23 @@ class WivraPhoneMediaStoreTest {
                 "expected=" + saved.video + ", found=" + savedVideos.joinToString {
                     it.title + "=" + it.uri
                 }, savedVideos.any { it.uri == saved.video })
+            val row = context.contentResolver.query(saved.audio, arrayOf(
+                android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+                android.provider.MediaStore.MediaColumns.MIME_TYPE,
+                android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                android.provider.MediaStore.MediaColumns.OWNER_PACKAGE_NAME,
+                android.provider.MediaStore.MediaColumns.IS_PENDING,
+                android.provider.MediaStore.MediaColumns.SIZE
+            ), null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) "not found" else
+                    (0 until cursor.columnCount).joinToString("; ") { i ->
+                        cursor.getColumnName(i) + "=" + cursor.getString(i)
+                    }
+            } ?: "query returned null"
             assertTrue("Published WAV missing in owner-filtered MediaStore audio query: " +
                 "expected=" + saved.audio + ", found=" + savedWavs.joinToString {
                     it.title + "=" + it.uri
-                }, savedWavs.any { it.uri == saved.audio })
+                } + ", direct row={" + row + "}", savedWavs.any { it.uri == saved.audio })
             val imported = WivraCaptureImport.bundles(context).firstOrNull {
                 it.uris.size == 3 && it.uris[1] == saved.video && it.uris[2] == saved.audio
             }
