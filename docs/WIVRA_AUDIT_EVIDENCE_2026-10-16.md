@@ -277,3 +277,10 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 ## Prevención de audio repetido en el manifiesto multipista
 - `parseManifest` ahora **rechaza** un mismo archivo de audio referenciado por varias pistas con el mismo `channelIndex` o una mezcla de canal completo `null` y canales individuales. Antes sólo avisaba y permitía insertar voces duplicadas en el timeline, especialmente con receptores USB estéreo. Los dos canales diferentes L/R siguen siendo válidos.
 - Contratos unitarios actualizados y HTML generado sincronizado. No se modifica la grabación original ni se inventan capacidades de hardware.
+
+## Cierre de flujo captura → timeline → persistencia → exportación segura (17-10-2026)
+- Hallazgo: cuando la voz primaria o invitada terminaba después del último fotograma del video, la exportación acortaba correctamente el contenedor al video, pero **cortaba la voz sin advertencia** aunque el WAV hubiera decodificado perfectamente. Ejemplo: offset de captura demasiado grande, o voz de entrevista prolongada durante edición.
+- `exportAudioPreflight` ahora detecta sólo voces primarias/invitadas activas con tramo más allá del final visual (>50 ms). Devuelve `truncatedVoices` con segundos de voz que se perderían y bloquea MediaRecorder, como los bloqueos preexistentes por audio sin decodificar, hasta corrección del timeline o consentimiento explícito del usuario. Música más larga que el video continúa recortándose automáticamente, sin colas negras ni bloqueos innecesarios.
+- La UI advierte y comunica segundos de voz truncados; casilla de aceptación continúa desmarcada. No se cambia el original ni se requiere API remota.
+- `app/tests/capture-export-roundtrip.test.mjs` prueba la cadena completa **en objetos y contratos JS**: Android MP4+WAV → selector → timeline multipista → serialización/reapertura → preflight de exportación; iOS MOV mezclado y CAF ausente con autorización explícita del manifest; pérdida de voz fuera del metraje. Es simulación, no prueba de cámaras/WebViews/hardware.
+- Código, plantilla y `app/dist/agentcut.html` editados en conjunto. Confirmar reproducibilidad del generador y CI sobre este SHA.

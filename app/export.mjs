@@ -249,9 +249,26 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
   const missingAudio = [...new Set(active.map(c => c.asset_id).filter(id => !decoded.has(id)))];
   const hasAudibleVideo = [...(project.clips || []), ...(project.overlayClips || [])]
     .some(c => media[c.asset_id]?.kind !== 'image' && !c.muted && clipGain(c) > 0);
+  // A main video determines the recorded duration. Extra music may legitimately
+  // be longer, but the end of a primary/guest voice must never be lost silently
+  // if its timeline extends beyond the last video frame. This catches a large
+  // native A/V offset and manual trims before starting MediaRecorder.
+  const videoEnd = (project.clips || []).reduce((end, c) => {
+    const length = clipLength(c);
+    return Number.isFinite(length) && Number.isFinite(c.start) ?
+      Math.max(end, c.start + length) : end;
+  }, 0);
+  const truncatedVoices = videoEnd > 0 ? active
+    .filter(c => c.role === 'voice_primary' || c.role === 'voice_guest')
+    .map(c => ({ id: c.id, role: c.role, end: c.start + clipLength(c) }))
+    .filter(c => Number.isFinite(c.end) && c.end > videoEnd + 0.05)
+    .map(c => ({ id: c.id, role: c.role, secondsLost: Math.round((c.end - videoEnd) * 100) / 100 }))
+    : [];
   return {
-    needsConfirmation: missingAudio.length > 0 || (!hasAudio && (active.length > 0 || hasAudibleVideo)),
+    needsConfirmation: missingAudio.length > 0 || truncatedVoices.length > 0 ||
+      (!hasAudio && (active.length > 0 || hasAudibleVideo)),
     missingAudio,
+    truncatedVoices,
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
 }

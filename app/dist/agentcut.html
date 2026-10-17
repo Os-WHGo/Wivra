@@ -538,7 +538,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <label for="expLoud" style="display:block;margin-top:8px">Volumen del video</label>
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
-  <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista de audio o el navegador no puede grabar sonido. Puede perderse una voz. Desmarcado por seguridad.</span></label>
+  <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
   <button id="expGo" class="btn">Empezar a exportar</button>
   <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
     <button id="expCancel" class="btn sec">Cancelar</button></div>
@@ -2009,9 +2009,26 @@ function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds
   const missingAudio = [...new Set(active.map(c => c.asset_id).filter(id => !decoded.has(id)))];
   const hasAudibleVideo = [...(project.clips || []), ...(project.overlayClips || [])]
     .some(c => media[c.asset_id]?.kind !== 'image' && !c.muted && clipGain(c) > 0);
+  // A main video determines the recorded duration. Extra music may legitimately
+  // be longer, but the end of a primary/guest voice must never be lost silently
+  // if its timeline extends beyond the last video frame. This catches a large
+  // native A/V offset and manual trims before starting MediaRecorder.
+  const videoEnd = (project.clips || []).reduce((end, c) => {
+    const length = clipLength(c);
+    return Number.isFinite(length) && Number.isFinite(c.start) ?
+      Math.max(end, c.start + length) : end;
+  }, 0);
+  const truncatedVoices = videoEnd > 0 ? active
+    .filter(c => c.role === 'voice_primary' || c.role === 'voice_guest')
+    .map(c => ({ id: c.id, role: c.role, end: c.start + clipLength(c) }))
+    .filter(c => Number.isFinite(c.end) && c.end > videoEnd + 0.05)
+    .map(c => ({ id: c.id, role: c.role, secondsLost: Math.round((c.end - videoEnd) * 100) / 100 }))
+    : [];
   return {
-    needsConfirmation: missingAudio.length > 0 || (!hasAudio && (active.length > 0 || hasAudibleVideo)),
+    needsConfirmation: missingAudio.length > 0 || truncatedVoices.length > 0 ||
+      (!hasAudio && (active.length > 0 || hasAudibleVideo)),
     missingAudio,
+    truncatedVoices,
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
 }
@@ -5408,6 +5425,8 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder audio. ' +
         (r.missingAudio.length ? r.missingAudio.length + ' pista(s) independientes no se pudieron decodificar. ' : '') +
         (r.unavailableAudio ? 'Este navegador no permite mezclar/grabar sonido. ' : '') +
+        (r.truncatedVoices?.length ? r.truncatedVoices.length + ' voz/veces se cortarían al finalizar el video (' +
+          r.truncatedVoices.map(v => v.secondsLost + ' s').join(', ') + '). Acorta/reubica las voces o extiende los clips visuales. ' : '') +
         'Puedes revisar/reimportar las pistas, o marcar la casilla para aceptar expresamente una exportación incompleta.';
       return;
     }
