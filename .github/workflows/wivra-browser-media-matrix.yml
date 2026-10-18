@@ -23,11 +23,15 @@ jobs:
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
+      - name: Run Wivra's actual recordProject on generated WebM plus WAV and verify Blob
+        run: node tools/browser-export-roundtrip.cjs
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Wivra-WebCodecs-Linux-Browser-Capabilities
-          path: wivra-media-capabilities.json
+          path: |
+            wivra-media-capabilities.json
+            wivra-export-browser-roundtrip.json
           if-no-files-found: warn
           retention-days: 7
