@@ -60,9 +60,9 @@ const server=http.createServer((req,res)=>{
     texts:[],format:{aspect:'original'}};
    const outcomes=[emit('source',{sourceMime:input.type,bytes:input.size,
     sourceRenderSeconds:+((performance.now()-start)/1000).toFixed(3),sourceWavBytes:wav.size})];
+   let actual;
    try{
     outcomes.push(emit('plan',{plan:exportPlan(project)}));
-    let actual;
     try{actual=await recordProject({project,media,onProgress:()=>{}})}
     catch(e){outcomes.push(emit('export_exception',{name:e.name,message:e.message,stack:String(e.stack).slice(0,1600)}));return {cases:outcomes}}
     if(actual?.audioBlocked){outcomes.push(emit('export_audio_blocked',{...actual}));return {cases:outcomes}}
