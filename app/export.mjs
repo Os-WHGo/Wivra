@@ -239,6 +239,23 @@ export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what 
   });
 }
 export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
+export const RECORDER_STOP_TIMEOUT_MS = 12000;
+/** Only await onstop if start() actually succeeded. Never hold a frozen
+ * mobile/WebView export forever, and let the caller release all resources.
+ * A completion event is required for the final dataavailable chunk. */
+export async function finishMediaRecorder(rec, stopped, { started = false, ms = RECORDER_STOP_TIMEOUT_MS } = {}) {
+  if (!started) return;
+  let timer;
+  try {
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('El grabador no terminó de cerrar el archivo. Prueba otra exportación.')), ms);
+    });
+    if (rec.state !== 'inactive') rec.stop();
+    await Promise.race([stopped, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
 // Fail closed before recording when a requested voice track was not decoded.
@@ -384,11 +401,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted;
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
-  const t0 = performance.now(); let cancelled = false;
+  const t0 = performance.now(); let cancelled = false, recorderStarted = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
     rec.start(1000);
+    recorderStarted = true;
     for (const seg of plan.segments) {
       if (stopNow()) { cancelled = true; break; }
       if (seg.type === 'gap') {
@@ -433,13 +451,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     await frame(); await frame();
   } finally {
     sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
-    if (rec.state !== 'inactive') rec.stop();
-    await stopped;
-    stream.getTracks().forEach((t) => t.stop());
-    oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
-    photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
-    ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
-    document.removeEventListener('visibilitychange', onVis);
+    try {
+      await finishMediaRecorder(rec, stopped, { started: recorderStarted });
+    } finally {
+      // This MUST execute even if MediaRecorder.start/stop throws or onstop
+      // never fires. Otherwise a hidden video, microphone or AudioContext
+      // remains active after a failed export.
+      stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* already stopped */ } });
+      oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
+      photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
+      ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+      document.removeEventListener('visibilitychange', onVis);
+    }
   }
   if (interrupted) return { interrupted: true };
   if (cancelled || isCancelled()) return { cancelled: true };
