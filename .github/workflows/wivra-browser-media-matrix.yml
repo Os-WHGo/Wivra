@@ -4,6 +4,8 @@ on:
     branches: [chatgpt/wivra-unified-owner-20261016]
     paths:
       - tools/browser-media-capability-probe.cjs
+      - tools/browser-export-roundtrip.cjs
+      - app/export.mjs
       - .github/workflows/wivra-browser-media-matrix.yml
   workflow_dispatch:
 permissions:

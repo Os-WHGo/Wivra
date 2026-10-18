@@ -236,6 +236,15 @@ const server=http.createServer((req,res)=>{
   if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
   if(!report.mediabunny?.hasAudio || !report.mediabunny?.hasVideo)process.exitCode=1;
   if(!report.decodedAudio?.nonSilent)process.exitCode=1;
+  // Wivra's mic starts 120 ms after video. Prove the export does not move
+  // independent voice to time zero, without assuming sample-accurate WebView
+  // scheduling from Linux CI.
+  const w=report.decodedAudio?.rmsWindows50ms||[];
+  const bin=(t)=>w.find(x=>Math.abs(x.start-t)<0.00001)?.rms;
+  if(!(bin(0)<0.015 && bin(0.05)<0.015 && bin(0.25)>0.06
+    && report.decodedAudio.firstLoudWindowStart>=0.05
+    && report.decodedAudio.firstLoudWindowStart<=0.2))process.exitCode=1;
+  if(report.decodedAudio?.seconds<1.10)process.exitCode=1;
   if(!report.sceneColors?.firstIsOrange||!report.sceneColors?.secondIsBlue)process.exitCode=1;
   if(!(report.cases.find(x=>x.label==='title_draw_attempts')?.count>0))process.exitCode=1;
   if(Math.abs(report.mediabunny.duration-report.ffprobe.duration)>0.3)process.exitCode=1;
