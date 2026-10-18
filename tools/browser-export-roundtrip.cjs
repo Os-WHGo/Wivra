@@ -101,6 +101,21 @@ const server=http.createServer((req,res)=>{
     const invalidMedia={...media,mic:{kind:'audio',url:'blob:invalid-nonexistent'}};
     const gate=await recordProject({project,media:invalidMedia,isCancelled:()=>false});
     outcomes.push(emit('missing_WAV_must_fail_closed',{blocked:gate?.audioBlocked===true,missingAudio:gate?.missingAudio||[]}));
+    // Unlike a missing WAV, a truncated WAV decodes just fine. It must still
+    // be rejected BEFORE recording because the requested original out=1.12.
+    const shortCount=Math.round(0.35*rate);
+    const shortBytes=buf.slice(0,44+shortCount*2);
+    const shortHeader=new DataView(shortBytes);
+    shortHeader.setUint32(4,36+shortCount*2,true);
+    shortHeader.setUint32(40,shortCount*2,true);
+    const shortUrl=URL.createObjectURL(new Blob([shortBytes],{type:'audio/wav'}));
+    try {
+      const shortGate=await recordProject({project,media:{...media,mic:{kind:'audio',url:shortUrl}}});
+      outcomes.push(emit('short_WAV_must_fail_closed',{
+        blocked:shortGate?.audioBlocked===true,missingAudio:shortGate?.missingAudio||[],
+        shortAudio:shortGate?.shortAudio||[]
+      }));
+    }finally{URL.revokeObjectURL(shortUrl)}
    }finally{CanvasRenderingContext2D.prototype.fillText=originalFillText;urls.forEach(URL.revokeObjectURL)}
    const target=outcomes.find(x=>x.label==='recordProject_result');
    const payload=actual?.blob && target?.bytes>0 ? await new Promise((res,rej)=>{
@@ -229,6 +244,10 @@ const server=http.createServer((req,res)=>{
   if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
   const safety=report.cases.find(x=>x.label==='missing_WAV_must_fail_closed');
   if(!safety||!safety.blocked)process.exitCode=1;
+  const shortSafety=report.cases.find(x=>x.label==='short_WAV_must_fail_closed');
+  if(!shortSafety?.blocked||shortSafety.shortAudio?.length!==1
+     ||shortSafety.missingAudio?.length!==0
+     ||shortSafety.shortAudio[0].secondsLost<0.7)process.exitCode=1;
   await page.close();
  }finally{await browser.close()}
 })().catch(e=>{report.error=String(e.stack||e);writeFileSync('wivra-export-browser-roundtrip.json',JSON.stringify(report,null,2)+'\n');console.error(e);process.exitCode=1}).finally(()=>server.close());
