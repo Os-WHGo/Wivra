@@ -51,9 +51,14 @@ export function fitRect(vw, vh, W, H, fit) {
 }
 
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
+// Prefer explicit H.264 MP4. Chromium can accept a *bare* 'video/mp4'
+// then silently produce VP9/Opus inside MP4, which is poorly portable.
+// Prefer explicit WebM over an ambiguous MP4 container when AVC is absent.
+// Safari/iOS with only MP4 support retains the final generic MP4 fallback.
 export const MIME_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4',
-  'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1',
+  'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm',
+  'video/mp4'];
 export function pickMime(isSupported) {
   for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
   return '';
