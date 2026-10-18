@@ -35,3 +35,12 @@ test('editor releases media and removes visibility listener even if closing the 
  assert.match(code,/document\.removeEventListener\('visibilitychange', onVis\)/);
  assert.equal(RECORDER_STOP_TIMEOUT_MS>=5000,true);
 });
+
+test('MediaRecorder constructor failure releases canvas stream, overlay elements and AudioContext',()=>{
+ const code=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
+ assert.match(code,/try \{\s*rec = new MediaRecorder\(/);
+ assert.match(code,/catch \(error\) \{\s*\/\/ Some WebViews advertise/);
+ assert.match(code,/stream\.getTracks\(\)\.forEach\(\(track\) => \{ try \{ track\.stop\(\)/);
+ assert.match(code,/await ac\.close\(\)/);
+ assert.match(code,/no pudo iniciar el grabador/);
+});
