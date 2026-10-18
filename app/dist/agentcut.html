@@ -2147,7 +2147,19 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   };
 
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+  let rec;
+  try {
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+  } catch (error) {
+    // Some WebViews advertise a container through isTypeSupported(), then
+    // throw from the constructor. This is before the main recording try/finally.
+    // Release every allocated native/media resource on this early failure.
+    stream.getTracks().forEach((track) => { try { track.stop(); } catch { /* released */ } });
+    oList.forEach((o) => { try { o.el.pause(); } catch { /* no media */ } try { o.el.remove(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch { /* context released */ }
+    throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
+  }
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
