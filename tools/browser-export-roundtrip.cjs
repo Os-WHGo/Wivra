@@ -117,6 +117,9 @@ const server=http.createServer((req,res)=>{
   const last=report.cases.find(x=>x.label==='recordProject_result');
   if(!last||!last.decoded||last.bytes<1000||!(last.w>0)||last.hasAudio!==true)process.exitCode=1;
   if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
+  if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
+  if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
+  if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
   const safety=report.cases.find(x=>x.label==='missing_WAV_must_fail_closed');
   if(!safety||!safety.blocked)process.exitCode=1;
   await page.close();
