@@ -23,6 +23,13 @@ jobs:
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
+      - name: Inspect synthetic media tracks using ffprobe
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          ffprobe -version | head -n 1
       - name: Run Wivra's actual recordProject on generated WebM plus WAV and verify Blob
         run: node tools/browser-export-roundtrip.cjs
       - name: Archive evidence only

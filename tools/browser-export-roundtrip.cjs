@@ -4,6 +4,7 @@
 const {chromium} = require('/tmp/wivra-media-lab/node_modules/playwright');
 const {readFileSync,writeFileSync} = require('node:fs');
 const http=require('node:http'), path=require('node:path');
+const {execFileSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const report={type:'WIVRA_REAL_EDITOR_BROWSER_EXPORT_SYNTHETIC_LINUX',
   source:'app/export.mjs',runner:'Playwright Chromium Linux; not mobile WebView',
@@ -63,9 +64,9 @@ const server=http.createServer((req,res)=>{
     outcomes.push(emit('plan',{plan:exportPlan(project)}));
     let actual;
     try{actual=await recordProject({project,media,onProgress:()=>{}})}
-    catch(e){outcomes.push(emit('export_exception',{name:e.name,message:e.message,stack:String(e.stack).slice(0,1600)}));return outcomes}
-    if(actual?.audioBlocked){outcomes.push(emit('export_audio_blocked',{...actual}));return outcomes}
-    if(!actual?.blob){outcomes.push(emit('export_empty',{...actual}));return outcomes}
+    catch(e){outcomes.push(emit('export_exception',{name:e.name,message:e.message,stack:String(e.stack).slice(0,1600)}));return {cases:outcomes}}
+    if(actual?.audioBlocked){outcomes.push(emit('export_audio_blocked',{...actual}));return {cases:outcomes}}
+    if(!actual?.blob){outcomes.push(emit('export_empty',{...actual}));return {cases:outcomes}}
     const bytes=actual.blob.size,video=document.createElement('video');
     const url=URL.createObjectURL(actual.blob);
     let loaded=false,seconds=null,w=null,h=null,decodeError=null;
@@ -87,14 +88,36 @@ const server=http.createServer((req,res)=>{
     const gate=await recordProject({project,media:invalidMedia,isCancelled:()=>false});
     outcomes.push(emit('missing_WAV_must_fail_closed',{blocked:gate?.audioBlocked===true,missingAudio:gate?.missingAudio||[]}));
    }finally{urls.forEach(URL.revokeObjectURL)}
-   return outcomes;
+   const target=outcomes.find(x=>x.label==='recordProject_result');
+   const payload=actual?.blob && target?.bytes>0 ? await new Promise((res,rej)=>{
+     const reader=new FileReader();
+     reader.onload=()=>res(String(reader.result).split(',')[1]);
+     reader.onerror=()=>rej(reader.error||new Error('FileReader failed'));
+     reader.readAsDataURL(actual.blob);
+   }) : null;
+   return {cases:outcomes,syntheticBinaryBase64:payload};
   });
-  report.cases=result;
+  report.cases=result.cases;
+  if(result.syntheticBinaryBase64){
+    const last=report.cases.find(x=>x.label==='recordProject_result');
+    const tmp='/tmp/wivra-export-roundtrip.'+last.ext;
+    writeFileSync(tmp,Buffer.from(result.syntheticBinaryBase64,'base64'));
+    try{
+      const ff=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries',
+        'stream=codec_type,codec_name,width,height,duration:format=duration,size,format_name',
+        '-of','json',tmp],{encoding:'utf8',timeout:20000}));
+      report.ffprobe={format:ff.format?.format_name,duration:+ff.format?.duration,
+        tracks:(ff.streams||[]).map(z=>({kind:z.codec_type,codec:z.codec_name,w:z.width,h:z.height,duration:z.duration})),
+        hasAudio:(ff.streams||[]).some(z=>z.codec_type==='audio'),
+        hasVideo:(ff.streams||[]).some(z=>z.codec_type==='video')};
+    }catch(e){report.ffprobe={error:String(e.message).slice(0,600)}}
+  }
   console.log(JSON.stringify(report,null,2));
   writeFileSync('wivra-export-browser-roundtrip.json',JSON.stringify(report,null,2)+'\n');
-  const last=result.find(x=>x.label==='recordProject_result');
+  const last=report.cases.find(x=>x.label==='recordProject_result');
   if(!last||!last.decoded||last.bytes<1000||!(last.w>0)||last.hasAudio!==true)process.exitCode=1;
-  const safety=result.find(x=>x.label==='missing_WAV_must_fail_closed');
+  if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
+  const safety=report.cases.find(x=>x.label==='missing_WAV_must_fail_closed');
   if(!safety||!safety.blocked)process.exitCode=1;
   await page.close();
  }finally{await browser.close()}
