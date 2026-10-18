@@ -101,7 +101,9 @@ const server=http.createServer((req,res)=>{
   if(result.syntheticBinaryBase64){
     const last=report.cases.find(x=>x.label==='recordProject_result');
     const tmp='/tmp/wivra-export-roundtrip.'+last.ext;
-    writeFileSync(tmp,Buffer.from(result.syntheticBinaryBase64,'base64'));
+    const payload=Buffer.from(result.syntheticBinaryBase64,'base64');
+    report.binaryHeaderHex=payload.subarray(0,32).toString('hex');
+    writeFileSync(tmp,payload);
     try{
       const ff=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries',
         'stream=codec_type,codec_name,width,height,duration:format=duration,size,format_name',

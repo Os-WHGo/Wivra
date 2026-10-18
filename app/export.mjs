@@ -57,7 +57,7 @@ export function fitRect(vw, vh, W, H, fit) {
 // Safari/iOS with only MP4 support retains the final generic MP4 fallback.
 export const MIME_CANDIDATES = [
   'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1',
-  'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm',
+  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm',
   'video/mp4'];
 export function pickMime(isSupported) {
   for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }

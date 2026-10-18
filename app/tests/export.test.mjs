@@ -24,6 +24,7 @@ test('formato: prefiere MP4 (Safari) y cae a WebM', () => {
   assert.equal(extFor('video/mp4;codecs=avc1'), 'mp4'); assert.equal(extFor('video/webm'), 'webm');
   // Avoid mislabeled VP9-in-MP4 when a browser only supports generic MP4.
   assert.match(pickMime((t) => t === 'video/mp4' || t === 'video/webm;codecs=vp9,opus'), /webm;codecs=vp9/);
+  assert.match(pickMime((t) => t.includes('video/webm;codecs=vp8') || t.includes('video/webm;codecs=vp9')), /vp8/);
   assert.equal(pickMime((t) => t === 'video/mp4'), 'video/mp4');
   assert.match(pickMime((t) => t.includes('avc1.42E01E') || t === 'video/webm'), /video\/mp4;codecs=avc1/);
 });
