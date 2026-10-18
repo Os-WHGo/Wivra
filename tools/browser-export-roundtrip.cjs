@@ -129,6 +129,24 @@ const server=http.createServer((req,res)=>{
         hasAudio:(ff.streams||[]).some(z=>z.codec_type==='audio'),
         hasVideo:(ff.streams||[]).some(z=>z.codec_type==='video')};
     }catch(e){report.ffprobe={error:String(e.message).slice(0,600)}}
+    if(report.ffprobe?.hasAudio){
+      // Decode the exported Opus to signed PCM, not just an empty audio
+      // track declaration. The input video is mute: this signal comes from
+      // the separately imported and mixed synthetic WAV tone.
+      try{
+        const raw=execFileSync('ffmpeg',['-nostdin','-v','error','-i',tmp,'-map','0:a:0',
+          '-ac','1','-ar','16000','-f','s16le','pipe:1'],{timeout:20000,maxBuffer:4000000});
+        const n=Math.floor(raw.length/2);
+        let energy=0,peak=0;
+        for(let i=0;i<n;i++){
+          const sample=raw.readInt16LE(i*2)/32768;
+          energy+=sample*sample;peak=Math.max(peak,Math.abs(sample));
+        }
+        const rms=n?Math.sqrt(energy/n):0;
+        report.decodedAudio={samples:n,seconds:n/16000,rms:+rms.toFixed(5),
+          peak:+peak.toFixed(5),nonSilent:rms>0.01};
+      }catch(e){report.decodedAudio={error:String(e.message).slice(0,550)}}
+    }
   }
   // Read the SAME synthetic output using Mediabunny as a comparison.
   // Mediabunny is temporary CI-only and is never bundled in Wivra.
@@ -156,6 +174,7 @@ const server=http.createServer((req,res)=>{
   if(!last||!last.decoded||last.bytes<1000||!(last.w>0)||last.hasAudio!==true)process.exitCode=1;
   if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
   if(!report.mediabunny?.hasAudio || !report.mediabunny?.hasVideo)process.exitCode=1;
+  if(!report.decodedAudio?.nonSilent)process.exitCode=1;
   if(Math.abs(report.mediabunny.duration-report.ffprobe.duration)>0.3)process.exitCode=1;
   if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
