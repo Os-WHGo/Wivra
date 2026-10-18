@@ -111,10 +111,20 @@ const server=http.createServer((req,res)=>{
     report.binaryHeaderHex=payload.subarray(0,32).toString('hex');
     writeFileSync(tmp,payload);
     try{
-      const ff=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries',
-        'stream=codec_type,codec_name,width,height,duration:format=duration,size,format_name',
+      const ff=JSON.parse(execFileSync('ffprobe',['-v','error','-show_packets','-show_entries',
+        'stream=codec_type,codec_name,width,height,duration:packet=pts_time,duration_time,stream_index:format=duration,size,format_name',
         '-of','json',tmp],{encoding:'utf8',timeout:20000}));
-      report.ffprobe={format:ff.format?.format_name,duration:+ff.format?.duration,
+      // MediaRecorder WebM can omit the optional container duration even when
+      // the video+audio packets are valid. Measure actual packet timestamps.
+      const pts=(ff.packets||[]).filter(p=>Number.isFinite(Number(p.pts_time)))
+        .map(p=>({start:Number(p.pts_time),end:Number(p.pts_time)+Math.max(0,Number(p.duration_time)||0)}));
+      const packetSeconds=pts.length?Math.max(...pts.map(p=>p.end))-Math.min(...pts.map(p=>p.start)):null;
+      const metadataSeconds=Number(ff.format?.duration);
+      const useMetadata=Number.isFinite(metadataSeconds)&&metadataSeconds>0;
+      report.ffprobe={format:ff.format?.format_name,
+        duration:useMetadata?metadataSeconds:packetSeconds,
+        durationSource:useMetadata?'container':'packet_timestamps',
+        packets:pts.length,
         tracks:(ff.streams||[]).map(z=>({kind:z.codec_type,codec:z.codec_name,w:z.width,h:z.height,duration:z.duration})),
         hasAudio:(ff.streams||[]).some(z=>z.codec_type==='audio'),
         hasVideo:(ff.streams||[]).some(z=>z.codec_type==='video')};
