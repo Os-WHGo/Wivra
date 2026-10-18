@@ -30,7 +30,7 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           ffprobe -version | head -n 1
-      - name: Test two-clip montage with WAV and title, check ffprobe audio and Mediabunny
+      - name: Verify both non-contiguous scenes, title rendering attempts and WAV timing
         run: node tools/browser-export-roundtrip.cjs
       - name: Archive evidence only
         if: always()

@@ -37,7 +37,9 @@ const server=http.createServer((req,res)=>{
    const stopped=new Promise((resolve,reject)=>{rec.onstop=resolve;rec.onerror=e=>reject(e.error||new Error('input recording failed'))});
    rec.start(100);
    for(let i=0;i<37;i++){
-    ctx.fillStyle=i%2?'#0369a1':'#a16207';ctx.fillRect(0,0,320,240);
+    // Deliberately different source scenes, making non-contiguous montage
+    // verifiable from the final encoded pixels without OCR or screenshots.
+    ctx.fillStyle=i<18?'#a16207':'#0369a1';ctx.fillRect(0,0,320,240);
     ctx.fillStyle='white';ctx.font='30px sans-serif';ctx.fillText('Wivra '+i,20,80);
     await new Promise(r=>setTimeout(r,50));
    }
@@ -66,7 +68,12 @@ const server=http.createServer((req,res)=>{
     format:{aspect:'original'}};
    const outcomes=[emit('source',{sourceMime:input.type,bytes:input.size,
     sourceRenderSeconds:+((performance.now()-start)/1000).toFixed(3),sourceWavBytes:wav.size})];
-   let actual;
+   let actual,drawnTitles=0;
+   const originalFillText=CanvasRenderingContext2D.prototype.fillText;
+   CanvasRenderingContext2D.prototype.fillText=function(...args){
+     if(String(args[0])==='Wivra export smoke')drawnTitles++;
+     return originalFillText.apply(this,args);
+   };
    try{
     outcomes.push(emit('plan',{plan:exportPlan(project),mainClips:project.clips.length,captions:project.texts.length}));
     try{actual=await recordProject({project,media,onProgress:()=>{}})}
@@ -86,6 +93,7 @@ const server=http.createServer((req,res)=>{
       await video.play();await new Promise(r=>setTimeout(r,150));video.pause();
     }catch(e){decodeError=String(e.message)}
     finally{URL.revokeObjectURL(url);video.remove()}
+    outcomes.push(emit('title_draw_attempts',{count:drawnTitles}));
     outcomes.push(emit('recordProject_result',{mime:actual.mime,ext:actual.ext,bytes,
       hasAudio:actual.hasAudio,skippedAudio:actual.skippedAudio,skippedOverlay:actual.skippedOverlay,
       decoded:loaded,videoDuration:seconds,w,h,decodeError,
@@ -93,7 +101,7 @@ const server=http.createServer((req,res)=>{
     const invalidMedia={...media,mic:{kind:'audio',url:'blob:invalid-nonexistent'}};
     const gate=await recordProject({project,media:invalidMedia,isCancelled:()=>false});
     outcomes.push(emit('missing_WAV_must_fail_closed',{blocked:gate?.audioBlocked===true,missingAudio:gate?.missingAudio||[]}));
-   }finally{urls.forEach(URL.revokeObjectURL)}
+   }finally{CanvasRenderingContext2D.prototype.fillText=originalFillText;urls.forEach(URL.revokeObjectURL)}
    const target=outcomes.find(x=>x.label==='recordProject_result');
    const payload=actual?.blob && target?.bytes>0 ? await new Promise((res,rej)=>{
      const reader=new FileReader();
@@ -151,10 +159,40 @@ const server=http.createServer((req,res)=>{
           energy+=sample*sample;peak=Math.max(peak,Math.abs(sample));
         }
         const rms=n?Math.sqrt(energy/n):0;
+        const rmsRange=(begin,end)=>{
+          const lo=Math.floor(begin*16000),hi=Math.min(n,Math.floor(end*16000));
+          let energy=0;for(let j=lo;j<hi;j++){
+            const v=raw.readInt16LE(j*2)/32768;energy+=v*v;
+          }
+          return hi>lo?+Math.sqrt(energy/(hi-lo)).toFixed(5):null;
+        };
+        const windows=[0,0.05,0.10,0.15,0.25,0.5,0.8,1.0,1.15]
+          .map(start=>({start,rms:rmsRange(start,start+0.05)}));
+        const firstLoud=windows.find(w=>w.rms!==null && w.rms>0.045)?.start??null;
         report.decodedAudio={samples:n,seconds:n/16000,rms:+rms.toFixed(5),
-          peak:+peak.toFixed(5),nonSilent:rms>0.01};
+          peak:+peak.toFixed(5),nonSilent:rms>0.01,expectedAudioStart:0.12,
+          rmsWindows50ms:windows,firstLoudWindowStart:firstLoud};
       }catch(e){report.decodedAudio={error:String(e.message).slice(0,550)}}
     }
+  }
+  // Distinct source scenes must survive both seek operations. Compare
+  // source-independent pixels away from the title overlay (not OCR).
+  if(result.syntheticBinaryBase64){
+    const last=report.cases.find(z=>z.label==='recordProject_result');
+    const tmp='/tmp/wivra-export-roundtrip.'+last.ext;
+    const sample=(second)=>{
+      const pixel=execFileSync('ffmpeg',['-nostdin','-v','error','-i',tmp,'-ss',String(second),
+        '-frames:v','1','-vf','crop=20:20:10:200,scale=1:1',
+        '-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{timeout:20000,maxBuffer:200000});
+      if(pixel.length<3)throw new Error('No frame decoded at '+second);
+      return [pixel[0],pixel[1],pixel[2]];
+    };
+    try{
+      const first=sample(0.20),second=sample(0.94);
+      report.sceneColors={firstAt0_20_RGB:first,secondAt0_94_RGB:second,
+        firstIsOrange:first[0]>first[2]+35,
+        secondIsBlue:second[2]>second[0]+35};
+    }catch(e){report.sceneColors={error:String(e.message).slice(0,550)}}
   }
   // Read the SAME synthetic output using Mediabunny as a comparison.
   // Mediabunny is temporary CI-only and is never bundled in Wivra.
@@ -183,6 +221,8 @@ const server=http.createServer((req,res)=>{
   if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
   if(!report.mediabunny?.hasAudio || !report.mediabunny?.hasVideo)process.exitCode=1;
   if(!report.decodedAudio?.nonSilent)process.exitCode=1;
+  if(!report.sceneColors?.firstIsOrange||!report.sceneColors?.secondIsBlue)process.exitCode=1;
+  if(!(report.cases.find(x=>x.label==='title_draw_attempts')?.count>0))process.exitCode=1;
   if(Math.abs(report.mediabunny.duration-report.ffprobe.duration)>0.3)process.exitCode=1;
   if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
