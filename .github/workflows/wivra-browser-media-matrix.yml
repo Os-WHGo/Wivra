@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install isolated browser tester, never app runtime
-        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1
+        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
       - name: Install Linux test browser engines
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
@@ -30,7 +30,7 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           ffprobe -version | head -n 1
-      - name: Confirm WebM audio and video packet durations when header duration is absent
+      - name: Compare ffprobe packet evidence with Mediabunny v1.61.6 metadata parser
         run: node tools/browser-export-roundtrip.cjs
       - name: Archive evidence only
         if: always()

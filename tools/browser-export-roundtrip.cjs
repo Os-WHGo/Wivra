@@ -130,11 +130,33 @@ const server=http.createServer((req,res)=>{
         hasVideo:(ff.streams||[]).some(z=>z.codec_type==='video')};
     }catch(e){report.ffprobe={error:String(e.message).slice(0,600)}}
   }
+  // Read the SAME synthetic output using Mediabunny as a comparison.
+  // Mediabunny is temporary CI-only and is never bundled in Wivra.
+  if(result.syntheticBinaryBase64){
+    try{
+      const mb=require('/tmp/wivra-media-lab/node_modules/mediabunny');
+      const binary=Buffer.from(result.syntheticBinaryBase64,'base64');
+      const input=new mb.Input({source:new mb.BlobSource(new Blob([binary],{type:'video/webm'})),formats:mb.ALL_FORMATS});
+      const [duration,video,audio]=await Promise.all([
+        input.computeDuration(),input.getPrimaryVideoTrack(),input.getPrimaryAudioTrack()
+      ]);
+      report.mediabunny={
+        version:'1.61.6',licensed:'MPL-2.0',
+        duration,hasVideo:!!video,hasAudio:!!audio,
+        w:video?await video.getDisplayWidth():null,
+        h:video?await video.getDisplayHeight():null,
+        audioHz:audio?await audio.getSampleRate():null,
+        audioChannels:audio?await audio.getNumberOfChannels():null
+      };
+    }catch(e){report.mediabunny={version:'1.61.6',error:String(e.stack||e).slice(0,800)}}
+  }
   console.log(JSON.stringify(report,null,2));
   writeFileSync('wivra-export-browser-roundtrip.json',JSON.stringify(report,null,2)+'\n');
   const last=report.cases.find(x=>x.label==='recordProject_result');
   if(!last||!last.decoded||last.bytes<1000||!(last.w>0)||last.hasAudio!==true)process.exitCode=1;
   if(!report.ffprobe?.hasAudio || !report.ffprobe?.hasVideo)process.exitCode=1;
+  if(!report.mediabunny?.hasAudio || !report.mediabunny?.hasVideo)process.exitCode=1;
+  if(Math.abs(report.mediabunny.duration-report.ffprobe.duration)>0.3)process.exitCode=1;
   if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
   if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
