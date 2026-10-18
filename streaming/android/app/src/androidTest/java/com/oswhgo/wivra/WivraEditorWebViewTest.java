@@ -110,6 +110,26 @@ public class WivraEditorWebViewTest {
             String location = eval(instrumentation, editor, "location.href");
             assertTrue("Editor must run from offline Android APK assets: " + location,
                     location.contains("file:///android_asset/agentcut.html"));
+            // Exercise the ACTUAL JS audio safety contract inside the bundled
+            // Android WebView. This does not impersonate a physical microphone.
+            String shortWavProbe = "(function(){try{" +
+                "if(typeof exportAudioPreflight!=='function')return 'no-preflight';" +
+                "const m={v:{kind:'video'},a:{kind:'audio'}};" +
+                "const p={clips:[{id:'v1',asset_id:'v',start:0,in:0,out:9}]," +
+                "audioClips:[{id:'voice1',asset_id:'a',role:'voice_primary'," +
+                "start:0,in:0,out:4}]};" +
+                "const opts={hasAudio:true,decodedAudioIds:['a']," +
+                "decodedAudioDurations:{a:2}};" +
+                "const r=exportAudioPreflight(p,m,opts);" +
+                "const ok=exportAudioPreflight(p,m,{...opts,decodedAudioDurations:{a:4}});" +
+                "return r.needsConfirmation&&r.missingAudio.length===0&&" +
+                "r.shortAudio.length===1&&r.shortAudio[0].secondsLost===2&&" +
+                "!ok.needsConfirmation&&ok.shortAudio.length===0?" +
+                "'short-wav-safely-blocked':'short-wav-not-detected';" +
+                "}catch(e){return 'exception:'+String(e.message).slice(0,100);}})()";
+            String audioContract = eval(instrumentation, editor, shortWavProbe);
+            assertTrue("Wivra bundled WebView must reject truncated voice WAV: " + audioContract,
+                    "\"short-wav-safely-blocked\"".equals(audioContract));
         } finally {
             instrumentation.runOnMainSync(activity::finish);
         }
