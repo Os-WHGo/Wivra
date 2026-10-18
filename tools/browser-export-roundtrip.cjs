@@ -55,14 +55,20 @@ const server=http.createServer((req,res)=>{
    const wav=new Blob([buf],{type:'audio/wav'});
    const urls=[URL.createObjectURL(input),URL.createObjectURL(wav)];
    const media={v:{url:urls[0],kind:'video',w:320,h:240},mic:{url:urls[1],kind:'audio'}};
-   const project={clips:[{id:'c',asset_id:'v',start:0,in:0,out:1.25,volume:1}],
-    overlayClips:[],audioClips:[{id:'a',asset_id:'mic',start:0.12,in:0,out:1.12,role:'voice_primary'}],
-    texts:[],format:{aspect:'original'}};
+   // Two non-contiguous moments from one long original, with a single
+   // microphone track and a real title cue across only the first moment.
+   const project={clips:[
+      {id:'c1',asset_id:'v',start:0,in:0.12,out:0.77,volume:1},
+      {id:'c2',asset_id:'v',start:0.65,in:1.00,out:1.60,volume:1}
+    ],overlayClips:[],
+    audioClips:[{id:'a',asset_id:'mic',start:0.12,in:0,out:1.12,role:'voice_primary'}],
+    texts:[{id:'caption1',text:'Wivra export smoke',start:0.18,end:0.48,position:'middle'}],
+    format:{aspect:'original'}};
    const outcomes=[emit('source',{sourceMime:input.type,bytes:input.size,
     sourceRenderSeconds:+((performance.now()-start)/1000).toFixed(3),sourceWavBytes:wav.size})];
    let actual;
    try{
-    outcomes.push(emit('plan',{plan:exportPlan(project)}));
+    outcomes.push(emit('plan',{plan:exportPlan(project),mainClips:project.clips.length,captions:project.texts.length}));
     try{actual=await recordProject({project,media,onProgress:()=>{}})}
     catch(e){outcomes.push(emit('export_exception',{name:e.name,message:e.message,stack:String(e.stack).slice(0,1600)}));return {cases:outcomes}}
     if(actual?.audioBlocked){outcomes.push(emit('export_audio_blocked',{...actual}));return {cases:outcomes}}
@@ -105,7 +111,9 @@ const server=http.createServer((req,res)=>{
   });
   report.cases=result.cases;
   if(result.syntheticBinaryBase64){
-    const last=report.cases.find(x=>x.label==='recordProject_result');
+    const assembly=report.cases.find(x=>x.label==='plan');
+  if(assembly?.mainClips!==2 || assembly?.captions!==1 || assembly.plan?.segments?.length!==2)process.exitCode=1;
+  const last=report.cases.find(x=>x.label==='recordProject_result');
     const tmp='/tmp/wivra-export-roundtrip.'+last.ext;
     const payload=Buffer.from(result.syntheticBinaryBase64,'base64');
     report.binaryHeaderHex=payload.subarray(0,32).toString('hex');
