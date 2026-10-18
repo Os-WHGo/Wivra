@@ -265,10 +265,29 @@ export async function finishMediaRecorder(rec, stopped, { started = false, ms = 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
 // Fail closed before recording when a requested voice track was not decoded.
 // This is deliberately pure so its decision can be tested without a browser.
-export function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds = [] } = {}) {
+export function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds = [], decodedAudioDurations = null } = {}) {
   const active = (project.audioClips || []).filter(c => !c.muted && clipGain(c) > 0);
   const decoded = new Set(decodedAudioIds);
   const missingAudio = [...new Set(active.map(c => c.asset_id).filter(id => !decoded.has(id)))];
+  // A WAV can decode successfully yet be SHORTER than the source interval
+  // selected in the timeline. WebAudio would stop early without throwing and
+  // MediaRecorder would happily export the lost tail. Gate this explicitly.
+  // Unknown durations stay unknown for older callers; recordProject passes
+  // the actual AudioBuffer.duration in a Map, so production checks every WAV.
+  const bufferLength = (id) => decodedAudioDurations instanceof Map
+    ? decodedAudioDurations.get(id)
+    : decodedAudioDurations && Object.prototype.hasOwnProperty.call(decodedAudioDurations, id)
+      ? decodedAudioDurations[id] : undefined;
+  const shortAudio = active.flatMap((c) => {
+    if (!decoded.has(c.asset_id) || !Number.isFinite(c.out)) return [];
+    const decodedLength = bufferLength(c.asset_id);
+    if (decodedLength === undefined) return [];
+    const playable = Number.isFinite(decodedLength) && decodedLength > 0 ? decodedLength : 0;
+    const lost = (c.out - playable) / speedOf(c);
+    return lost > 0.05
+      ? [{ id: c.id, asset_id: c.asset_id, role: c.role || 'audio',
+          secondsLost: Math.round(lost * 100) / 100 }] : [];
+  });
   const hasAudibleVideo = [...(project.clips || []), ...(project.overlayClips || [])]
     .some(c => media[c.asset_id]?.kind !== 'image' && !c.muted && clipGain(c) > 0);
   // A main video determines the recorded duration. Extra music may legitimately
@@ -287,9 +306,10 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
     .map(c => ({ id: c.id, role: c.role, secondsLost: Math.round((c.end - videoEnd) * 100) / 100 }))
     : [];
   return {
-    needsConfirmation: missingAudio.length > 0 || truncatedVoices.length > 0 ||
+    needsConfirmation: missingAudio.length > 0 || shortAudio.length > 0 || truncatedVoices.length > 0 ||
       (!hasAudio && (active.length > 0 || hasAudibleVideo)),
     missingAudio,
+    shortAudio,
     truncatedVoices,
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
@@ -335,7 +355,8 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   // A failed track must not disappear silently from an irreversible export.
   // The user may explicitly opt in to an incomplete export in the UI.
   const audioPreflight = exportAudioPreflight(project, media, {
-    hasAudio, decodedAudioIds: [...buffers.keys()]
+    hasAudio, decodedAudioIds: [...buffers.keys()],
+    decodedAudioDurations: new Map([...buffers].map(([id, buffer]) => [id, buffer.duration]))
   });
   if (audioPreflight.needsConfirmation && !allowIncompleteAudio) {
     stream.getTracks().forEach(track => track.stop());

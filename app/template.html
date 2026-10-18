@@ -2008,6 +2008,8 @@ $('expGo').onclick = async () => {
       $('expGo').style.display = 'block'; $('expMsg').className = 'bad';
       $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder audio. ' +
         (r.missingAudio.length ? r.missingAudio.length + ' pista(s) independientes no se pudieron decodificar. ' : '') +
+        (r.shortAudio?.length ? r.shortAudio.length + ' pista(s) de audio dura(n) menos que el tramo seleccionado (' +
+          r.shortAudio.map(a => a.secondsLost + ' s').join(', ') + ' perdidos). Recorta esos tramos o reimporta los audios completos. ' : '') +
         (r.unavailableAudio ? 'Este navegador no permite mezclar/grabar sonido. ' : '') +
         (r.truncatedVoices?.length ? r.truncatedVoices.length + ' pista(s) de voz se cortarían al finalizar el video (' +
           r.truncatedVoices.map(v => v.secondsLost + ' s').join(', ') + '). Acorta/reubica las voces o extiende los clips visuales. ' : '') +

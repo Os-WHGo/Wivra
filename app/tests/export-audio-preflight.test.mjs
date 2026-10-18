@@ -88,3 +88,48 @@ test('voice tail safety gate appears in both authoring and embedded export UI',(
    assert.match(html,/voz queda fuera del video/);
  }
 });
+
+test('decoded but SHORT microphone WAV blocks export before any MediaRecorder starts',()=>{
+ const p={clips:[{asset_id:'v',start:0,in:0,out:10}],overlayClips:[],
+   audioClips:[{id:'voice-short',asset_id:'a',role:'voice_primary',start:0.5,in:0,out:6}]};
+ const r=exportAudioPreflight(p,media,{hasAudio:true,
+   decodedAudioIds:['a'],decodedAudioDurations:new Map([['a',4.5]])});
+ assert.equal(r.needsConfirmation,true);
+ assert.deepEqual(r.missingAudio,[]);
+ assert.deepEqual(r.shortAudio,[{id:'voice-short',asset_id:'a',role:'voice_primary',secondsLost:1.5}]);
+ assert.deepEqual(r.truncatedVoices,[]);
+});
+test('source audio that exactly covers the requested trimmed interval does not block',()=>{
+ const p={clips:[{asset_id:'v',start:0,in:0,out:10}],
+   audioClips:[{id:'good',asset_id:'a',role:'voice_primary',start:2,in:1,out:5}]};
+ const r=exportAudioPreflight(p,media,{decodedAudioIds:['a'],decodedAudioDurations:{a:5}});
+ assert.equal(r.needsConfirmation,false);
+ assert.deepEqual(r.shortAudio,[]);
+});
+test('muted, zero gain and multiple clips sharing one sound file are assessed separately',()=>{
+ const p={clips:[{asset_id:'v',start:0,in:0,out:12}],audioClips:[
+   {id:'ok',asset_id:'a',role:'voice_primary',start:0,in:0,out:2},
+   {id:'late',asset_id:'a',role:'voice_guest',start:3,in:2,out:8,speed:2},
+   {id:'muted',asset_id:'a',role:'voice_primary',start:0,in:0,out:20,muted:true},
+   {id:'silent',asset_id:'b',role:'music',start:0,in:0,out:20,volume:0}
+ ]};
+ const r=exportAudioPreflight(p,media,{decodedAudioIds:['a'],decodedAudioDurations:new Map([['a',5]])});
+ assert.equal(r.needsConfirmation,true);
+ assert.deepEqual(r.shortAudio,[{id:'late',asset_id:'a',role:'voice_guest',secondsLost:1.5}]);
+ assert.deepEqual(r.missingAudio,[]);
+});
+test('preflight is backwards-compatible when only IDs but no decoded lengths are supplied',()=>{
+ const r=exportAudioPreflight(project,media,{hasAudio:true,decodedAudioIds:['a','b']});
+ assert.equal(r.needsConfirmation,false);
+ assert.deepEqual(r.shortAudio,[]);
+});
+test('actual WebAudio buffers and editor messaging must expose short WAV safety gate',()=>{
+ const engine=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
+ assert.match(engine,/decodedAudioDurations: new Map\(\[\.\.\.buffers\]/);
+ assert.match(engine,/needsConfirmation: missingAudio\.length > 0 \|\| shortAudio\.length > 0/);
+ for(const file of ['../template.html','../dist/agentcut.html']){
+   const content=readFileSync(new URL(file,import.meta.url),'utf8');
+   assert.match(content,/r\.shortAudio\?\.length/,file);
+   assert.match(content,/reimporta los audios completos/,file);
+ }
+});
