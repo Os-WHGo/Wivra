@@ -30,7 +30,7 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           ffprobe -version | head -n 1
-      - name: Probe VP8 WebM container and independent WAV tracks with ffprobe
+      - name: Probe actual synthetic WebM binary (MIME-safe base64) with ffprobe
         run: node tools/browser-export-roundtrip.cjs
       - name: Archive evidence only
         if: always()

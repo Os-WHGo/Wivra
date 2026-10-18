@@ -91,7 +91,13 @@ const server=http.createServer((req,res)=>{
    const target=outcomes.find(x=>x.label==='recordProject_result');
    const payload=actual?.blob && target?.bytes>0 ? await new Promise((res,rej)=>{
      const reader=new FileReader();
-     reader.onload=()=>res(String(reader.result).split(',')[1]);
+     reader.onload=()=>{
+       // MIME parameters can contain commas (codecs=vp8,opus). Splitting a
+       // data URL on the FIRST comma corrupted the prior synthetic fixture.
+       const data=String(reader.result), token=';base64,', at=data.lastIndexOf(token);
+       if(at<0)rej(new Error('FileReader did not return base64 data'));
+       else res(data.slice(at+token.length));
+     };
      reader.onerror=()=>rej(reader.error||new Error('FileReader failed'));
      reader.readAsDataURL(actual.blob);
    }) : null;
