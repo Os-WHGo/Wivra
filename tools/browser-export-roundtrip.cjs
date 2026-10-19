@@ -262,7 +262,11 @@ const server=http.createServer((req,res)=>{
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
   if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
   const overrun=report.cases.find(x=>x.label==='source_video_overrun_must_reject');
-  if(!overrun?.rejected||!overrun.reason?.includes('El video original termina'))process.exitCode=1;
+  // Local generated WebM has unknown (Infinity) duration, so its correct
+  // guard is HTMLMediaElement.ended, not metadata. Both guard paths are valid.
+  if(!overrun?.rejected ||
+     !/El video original termin(a|ó) antes/.test(overrun.reason || '') ||
+     !/s sin imagen/.test(overrun.reason || ''))process.exitCode=1;
   const safety=report.cases.find(x=>x.label==='missing_WAV_must_fail_closed');
   if(!safety||!safety.blocked)process.exitCode=1;
   const shortSafety=report.cases.find(x=>x.label==='short_WAV_must_fail_closed');
