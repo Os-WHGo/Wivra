@@ -1,14 +1,7 @@
 name: Wivra Unified Android Native Build
 on:
-  pull_request:
-    paths:
-      - 'streaming/android/**'
-      - 'app/**'
-      - 'core/**'
-      - 'app/dist/agentcut.html'
-      - 'app/packs/**'
-      - '.github/workflows/unified-android-build.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:
