@@ -98,6 +98,16 @@ const server=http.createServer((req,res)=>{
       hasAudio:actual.hasAudio,skippedAudio:actual.skippedAudio,skippedOverlay:actual.skippedOverlay,
       decoded:loaded,videoDuration:seconds,w,h,decodeError,
       returnedProcessingSeconds:actual.seconds}));
+    // A video may load and decode, yet its timeline trim extends well past
+    // the real last frame. It must abort rather than export a shorter movie.
+    const beyond={clips:[{id:'source-overrun',asset_id:'v',start:0,in:0.10,out:9}],
+      overlayClips:[],audioClips:[],texts:[],format:{aspect:'original'}};
+    let overrunError=null;
+    try{await recordProject({project:beyond,media})}
+    catch(e){overrunError=String(e.message)}
+    outcomes.push(emit('source_video_overrun_must_reject',{
+      rejected:!!overrunError,reason:overrunError
+    }));
     const invalidMedia={...media,mic:{kind:'audio',url:'blob:invalid-nonexistent'}};
     const gate=await recordProject({project,media:invalidMedia,isCancelled:()=>false});
     outcomes.push(emit('missing_WAV_must_fail_closed',{blocked:gate?.audioBlocked===true,missingAudio:gate?.missingAudio||[]}));
@@ -251,6 +261,8 @@ const server=http.createServer((req,res)=>{
   if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
   if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
+  const overrun=report.cases.find(x=>x.label==='source_video_overrun_must_reject');
+  if(!overrun?.rejected||!overrun.reason?.includes('El video original termina'))process.exitCode=1;
   const safety=report.cases.find(x=>x.label==='missing_WAV_must_fail_closed');
   if(!safety||!safety.blocked)process.exitCode=1;
   const shortSafety=report.cases.find(x=>x.label==='short_WAV_must_fail_closed');

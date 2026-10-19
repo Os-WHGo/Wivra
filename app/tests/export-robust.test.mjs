@@ -34,3 +34,18 @@ test('la plantilla y el archivo final muestran el tamaño, el aviso de video lar
   for (const f of ['../template.html', '../dist/agentcut.html']) { const h = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.match(h, /id="expLong"/, f); assert.match(h, /exportSizeMB\(plan\.total\)/, f); assert.match(h, /if \(r\.interrupted\)/, f); }
 });
+
+test('source video shortfall uses source out and real video duration, converting via playback speed',async()=>{
+  const { videoSourceShortfall } = await import('../export.mjs');
+  assert.equal(videoSourceShortfall({in:0,out:4,speed:1},2.75),1.25);
+  assert.equal(videoSourceShortfall({in:2,out:8,speed:2},5),1.5);
+  assert.equal(videoSourceShortfall({in:0,out:3,speed:1},2.96),0);
+  assert.equal(videoSourceShortfall({in:0,out:3,speed:1},Infinity),0);
+});
+
+test('exporter rejects source EOF and out-of-range clips instead of writing truncated montage',()=>{
+  const src=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
+  assert.match(src,/const missingVideoSeconds = videoSourceShortfall\(c, ev\.duration\)/);
+  assert.match(src,/if \(ev\.ended\) \{/);
+  assert.match(src,/El video original termina antes del final elegido/);
+});
