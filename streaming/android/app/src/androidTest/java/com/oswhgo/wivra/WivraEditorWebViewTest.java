@@ -143,6 +143,25 @@ public class WivraEditorWebViewTest {
             String videoContract = eval(instrumentation, editor, videoProbe);
             assertTrue("Wivra offline editor must reject video source EOF: " + videoContract,
                     "\"source-eof-safely-detected\"".equals(videoContract));
+            // An overlapping main video lane would export the two clips
+            // sequentially and shift independent microphone/subtitle timing.
+            // Verify rejection in the ACTUAL bundled Android WebView.
+            String overlapProbe = "(function(){try{" +
+                "if(typeof validateMainVideoExport!=='function')return 'no-main-video-guard';" +
+                "const p={clips:[{id:'one',start:0,in:0,out:4}," +
+                "{id:'two',start:3,in:0,out:2}],overlayClips:[]," +
+                "audioClips:[{id:'mic',start:0,in:0,out:5}]};" +
+                "const before=JSON.stringify(p);" +
+                "const bad=validateMainVideoExport(p);" +
+                "const good=validateMainVideoExport({clips:[{id:'one',start:0,in:0,out:4}," +
+                "{id:'two',start:4,in:0,out:2}]});" +
+                "return bad.reason==='overlap'&&bad.seconds===1&&good.ok===true&&" +
+                "before===JSON.stringify(p)?'main-overlap-safely-blocked':" +
+                "'bad-overlap-contract';" +
+                "}catch(e){return 'exception:'+String(e.message).slice(0,100);}})()";
+            String overlapContract = eval(instrumentation, editor, overlapProbe);
+            assertTrue("Wivra offline Android editor must reject overlapping main video: " + overlapContract,
+                    "\"main-overlap-safely-blocked\"".equals(overlapContract));
         } finally {
             instrumentation.runOnMainSync(activity::finish);
         }
