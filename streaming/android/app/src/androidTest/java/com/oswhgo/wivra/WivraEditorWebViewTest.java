@@ -130,6 +130,19 @@ public class WivraEditorWebViewTest {
             String audioContract = eval(instrumentation, editor, shortWavProbe);
             assertTrue("Wivra bundled WebView must reject truncated voice WAV: " + audioContract,
                     "\"short-wav-safely-blocked\"".equals(audioContract));
+            // Check the same source-video EOF contract in the ACTUAL offline
+            // HTML embedded in Android, not a second exported JS implementation.
+            String videoProbe = "(function(){try{" +
+                "if(typeof videoSourceShortfall!=='function')return 'no-video-eof-guard';" +
+                "const over=videoSourceShortfall({in:0,out:5,speed:2},2);" +
+                "const exact=videoSourceShortfall({in:0,out:5,speed:1},5);" +
+                "const unknown=videoSourceShortfall({in:0,out:5,speed:1},Infinity);" +
+                "return over===1.5&&exact===0&&unknown===0?" +
+                "'source-eof-safely-detected':'bad-eof-result:'+over;" +
+                "}catch(e){return 'exception:'+String(e.message).slice(0,100);}})()";
+            String videoContract = eval(instrumentation, editor, videoProbe);
+            assertTrue("Wivra offline editor must reject video source EOF: " + videoContract,
+                    "\"source-eof-safely-detected\"".equals(videoContract));
         } finally {
             instrumentation.runOnMainSync(activity::finish);
         }
