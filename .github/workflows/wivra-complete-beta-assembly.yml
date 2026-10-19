@@ -1,0 +1,154 @@
+# Delivers experimental artifacts from the SAME unified Wivra source tree.
+# APK = sideloadable debug build; IPA = UNSIGNED, cannot be installed on iPhone
+# without a valid owner-provided signing process. Neither means "beta complete".
+name: Wivra Complete Beta Assembly (Mobile)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: wivra-beta-assembly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrated-contracts:
+    name: Editor + Director + Native Contract Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify reproducible editor HTML for both mobile apps
+        run: |
+          node app/build.mjs
+          git diff --exit-code -- app/dist/agentcut.html
+      - name: Editor functionality and project persistence
+        run: node --test app/tests/*.test.mjs
+      - name: Director/core project state, operations and tool contracts
+        run: cd core && npm test
+      - name: Ray-Ban, network, capture, audio and LIVE contracts
+        run: node --test streaming/tests/*.test.mjs
+      - name: Shared Wivra skill-pack regression checks
+        run: python3 -m unittest discover -s wivra-skill-pack/tests -v
+      - name: Write truthful integration snapshot
+        run: |
+          mkdir -p beta-artifacts
+          cat > beta-artifacts/STATUS.txt <<EOF
+          Wivra beta assembly candidate (NOT feature-complete or device-tested)
+          Commit: ${{ github.sha }}
+          Branch/ref: ${{ github.ref }}
+          Camera and editor source packaged together, full beta checklist remains OPEN.
+          Android artifact: DEBUG test APK; not Play Store release.
+          iOS artifact: UNSIGNED arm64 IPA; not installable until owner signing.
+          Real Ray-Ban glasses, external mic, RTMP LIVE and thermal tests NOT run in CI.
+          Required review: https://github.com/Os-WHGo/Wivra/issues/121
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-BETA-Assembly-Status
+          path: beta-artifacts/STATUS.txt
+          retention-days: 7
+
+  android-beta:
+    name: Android APK · same unified editor
+    needs: integrated-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install free Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build Wivra editor + native Ray-Ban Android debug APK
+        run: gradle -p streaming/android :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+      - name: Verify bundled editor and filters, no second editor
+        run: |
+          set -eu
+          apk=streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          unzip -l "$apk" | grep -q 'assets/agentcut.html'
+          unzip -l "$apk" | grep -q 'assets/packs/catalog.json'
+          test -s streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+      - name: Publish Android preview APK as GitHub Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-BETA-Android-DEBUG-apk
+          path: streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
+
+  ios-beta:
+    name: iPhone arm64 IPA · UNSIGNED
+    needs: integrated-contracts
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode and local build tooling
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+      - name: Generate iOS Wivra project
+        working-directory: streaming/ios/B0
+        run: xcodegen generate
+      - name: Resolve official Meta Wearables packages
+        working-directory: streaming/ios/B0
+        run: xcodebuild -resolvePackageDependencies -project WivraMetaB0.xcodeproj -scheme WivraMetaB0
+      - name: Compile unified Wivra for iOS Simulator
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj \
+            -scheme WivraMetaB0 -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Compile unsigned Wivra for physical iPhone architecture
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj \
+            -scheme WivraMetaB0 -configuration Debug -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$PWD/.build" \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Check the SAME editor and filter packs in the iPhone app
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          app=.build/Build/Products/Debug-iphoneos/WivraMetaB0.app
+          test -s "$app/agentcut.html"
+          test -s "$app/packs/catalog.json"
+          for language in es en fr de it ja; do
+            test -s "$app/${language}.lproj/Localizable.strings"
+          done
+      - name: Package UNSIGNED IPA (owner must sign before installing)
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          mkdir -p .beta/Payload
+          cp -R .build/Build/Products/Debug-iphoneos/WivraMetaB0.app .beta/Payload/
+          (cd .beta && zip -qr ../Wivra-BETA-UNSIGNED.ipa Payload)
+      - name: Publish unsigned IPA for future signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-BETA-iOS-UNSIGNED-ipa
+          path: streaming/ios/B0/Wivra-BETA-UNSIGNED.ipa
+          retention-days: 7
+          if-no-files-found: error
