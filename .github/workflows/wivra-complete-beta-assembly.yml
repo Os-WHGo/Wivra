@@ -3,17 +3,8 @@
 # without a valid owner-provided signing process. Neither means "beta complete".
 name: Wivra Complete Beta Assembly (Mobile)
 on:
-  push:
-    branches:
-      - chatgpt/wivra-beta-complete-assembly-20261016
-  pull_request:
-    paths:
-      - '.github/workflows/wivra-complete-beta-assembly.yml'
-      - 'streaming/**'
-      - 'app/**'
-      - 'core/**'
-      - 'wivra-skill-pack/**'
   workflow_dispatch:
+
 permissions:
   contents: read
 concurrency:
