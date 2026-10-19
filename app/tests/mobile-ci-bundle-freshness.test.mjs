@@ -38,6 +38,15 @@ test('standalone iOS, Android and chat/director jobs rebuild from the tested sou
   }
 });
 
+test('Creative Director and Local Visual Evidence validate fresh HTML without a parallel audit race',()=>{
+  for (const name of ['creative-director-tests.yml','local-visual-evidence-tests.yml']) {
+    const s=workflow(name);
+    assert.match(s,/node app\/build\.mjs/,name);
+    assert.match(s,/test -s app\/dist\/agentcut\.html/,name);
+    assert.doesNotMatch(s,/git diff --exit-code -- app\/dist\/agentcut\.html/,name);
+  }
+});
+
 test('the single writer audit still commits deterministic generated HTML to branch',()=>{
   const s=workflow('wivra-audit-rebuild-editor.yml');
   assert.match(s,/node app\/build\.mjs/);
