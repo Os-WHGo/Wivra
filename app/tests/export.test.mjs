@@ -109,3 +109,41 @@ test('rounded boundary jitter under five milliseconds remains exportable',()=>{
   {id:'a',start:0,in:0,out:2.0},{id:'b',start:1.997,in:0,out:1}
  ]}),{ok:true});
 });
+
+
+test('exportPlan preserves short audible pauses and millisecond clip precision',()=>{
+ const clips=[
+  {id:'one',asset_id:'v',start:0,in:0,out:0.333},
+  {id:'two',asset_id:'v',start:0.340,in:0.5,out:0.833},
+  {id:'three',asset_id:'v',start:0.713,in:0.9,out:1.233}
+ ];
+ const copy=structuredClone(clips);
+ const plan=exportPlan({clips,audioClips:[{start:0,in:0,out:2}]});
+ assert.deepEqual(plan.segments.map(x=>x.type),['clip','gap','clip','gap','clip']);
+ assert.ok(Math.abs(plan.segments[1].dur-0.007)<1e-9);
+ assert.ok(Math.abs(plan.segments[3].dur-0.04)<1e-9);
+ assert.ok(Math.abs(plan.total-1.046)<1e-9);
+ assert.ok(Math.abs(plan.segments.reduce((t,s)=>t+s.dur,0)-plan.total)<1e-9);
+ assert.deepEqual(clips,copy,'planning must not mutate source media');
+});
+test('200 quick montage cuts retain cumulative timeline, not centisecond truncation',()=>{
+ const clips=Array.from({length:200},(_,i)=>({
+   id:'f'+i,asset_id:'source',start:i*0.340,in:i*0.333,out:(i+1)*0.333
+ }));
+ const plan=exportPlan({clips});
+ const expected=199*0.340+0.333;
+ const planned=plan.segments.reduce((t,s)=>t+s.dur,0);
+ assert.equal(plan.segments.filter(s=>s.type==='clip').length,200);
+ assert.equal(plan.segments.filter(s=>s.type==='gap').length,199);
+ assert.ok(Math.abs(plan.total-expected)<1e-8,'video total duration should track source timeline');
+ assert.ok(Math.abs(planned-expected)<1e-8,'scheduled export time must match audio timeline');
+ assert.ok(Math.abs(planned-66)>1,'old two-decimal scheduler lost seconds');
+});
+test('visual gaps from fractional starts survive even in audio/overlay-only projects',()=>{
+ const empty=exportPlan({clips:[],audioClips:[{start:0,in:0,out:0.337}],overlayClips:[]});
+ assert.ok(Math.abs(empty.segments[0].dur-0.337)<1e-9);
+ assert.ok(Math.abs(empty.total-0.337)<1e-9);
+ const delayed=exportPlan({clips:[{id:'v',start:0.009,in:0,out:0.12}]});
+ assert.equal(delayed.segments[0].type,'gap');
+ assert.ok(Math.abs(delayed.segments[0].dur-0.009)<1e-9);
+});

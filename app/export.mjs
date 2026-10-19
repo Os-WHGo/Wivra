@@ -6,24 +6,29 @@ import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsBy
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
-// Lista de pasos en orden: clips, y "huecos" negros si hay espacio entre clips.
+// Export follows the ORIGINAL timeline, including short intervals between
+// cuts. NEVER round each segment to centiseconds: 100 cuts of 0.333 s would
+// lose 300 ms, and ignoring 7 ms gaps would lose another 693 ms.
+// Presentation-only progress can round numbers, but the actual recording
+// schedule must preserve source precision and align with independently mixed
+// audio/text/video overlays.
 export function exportPlan(project) {
-  const clips = [...project.clips].sort((a, b) => a.start - b.start);
+  const clips = [...(project.clips || [])].sort((a, b) => a.start - b.start);
   const segments = []; let cursor = 0;
   for (const c of clips) {
-    if (c.start - cursor > 0.05) segments.push({ type: 'gap', dur: r2(c.start - cursor), start: cursor });
-    segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
-    cursor = Math.max(cursor, c.start + clipLength(c));
+    if (c.start > cursor) segments.push({ type: 'gap', dur: c.start - cursor, start: cursor });
+    const duration = clipLength(c);
+    segments.push({ type: 'clip', clip: c, dur: duration });
+    cursor = Math.max(cursor, c.start + duration);
   }
-  // When a main picture exists, it determines export length. Music and
-  // overlays extending beyond the last picture must not append black frames.
-  // Audio/overlay-only projects retain their full duration for the planner.
+  // Picture lane controls the duration; music and overlays must not append
+  // a black tail. Audio/overlay-only projects retain their planned duration.
   if (!clips.length) {
     const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
-    if (end > 0.05) { segments.push({ type: 'gap', dur: r2(end), start: 0 }); cursor = end; }
+    if (end > 0) { segments.push({ type: 'gap', dur: end, start: 0 }); cursor = end; }
   }
   const textEnd = (project.texts || []).reduce((m, t) => Math.max(m, t.end), 0);
-  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+  return { segments, total: Math.max(cursor, 0), textBeyondEnd: textEnd > cursor + 0.05 };
 }
 
 /** Validate the main video lane before recording. The exporter renders
