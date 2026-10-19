@@ -1,12 +1,7 @@
 name: Meta B0 iOS Native Build
 on:
-  pull_request:
-    paths:
-      - 'streaming/ios/B0/**'
-      - 'app/**'
-      - 'core/**'
-      - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:
