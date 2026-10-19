@@ -42,11 +42,12 @@ jobs:
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
-      - name: Require reproducible Claude editor HTML before native packaging
+      - name: Generate current Wivra editor before native packaging
         run: |
           set -eu
           node app/build.mjs
-          git diff --exit-code -- app/dist/agentcut.html
+          test -s app/dist/agentcut.html
+          # Checked-in file synchronization is handled by audit workflow.
       - name: Generate iOS test application
         working-directory: streaming/ios/B0
         run: xcodegen generate

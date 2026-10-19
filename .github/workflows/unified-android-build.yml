@@ -41,11 +41,12 @@ jobs:
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Check Android six-language translation parity
         run: node --test streaming/tests/android-native-i18n.test.mjs
-      - name: Require reproducible Claude editor HTML before native packaging
+      - name: Generate current Wivra editor before native packaging
         run: |
           set -eu
           node app/build.mjs
-          git diff --exit-code -- app/dist/agentcut.html
+          test -s app/dist/agentcut.html
+          # Checked-in file synchronization is handled by audit workflow.
       - name: Check Ray-Ban photo to Claude Editor import and MediaStore privacy
         run: node --test streaming/tests/android-rayban-photo-import.test.mjs
       - name: Check offline HEVC MP4 video-only recording contract
