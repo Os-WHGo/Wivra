@@ -147,3 +147,15 @@ test('visual gaps from fractional starts survive even in audio/overlay-only proj
  assert.equal(delayed.segments[0].type,'gap');
  assert.ok(Math.abs(delayed.segments[0].dur-0.009)<1e-9);
 });
+
+test('hundreds of accepted sub-5ms overlaps must not accumulate audible A/V drift',async()=>{
+ const clips=Array.from({length:200},(_,i)=>({
+  id:'jitter'+i,asset_id:'v',start:i*0.330,in:i*0.333,out:(i+1)*0.333
+ }));
+ const p={clips};
+ const verdict=validateMainVideoExport(p);
+ assert.equal(verdict.ok,false);
+ assert.equal(verdict.reason,'overlap');
+ assert.ok(verdict.seconds >= 0.05,'cumulative lost time must be reported');
+ await assert.rejects(recordProject({project:p,media:{}}),/se superponen/);
+});

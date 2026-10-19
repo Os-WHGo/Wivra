@@ -38,16 +38,21 @@ export function exportPlan(project) {
  */
 export function validateMainVideoExport(project, epsilon = 0.005) {
   const clips = [...(project?.clips || [])].sort((a,b)=>a.start-b.start);
-  let end=0;
+  let end=0, cumulativeJitter=0;
   for (const c of clips) {
     const len=clipLength(c);
     if (!Number.isFinite(c.start) || c.start < -epsilon ||
         !Number.isFinite(c.in) || !Number.isFinite(c.out) ||
         c.in < -epsilon || !(len > 0.001) || !Number.isFinite(len))
       return { ok:false, reason:'invalid', clipId:c.id };
-    if(c.start < end-epsilon)
+    const overlap=Math.max(0,end-c.start);
+    // One sub-5 ms snap/rounding overlap is harmless, but 200 such cuts
+    // shift the soundtrack by hundreds of milliseconds. Catch accumulated
+    // overlap before MediaRecorder creates a misleading finished file.
+    cumulativeJitter+=overlap;
+    if (overlap > epsilon || cumulativeJitter > 0.05)
       return { ok:false, reason:'overlap', clipId:c.id,
-        seconds:Math.round((end-c.start)*100)/100 };
+        seconds:Math.round((overlap > epsilon ? overlap : cumulativeJitter)*100)/100 };
     end=Math.max(end,c.start+len);
   }
   return {ok:true};
