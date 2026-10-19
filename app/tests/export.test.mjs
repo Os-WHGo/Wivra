@@ -72,3 +72,40 @@ test('el plan sin video principal mantiene la duración de audio/capas para diag
   const p = { clips: [], audioClips: [{ id: 'a', start: 0, in: 0, out: 7 }], overlayClips: [], texts: [] };
   assert.equal(exportPlan(p).total, 7);
 });
+
+
+import { validateMainVideoExport, recordProject } from '../export.mjs';
+test('normal montage and gaps validate without changing main timeline or audio overlays',()=>{
+ const project={clips:[{id:'a',start:0,in:1,out:3},{id:'b',start:2,in:8,out:10}],
+   overlayClips:[{id:'ol',start:0,in:0,out:99}],
+   audioClips:[{id:'mic',start:1,in:0,out:9}]};
+ assert.deepEqual(validateMainVideoExport(project),{ok:true});
+ assert.deepEqual(project.clips.map(c=>c.start),[0,2]);
+ assert.equal(validateMainVideoExport({clips:[{id:'x',start:0,in:0,out:3},{id:'y',start:5,in:0,out:1}]}).ok,true);
+});
+test('main picture overlap rejects before MediaRecorder and without mutating project',async()=>{
+ const p={clips:[{id:'a',start:0,in:0,out:4},{id:'b',start:3,in:0,out:3}],
+   audioClips:[{id:'mic',start:0,in:0,out:7}],overlayClips:[]};
+ const previous=structuredClone(p);
+ assert.deepEqual(validateMainVideoExport(p),{ok:false,reason:'overlap',clipId:'b',seconds:1});
+ await assert.rejects(recordProject({project:p,media:{}}),/clips de video principales se superponen/);
+ assert.deepEqual(p,previous);
+});
+test('invalid main positions and ranges are rejected before media capture',async()=>{
+ for(const bad of [
+  {id:'negative',start:-1,in:0,out:2},
+  {id:'backwards',start:0,in:3,out:1},
+  {id:'zero',start:0,in:2,out:2},
+  {id:'nan',start:NaN,in:0,out:2},
+  {id:'infinite',start:0,in:0,out:Infinity}
+ ]) {
+  const p={clips:[bad]};
+  assert.equal(validateMainVideoExport(p).reason,'invalid',bad.id);
+  await assert.rejects(recordProject({project:p,media:{}}),/posición o duración inválida/,bad.id);
+ }
+});
+test('rounded boundary jitter under five milliseconds remains exportable',()=>{
+ assert.deepEqual(validateMainVideoExport({clips:[
+  {id:'a',start:0,in:0,out:2.0},{id:'b',start:1.997,in:0,out:1}
+ ]}),{ok:true});
+});

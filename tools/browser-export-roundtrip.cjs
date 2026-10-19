@@ -108,6 +108,18 @@ const server=http.createServer((req,res)=>{
     outcomes.push(emit('source_video_overrun_must_reject',{
       rejected:!!overrunError,reason:overrunError
     }));
+    const overlapping={
+      clips:[{id:'o1',asset_id:'v',start:0,in:0,out:1.0},
+             {id:'o2',asset_id:'v',start:0.5,in:1,out:1.6}],
+      overlayClips:[],audioClips:[],texts:[],format:{aspect:'original'}
+    };
+    let overlapError='';
+    try{await recordProject({project:overlapping,media})}
+    catch(e){overlapError=String(e.message)}
+    outcomes.push(emit('overlap_of_main_clips_must_fail_closed',{
+      rejected:overlapError.includes('video principales se superponen'),
+      error:overlapError
+    }));
     const invalidMedia={...media,mic:{kind:'audio',url:'blob:invalid-nonexistent'}};
     const gate=await recordProject({project,media:invalidMedia,isCancelled:()=>false});
     outcomes.push(emit('missing_WAV_must_fail_closed',{blocked:gate?.audioBlocked===true,missingAudio:gate?.missingAudio||[]}));
@@ -261,6 +273,8 @@ const server=http.createServer((req,res)=>{
   if(last?.ext==='webm' && !String(report.ffprobe?.format).includes('webm'))process.exitCode=1;
   if(last?.ext==='mp4' && !String(report.ffprobe?.format).includes('mp4'))process.exitCode=1;
   if(!(report.ffprobe?.duration>0.7 && report.ffprobe?.duration<2.4))process.exitCode=1;
+  const overlap=report.cases.find(x=>x.label==='overlap_of_main_clips_must_fail_closed');
+  if(!overlap?.rejected)process.exitCode=1;
   const overrun=report.cases.find(x=>x.label==='source_video_overrun_must_reject');
   // Local generated WebM has unknown (Infinity) duration, so its correct
   // guard is HTMLMediaElement.ended, not metadata. Both guard paths are valid.

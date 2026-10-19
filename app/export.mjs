@@ -26,6 +26,28 @@ export function exportPlan(project) {
   return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
 }
 
+/** Validate the main video lane before recording. The exporter renders
+ * source clips SEQUENTIALLY; overlapping principal clips would otherwise
+ * create extra movie time and desynchronize every independent microphone.
+ * Overlay video and audio have their own tracks and are intentionally exempt.
+ */
+export function validateMainVideoExport(project, epsilon = 0.005) {
+  const clips = [...(project?.clips || [])].sort((a,b)=>a.start-b.start);
+  let end=0;
+  for (const c of clips) {
+    const len=clipLength(c);
+    if (!Number.isFinite(c.start) || c.start < -epsilon ||
+        !Number.isFinite(c.in) || !Number.isFinite(c.out) ||
+        c.in < -epsilon || !(len > 0.001) || !Number.isFinite(len))
+      return { ok:false, reason:'invalid', clipId:c.id };
+    if(c.start < end-epsilon)
+      return { ok:false, reason:'overlap', clipId:c.id,
+        seconds:Math.round((end-c.start)*100)/100 };
+    end=Math.max(end,c.start+len);
+  }
+  return {ok:true};
+}
+
 // Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
 export function outputSize(w, h, shortSide = 1080) {
   if (!(w > 0 && h > 0)) return { w: 1080, h: 1920 };
@@ -324,6 +346,12 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
   };
 }
 export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
+  const mainLane=validateMainVideoExport(project);
+  if(!mainLane.ok){
+    if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
+      mainLane.seconds+' s). Sepáralos en la línea de tiempo o mueve uno a una pista superpuesta antes de exportar.');
+    throw new Error('Hay un clip principal con posición o duración inválida. Ajusta el recorte antes de exportar.');
+  }
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
