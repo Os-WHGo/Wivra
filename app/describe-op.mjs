@@ -19,6 +19,8 @@ export function describeOperation(o, { T = (s, ...a) => fillTemplate(s, a), f = 
     case 'set_clip_audio': return T('Audio de {1}: {2}', o.clip_id, list([o.muted === undefined ? '' : T(o.muted ? 'silenciar' : 'con sonido'), o.volume === undefined ? '' : T('volumen {1}%', Math.round(o.volume * 100))]));
     case 'add_clip': return T('Agregar {1} en {2} s', o.asset_id, f(o.start ?? 0));
     case 'add_photo_clip': return T('Foto {1} en {2} s por {3} s', o.asset_id, f(o.start ?? 0), f(o.duration ?? 3));
+    case 'set_text': return T('Texto {1}: {2}', o.text_id, list([o.text !== undefined ? T('«{1}»', o.text) : '', o.start !== undefined ? T('desde {1} s', f(o.start)) : '', o.duration !== undefined ? T('por {1} s', f(o.duration)) : '', ['pos', 'size', 'color', 'box'].some((k) => o[k] !== undefined) ? T('estilo') : '']));
+    case 'delete_text': return T('Borrar texto {1}', o.text_id);
     case 'add_text': return T('Texto «{1}» en {2} s por {3} s', o.text, f(o.start), f(o.duration));
     case 'add_audio_clip': return T('Pista de audio {1} en {2} s', o.asset_id, f(o.start ?? 0));
     case 'add_overlay_clip': return T('Capa {1} encima, desde {2} s', o.asset_id, f(o.start ?? 0));
@@ -26,7 +28,7 @@ export function describeOperation(o, { T = (s, ...a) => fillTemplate(s, a), f = 
     case 'set_audio_clip': return T('Pista de audio {1}: {2}', o.clip_id, list([o.track !== undefined ? T('fila {1}', o.track) : '', o.role ? T('papel {1}', o.role) : '']));
     case 'set_clip_fx': return T('Efecto de {1}: {2}', o.clip_id, list([o.intro ? T('entrada {1}', o.intro) : '', o.outro ? T('salida {1}', o.outro) : '', o.dur ? T('{1} s', o.dur) : '']));
     case 'set_clip_filter': return (o.reset || o.look === 'none') ? T('Quitar filtro de {1}', o.clip_id) : T('Filtro de {1}: {2}', o.clip_id, o.look ? T(lookName(o.look)) : T('ajustes de color'));
-    case 'set_format': return T('Formato: {1}', list([o.aspect ? T('cuadro {1}', o.aspect) : '', o.fit ? T(o.fit === 'cover' ? 'rellenar' : 'barras negras') : '']));
+    case 'set_format': return T('Formato: {1}', list([o.aspect ? T('cuadro {1}', o.aspect) : '', o.fit ? T(o.fit === 'cover' ? 'rellenar' : 'barras negras') : '', o.safe === true ? T('zona segura de textos') : (o.safe === false ? T('sin zona segura de textos') : '')]));
     default: return JSON.stringify(o);
   }
 }
