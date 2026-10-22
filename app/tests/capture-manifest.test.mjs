@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseManifest, importPlan } from '../capture-manifest.mjs';
+import { parseManifest, importPlan, captureSelectionPlan } from '../capture-manifest.mjs';
 
 const fx = JSON.parse(readFileSync(new URL('./fixtures/manifest-v2-fixtures.json', import.meta.url), 'utf8'));
 const byName = (n) => structuredClone(fx.cases.find((c) => c.name === n).manifest);
@@ -42,10 +42,10 @@ test('rechaza: rol inválido, kind distinto de audio, ids repetidos, canal fuera
   assert.equal(mk((m) => { m.tracks[0].startOffsetSeconds = '0.1'; }).ok, false);
   assert.equal(mk((m) => { m.tracks[0].sampleRateHz = 0; }).ok, false);
 });
-test('rechaza muxedFromTrackIDs inconsistente y avisa de audio duplicado o campos nuevos', () => {
+test('rechaza muxedFromTrackIDs inconsistente y canales de audio duplicados; avisa de campos nuevos', () => {
   const a = byName('single-hfp-sidecar'); a.muxedFromTrackIDs = ['no-existe']; assert.equal(parseManifest(a).ok, false);
   const b = byName('single-hfp-sidecar'); b.muxedVideoFile = null; assert.equal(parseManifest(b).ok, false);
-  const c = byName('usb-stereo-two-transmitters-hypothetical'); c.tracks[1].channelIndex = 0; const rc = parseManifest(c); assert.ok(rc.ok); assert.ok(rc.warnings.some((w) => /duplic/.test(w)));
+  const c = byName('usb-stereo-two-transmitters-hypothetical'); c.tracks[1].channelIndex = 0; const rc = parseManifest(c); assert.equal(rc.ok, false); assert.ok(rc.errors.some((e) => /duplicado/.test(e)));
   const d = byName('silent-video-no-audio'); d.futuro = 1; const rd = parseManifest(d); assert.ok(rd.ok); assert.ok(rd.warnings.some((w) => /futuro/.test(w)));
 });
 test('versión desconocida, JSON roto y entradas no objeto', () => {
@@ -112,4 +112,45 @@ test('B1L: manifest iPhone con sonido incorporado no inventa pistas independient
   const plan = importPlan(result.manifest, { useMuxed: true });
   assert.deepEqual(plan.audioTracks, []);
   assert.deepEqual(planImportOps(plan, { assets: { 'iphone.mov': { id: 'v', duration: 5 } } }).ops.map(o => o.op), ['add_clip']);
+});
+
+test('captura incompleta nunca se importa como video sin su WAV imprescindible',()=>{
+ const m=parseManifest(byName('single-hfp-sidecar')).manifest;
+ const p=captureSelectionPlan(m,[m.videoFile,'recording.wivra.json']);
+ assert.equal(p.ok,false);
+ assert.deepEqual(p.candidates,[]);
+ assert.deepEqual(p.missing,[m.tracks[0].file]);
+});
+test('solo el MOV combinado puede sustituir un WAV ausente que figure como muxed',()=>{
+ const m=parseManifest(byName('single-hfp-sidecar')).manifest;
+ const mov=captureSelectionPlan(m,[m.videoFile,m.muxedVideoFile,'capture.wivra.json']);
+ assert.equal(mov.ok,true);
+ assert.deepEqual(mov.candidates,[{name:m.muxedVideoFile,muxed:true}]);
+ const full=captureSelectionPlan(m,[m.videoFile,m.muxedVideoFile,m.tracks[0].file,'capture.wivra.json']);
+ assert.deepEqual(full.candidates,[{name:m.videoFile,muxed:false},{name:m.muxedVideoFile,muxed:true}]);
+});
+test('un MOV combinado no compensa audio independiente que nunca se mezcló',()=>{
+ const m=parseManifest(byName('single-hfp-sidecar')).manifest;
+ const extra={...m.tracks[0],id:'guest',file:'guest.caf',role:'voice_guest'};
+ m.tracks.push(extra);
+ const result=captureSelectionPlan(m,[m.muxedVideoFile]);
+ assert.equal(result.ok,false);
+ assert.deepEqual(result.missing,[m.tracks[0].file,'guest.caf']);
+});
+test('video silencioso sigue siendo válido; nombres duplicados o archivos vacíos no',()=>{
+ const m=parseManifest(byName('silent-video-no-audio')).manifest;
+ assert.equal(captureSelectionPlan(m,[m.videoFile]).ok,true);
+ assert.equal(captureSelectionPlan(m,[m.videoFile,m.videoFile]).ok,false);
+ assert.equal(captureSelectionPlan(m,[{name:m.videoFile,size:0}]).ok,false);
+ assert.equal(captureSelectionPlan(m,[{name:m.videoFile,size:1024}]).ok,true);
+});
+
+test('nunca se reproduce dos veces el mismo WAV mezclando archivo completo y canal aislado',()=>{
+ const m=byName('usb-stereo-two-transmitters-hypothetical');
+ m.tracks[1].channelIndex=null;
+ const r=parseManifest(m);
+ assert.equal(r.ok,false);
+ assert.ok(r.errors.some(e=>/audio duplicado/.test(e)));
+ const distinct=parseManifest(byName('usb-stereo-two-transmitters-hypothetical'));
+ assert.equal(distinct.ok,true);
 });

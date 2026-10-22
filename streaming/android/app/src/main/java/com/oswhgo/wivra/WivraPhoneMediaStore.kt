@@ -9,6 +9,9 @@ import android.provider.MediaStore
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.nio.file.Files
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.StandardCopyOption
 
 /**
  * Private capture first; publication to the system gallery only after the
@@ -200,23 +203,38 @@ object WivraPhoneMediaStore {
                 context, MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 "$name.wav", "audio/wav", "Music/Wivra/", wav
             )
+            // Persist the actual pair identity BEFORE making either MediaStore
+            // row public or deleting the private originals. A broken/missing
+            // sidecar must never turn WAV+MP4 into two unlinked editor assets.
+            val timingFile = File(directory(context),
+                video.name.removeSuffix(".mp4") + ".wivra.json")
+            require(timingFile.isFile && !Files.isSymbolicLink(timingFile.toPath())) {
+                "Finalized WAV association not available"
+            }
+            val data = org.json.JSONObject(timingFile.readText())
+            require(data.optString("originalVideoFile") == video.name &&
+                data.optString("originalAudioFile") == wav.name &&
+                data.optString("audioStatus") == "ready") {
+                "WAV association no longer matches capture"
+            }
+            data.put("publishedVideoUri", videoUri.toString())
+            data.put("publishedAudioUri", audioUri.toString())
+            val tmp = Files.createTempFile(timingFile.parentFile.toPath(),
+                "wivra-association-", ".tmp")
+            try {
+                Files.write(tmp, data.toString(2).toByteArray(Charsets.UTF_8))
+                try {
+                    Files.move(tmp, timingFile.toPath(),
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(tmp, timingFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            } finally { Files.deleteIfExists(tmp) }
             val visible = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             if (resolver.update(videoUri, visible, null, null) != 1 ||
                 resolver.update(audioUri, visible, null, null) != 1) {
                 throw IOException("Could not publish complete recording")
             }
-            val timingFile = File(directory(context),
-                video.name.removeSuffix(".mp4") + ".wivra.json")
-            // An optional private sync record never contains vocal samples.
-            // Keep it for Claude's future single-library media association.
-            try {
-                if (timingFile.exists()) {
-                    val data = org.json.JSONObject(timingFile.readText())
-                    data.put("publishedVideoUri", videoUri.toString())
-                    data.put("publishedAudioUri", audioUri.toString())
-                    timingFile.writeText(data.toString(2))
-                }
-            } catch (_: Exception) { /* media is already safely published */ }
             video.delete()
             wav.delete()
             return SavedPair(videoUri, audioUri)
@@ -233,14 +251,16 @@ object WivraPhoneMediaStore {
         val results = mutableListOf<SavedMedia>()
         val where = "${MediaStore.Audio.Media.RELATIVE_PATH} = ? AND " +
             "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? AND " +
-            "${MediaStore.Audio.Media.MIME_TYPE} = ? AND " +
+            // Android's media scanner may normalize WAV to audio/x-wav,
+            // audio/wave or another supported variant after publication.
+            // Do not hard-require the originally inserted MIME value.
             "${MediaStore.Audio.Media.IS_PENDING} = 0 AND " +
             "${MediaStore.Audio.Media.SIZE} > 44 AND " +
             "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ?"
         return try {
             context.contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, columns, where,
-                arrayOf("Music/Wivra/", "$PUBLISHED_PREFIX%", "audio/wav", context.packageName),
+                arrayOf("Music/Wivra/", "$PUBLISHED_PREFIX%", context.packageName),
                 "${MediaStore.Audio.Media.DATE_ADDED} DESC"
             )?.use { cursor ->
                 val id = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
@@ -266,12 +286,16 @@ object WivraPhoneMediaStore {
      */
     fun saveSidecarTiming(
         context: Context, video: File, videoStartNs: Long, audioReadNs: Long,
-        audioBytes: Long
+        audioBytes: Long,
+        audioSource: String = "android-system-mic",
+        selectedInputName: String? = null
     ) {
         require(isWivraPrivate(context, video)) { "Invalid video path" }
         val track = org.json.JSONObject().apply {
             put("schemaVersion", 2)
             put("cameraSource", "android-phone-camerax")
+            put("audioSource", audioSource)
+            put("selectedInputName", selectedInputName ?: org.json.JSONObject.NULL)
             put("originalVideoFile", video.name)
             put("originalAudioFile", privateWav(context, video).name)
             put("audioFormat", "pcm16-48000-mono-wav")
@@ -288,7 +312,11 @@ object WivraPhoneMediaStore {
                 put("id", "audio-1")
                 put("kind", "audio")
                 put("role", "voice_primary")
-                put("source", "android-phone-mic")
+                put("source", audioSource)
+                put("inputName", selectedInputName ?: org.json.JSONObject.NULL)
+                put("startOffsetSeconds", if (videoStartNs > 0L && audioReadNs > 0L)
+                    (audioReadNs - videoStartNs) / 1_000_000_000.0
+                    else org.json.JSONObject.NULL)
                 put("file", privateWav(context, video).name)
                 put("channelCount", 1)
                 put("sampleRateHz", 48000)

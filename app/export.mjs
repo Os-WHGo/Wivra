@@ -6,19 +6,56 @@ import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsBy
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
-// Lista de pasos en orden: clips, y "huecos" negros si hay espacio entre clips.
+// Export follows the ORIGINAL timeline, including short intervals between
+// cuts. NEVER round each segment to centiseconds: 100 cuts of 0.333 s would
+// lose 300 ms, and ignoring 7 ms gaps would lose another 693 ms.
+// Presentation-only progress can round numbers, but the actual recording
+// schedule must preserve source precision and align with independently mixed
+// audio/text/video overlays.
 export function exportPlan(project) {
-  const clips = [...project.clips].sort((a, b) => a.start - b.start);
+  const clips = [...(project.clips || [])].sort((a, b) => a.start - b.start);
   const segments = []; let cursor = 0;
   for (const c of clips) {
-    if (c.start - cursor > 0.05) segments.push({ type: 'gap', dur: r2(c.start - cursor), start: cursor });
-    segments.push({ type: 'clip', clip: c, dur: r2(clipLength(c)) });
-    cursor = Math.max(cursor, c.start + clipLength(c));
+    if (c.start > cursor) segments.push({ type: 'gap', dur: c.start - cursor, start: cursor });
+    const duration = clipLength(c);
+    segments.push({ type: 'clip', clip: c, dur: duration });
+    cursor = Math.max(cursor, c.start + duration);
   }
-  const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
-  if (end - cursor > 0.05) { segments.push({ type: 'gap', dur: r2(end - cursor), start: cursor }); cursor = end; }
-  const textEnd = project.texts.reduce((m, t) => Math.max(m, t.end), 0);
-  return { segments, total: r2(Math.max(cursor, 0)), textBeyondEnd: textEnd > cursor + 0.05 };
+  // Picture lane controls the duration; music and overlays must not append
+  // a black tail. Audio/overlay-only projects retain their planned duration.
+  if (!clips.length) {
+    const end = [project.overlayClips || [], project.audioClips || []].reduce((m, g) => g.reduce((n, c) => Math.max(n, c.start + clipLength(c)), m), 0);
+    if (end > 0) { segments.push({ type: 'gap', dur: end, start: 0 }); cursor = end; }
+  }
+  const textEnd = (project.texts || []).reduce((m, t) => Math.max(m, t.end), 0);
+  return { segments, total: Math.max(cursor, 0), textBeyondEnd: textEnd > cursor + 0.05 };
+}
+
+/** Validate the main video lane before recording. The exporter renders
+ * source clips SEQUENTIALLY; overlapping principal clips would otherwise
+ * create extra movie time and desynchronize every independent microphone.
+ * Overlay video and audio have their own tracks and are intentionally exempt.
+ */
+export function validateMainVideoExport(project, epsilon = 0.005) {
+  const clips = [...(project?.clips || [])].sort((a,b)=>a.start-b.start);
+  let end=0, cumulativeJitter=0;
+  for (const c of clips) {
+    const len=clipLength(c);
+    if (!Number.isFinite(c.start) || c.start < -epsilon ||
+        !Number.isFinite(c.in) || !Number.isFinite(c.out) ||
+        c.in < -epsilon || !(len > 0.001) || !Number.isFinite(len))
+      return { ok:false, reason:'invalid', clipId:c.id };
+    const overlap=Math.max(0,end-c.start);
+    // One sub-5 ms snap/rounding overlap is harmless, but 200 such cuts
+    // shift the soundtrack by hundreds of milliseconds. Catch accumulated
+    // overlap before MediaRecorder creates a misleading finished file.
+    cumulativeJitter+=overlap;
+    if (overlap > epsilon || cumulativeJitter > 0.05)
+      return { ok:false, reason:'overlap', clipId:c.id,
+        seconds:Math.round((overlap > epsilon ? overlap : cumulativeJitter)*100)/100 };
+    end=Math.max(end,c.start+len);
+  }
+  return {ok:true};
 }
 
 // Tamaño de salida: respeta la forma del primer video, máximo 1080 en el lado corto, medidas pares.
@@ -46,9 +83,14 @@ export function fitRect(vw, vh, W, H, fit) {
 }
 
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
+// Prefer explicit H.264 MP4. Chromium can accept a *bare* 'video/mp4'
+// then silently produce VP9/Opus inside MP4, which is poorly portable.
+// Prefer explicit WebM over an ambiguous MP4 container when AVC is absent.
+// Safari/iOS with only MP4 support retains the final generic MP4 fallback.
 export const MIME_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4',
-  'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1',
+  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm',
+  'video/mp4'];
 export function pickMime(isSupported) {
   for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
   return '';
@@ -59,6 +101,15 @@ export const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 export const clipGain = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
 
 // Pistas de audio aparte: cuándo arrancan. En el instante `t` del timeline, ¿debe sonar el clip de audio `c`? Devuelve dónde empezar dentro del medio y cuánto dura aún, o null.
+/** Guard against reading beyond the real video asset. The timeline 'out'
+ * is SOURCE time (seconds); the lost amount is returned in TIMELINE seconds.
+ * Finite durations only: live/unknown assets must be checked at playback end. */
+export function videoSourceShortfall(c, sourceDuration, tolerance = 0.08) {
+  if (!c || !Number.isFinite(c.out) || !Number.isFinite(sourceDuration) || sourceDuration <= 0) return 0;
+  const missing = c.out - sourceDuration;
+  return missing > tolerance ? Math.round(missing / speedOf(c) * 100) / 100 : 0;
+}
+
 export function audioStartAt(c, t) {
   const len = clipLength(c), s = speedOf(c), into = t - c.start;
   if (c.muted || into < -0.02 || into >= len - 0.03) return null;
@@ -234,9 +285,83 @@ export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what 
   });
 }
 export const STALL_SECONDS = 8;      // un video que no avanza durante tanto tiempo = exportación trabada
+export const RECORDER_STOP_TIMEOUT_MS = 12000;
+/** Only await onstop if start() actually succeeded. Never hold a frozen
+ * mobile/WebView export forever, and let the caller release all resources.
+ * A completion event is required for the final dataavailable chunk. */
+export async function finishMediaRecorder(rec, stopped, { started = false, ms = RECORDER_STOP_TIMEOUT_MS } = {}) {
+  if (!started) return;
+  let timer;
+  try {
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('El grabador no terminó de cerrar el archivo. Prueba otra exportación.')), ms);
+    });
+    if (rec.state !== 'inactive') rec.stop();
+    await Promise.race([stopped, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0 }) {
+// Fail closed before recording when a requested voice track was not decoded.
+// This is deliberately pure so its decision can be tested without a browser.
+export function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds = [], decodedAudioDurations = null } = {}) {
+  const active = (project.audioClips || []).filter(c => !c.muted && clipGain(c) > 0);
+  const decoded = new Set(decodedAudioIds);
+  const missingAudio = [...new Set(active.map(c => c.asset_id).filter(id => !decoded.has(id)))];
+  // A WAV can decode successfully yet be SHORTER than the source interval
+  // selected in the timeline. WebAudio would stop early without throwing and
+  // MediaRecorder would happily export the lost tail. Gate this explicitly.
+  // Unknown durations stay unknown for older callers; recordProject passes
+  // the actual AudioBuffer.duration in a Map, so production checks every WAV.
+  const bufferLength = (id) => decodedAudioDurations instanceof Map
+    ? decodedAudioDurations.get(id)
+    : decodedAudioDurations && Object.prototype.hasOwnProperty.call(decodedAudioDurations, id)
+      ? decodedAudioDurations[id] : undefined;
+  const shortAudio = active.flatMap((c) => {
+    if (!decoded.has(c.asset_id) || !Number.isFinite(c.out)) return [];
+    const decodedLength = bufferLength(c.asset_id);
+    if (decodedLength === undefined) return [];
+    const playable = Number.isFinite(decodedLength) && decodedLength > 0 ? decodedLength : 0;
+    const lost = (c.out - playable) / speedOf(c);
+    return lost > 0.05
+      ? [{ id: c.id, asset_id: c.asset_id, role: c.role || 'audio',
+          secondsLost: Math.round(lost * 100) / 100 }] : [];
+  });
+  const hasAudibleVideo = [...(project.clips || []), ...(project.overlayClips || [])]
+    .some(c => media[c.asset_id]?.kind !== 'image' && !c.muted && clipGain(c) > 0);
+  // A main video determines the recorded duration. Extra music may legitimately
+  // be longer, but the end of a primary/guest voice must never be lost silently
+  // if its timeline extends beyond the last video frame. This catches a large
+  // native A/V offset and manual trims before starting MediaRecorder.
+  const videoEnd = (project.clips || []).reduce((end, c) => {
+    const length = clipLength(c);
+    return Number.isFinite(length) && Number.isFinite(c.start) ?
+      Math.max(end, c.start + length) : end;
+  }, 0);
+  const truncatedVoices = videoEnd > 0 ? active
+    .filter(c => c.role === 'voice_primary' || c.role === 'voice_guest')
+    .map(c => ({ id: c.id, role: c.role, end: c.start + clipLength(c) }))
+    .filter(c => Number.isFinite(c.end) && c.end > videoEnd + 0.05)
+    .map(c => ({ id: c.id, role: c.role, secondsLost: Math.round((c.end - videoEnd) * 100) / 100 }))
+    : [];
+  return {
+    needsConfirmation: missingAudio.length > 0 || shortAudio.length > 0 || truncatedVoices.length > 0 ||
+      (!hasAudio && (active.length > 0 || hasAudibleVideo)),
+    missingAudio,
+    shortAudio,
+    truncatedVoices,
+    unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
+  };
+}
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
+  const mainLane=validateMainVideoExport(project);
+  if(!mainLane.ok){
+    if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
+      mainLane.seconds+' s). Sepáralos en la línea de tiempo o mueve uno a una pista superpuesta antes de exportar.');
+    throw new Error('Hay un clip principal con posición o duración inválida. Ajusta el recorte antes de exportar.');
+  }
   const plan = exportPlan(project);
   const firstClip = plan.segments.find((s) => s.type === 'clip');
   if (!plan.segments.length) throw new Error('No hay clips para exportar.');
@@ -274,6 +399,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       catch { skippedAudio.push(c.asset_id); }
     }
   } else if (aClips.length) aClips.forEach((c) => skippedAudio.push(c.asset_id));
+  // A failed track must not disappear silently from an irreversible export.
+  // The user may explicitly opt in to an incomplete export in the UI.
+  const audioPreflight = exportAudioPreflight(project, media, {
+    hasAudio, decodedAudioIds: [...buffers.keys()],
+    decodedAudioDurations: new Map([...buffers].map(([id, buffer]) => [id, buffer.duration]))
+  });
+  if (audioPreflight.needsConfirmation && !allowIncompleteAudio) {
+    stream.getTracks().forEach(track => track.stop());
+    ev.remove();
+    try { if (ac) await ac.close(); } catch { /* context already released */ }
+    return { audioBlocked: true, ...audioPreflight };
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
@@ -318,7 +455,19 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   };
 
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
-  const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+  let rec;
+  try {
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+  } catch (error) {
+    // Some WebViews advertise a container through isTypeSupported(), then
+    // throw from the constructor. This is before the main recording try/finally.
+    // Release every allocated native/media resource on this early failure.
+    stream.getTracks().forEach((track) => { try { track.stop(); } catch { /* released */ } });
+    oList.forEach((o) => { try { o.el.pause(); } catch { /* no media */ } try { o.el.remove(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch { /* context released */ }
+    throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
+  }
   const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
@@ -337,11 +486,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted;
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
-  const t0 = performance.now(); let cancelled = false;
+  const t0 = performance.now(); let cancelled = false, recorderStarted = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
     rec.start(1000);
+    recorderStarted = true;
     for (const seg of plan.segments) {
       if (stopNow()) { cancelled = true; break; }
       if (seg.type === 'gap') {
@@ -365,6 +515,10 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         continue;
       }
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
+      const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
+      if (missingVideoSeconds > 0) throw new Error(
+        'El video original termina antes del final elegido para este clip (' +
+        missingVideoSeconds + ' s sin imagen). Acorta el clip o reimporta el archivo completo.');
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
@@ -374,7 +528,16 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         const tick = () => {
           const cur = ev.currentTime, t = c.start + (cur - c.in) / spd;
           audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
-          if (stopNow() || cur >= c.out - 0.03 || ev.ended) return res();
+          if (stopNow() || cur >= c.out - 0.03) return res();
+          // Some WebViews omit/round duration metadata, so detect EOF too.
+          // Never silently claim a complete export when the source ends early.
+          if (ev.ended) {
+            const lost = Math.max(0, Math.round((c.out - cur) / spd * 100) / 100);
+            return lost > 0.08
+              ? rej(new Error('El video original terminó antes de lo esperado (' +
+                lost + ' s sin imagen). Ajusta el recorte o reimporta el original.'))
+              : res();
+          }
           if (cur !== last) { last = cur; since = performance.now(); }
           else if (performance.now() - since > STALL_SECONDS * 1000) return rej(new Error(`El video se trabó y no avanzó durante ${STALL_SECONDS} s. Prueba de nuevo o con menos clips.`));
           requestAnimationFrame(tick);
@@ -386,13 +549,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     await frame(); await frame();
   } finally {
     sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
-    if (rec.state !== 'inactive') rec.stop();
-    await stopped;
-    stream.getTracks().forEach((t) => t.stop());
-    oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
-    photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
-    ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
-    document.removeEventListener('visibilitychange', onVis);
+    try {
+      await finishMediaRecorder(rec, stopped, { started: recorderStarted });
+    } finally {
+      // This MUST execute even if MediaRecorder.start/stop throws or onstop
+      // never fires. Otherwise a hidden video, microphone or AudioContext
+      // remains active after a failed export.
+      stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* already stopped */ } });
+      oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
+      photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
+      ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+      document.removeEventListener('visibilitychange', onVis);
+    }
   }
   if (interrupted) return { interrupted: true };
   if (cancelled || isCancelled()) return { cancelled: true };

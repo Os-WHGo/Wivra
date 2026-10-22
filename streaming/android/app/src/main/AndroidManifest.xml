@@ -20,6 +20,13 @@
         <!-- Zero placeholders only for Developer Mode. Release requires Meta-assigned values. -->
         <meta-data android:name="com.meta.wearable.mwdat.APPLICATION_ID" android:value="${mwdat_application_id}" />
         <meta-data android:name="com.meta.wearable.mwdat.CLIENT_TOKEN" android:value="${mwdat_client_token}" />
+        <!-- Not exported: WebView receives only user-selected, read-only cache JSON. -->
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.captureimports"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/wivra_import_paths" />
+        </provider>
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <activity android:name=".WivraMetaPreviewActivity" android:exported="false" />

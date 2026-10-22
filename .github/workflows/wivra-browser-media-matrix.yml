@@ -1,0 +1,46 @@
+name: Wivra WebCodecs MediaRecorder isolated browser matrix
+on:
+  push:
+    branches: [chatgpt/wivra-unified-owner-20261016]
+    paths:
+      - tools/browser-media-capability-probe.cjs
+      - tools/browser-export-roundtrip.cjs
+      - app/export.mjs
+      - .github/workflows/wivra-browser-media-matrix.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser tester, never app runtime
+        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
+      - name: Install Linux test browser engines
+        run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
+      - name: Exercise WebCodecs and MediaRecorder with generated local canvas
+        run: node tools/browser-media-capability-probe.cjs
+      - name: Inspect synthetic media tracks using ffprobe
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          ffprobe -version | head -n 1
+      - name: Verify both non-contiguous scenes, title rendering attempts and WAV timing
+        run: node tools/browser-export-roundtrip.cjs
+      - name: Archive evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-WebCodecs-Linux-Browser-Capabilities
+          path: |
+            wivra-media-capabilities.json
+            wivra-export-browser-roundtrip.json
+          if-no-files-found: warn
+          retention-days: 7

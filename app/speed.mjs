@@ -2,6 +2,7 @@
 // `in`/`out` siguen siendo segundos del medio original; la velocidad solo cambia cuánto dura el clip en la línea de tiempo: (out − in) / velocidad.
 // Al cambiarla en el video PRINCIPAL, lo que viene después se corre (como al recortar), y el audio que iba con ese video cambia igual.
 import { clipLength, speedOf, SPEED_MIN, SPEED_MAX } from '../core/project.mjs';
+import { applyBatch } from '../core/operations.mjs';
 
 export const SPEED_CHOICES = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 export const SPEED_SAFE_MIN = 0.5, SPEED_SAFE_MAX = 2;      // fuera de este rango el navegador puede dejar el sonido raro o mudo (en iPhone: sin verificar)
@@ -32,6 +33,9 @@ export function planSpeed(project, clipId, speed) {
     // Audio que «va con» este video (≥80 % de su duración dentro de él): cambia de velocidad igual y conserva su sitio relativo.
     const mine = new Set();
     for (const a of groups.audio) {
+      // Spatial overlap is not proof of linkage: a music bed can sit fully
+      // inside a video. Never retime music or unrelated audio-only assets.
+      if (a.role === 'music' || (kind.get(a.asset_id) === 'audio' && !['voice_primary', 'voice_guest'].includes(a.role))) continue;
       const alen = clipLength(a), ov = Math.min(a.start + alen, clipEnd) - Math.max(a.start, c.start);
       if (alen <= 0 || ov < 0.8 * alen) continue;
       const na = spR(speedOf(a) * ratio);
@@ -51,4 +55,33 @@ export function planSpeed(project, clipId, speed) {
     if (linked) warnings.push('El audio que iba con este video cambió de velocidad igual.');
   }
   return { ok: true, ops, before: spR2(before), after, linked, warnings };
+}
+
+/**
+ * Plan one undoable batch for all principal video clips.
+ * Recalculate each step on the updated project to avoid stale ripple positions.
+ * Standalone music is not speed-adjusted. Linked voice follows planSpeed.
+ */
+export function planSpeedAll(project, speed) {
+  if (!project || !Array.isArray(project.clips)) return { ok: false, error: 'No hay proyecto.' };
+  if (!Number.isFinite(speed) || speed < SPEED_MIN || speed > SPEED_MAX)
+    return { ok: false, error: `La velocidad va de ${SPEED_MIN}× a ${SPEED_MAX}×.` };
+  const kinds = new Map((project.assets || []).map(a => [a.id, a.kind]));
+  const clips = project.clips.filter(c => kinds.get(c.asset_id) === 'video')
+    .sort((a, b) => b.start - a.start);
+  if (!clips.length) return { ok: false, error: 'No hay videos para cambiar de velocidad.' };
+  let working = project;
+  const ops = [], warnings = [];
+  for (const clip of clips) {
+    const step = planSpeed(working, clip.id, speed);
+    if (!step.ok) return step;
+    if (!step.ops.length) continue;
+    const applied = applyBatch(working, step.ops);
+    if (!applied.ok) return { ok: false, error: applied.message || 'No se pudo cambiar la velocidad.' };
+    working = applied.project;
+    ops.push(...step.ops);
+    warnings.push(...step.warnings);
+  }
+  return { ok: true, ops, count: clips.length, warnings: [...new Set(warnings)],
+    after: working, speed };
 }

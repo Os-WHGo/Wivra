@@ -11,3 +11,31 @@ for (const f of ['../template.html', '../dist/agentcut.html']) {
     assert.match(h, /else if \(capNote\) say\(capNote/);
   });
 }
+
+for (const f of ['../template.html','../dist/agentcut.html']) {
+  test(`captura multipista falla de forma segura ante audio faltante o ilegible (${f})`,()=>{
+    const h=readFileSync(new URL(f,import.meta.url),'utf8');
+    assert.match(h,/mf\.size > 128 \* 1024/);
+    assert.match(h,/captureSelectionPlan\(m, files\)/);
+    assert.match(h,/if \(!selection\.ok\)/);
+    assert.match(h,/for \(const \{ name, muxed: isMux \} of selection\.candidates\)/);
+    assert.match(h,/if \(out\.skipped\.length\) \{/);
+    assert.match(h,/La línea de tiempo no se modificó/);
+  });
+}
+
+for (const f of ['../template.html','../dist/agentcut.html']) {
+ test(`capturas fallidas liberan recursos sin alterar otros clips ni historial (${f})`,()=>{
+  const s=readFileSync(new URL(f,import.meta.url),'utf8');
+  const block=s.slice(s.indexOf('async function importCapture(files)'),s.indexOf('// The same import path handles user-selected files'));
+  assert.match(block,/const previousSession = session, stagedAssetIDs = \[\]/);
+  assert.match(block,/captureCommitted = true/);
+  assert.match(block,/if \(!captureCommitted && stagedAssetIDs\.length && session\)/);
+  assert.match(block,/\.\.\.session\.undoStack, \.\.\.session\.redoStack/);
+  assert.match(block,/referenced\.has\(id\)/);
+  assert.match(block,/state\.assets = state\.assets\.filter/);
+  assert.match(block,/URL\.revokeObjectURL\(url\)/);
+  assert.match(block,/delete media\[id\]/);
+  assert.match(block,/delete mediaFiles\[id\]/);
+ });
+}

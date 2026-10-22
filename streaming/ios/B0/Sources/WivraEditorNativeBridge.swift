@@ -30,10 +30,32 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 "editor": "embedded_local",
                 "capture": "native_available_with_permissions",
                 "captureLibrary": "metadata_only",
-                "nativeMediaImport": "not_available",
+                "nativeMediaImport": "file_picker",
                 "live": "not_verified",
                 "gps": "not_requested",
                 "paidServices": false
+            ], nil)
+        case "library.importSelection":
+            // A native file picker is the only authorized media handoff. The
+            // editor must receive File objects through WebKit's open panel;
+            // never expose sandbox paths or copy media bytes into a JS reply.
+            guard let captureId = body["captureId"] as? String,
+                  !captureId.isEmpty, captureId.count <= 200 else {
+                replyHandler(nil, "Identificador de captura inválido.")
+                return
+            }
+            let found = WivraLocalCaptureScanner.read()
+            guard let capture = found.days.flatMap({ $0.captures }).first(where: {
+                $0.id == captureId && $0.videoURL != nil
+            }) else {
+                replyHandler(nil, "Captura no disponible.")
+                return
+            }
+            replyHandler([
+                "version": 1,
+                "captureId": capture.id,
+                "readyForPicker": true,
+                "fileCount": 2 + capture.audioURLs.count + (capture.alternateVideoURL == nil ? 0 : 1)
             ], nil)
         case "library.list":
             // Scanner already validates manifest v2, safe basenames, duplicates,

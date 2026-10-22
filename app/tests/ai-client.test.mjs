@@ -93,3 +93,12 @@ test('el Director solo se adjunta a petición explícita y nunca se envía el ar
   assert.ok(!withGoal.init.body.includes('blob:SECRET'));
   assert.ok(!withGoal.init.body.includes(base.key));
 });
+
+test('seguridad BYOK: rechaza HTTP, credenciales, parámetros y fragmentos antes de enviar clave', async () => {
+  let called = 0;
+  for (const url of ['http://example.com/v1', 'https://user:pass@example.com/v1', 'https://example.com/v1?token=x', 'https://example.com/v1#fragment', 'javascript:alert(1)']) {
+    assert.throws(() => buildRequest({ ...base, base: url }), /HTTPS|válida/);
+    await assert.rejects(askModel({ ...base, base: url, fetchImpl: async () => { called++; return ok({})(); } }), /HTTPS|válida/);
+  }
+  assert.equal(called, 0);
+});

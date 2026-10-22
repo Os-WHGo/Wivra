@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createProject, clipLength, speedOf, srcTime, totalDuration, timelineEnd } from '../../core/project.mjs';
 import { applyBatch } from '../../core/operations.mjs';
-import { planSpeed, SPEED_CHOICES } from '../speed.mjs';
+import { planSpeed, planSpeedAll, SPEED_CHOICES } from '../speed.mjs';
 import { clipAt, splitAt, planEdit, rippleOps } from '../timeline.mjs';
 import { exportPlan, audioStartAt, overlayAt, fxAt } from '../export.mjs';
 import { buildMix } from '../loudness.mjs';
@@ -73,7 +73,7 @@ test('planSpeed: capa y audio solo cambian su velocidad; fotos y velocidades fue
 });
 test('exportación: el plan, el audio, las capas y los efectos siguen el tiempo de la línea', () => {
   const p = applyBatch(base(), [{ op: 'set_clip_speed', clip_id: 'c1', speed: 2 }, { op: 'set_clip_speed', clip_id: 'u3', speed: 2 }, { op: 'move_clip', clip_id: 'c2', start: 5 }]).project;
-  const plan = exportPlan(p); assert.equal(plan.segments[0].dur, 5); assert.equal(plan.total, 16, 'la música llega hasta 16 s');
+  const plan = exportPlan(p); assert.equal(plan.segments[0].dur, 5); assert.equal(plan.total, 13, 'la exportación termina con el video principal, no con la música');
   const a = audioStartAt(p.audioClips[0], 1); assert.deepEqual([a.offset, a.dur, a.rate], [2, 8, 2]);
   assert.equal(audioStartAt(p.audioClips[0], 5.1), null);
   const o = applyBatch(p, [{ op: 'add_overlay_clip', asset_id: 'a2', start: 2, in: 2, out: 6, track: 1 }, { op: 'set_clip_speed', clip_id: 'o' + p.nextId, speed: 0.5 }]); assert.ok(o.ok, JSON.stringify(o));
@@ -97,4 +97,37 @@ test('ritmo: usa la duración con velocidad', () => {
 test('rippleOps/planEdit cierran huecos con la duración real', () => {
   const p = applyBatch(base(), [{ op: 'set_clip_speed', clip_id: 'c1', speed: 2 }]).project;
   const ops = rippleOps(p); assert.deepEqual(ops, [{ op: 'move_clip', clip_id: 'c2', start: 5 }]);
+});
+
+test('velocidad a todos: un lote único, video principal y voz ligada, música sin cambio de velocidad', () => {
+  const p = base();
+  const result = planSpeedAll(p, 2);
+  assert.ok(result.ok, JSON.stringify(result));
+  assert.equal(result.count, 2);
+  const applied = applyBatch(p, result.ops);
+  assert.ok(applied.ok, JSON.stringify(applied));
+  const q = applied.project;
+  assert.deepEqual(q.clips.map(c => c.speed), [2, 2]);
+  assert.equal(q.audioClips[0].speed, 2, 'voz ligada acompaña el video');
+  assert.equal(q.audioClips[1].speed, undefined, 'la música mantiene velocidad');
+  assert.equal(q.clips[1].start, 5, 'sin huecos entre videos');
+  assert.equal(q.audioClips[1].start, 7, 'música desplazada con el montaje');
+  assert.equal(p.clips[0].speed, undefined, 'no se muta el original');
+  assert.equal(planSpeedAll(q, 2).ops.length, 0, 'idempotente');
+  assert.equal(planSpeedAll(p, 9).ok, false);
+});
+
+test('regresión: música completamente dentro de un video no se acelera por coincidencia temporal', () => {
+  const p = base();
+  const r = applyBatch(p, [{ op: 'move_clip', clip_id: 'u4', start: 2 }]);
+  assert.ok(r.ok);
+  const plan = planSpeed(r.project, 'c1', 2);
+  assert.ok(plan.ok);
+  const applied = applyBatch(r.project, plan.ops);
+  assert.ok(applied.ok, JSON.stringify(applied));
+  const music = applied.project.audioClips.find(c => c.id === 'u4');
+  assert.equal(music.speed, undefined, 'la música no cambia de velocidad');
+  assert.equal(music.start, 2, 'la música interior mantiene su posición');
+  const voice = applied.project.audioClips.find(c => c.id === 'u3');
+  assert.equal(voice.speed, 2, 'la voz asociada sí acompaña al video');
 });

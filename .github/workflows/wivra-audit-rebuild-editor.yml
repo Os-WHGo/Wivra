@@ -1,0 +1,55 @@
+name: Wivra Audit · Rebuild Editor Bundle
+on:
+  push:
+    branches:
+      - chatgpt/wivra-unified-owner-20261016
+    paths:
+      - 'app/build.mjs'
+      - 'app/template.html'
+      - 'app/*.mjs'
+      - 'app/tests/**'
+      - 'app/dist/agentcut.html'
+      - 'app/i18n/**'
+      - 'core/*.mjs'
+      - '.github/workflows/wivra-audit-rebuild-editor.yml'
+  pull_request:
+    branches:
+      - chatgpt/wivra-android-wav-integrity-20261016
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - '.github/workflows/wivra-audit-rebuild-editor.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: wivra-audit-editor-bundle
+  cancel-in-progress: false
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Rebuild deterministic editor and run regression suite
+        run: |
+          node app/build.mjs
+          (cd core && npm test)
+          node --test app/tests/*.test.mjs
+      - name: Commit generated HTML only on audit integration branch
+        run: |
+          test "${{ github.event.pull_request.head.ref || github.ref_name }}" = "chatgpt/wivra-unified-owner-20261016"
+          test "${{ github.event.pull_request.head.repo.full_name || github.repository }}" = "Os-WHGo/Wivra"
+          if ! git diff --quiet -- app/dist/agentcut.html; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- app/dist/agentcut.html
+            git commit -m "build(editor): synchronize deterministic Wivra HTML bundle"
+            git push origin HEAD:refs/heads/chatgpt/wivra-unified-owner-20261016
+          fi
