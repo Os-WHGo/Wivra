@@ -107,8 +107,8 @@ test('Unified Android assembly actually executes MediaStore capture instrumentat
  assert.match(workflow,/needs: android-beta/);
  assert.match(workflow,/api-level: 35/);
  assert.match(workflow,/ReactiveCircus\/android-emulator-runner@[0-9a-f]{40}/);
- assert.match(workflow,/adb install -r \.ci\/media-app\/app-debug\.apk/);
- assert.match(workflow,/adb install -r \.ci\/media-tests\/app-debug-androidTest\.apk/);
+ assert.match(workflow,/adb install -r \.ci\/media-app\/app-full-debug\.apk/);
+ assert.match(workflow,/adb install -r \.ci\/media-tests\/app-full-debug-androidTest\.apk/);
  assert.match(workflow,/com\.oswhgo\.wivra\.WivraPhoneMediaStoreTest/);
  assert.match(workflow,/Wivra-Android-MediaStore-Emulator-Results/);
  assert.doesNotMatch(workflow,/continue-on-error: true/);
