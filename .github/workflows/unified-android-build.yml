@@ -63,6 +63,11 @@ jobs:
         run: node --test streaming/tests/android-rayban-checkpoint-recovery.test.mjs
       - name: Verify Android local MP4 review cannot delete pending videos
         run: node --test streaming/tests/android-rayban-pending-review.test.mjs
+      - name: Check first-recording audio choice and preserve partial files
+        run: |
+          set -eu
+          grep -q 'recordingAudioChoiceMade = false' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
+          grep -q 'startAfterAudioPermission = true' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
       - name: Compile unsigned-debug Android app using Claude HTML
         run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
