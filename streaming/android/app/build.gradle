@@ -13,6 +13,15 @@ android {
         // DAT developer-mode values only. Production registration is separate.
         manifestPlaceholders = [mwdat_application_id: '0', mwdat_client_token: '0']
     }
+    flavorDimensions 'edition'
+    productFlavors {
+        full { dimension 'edition' }
+        capture {
+            dimension 'edition'
+            applicationIdSuffix '.capture'
+            versionNameSuffix '-capture'
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
