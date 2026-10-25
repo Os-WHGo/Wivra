@@ -25,7 +25,7 @@ test('beta native jobs package source-generated editor independently, not a stal
     assert.match(s,/test -s app\/dist\/agentcut\.html/,name);
     assert.doesNotMatch(s,/git diff --exit-code -- app\/dist\/agentcut\.html/,name);
   }
-  assert.match(android,/gradle -p streaming\/android :app:assembleDebug/, 'real Android APK build');
+  assert.match(android,/gradle -p streaming\/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest/, 'real Android full-flavor APK build');
   assert.match(ios,/xcodebuild -project WivraMetaB0\.xcodeproj/, 'real iOS IPA build');
 });
 
