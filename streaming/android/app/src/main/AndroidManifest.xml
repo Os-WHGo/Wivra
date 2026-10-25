@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <application android:allowBackup="false" android:label="Wivra Dev"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
@@ -27,6 +29,8 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/wivra_import_paths" />
         </provider>
+        <service android:name=".WivraCaptureForegroundService"
+            android:exported="false" android:foregroundServiceType="connectedDevice" />
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <activity android:name=".WivraMetaPreviewActivity" android:exported="false" />
