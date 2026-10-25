@@ -213,9 +213,6 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        // Recording must not continue invisibly when the app loses foreground.
-        // Finalize existing segments instead of discarding the owner's footage.
-        if (recordingMode && !recordingFinalizing) finishRecording()
         if (networkObserverRegistered) {
             connectivityManager.unregisterNetworkCallback(networkObserver)
             networkObserverRegistered = false
