@@ -106,6 +106,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private var cameraFront = false
     // 0 = silent MP4; 1 = MP4 with embedded mic; 2 = video-only MP4 + mono WAV
     private var micMode = 0
+    // Ask on the first recording instead of silently producing a mute MP4.
+    private var recordingAudioChoiceMade = false
+    private var startAfterAudioPermission = false
     // A specific route is only meaningful for WAV/AudioRecord; CameraX uses
     // the OS-selected MP4 mic. Never claim control over embedded CameraX audio.
     private var selectedAudioInputId: Int? = null
@@ -131,6 +134,12 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         micMode = if (accepted) 1 else 0
         updateMicLabel()
         if (!accepted) message(R.string.phone_camera_mic_denied)
+        if (startAfterAudioPermission) {
+            startAfterAudioPermission = false
+            if (accepted && resumed && !isFinishing && activeRecording == null && !recordingFinishing) {
+                startRecording()
+            }
+        }
     }
     private val bluetoothPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -359,6 +368,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             message(R.string.phone_camera_audio_locked)
             return
         }
+        recordingAudioChoiceMade = true
         if (micMode == 0 && !hasPermission(Manifest.permission.RECORD_AUDIO)) {
             audioPermission.launch(Manifest.permission.RECORD_AUDIO)
         } else {
@@ -449,7 +459,29 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             activeRecording?.stop()
             wavRecorder?.stop()
         } else if (!recordingFinishing) {
-            startRecording()
+            if (!recordingAudioChoiceMade) {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.phone_camera_source_choose)
+                    .setMessage(R.string.phone_camera_mic_off)
+                    .setPositiveButton(R.string.phone_camera_mic_on) { _, _ ->
+                        recordingAudioChoiceMade = true
+                        micMode = 1
+                        updateMicLabel()
+                        if (hasPermission(Manifest.permission.RECORD_AUDIO)) startRecording()
+                        else {
+                            startAfterAudioPermission = true
+                            audioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }
+                    .setNegativeButton(R.string.phone_camera_mic_off) { _, _ ->
+                        recordingAudioChoiceMade = true
+                        micMode = 0
+                        updateMicLabel()
+                        startRecording()
+                    }
+                    .setNeutralButton(android.R.string.cancel, null)
+                    .show()
+            } else startRecording()
         }
     }
 
