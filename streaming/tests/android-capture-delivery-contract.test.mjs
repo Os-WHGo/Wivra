@@ -24,3 +24,15 @@ test('locking screen does not explicitly stop DAT recording', () => {
   assert.ok(onStop);
   assert.doesNotMatch(onStop, /stopAll\(|finishRecording\(|session\?\.stop\(/);
 });
+
+test('Activity destruction transfers HEVC recorder ownership before cleanup', () => {
+  const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
+  const destroy = activity.split('override fun onDestroy()')[1];
+  assert.ok(destroy);
+  const transfer = destroy.indexOf('recorder = null');
+  const finalize = destroy.indexOf('unfinished.finishToPending()');
+  const cleanup = destroy.indexOf('stopAll()');
+  assert.ok(transfer >= 0 && transfer < cleanup);
+  assert.ok(finalize >= 0 && finalize < cleanup);
+  assert.match(destroy, /collector\?\.cancelAndJoin\(\)/);
+});
