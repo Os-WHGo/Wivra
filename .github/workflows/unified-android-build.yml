@@ -33,6 +33,8 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Guard standalone Capture APK and pocket-mode lifecycle contracts
+        run: node --test streaming/tests/android-capture-delivery-contract.test.mjs
       - name: Check Android and iOS Meta SDK parity and privacy defaults
         run: node --test streaming/tests/android-meta-parity.test.mjs
       - name: Check local Ray-Ban preview bounds and permissions
