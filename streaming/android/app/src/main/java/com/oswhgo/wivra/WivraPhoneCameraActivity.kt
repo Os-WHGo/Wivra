@@ -517,6 +517,12 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             }
             refreshControls()
         } catch (_: Exception) {
+            // A failed CameraX start can leave the newly-created private MP4
+            // empty. Remove only that empty placeholder; preserve any bytes
+            // already written so the owner can attempt recovery.
+            currentFile?.let { file ->
+                if (file.isFile && file.length() == 0L) file.delete()
+            }
             activeRecording = null
             recordingFinishing = false
             currentFile = null
