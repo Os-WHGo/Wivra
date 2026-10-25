@@ -69,21 +69,30 @@ jobs:
           grep -q 'recordingAudioChoiceMade = false' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
           grep -q 'startAfterAudioPermission = true' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
       - name: Compile unsigned-debug Android app using Claude HTML
-        run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleCaptureDebug --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
-        run: gradle -p streaming/android :app:assembleDebugAndroidTest --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Verify instrumentation APK contains MockDeviceKit cases
         run: |
           set -eu
-          test -s streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
       - name: Verify embedded editor and filter pack inside Android APK
         run: |
           set -eu
-          apk=streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          apk=streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
           test -s "$apk"
           unzip -l "$apk" | grep -q 'assets/agentcut.html'
           unzip -l "$apk" | grep -q 'assets/packs/catalog.json'
           echo "Wivra Android editor resources verified (emulator/device not yet tested)"
+      - name: Verify standalone Capture APK exists
+        run: test -s streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
+      - name: Upload standalone Ray-Ban Capture APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WivraCapture-RayBan-DEBUG
+          path: streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
+          retention-days: 7
+          if-no-files-found: error
       - name: Upload Android debug APK (not production or glasses tested)
         uses: actions/upload-artifact@v4
         with:
