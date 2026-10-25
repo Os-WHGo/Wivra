@@ -39,7 +39,7 @@ class WivraCaptureForegroundService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val open = Intent(this, WivraMetaPreviewActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 }
                 val pending = PendingIntent.getActivity(
                     this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
