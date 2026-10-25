@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Wivra Android B1: DAT video stream connection diagnostics inside the one app.
- * Shows an explicitly throttled visual preview; no recording, audio, upload or LIVE.
+ * Supports local HEVC recording from compressed DAT packets and preview; no audio, upload or LIVE.
  * Every Bluetooth, registration, session and camera action is user-initiated.
  * Based on Meta DAT Android 1.0.1 public APIs, with separate hardware QA.
  */
@@ -213,6 +213,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        // Recording must not continue invisibly when the app loses foreground.
+        // Finalize existing segments instead of discarding the owner's footage.
+        if (recordingMode && !recordingFinalizing) finishRecording()
         if (networkObserverRegistered) {
             connectivityManager.unregisterNetworkCallback(networkObserver)
             networkObserverRegistered = false
