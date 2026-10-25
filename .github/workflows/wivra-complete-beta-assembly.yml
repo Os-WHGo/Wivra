@@ -94,27 +94,27 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
       - name: Build Wivra editor + native Ray-Ban Android debug APK
-        run: gradle -p streaming/android :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Verify bundled editor and filters, no second editor
         run: |
           set -eu
-          apk=streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          apk=streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
           test -s "$apk"
           unzip -l "$apk" | grep -q 'assets/agentcut.html'
           unzip -l "$apk" | grep -q 'assets/packs/catalog.json'
-          test -s streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
       - name: Publish Android preview APK as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: Wivra-BETA-Android-DEBUG-apk
-          path: streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          path: streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
           retention-days: 7
           if-no-files-found: error
       - name: Publish compiled Android instrumentation APK
         uses: actions/upload-artifact@v4
         with:
           name: Wivra-BETA-Android-INSTRUMENTATION-apk
-          path: streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          path: streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
           retention-days: 7
           if-no-files-found: error
 
@@ -219,8 +219,8 @@ jobs:
           emulator-boot-timeout: 600
           script: |
             set -eu
-            adb install -r .ci/media-app/app-debug.apk
-            adb install -r .ci/media-tests/app-debug-androidTest.apk
+            adb install -r .ci/media-app/app-full-debug.apk
+            adb install -r .ci/media-tests/app-full-debug-androidTest.apk
             mkdir -p .ci/results
             adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest,com.oswhgo.wivra.WivraEditorWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
             grep -Eq '^OK \([0-9]+ tests?\)' .ci/results/media-handoff.txt
