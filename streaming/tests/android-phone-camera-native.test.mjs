@@ -110,3 +110,12 @@ test('Camera start failure removes only empty placeholders',()=>{
   assert.match(activity,/if \(file\.isFile && file\.length\(\) == 0L\) file\.delete\(\)/);
   assert.doesNotMatch(activity,/currentFile\?\.delete\(\)/);
 });
+
+test('First video asks for embedded audio or explicitly silent capture',()=>{
+  assert.match(activity,/private var recordingAudioChoiceMade = false/);
+  assert.match(activity,/if \(!recordingAudioChoiceMade\)/);
+  assert.match(activity,/setPositiveButton\(R\.string\.phone_camera_mic_on\)/);
+  assert.match(activity,/setNegativeButton\(R\.string\.phone_camera_mic_off\)/);
+  assert.match(activity,/startAfterAudioPermission = true/);
+  assert.match(activity,/if \(accepted && resumed && !isFinishing && activeRecording == null && !recordingFinishing\)/);
+});
