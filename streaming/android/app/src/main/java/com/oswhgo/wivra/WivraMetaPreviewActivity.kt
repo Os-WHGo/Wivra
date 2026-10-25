@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -327,6 +328,18 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 compressedPackets = 0L
                 recorder = if (recording) WivraSegmentedHevcRecorder(applicationContext) else null
                 if (recording) {
+                    // Launch while Activity is visible and the user has just
+                    // requested capture. This is a lifecycle foundation only:
+                    // DAT ownership remains here until the service migration.
+                    try {
+                        startForegroundService(Intent(this,
+                            WivraCaptureForegroundService::class.java).apply {
+                            action = WivraCaptureForegroundService.ACTION_START
+                        })
+                    } catch (failure: RuntimeException) {
+                        show("No se pudo iniciar el servicio de captura: " +
+                            (failure.localizedMessage ?: "unknown"))
+                    }
                     show(getString(R.string.recording_wait_keyframe))
                     imagePreview.setImageDrawable(null)
                 }
@@ -639,6 +652,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun cleanup() {
+        stopService(Intent(this, WivraCaptureForegroundService::class.java))
         recorder?.discard()
         recorder = null
         recordingMode = false
