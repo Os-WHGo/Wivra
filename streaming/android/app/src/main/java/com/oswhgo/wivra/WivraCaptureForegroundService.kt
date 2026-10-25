@@ -47,7 +47,7 @@ class WivraCaptureForegroundService : Service() {
                 val notification = Notification.Builder(this, CHANNEL)
                     .setSmallIcon(android.R.drawable.presence_video_online)
                     .setContentTitle("Wivra Capture")
-                    .setContentText("Grabación Ray-Ban activa. Abre Wivra para detenerla.")
+                    .setContentText("Servicio Wivra activo. Abre la app para controlar la captura.")
                     .setContentIntent(pending)
                     .setOngoing(true)
                     .build()
