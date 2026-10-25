@@ -41,6 +41,12 @@ jobs:
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Check Android six-language translation parity
         run: node --test streaming/tests/android-native-i18n.test.mjs
+      - name: Validate native phone camera and audio capture contracts
+        run: |
+          set -eu
+          node --test streaming/tests/android-phone-camera-native.test.mjs
+          node --test streaming/tests/android-phone-wav-sidecar.test.mjs
+          node --test streaming/tests/android-capture-editor-bundle.test.mjs
       - name: Generate current Wivra editor before native packaging
         run: |
           set -eu
