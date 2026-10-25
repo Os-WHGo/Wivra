@@ -54,3 +54,13 @@ test('foreground notification opens Activity using mutable Intent API safely', (
   assert.match(service, /addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP or Intent\.FLAG_ACTIVITY_CLEAR_TOP\)/);
   assert.doesNotMatch(service, /^\s*flags\s*=\s*Intent\.FLAG_ACTIVITY_/m);
 });
+
+test('complete beta assembly and emulator use explicit full-flavor APKs', () => {
+  const workflow = read('.github/workflows/wivra-complete-beta-assembly.yml');
+  assert.match(workflow, /:app:assembleFullDebug :app:assembleFullDebugAndroidTest/);
+  assert.match(workflow, /outputs\/apk\/full\/debug\/app-full-debug\.apk/);
+  assert.match(workflow, /outputs\/apk\/androidTest\/full\/debug\/app-full-debug-androidTest\.apk/);
+  assert.match(workflow, /adb install -r \.ci\/media-app\/app-full-debug\.apk/);
+  assert.match(workflow, /adb install -r \.ci\/media-tests\/app-full-debug-androidTest\.apk/);
+  assert.doesNotMatch(workflow, /:app:assembleDebug(?:\s|$)/m);
+});
