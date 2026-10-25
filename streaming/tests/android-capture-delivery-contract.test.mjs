@@ -48,3 +48,9 @@ test('foreground connected-device notification is declared and tied to recording
   assert.match(activity, /startForegroundService\(Intent\(this,/);
   assert.match(activity, /stopService\(Intent\(this, WivraCaptureForegroundService::class.java\)\)/);
 });
+
+test('foreground notification opens Activity using mutable Intent API safely', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  assert.match(service, /addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP or Intent\.FLAG_ACTIVITY_CLEAR_TOP\)/);
+  assert.doesNotMatch(service, /^\s*flags\s*=\s*Intent\.FLAG_ACTIVITY_/m);
+});
