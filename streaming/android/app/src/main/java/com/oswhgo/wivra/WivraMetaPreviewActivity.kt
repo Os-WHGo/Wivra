@@ -672,10 +672,15 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         // separate milestone and must not be claimed as already implemented.
         val unfinished = recorder
         if (unfinished != null) {
+            // Transfer ownership before cleanup: cleanup() must never discard
+            // the very recorder being finalized asynchronously.
             recorder = null
-            framesJob?.cancel()
+            val collector = framesJob
+            framesJob = null
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                unfinished.finishToPending()
+                // Wait until DAT packet collection has stopped before closing muxer.
+                collector?.cancelAndJoin()
+                runCatching { unfinished.finishToPending() }
             }
         }
         stopAll()
