@@ -36,3 +36,15 @@ test('Activity destruction transfers HEVC recorder ownership before cleanup', ()
   assert.ok(finalize >= 0 && finalize < cleanup);
   assert.match(destroy, /collector\?\.cancelAndJoin\(\)/);
 });
+
+test('foreground connected-device notification is declared and tied to recording', () => {
+  const manifest = read('streaming/android/app/src/main/AndroidManifest.xml');
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
+  assert.match(manifest, /FOREGROUND_SERVICE_CONNECTED_DEVICE/);
+  assert.match(manifest, /foregroundServiceType="connectedDevice"/);
+  assert.match(service, /startForeground\(NOTIFICATION_ID, notification\)/);
+  assert.match(service, /START_NOT_STICKY/);
+  assert.match(activity, /startForegroundService\(Intent\(this,/);
+  assert.match(activity, /stopService\(Intent\(this, WivraCaptureForegroundService::class.java\)\)/);
+});
