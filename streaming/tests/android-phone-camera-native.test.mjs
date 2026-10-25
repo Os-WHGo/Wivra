@@ -103,3 +103,10 @@ test('Instrumentation covers private files publish and deletion without Ray-Ban'
   assert.match(instrument,/WivraPhoneMediaStore\.discard\(context, privateVideo\)/);
   assert.match(instrument,/published\?\.let \{ context\.contentResolver\.delete\(it, null, null\) \}/);
 });
+
+// Regression: failed start must not erase a partially written recording.
+test('Camera start failure removes only empty placeholders',()=>{
+  assert.match(activity,/currentFile\?\.let \{ file ->/);
+  assert.match(activity,/if \(file\.isFile && file\.length\(\) == 0L\) file\.delete\(\)/);
+  assert.doesNotMatch(activity,/currentFile\?\.delete\(\)/);
+});
