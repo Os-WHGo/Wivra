@@ -137,6 +137,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             else show(getString(R.string.bluetooth_denied))
         }
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            // Notifications are optional for FGS operation, but a denied
+            // permission can hide the stop action from the notification drawer.
+            handoffCaptureSession()
+        }
+
     private val cameraPermissionLauncher =
         registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
             result.onSuccess { permission ->
@@ -362,6 +369,16 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun startServiceCapture() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        handoffCaptureSession()
+    }
+
+    private fun handoffCaptureSession() {
         val active = session
         if (active == null || active.state.value != DeviceSessionState.STARTED ||
             camera != null || !WivraCaptureForegroundService.offerSession(active)) {
@@ -380,7 +397,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             sessionJob?.cancel(); sessionJob = null
             errorJob?.cancel(); errorJob = null
             session = null
-            show("Iniciando captura Ray-Ban en servicio. Control en notificación.")
+            show(if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                "Captura en servicio. Notificaciones bloqueadas: vuelve a Wivra para detener."
+            } else {
+                "Iniciando captura Ray-Ban en servicio. Control en notificación."
+            })
             refreshButtons()
         } catch (failure: RuntimeException) {
             WivraCaptureForegroundService.withdrawSession(active)
