@@ -37,3 +37,13 @@ export function recoverCaptureJournal(journal) {
   if (!journal || journal.schema !== 1 || !STATES.has(journal.state) || !Array.isArray(journal.segments)) throw new TypeError('Invalid capture journal');
   return { ...journal, recoverableFiles: journal.segments.filter(s => s.confirmed === true && safeName(s.file)).map(s => s.file), requiresReview: journal.state !== 'finalized' };
 }
+
+export function appendConfirmedCaptureSegment(journal, segment, at = Date.now()) {
+  if (!journal || !['recording', 'interrupted', 'stopping'].includes(journal.state) ||
+      !validTime(at) || at < journal.updatedAt || !safeName(segment?.file) ||
+      segment.confirmed !== true || !validTime(segment.startMs) ||
+      !validTime(segment.endMs) || segment.endMs <= segment.startMs) throw new TypeError('Invalid confirmed segment');
+  const last = journal.segments.at(-1);
+  if ((last && segment.startMs < last.endMs) || journal.segments.some(s => s.file === segment.file)) throw new TypeError('Overlapping or duplicate segment');
+  return { ...journal, updatedAt: at, segments: [...journal.segments, { file: segment.file, startMs: segment.startMs, endMs: segment.endMs, confirmed: true }] };
+}
