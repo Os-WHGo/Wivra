@@ -65,7 +65,7 @@ jobs:
         with:
           name: Wivra-BETA-Assembly-Status
           path: beta-artifacts/STATUS.txt
-          retention-days: 7
+          retention-days: 21
 
   android-beta:
     name: Android APK · same unified editor
@@ -108,14 +108,14 @@ jobs:
         with:
           name: Wivra-BETA-Android-DEBUG-apk
           path: streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
-          retention-days: 7
+          retention-days: 21
           if-no-files-found: error
       - name: Publish compiled Android instrumentation APK
         uses: actions/upload-artifact@v4
         with:
           name: Wivra-BETA-Android-INSTRUMENTATION-apk
           path: streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
-          retention-days: 7
+          retention-days: 21
           if-no-files-found: error
 
   ios-beta:
@@ -179,7 +179,7 @@ jobs:
         with:
           name: Wivra-BETA-iOS-UNSIGNED-ipa
           path: streaming/ios/B0/Wivra-BETA-UNSIGNED.ipa
-          retention-days: 7
+          retention-days: 21
           if-no-files-found: error
 
   # Runs Android instrumentation instead of merely compiling it. Emulator is
@@ -231,5 +231,5 @@ jobs:
         with:
           name: Wivra-Android-MediaStore-Emulator-Results
           path: .ci/results/
-          retention-days: 7
+          retention-days: 21
           if-no-files-found: warn
