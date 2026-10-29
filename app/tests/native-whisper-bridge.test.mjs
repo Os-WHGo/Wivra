@@ -34,3 +34,16 @@ test('runner refuses non-local and malformed input and cancellation', async () =
   const controller = new AbortController(); controller.abort();
   await assert.rejects(() => runner({ audio: 'file:///clip.wav', signal: controller.signal }), { name: 'AbortError' });
 });
+
+test('native host with no installed model refuses transcription', async () => {
+  let called = false;
+  const host = { WivraNativeWhisper: {
+    status: async () => ({ modelInstalled: false }),
+    transcribe: async () => { called = true; return raw; }
+  } };
+  const result = await transcribeToSubtitles({
+    runWhisper: createNativeWhisperRunner(host), audio: 'file:///clip.wav', duration: 2
+  });
+  assert.equal(result.code, 'MODEL_NOT_INSTALLED');
+  assert.equal(called, false);
+});
