@@ -139,6 +139,13 @@ struct WivraMetaB0App: App {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.willTerminateNotification
+            )) { _ in
+                // Best effort only: iOS does not promise a termination callback.
+                model.endSession()
+                iPhoneCamera.stop()
+            }
+            .onReceive(NotificationCenter.default.publisher(
                 for: UIApplication.didEnterBackgroundNotification
             )) { _ in
                 // Preserve an explicitly opted-in active DAT recording when
