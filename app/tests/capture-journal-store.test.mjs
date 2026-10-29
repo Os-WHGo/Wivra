@@ -33,3 +33,15 @@ test('store rejects unsafe session identifiers and duplicates', async () => {
   await store.start({ id: 'safe', platform: 'android', startedAt: 1 });
   await assert.rejects(store.start({ id: 'safe', platform: 'android', startedAt: 1 }));
 });
+
+test('simultaneous mutations cannot silently overwrite a confirmed fragment', async () => {
+  const { store } = storage();
+  await store.start({ id: 'parallel', platform: 'android', startedAt: 1 });
+  await store.transition('parallel', { state: 'recording', at: 2 });
+  const first = store.appendConfirmedSegment('parallel', { file: 'first.mp4', startMs: 0, endMs: 1000, confirmed: true }, 3);
+  const second = store.appendConfirmedSegment('parallel', { file: 'second.mp4', startMs: 1000, endMs: 2000, confirmed: true }, 4);
+  const outcomes = await Promise.allSettled([first, second]);
+  assert.equal(outcomes.filter(x => x.status === 'fulfilled').length, 1);
+  assert.equal(outcomes.filter(x => x.status === 'rejected').length, 1);
+  assert.equal((await store.load('parallel')).segments.length, 1);
+});
