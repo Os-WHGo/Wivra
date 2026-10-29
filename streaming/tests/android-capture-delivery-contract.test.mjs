@@ -42,6 +42,9 @@ test('foreground connected-device notification is declared and tied to recording
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
   assert.match(manifest, /FOREGROUND_SERVICE_CONNECTED_DEVICE/);
+  assert.match(manifest, /android.permission.POST_NOTIFICATIONS/);
+  assert.match(activity, /notificationPermissionLauncher\.launch\(Manifest\.permission\.POST_NOTIFICATIONS\)/);
+  assert.match(activity, /notification_permission_asked/);
   assert.match(manifest, /foregroundServiceType="connectedDevice"/);
   assert.match(service, /startForeground\(NOTIFICATION_ID, captureNotification\(\)\)/);
   assert.match(service, /offerSession\(session: DeviceSession\)/);
