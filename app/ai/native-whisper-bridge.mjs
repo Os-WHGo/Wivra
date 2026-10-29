@@ -2,7 +2,7 @@
 // Native hosts must explicitly register window.WivraNativeWhisper.transcribe.
 // No fake transcription or cloud fallback is used when the host is unavailable.
 const fail = (code, message) => ({ ok: false, code, message });
-const validAudio = audio => typeof audio === 'string' && audio.length <= 4096 && /^(file:\/\/|content:\/\/|capacitor:\/\/localhost\/_capacitor_file_\/)/i.test(audio) && !/\u005b\u005c\u00780\u0030\u005c\u0072\u005c\u006e\u005d/.test(audio);
+const validAudio = audio => typeof audio === 'string' && audio.length > 0 && audio.length <= 4096 && /^(file:\/\/|content:\/\/|capacitor:\/\/localhost\/_capacitor_file_\/)/i.test(audio) && !/[\x00\r\n]/.test(audio);
 const validLanguage = language => typeof language === 'string' && /^(auto|[a-z]{2,3}(?:-[A-Za-z]{2,4})?)$/.test(language);
 
 export function getNativeWhisperAvailability(host = globalThis) {
