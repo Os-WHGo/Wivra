@@ -21,6 +21,7 @@ export async function transcribeToSubtitles({
   } catch (cause) {
     if (signal?.aborted || cause?.name === 'AbortError') return fail('CANCELLED', 'Transcripción cancelada.');
     if (cause?.code === 'ENGINE_UNAVAILABLE') return fail('ENGINE_UNAVAILABLE', 'Motor local Whisper no instalado.');
+    if (cause?.code === 'MODEL_NOT_INSTALLED') return fail('MODEL_NOT_INSTALLED', 'Descarga o instala un modelo Whisper local antes de transcribir.');
     if (cause instanceof TypeError) return fail('INVALID_AUDIO_SOURCE', 'El motor necesita una ruta de audio local válida.');
     return fail('ENGINE_ERROR', 'Error del motor local de transcripción.');
   }
