@@ -9,7 +9,7 @@ test('unavailable native engine is never advertised as installed', async () => {
   assert.equal(getNativeWhisperAvailability({}).available, false);
   assert.deepEqual(await checkNativeWhisper({}), { available: false, engine: 'whisper.cpp', requiresLocalModel: true, modelInstalled: false });
   const result = await transcribeToSubtitles({ runWhisper: createNativeWhisperRunner({}), audio: 'file:///clip.wav', duration: 2 });
-  assert.equal(result.code, 'ENGINE_ERROR');
+  assert.equal(result.code, 'ENGINE_UNAVAILABLE');
 });
 
 test('native runner passes local URI and language to injected host', async () => {
@@ -28,6 +28,7 @@ test('runner refuses non-local and malformed input and cancellation', async () =
   const runner = createNativeWhisperRunner({ WivraNativeWhisper: { transcribe: async () => raw } });
   await assert.rejects(() => runner({ audio: '', language: 'es' }), TypeError);
   await assert.rejects(() => runner({ audio: 'https://example.com/audio.wav', language: 'es' }), TypeError);
+  await assert.rejects(() => runner({ audio: 'file:///clip.wav' + String.fromCharCode(0), language: 'es' }), TypeError);
   await assert.rejects(() => runner({ audio: 'file:///clip.wav\\nheader', language: 'es' }), TypeError);
   await assert.rejects(() => runner({ audio: 'file:///clip.wav', language: 'not a language' }), TypeError);
   const controller = new AbortController(); controller.abort();
