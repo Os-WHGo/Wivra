@@ -140,7 +140,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private val cameraPermissionLauncher =
         registerForActivityResult(Wearables.RequestPermissionContract()) { result ->
             result.onSuccess { permission ->
-                if (permission == PermissionStatus.Granted) startStream(pendingRecordingMode)
+                if (permission == PermissionStatus.Granted) {
+                    if (pendingRecordingMode) startServiceCapture() else startStream(false)
+                }
                 else show(getString(R.string.camera_denied))
             }.onFailure { error, _ ->
                 show(getString(R.string.permission_error, error.description))
@@ -185,11 +187,24 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             checkCameraPermission(recording = true)
         }
         finishRecordButton = button(root, getString(R.string.stop_save_recording)) {
-            finishRecording()
+            if (WivraCaptureForegroundService.isCaptureActive()) stopServiceCapture()
+            else finishRecording()
         }
         photoButton = button(root, getString(R.string.capture_photo)) { captureGlassesPhoto() }
-        button(root, getString(R.string.disconnect)) { if (recordingMode) finishRecording() else stopAll() }
-        button(root, getString(R.string.back_editor)) { if (recordingMode) finishRecording() else { stopAll(); finish() } }
+        button(root, getString(R.string.disconnect)) {
+            when {
+                WivraCaptureForegroundService.isCaptureActive() -> stopServiceCapture()
+                recordingMode -> finishRecording()
+                else -> stopAll()
+            }
+        }
+        button(root, getString(R.string.back_editor)) {
+            if (WivraCaptureForegroundService.isCaptureActive()) {
+                // Leaving the UI must NOT stop a user-initiated pocket recording.
+                finish()
+            } else if (recordingMode) finishRecording()
+            else { stopAll(); finish() }
+        }
         root.addView(TextView(this).apply {
             text = getString(R.string.preview_disclaimer)
         })
@@ -201,6 +216,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        refreshButtons()
+        if (WivraCaptureForegroundService.isCaptureActive()) {
+            show("Grabación Ray-Ban a cargo del servicio. Puedes bloquear la pantalla.")
+        } else {
+            window.decorView.post { offerPendingVideo() }
+        }
         try {
             if (!networkObserverRegistered) {
                 connectivityManager.registerDefaultNetworkCallback(networkObserver)
@@ -233,11 +254,15 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun show(message: String) { status.text = message }
     private fun refreshButtons() {
         registerButton.isEnabled = sdkReady
-        connectButton.isEnabled = sdkReady && session == null
-        previewButton.isEnabled = session?.state?.value == DeviceSessionState.STARTED && camera == null
-        recordButton.isEnabled = session?.state?.value == DeviceSessionState.STARTED &&
+        val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
+        connectButton.isEnabled = sdkReady && session == null && !serviceRecording
+        previewButton.isEnabled = !serviceRecording &&
+            session?.state?.value == DeviceSessionState.STARTED && camera == null
+        recordButton.isEnabled = !serviceRecording &&
+            session?.state?.value == DeviceSessionState.STARTED &&
             camera == null && !recordingFinalizing
-        finishRecordButton.isEnabled = recordingMode && !recordingFinalizing
+        finishRecordButton.isEnabled = serviceRecording ||
+            (recordingMode && !recordingFinalizing)
         photoButton.isEnabled = stream != null && !photoInProgress &&
             lastFrameReceivedMs > 0L &&
             SystemClock.elapsedRealtime() - lastFrameReceivedMs < 4_000L
@@ -306,11 +331,49 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         scope.launch {
             Wearables.checkPermissionStatus(Permission.CAMERA)
                 .onSuccess { permission ->
-                    if (permission == PermissionStatus.Granted) startStream(pendingRecordingMode)
+                    if (permission == PermissionStatus.Granted) {
+                        if (pendingRecordingMode) startServiceCapture() else startStream(false)
+                    }
                     else cameraPermissionLauncher.launch(Permission.CAMERA)
                 }
                 .onFailure { error, _ -> show(getString(R.string.permission_check_failed, error.description)) }
         }
+    }
+
+    private fun startServiceCapture() {
+        val active = session
+        if (active == null || active.state.value != DeviceSessionState.STARTED ||
+            camera != null || !WivraCaptureForegroundService.offerSession(active)) {
+            show("No se pudo transferir la sesión Ray-Ban al servicio de grabación.")
+            return
+        }
+        try {
+            // User action while Activity is visible; Android can then retain
+            // external-device capture after this screen is destroyed/locked.
+            startForegroundService(Intent(this,
+                WivraCaptureForegroundService::class.java).apply {
+                action = WivraCaptureForegroundService.ACTION_START
+            })
+            // The Activity relinquishes DAT ownership. Its onDestroy must
+            // never stop a session that now belongs to the service.
+            sessionJob?.cancel(); sessionJob = null
+            errorJob?.cancel(); errorJob = null
+            session = null
+            show("Iniciando captura Ray-Ban en servicio. Control en notificación.")
+            refreshButtons()
+        } catch (failure: RuntimeException) {
+            WivraCaptureForegroundService.withdrawSession(active)
+            show("No se pudo iniciar la captura en segundo plano: " +
+                (failure.localizedMessage ?: "error desconocido"))
+        }
+    }
+
+    private fun stopServiceCapture() {
+        startService(Intent(this, WivraCaptureForegroundService::class.java).apply {
+            action = WivraCaptureForegroundService.ACTION_STOP
+        })
+        show("Finalizando el segmento MP4. No cierres la aplicación forzosamente.")
+        refreshButtons()
     }
 
     private fun startStream(recording: Boolean = false) {
@@ -522,7 +585,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
      * dismissed or the activity was reopened. Pending videos live in filesDir.
      */
     private fun offerPendingVideo() {
-        if (pendingDialogVisible || recordingMode || recordingFinalizing || isFinishing) return
+        if (pendingDialogVisible || recordingMode || recordingFinalizing || isFinishing ||
+            WivraCaptureForegroundService.isCaptureActive()) return
         val pending = WivraHevcMp4Recorder.listPendingRecordings(applicationContext)
             .firstOrNull() ?: return
         pendingDialogVisible = true
@@ -673,7 +737,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun cleanup() {
-        if (!deferCaptureServiceStop) {
+        if (!deferCaptureServiceStop &&
+            !WivraCaptureForegroundService.isCaptureActive()) {
             stopService(Intent(this, WivraCaptureForegroundService::class.java))
         }
         recorder?.discard()
