@@ -1,7 +1,7 @@
 // Durable storage contract for native Ray-Ban capture journals.
 // The host supplies atomic write/read/list primitives (Android/iOS). This
 // module cannot grant background execution or access the camera.
-import { createCaptureJournal, advanceCaptureJournal, recoverCaptureJournal } from './capture-locked-session.mjs';
+import { createCaptureJournal, advanceCaptureJournal, recoverCaptureJournal, appendConfirmedCaptureSegment } from './capture-locked-session.mjs';
 
 export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
   if (typeof writeAtomic !== 'function' || typeof read !== 'function' || typeof list !== 'function') throw new TypeError('Native storage callbacks required');
@@ -33,7 +33,7 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
       if (!journal) throw new Error('Session not found');
       return save(advanceCaptureJournal(journal, event));
     },
-    async recoverPending() {
+    async appendConfirmedSegment(id, segment, at) {\n      const journal = await load(id);\n      if (!journal) throw new Error('Session not found');\n      return save(appendConfirmedCaptureSegment(journal, segment, at));\n    },\n    async recoverPending() {
       const names = await list('wivra-capture-');
       const pending = [];
       for (const name of names) {
