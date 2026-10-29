@@ -228,6 +228,18 @@ final class MetaB0Model {
 
     func finishRecording() async {
         guard recordingArmed && !recordingFinishing else { return }
+        // Request bounded execution time for MOV/CAF finalization when the
+        // user locks the phone while stopping. This is not permission to
+        // record indefinitely in the background.
+        let finalizationTask = UIApplication.shared.beginBackgroundTask(
+            withName: "WivraMetaRecordingFinalization",
+            expirationHandler: nil
+        )
+        defer {
+            if finalizationTask != .invalid {
+                UIApplication.shared.endBackgroundTask(finalizationTask)
+            }
+        }
         recordingArmed = false
         recordingFinishing = true
         let wantedAudio = captureSelectedAudio
