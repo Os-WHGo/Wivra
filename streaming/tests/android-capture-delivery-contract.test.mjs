@@ -47,6 +47,10 @@ test('foreground connected-device notification is declared and tied to recording
   assert.match(service, /offerSession\(session: DeviceSession\)/);
   assert.match(service, /val handedOff = claimSession\(\)/);
   assert.match(service, /activeStream\.videoStream\.collect/);
+  assert.match(service, /val captureUpdates: StateFlow<CaptureState>/);
+  assert.match(activity, /WivraCaptureForegroundService\.captureUpdates\.collect/);
+  assert.match(activity, /if \(WivraCaptureForegroundService\.isCaptureActive\(\)\) \{/);
+  assert.match(service, /Detener y conservar MP4/);
   assert.match(service, /lastPacketsJob\?\.cancelAndJoin\(\)/);
   assert.match(service, /lastRecorder\?\.finishToPending\(\)/);
   assert.match(activity, /private fun startServiceCapture\(\)/);
