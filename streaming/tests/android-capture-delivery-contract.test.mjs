@@ -64,3 +64,13 @@ test('complete beta assembly and emulator use explicit full-flavor APKs', () => 
   assert.match(workflow, /adb install -r \.ci\/media-tests\/app-full-debug-androidTest\.apk/);
   assert.doesNotMatch(workflow, /:app:assembleDebug(?:\s|$)/m);
 });
+
+test('beta installer and emulator artifacts remain available through the November test window', () => {
+  const workflow = read('.github/workflows/wivra-complete-beta-assembly.yml');
+  const uploads = workflow.split('uses: actions/upload-artifact@v4').slice(1);
+  assert.ok(uploads.length >= 5);
+  for (const upload of uploads) {
+    const section = upload.split(/\n\s*- (?:uses:|name:)/)[0];
+    assert.match(section, /retention-days: 21/);
+  }
+});
