@@ -5,7 +5,7 @@ import { createCaptureJournal, advanceCaptureJournal, recoverCaptureJournal, app
 
 export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
   if (typeof writeAtomic !== 'function' || typeof read !== 'function' || typeof list !== 'function') throw new TypeError('Native storage callbacks required');
-  const key = id => {
+  const locks = new Set();\n  const withLock = async (id, fn) => {\n    if (locks.has(id)) throw new Error('Concurrent session mutation');\n    locks.add(id);\n    try { return await fn(); } finally { locks.delete(id); }\n  };\n  const key = id => {
     if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new TypeError('Unsafe session id');
     return 'wivra-capture-' + id + '.json';
   };
