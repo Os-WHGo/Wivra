@@ -103,6 +103,19 @@ jobs:
           unzip -l "$apk" | grep -q 'assets/agentcut.html'
           unzip -l "$apk" | grep -q 'assets/packs/catalog.json'
           test -s streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
+      - name: Generate Android APK SHA-256 verification manifest
+        run: |
+          set -eu
+          cd streaming/android/app/build/outputs/apk/full/debug
+          sha256sum app-full-debug.apk > app-full-debug.apk.sha256
+          sha256sum -c app-full-debug.apk.sha256
+      - name: Publish Android APK checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-BETA-Android-SHA256
+          path: streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk.sha256
+          retention-days: 21
+          if-no-files-found: error
       - name: Publish Android preview APK as GitHub Actions artifact
         uses: actions/upload-artifact@v4
         with:
@@ -174,6 +187,19 @@ jobs:
           mkdir -p .beta/Payload
           cp -R .build/Build/Products/Debug-iphoneos/WivraMetaB0.app .beta/Payload/
           (cd .beta && zip -qr ../Wivra-BETA-UNSIGNED.ipa Payload)
+      - name: Generate iPhone unsigned IPA SHA-256 verification manifest
+        run: |
+          set -eu
+          cd streaming/ios/B0
+          shasum -a 256 Wivra-BETA-UNSIGNED.ipa > Wivra-BETA-UNSIGNED.ipa.sha256
+          shasum -a 256 -c Wivra-BETA-UNSIGNED.ipa.sha256
+      - name: Publish iPhone unsigned IPA checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-BETA-iOS-SHA256
+          path: streaming/ios/B0/Wivra-BETA-UNSIGNED.ipa.sha256
+          retention-days: 21
+          if-no-files-found: error
       - name: Publish unsigned IPA for future signing
         uses: actions/upload-artifact@v4
         with:
