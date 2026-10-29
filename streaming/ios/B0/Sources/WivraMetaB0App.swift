@@ -13,6 +13,7 @@ struct WivraMetaB0App: App {
     @State private var pendingCaptureTab: WivraCaptureTab?
     @State private var iPhoneCamera = WivraIPhoneCamera()
     @State private var phoneNetwork = WivraPhoneNetworkStatus()
+    @State private var experimentalBackgroundMetaCapture = false
     @State private var showingCaptureLibrary = false
     @State private var showingUnifiedEditor = false
 
@@ -90,6 +91,10 @@ struct WivraMetaB0App: App {
                               pendingCaptureTab != nil)
                         .padding(.horizontal)
                     }
+                    Toggle("Ray-Ban en segundo plano (experimental)", isOn: $experimentalBackgroundMetaCapture)
+                        .font(.footnote)
+                        .padding(.horizontal)
+                        .accessibilityIdentifier("meta_background_capture_opt_in")
                     VStack(alignment: .leading, spacing: 2) {
                         Text(phoneNetwork.summary)
                             .font(.footnote.bold())
@@ -136,8 +141,12 @@ struct WivraMetaB0App: App {
             .onReceive(NotificationCenter.default.publisher(
                 for: UIApplication.didEnterBackgroundNotification
             )) { _ in
-                // Neither source claims screen-off or background recording.
-                model.endSession()
+                // Preserve an explicitly opted-in active DAT recording when
+                // the app backgrounds. Meta DAT and iOS may still suspend the
+                // stream: this is experimental, NOT a verified pocket mode.
+                if !(experimentalBackgroundMetaCapture && model.recordingArmed) {
+                    model.endSession()
+                }
                 iPhoneCamera.stop()
             }
         }
