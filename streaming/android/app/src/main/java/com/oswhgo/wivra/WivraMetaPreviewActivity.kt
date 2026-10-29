@@ -210,6 +210,27 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         })
         setContentView(ScrollView(this).apply { addView(root) })
         refreshButtons()
+        // The service owns DAT while recording. Its lifecycle events, not
+        // Activity.onStop(), decide when Stop/Connect and pending clips appear.
+        scope.launch {
+            WivraCaptureForegroundService.captureUpdates.collect { state ->
+                refreshButtons()
+                when (state) {
+                    WivraCaptureForegroundService.CaptureState.CONNECTING ->
+                        show(getString(R.string.starting_session))
+                    WivraCaptureForegroundService.CaptureState.FINALIZING ->
+                        show(getString(R.string.recording_finalizing))
+                    WivraCaptureForegroundService.CaptureState.FAILED ->
+                        show(getString(R.string.recording_no_video))
+                    WivraCaptureForegroundService.CaptureState.IDLE -> {
+                        if (window.decorView.hasWindowFocus()) {
+                            window.decorView.post { offerPendingVideo() }
+                        }
+                    }
+                    WivraCaptureForegroundService.CaptureState.RECORDING -> Unit
+                }
+            }
+        }
         checkBluetooth()
         window.decorView.post { offerPendingVideo() }
     }
