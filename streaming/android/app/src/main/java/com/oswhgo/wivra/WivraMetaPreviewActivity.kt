@@ -221,7 +221,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     WivraCaptureForegroundService.CaptureState.FINALIZING ->
                         show(getString(R.string.recording_finalizing))
                     WivraCaptureForegroundService.CaptureState.FAILED ->
-                        show(getString(R.string.recording_no_video))
+                        show("Captura interrumpida. Revisa los MP4 pendientes.")
                     WivraCaptureForegroundService.CaptureState.IDLE -> {
                         if (window.decorView.hasWindowFocus()) {
                             window.decorView.post { offerPendingVideo() }
