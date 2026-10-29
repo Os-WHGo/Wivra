@@ -73,6 +73,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var pendingRecordingMode = false
     private var recorder: WivraSegmentedHevcRecorder? = null
     private var compressedPackets = 0L
+    private var deferCaptureServiceStop = false
     private var pendingDialogVisible = false
     private lateinit var recordButton: Button
     private lateinit var finishRecordButton: Button
@@ -652,7 +653,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun cleanup() {
-        stopService(Intent(this, WivraCaptureForegroundService::class.java))
+        if (!deferCaptureServiceStop) {
+            stopService(Intent(this, WivraCaptureForegroundService::class.java))
+        }
         recorder?.discard()
         recorder = null
         recordingMode = false
@@ -689,12 +692,20 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             // Transfer ownership before cleanup: cleanup() must never discard
             // the very recorder being finalized asynchronously.
             recorder = null
+            deferCaptureServiceStop = true
             val collector = framesJob
             framesJob = null
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 // Wait until DAT packet collection has stopped before closing muxer.
                 collector?.cancelAndJoin()
-                runCatching { unfinished.finishToPending() }
+                try {
+                    runCatching { unfinished.finishToPending() }
+                } finally {
+                    // Keep foreground notification alive until the last pending
+                    // MP4 muxer has been closed on normal Activity destruction.
+                    stopService(Intent(applicationContext,
+                        WivraCaptureForegroundService::class.java))
+                }
             }
         }
         stopAll()
