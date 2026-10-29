@@ -36,8 +36,7 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           await host.start({ id, profile });
           return await store.transition(id, { state: 'recording', at: timestamp() });
         } catch (error) {
-          await store.transition(id, { state: 'failed', at: timestamp() });
-          active = null;
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); } finally { active = null; }
           throw error;
         }
       });
