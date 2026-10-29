@@ -22,6 +22,12 @@ export function createNativeWhisperRunner(host = globalThis) {
     if (!native || typeof native.transcribe !== 'function') {
       throw Object.assign(new Error('Native whisper.cpp engine unavailable'), { code: 'ENGINE_UNAVAILABLE' });
     }
+    if (typeof native.status === 'function') {
+      const status = await native.status();
+      if (status?.modelInstalled !== true) {
+        throw Object.assign(new Error('Local Whisper model not installed'), { code: 'MODEL_NOT_INSTALLED' });
+      }
+    }
     const result = await native.transcribe({ audioUri: audio, language });
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
     return result;
