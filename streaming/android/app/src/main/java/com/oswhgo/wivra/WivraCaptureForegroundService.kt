@@ -94,6 +94,10 @@ class WivraCaptureForegroundService : Service() {
     private var streamJob: Job? = null
     private var streamErrorJob: Job? = null
     private var packetsJob: Job? = null
+    // Retain ownership until the finalizer actually closes the muxer. If
+    // Service.onDestroy races with finalization, it must be able to rescue it.
+    private var finalizingRecorder: WivraSegmentedHevcRecorder? = null
+    private var finalizingPacketsJob: Job? = null
     private var finishing = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -228,6 +232,8 @@ class WivraCaptureForegroundService : Service() {
         recorder = null
         val lastPacketsJob = packetsJob
         packetsJob = null
+        finalizingRecorder = lastRecorder
+        finalizingPacketsJob = lastPacketsJob
 
         scope.launch {
             try {
@@ -244,6 +250,8 @@ class WivraCaptureForegroundService : Service() {
                 errorJob?.cancel()
                 runCatching { camera?.close() }
                 runCatching { session?.stop() }
+                finalizingRecorder = null
+                finalizingPacketsJob = null
                 stream = null
                 camera = null
                 session = null
@@ -255,20 +263,26 @@ class WivraCaptureForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        // Normal ACTION_STOP finalizes before stopSelf(). For unexpected service
-        // destruction this is only best effort; process death skips onDestroy.
-        if (!finishing) {
-            val abandoned = recorder
-            val collector = packetsJob
-            val activeCamera = camera
-            val activeSession = session
-            recorder = null
+        // Normal ACTION_STOP finalizes before stopSelf(). If destruction
+        // interrupts an active finalizer, a separate IO owner rescues its
+        // last MP4. Already finalized checkpoint parts remain untouched.
+        // Process death skips onDestroy and cannot be guaranteed here.
+        val abandoned = recorder ?: finalizingRecorder
+        val collector = packetsJob ?: finalizingPacketsJob
+        val activeCamera = camera
+        val activeSession = session
+        recorder = null
+        finalizingRecorder = null
+        if (abandoned != null) {
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 collector?.cancelAndJoin()
-                runCatching { abandoned?.finishToPending() }
+                runCatching { abandoned.finishToPending() }
                 runCatching { activeCamera?.close() }
                 runCatching { activeSession?.stop() }
             }
+        } else {
+            runCatching { activeCamera?.close() }
+            runCatching { activeSession?.stop() }
         }
         setCaptureState(CaptureState.IDLE)
         scope.cancel()
