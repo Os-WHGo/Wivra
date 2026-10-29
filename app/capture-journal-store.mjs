@@ -33,7 +33,12 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
       if (!journal) throw new Error('Session not found');
       return save(advanceCaptureJournal(journal, event));
     },
-    async appendConfirmedSegment(id, segment, at) {\n      const journal = await load(id);\n      if (!journal) throw new Error('Session not found');\n      return save(appendConfirmedCaptureSegment(journal, segment, at));\n    },\n    async recoverPending() {
+    async appendConfirmedSegment(id, segment, at) {
+      const journal = await load(id);
+      if (!journal) throw new Error('Session not found');
+      return save(appendConfirmedCaptureSegment(journal, segment, at));
+    },
+    async recoverPending() {
       const names = await list('wivra-capture-');
       const pending = [];
       for (const name of names) {
