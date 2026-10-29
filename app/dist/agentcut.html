@@ -371,6 +371,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <input id="txt" placeholder="Vancouver" aria-label="Texto en pantalla"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="whisperJsonFile" style="cursor:pointer">Importar transcripción Whisper (.json)</label><input id="whisperJsonFile" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0"><p class="m">Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono.</p>
   <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
 
 <div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
@@ -3139,6 +3140,62 @@ function cuesToOps(cues, totalSeconds, offset = 0) {
   return { ops, late };
 }
 
+// Contrato de resultados ASR/VAD local-first. No depende de motores nativos ni de red.
+// Los adaptadores Whisper, Sherpa y VAD deben entregar este formato antes de editar Wivra.
+const TRANSCRIPT_SCHEMA_VERSION = 1;
+const finite = n => typeof n === 'number' && Number.isFinite(n);
+const error = (code, message) => ({ ok: false, code, message });
+function validateTranscript(value, { duration = Infinity, maxSegments = 10000 } = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return error('INVALID_RESULT', 'Resultado ASR inválido.');
+  if (value.version !== TRANSCRIPT_SCHEMA_VERSION) return error('UNSUPPORTED_VERSION', 'Versión ASR no compatible.');
+  if (!['whisper.cpp', 'sherpa-onnx', 'external', 'manual'].includes(value.engine)) return error('INVALID_ENGINE', 'Motor ASR no reconocido.');
+  if (!Array.isArray(value.segments) || value.segments.length > maxSegments) return error('INVALID_SEGMENTS', 'Lista de segmentos inválida.');
+  if (!(duration === Infinity || (finite(duration) && duration >= 0))) return error('INVALID_DURATION', 'Duración inválida.');
+  const segments = [];
+  let previousStart = -1;
+  let previousEnd = -1;
+  for (const [index, segment] of value.segments.entries()) {
+    if (!segment || !finite(segment.start) || !finite(segment.end) || segment.start < 0 || segment.end <= segment.start || segment.end > duration) return error('INVALID_TIME', 'Tiempo inválido en segmento ' + index);
+    if (segment.start < previousStart) return error('UNSORTED', 'Los segmentos deben estar ordenados por inicio.');
+    if (segment.start < previousEnd) return error('OVERLAPPING_SEGMENTS', 'Los subtítulos no pueden superponerse.');
+    if (typeof segment.text !== 'string' || !segment.text.trim() || segment.text.length > 10000) return error('INVALID_TEXT', 'Texto inválido en segmento ' + index);
+    if (segment.confidence !== undefined && (!finite(segment.confidence) || segment.confidence < 0 || segment.confidence > 1)) return error('INVALID_CONFIDENCE', 'Confianza inválida.');
+    segments.push({ start: segment.start, end: segment.end, text: segment.text.trim(), ...(segment.confidence === undefined ? {} : { confidence: segment.confidence }) });
+    previousStart = segment.start;
+    previousEnd = segment.end;
+  }
+  return { ok: true, value: { version: TRANSCRIPT_SCHEMA_VERSION, engine: value.engine, language: typeof value.language === 'string' ? value.language.slice(0, 32) : 'und', segments } };
+}
+function transcriptToCues(transcript, options = {}) {
+  const result = validateTranscript(transcript, options);
+  return result.ok ? { ok: true, cues: result.value.segments.map(({ start, end, text }) => ({ start, end, text })) } : result;
+}
+
+// Normalizes timestamped whisper.cpp JSON to Wivra's offline transcript contract.
+// The native whisper.cpp runtime/model is not bundled by this adapter.
+
+
+function fromWhisperJson(payload, { duration = Infinity, language = 'und' } = {}) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray(payload.transcription)) {
+    return { ok: false, code: 'INVALID_WHISPER_RESULT', message: 'Respuesta de whisper.cpp inválida.' };
+  }
+  const segments = [];
+  for (const item of payload.transcription) {
+    if (!item || typeof item !== 'object' || !item.offsets || !Number.isFinite(item.offsets.from) || !Number.isFinite(item.offsets.to)) {
+      return { ok: false, code: 'INVALID_WHISPER_OFFSETS', message: 'Segmento de Whisper sin tiempos válidos.' };
+    }
+    const text = typeof item.text === 'string' ? item.text : '';
+    segments.push({ start: item.offsets.from / 1000, end: item.offsets.to / 1000, text });
+  }
+  const transcript = {
+    version: TRANSCRIPT_SCHEMA_VERSION,
+    engine: 'whisper.cpp',
+    language: typeof payload.result?.language === 'string' ? payload.result.language : language,
+    segments
+  };
+  return validateTranscript(transcript, { duration });
+}
+
 // Montaje rápido: acorta los clips de la línea principal para que el video dure lo que quieres (15, 30, 60 s…). Solo lógica pura (sin DOM). — Claude
 // Es una regla simple y honesta, NO análisis de contenido: cada clip aporta un tramo del CENTRO (así se evitan los titubeos del inicio y del final),
 // las fotos duran lo mismo, el orden se respeta y todo queda pegado sin huecos. Devuelve operaciones normales del editor (un solo paso en «deshacer»).
@@ -5657,6 +5714,27 @@ async function readSubtitleText(file) {      // UTF-8; si el archivo no lo es (m
   try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), note: null }; }
   catch { return { text: new TextDecoder('windows-1252').decode(buf), note: aiT('El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos.') }; }
 }
+$('whisperJsonFile').addEventListener('change', async () => {
+  const input = $('whisperJsonFile'), f = input.files[0]; input.value = '';
+  if (!f) return;
+  if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
+  if (f.size > 2 * 1024 * 1024) { say('El JSON de Whisper supera 2 MB.', 'bad'); return; }
+  try {
+    const payload = JSON.parse(await f.text());
+    const duration = totalDuration(session.project);
+    const result = fromWhisperJson(payload, { duration });
+    if (!result.ok) { say(result.message, 'bad'); return; }
+    const { ops, late } = cuesToOps(result.value.segments, duration);
+    if (!ops.length) { say('La transcripción no contiene subtítulos visibles.', 'bad'); return; }
+    if (!confirm('Importar ' + ops.length + ' subtítulos de Whisper al proyecto actual?')) return;
+    const applied = run(ops);
+    if (!applied.ok) { say('No se pudo importar: ' + applied.message, 'bad'); return; }
+    closeSheets();
+    say('Se importaron ' + ops.length + ' subtítulos de Whisper.' + (late ? ' ' + late + ' quedaron fuera del video.' : ''), 'ok');
+  } catch (e) {
+    say('No pude leer el JSON de Whisper: ' + (e?.message || e), 'bad');
+  }
+});
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
   if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
