@@ -710,14 +710,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 try {
                     runCatching { unfinished.finishToPending() }
                 } finally {
-                    // Keep foreground notification alive until the last pending
-                    // MP4 muxer has been closed on normal Activity destruction.
+                    // Do not tear down DAT until the collector has released its
+                    // last packet and the pending MP4 muxer has finished.
+                    runCatching { camera?.close() }
+                    runCatching { session?.stop() }
                     stopService(Intent(applicationContext,
                         WivraCaptureForegroundService::class.java))
                 }
             }
+        } else {
+            stopAll()
         }
-        stopAll()
         scope.cancel()
         super.onDestroy()
     }
