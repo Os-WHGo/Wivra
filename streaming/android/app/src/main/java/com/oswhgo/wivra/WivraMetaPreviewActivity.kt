@@ -491,17 +491,28 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         show(getString(R.string.recording_finalizing))
         val finishingJob = framesJob
         framesJob = null
+        // Transfer ownership immediately so onDestroy cannot launch a second
+        // finalizer against the same muxer while this coroutine is suspended.
+        val finishingRecorder = recorder
+        recorder = null
         scope.launch {
-            // The HEVC collector must release the last sample before muxer.stop().
-            finishingJob?.cancelAndJoin()
-            val pending = withContext(Dispatchers.IO) { recorder?.finishToPending() }
-            recorder = null
-            stopAll()
-            if (pending != null) {
-                show(getString(R.string.recording_pending_ready))
-                offerPendingVideo()
-            } else {
-                show(getString(R.string.recording_no_video))
+            try {
+                // The HEVC collector must release its last sample before muxer.stop().
+                finishingJob?.cancelAndJoin()
+                val pending = withContext(Dispatchers.IO) {
+                    finishingRecorder?.finishToPending()
+                }
+                stopAll()
+                if (pending != null) {
+                    show(getString(R.string.recording_pending_ready))
+                    offerPendingVideo()
+                } else {
+                    show(getString(R.string.recording_no_video))
+                }
+            } catch (failure: Exception) {
+                stopAll()
+                show("No se pudo finalizar el MP4: " +
+                    (failure.localizedMessage ?: "error desconocido"))
             }
         }
     }
