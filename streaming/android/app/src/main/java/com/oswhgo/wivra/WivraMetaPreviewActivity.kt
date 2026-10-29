@@ -372,8 +372,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
+            val settings = getSharedPreferences("wivra_capture", Context.MODE_PRIVATE)
+            if (!settings.getBoolean("notification_permission_asked", false)) {
+                settings.edit().putBoolean("notification_permission_asked", true).apply()
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
         }
         handoffCaptureSession()
     }
