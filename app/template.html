@@ -371,6 +371,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <input id="txt" placeholder="Vancouver" aria-label="Texto en pantalla"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="whisperJsonFile" style="cursor:pointer">Importar transcripción Whisper (.json)</label><input id="whisperJsonFile" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0"><p class="m">Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono.</p>
   <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
 
 <div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
@@ -1884,6 +1885,27 @@ async function readSubtitleText(file) {      // UTF-8; si el archivo no lo es (m
   try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), note: null }; }
   catch { return { text: new TextDecoder('windows-1252').decode(buf), note: aiT('El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos.') }; }
 }
+$('whisperJsonFile').addEventListener('change', async () => {
+  const input = $('whisperJsonFile'), f = input.files[0]; input.value = '';
+  if (!f) return;
+  if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
+  if (f.size > 2 * 1024 * 1024) { say('El JSON de Whisper supera 2 MB.', 'bad'); return; }
+  try {
+    const payload = JSON.parse(await f.text());
+    const duration = totalDuration(session.project);
+    const result = fromWhisperJson(payload, { duration });
+    if (!result.ok) { say(result.message, 'bad'); return; }
+    const { ops, late } = cuesToOps(result.value.segments, duration);
+    if (!ops.length) { say('La transcripción no contiene subtítulos visibles.', 'bad'); return; }
+    if (!confirm('Importar ' + ops.length + ' subtítulos de Whisper al proyecto actual?')) return;
+    const applied = run(ops);
+    if (!applied.ok) { say('No se pudo importar: ' + applied.message, 'bad'); return; }
+    closeSheets();
+    say('Se importaron ' + ops.length + ' subtítulos de Whisper.' + (late ? ' ' + late + ' quedaron fuera del video.' : ''), 'ok');
+  } catch (e) {
+    say('No pude leer el JSON de Whisper: ' + (e?.message || e), 'bad');
+  }
+});
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
   if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
