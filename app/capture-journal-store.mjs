@@ -31,18 +31,24 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
   return {
     load, save,
     async start(args) {
-      if (await load(args.id)) throw new Error('Session already exists');
-      return save(createCaptureJournal(args));
+      return withLock(args.id, async () => {
+        if (await load(args.id)) throw new Error('Session already exists');
+        return save(createCaptureJournal(args));
+      });
     },
     async transition(id, event) {
-      const journal = await load(id);
-      if (!journal) throw new Error('Session not found');
-      return save(advanceCaptureJournal(journal, event));
+      return withLock(id, async () => {
+        const journal = await load(id);
+        if (!journal) throw new Error('Session not found');
+        return save(advanceCaptureJournal(journal, event));
+      });
     },
     async appendConfirmedSegment(id, segment, at) {
-      const journal = await load(id);
-      if (!journal) throw new Error('Session not found');
-      return save(appendConfirmedCaptureSegment(journal, segment, at));
+      return withLock(id, async () => {
+        const journal = await load(id);
+        if (!journal) throw new Error('Session not found');
+        return save(appendConfirmedCaptureSegment(journal, segment, at));
+      });
     },
     async recoverPending() {
       const names = await list('wivra-capture-');
