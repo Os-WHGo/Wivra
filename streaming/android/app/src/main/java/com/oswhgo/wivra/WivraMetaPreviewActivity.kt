@@ -338,8 +338,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             action = WivraCaptureForegroundService.ACTION_START
                         })
                     } catch (failure: RuntimeException) {
-                        show("No se pudo iniciar el servicio de captura: " +
-                            (failure.localizedMessage ?: "unknown"))
+                        // A foreground-service failure must not silently turn
+                        // into a recording that cannot survive backgrounding.
+                        recorder?.discard()
+                        recorder = null
+                        recordingMode = false
+                        camera = null
+                        capability.close()
+                        show("Grabación cancelada: servicio de captura no disponible (" +
+                            (failure.localizedMessage ?: "unknown") + ")")
+                        refreshButtons()
+                        return@onSuccess
                     }
                     show(getString(R.string.recording_wait_keyframe))
                     imagePreview.setImageDrawable(null)
