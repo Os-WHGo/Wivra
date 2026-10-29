@@ -43,7 +43,15 @@ test('foreground connected-device notification is declared and tied to recording
   const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
   assert.match(manifest, /FOREGROUND_SERVICE_CONNECTED_DEVICE/);
   assert.match(manifest, /foregroundServiceType="connectedDevice"/);
-  assert.match(service, /startForeground\(NOTIFICATION_ID, notification\)/);
+  assert.match(service, /startForeground\(NOTIFICATION_ID, captureNotification\(\)\)/);
+  assert.match(service, /offerSession\(session: DeviceSession\)/);
+  assert.match(service, /val handedOff = claimSession\(\)/);
+  assert.match(service, /activeStream\.videoStream\.collect/);
+  assert.match(service, /lastPacketsJob\?\.cancelAndJoin\(\)/);
+  assert.match(service, /lastRecorder\?\.finishToPending\(\)/);
+  assert.match(activity, /private fun startServiceCapture\(\)/);
+  assert.match(activity, /session = null/);
+  assert.match(activity, /!WivraCaptureForegroundService\.isCaptureActive\(\)/);
   assert.match(service, /START_NOT_STICKY/);
   assert.match(activity, /startForegroundService\(Intent\(this,/);
   assert.match(activity, /stopService\(Intent\(this, WivraCaptureForegroundService::class.java\)\)/);
