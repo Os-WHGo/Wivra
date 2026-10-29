@@ -22,6 +22,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -45,6 +48,13 @@ class WivraCaptureForegroundService : Service() {
         private var offeredSession: DeviceSession? = null
         @Volatile var captureState = CaptureState.IDLE
             private set
+        private val mutableCaptureUpdates = MutableStateFlow(CaptureState.IDLE)
+        val captureUpdates: StateFlow<CaptureState> = mutableCaptureUpdates.asStateFlow()
+
+        private fun setCaptureState(next: CaptureState) {
+            captureState = next
+            mutableCaptureUpdates.value = next
+        }
 
         fun isCaptureActive(): Boolean = captureState == CaptureState.CONNECTING ||
             captureState == CaptureState.RECORDING || captureState == CaptureState.FINALIZING
@@ -55,7 +65,7 @@ class WivraCaptureForegroundService : Service() {
             if (isCaptureActive() || offeredSession != null) false
             else {
                 offeredSession = session
-                captureState = CaptureState.CONNECTING
+                setCaptureState(CaptureState.CONNECTING)
                 true
             }
         }
@@ -63,7 +73,7 @@ class WivraCaptureForegroundService : Service() {
         fun withdrawSession(session: DeviceSession) = synchronized(handoffLock) {
             if (offeredSession === session) {
                 offeredSession = null
-                captureState = CaptureState.IDLE
+                setCaptureState(CaptureState.IDLE)
             }
         }
 
@@ -104,7 +114,7 @@ class WivraCaptureForegroundService : Service() {
                 if (session == null && !finishing) {
                     val handedOff = claimSession()
                     if (handedOff == null) {
-                        captureState = CaptureState.FAILED
+                        setCaptureState(CaptureState.FAILED)
                         stopSelf()
                     } else {
                         session = handedOff
@@ -205,7 +215,7 @@ class WivraCaptureForegroundService : Service() {
                 activeStream.errorStream.collect { finalizeCapture() }
             }
             activeStream.start()
-                .onSuccess { captureState = CaptureState.RECORDING }
+                .onSuccess { setCaptureState(CaptureState.RECORDING) }
                 .onFailure { _, _ -> finalizeCapture() }
         }.onFailure { _, _ -> finalizeCapture() }
     }
@@ -213,7 +223,7 @@ class WivraCaptureForegroundService : Service() {
     private fun finalizeCapture() {
         if (finishing) return
         finishing = true
-        captureState = CaptureState.FINALIZING
+        setCaptureState(CaptureState.FINALIZING)
         val lastRecorder = recorder
         recorder = null
         val lastPacketsJob = packetsJob
@@ -226,7 +236,7 @@ class WivraCaptureForegroundService : Service() {
                 withContext(Dispatchers.IO) { lastRecorder?.finishToPending() }
             } catch (_: Exception) {
                 // Earlier checkpoint MP4 files are already finalized privately.
-                captureState = CaptureState.FAILED
+                setCaptureState(CaptureState.FAILED)
             } finally {
                 streamJob?.cancel()
                 streamErrorJob?.cancel()
@@ -237,7 +247,7 @@ class WivraCaptureForegroundService : Service() {
                 stream = null
                 camera = null
                 session = null
-                if (captureState != CaptureState.FAILED) captureState = CaptureState.IDLE
+                if (captureState != CaptureState.FAILED) setCaptureState(CaptureState.IDLE)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -260,7 +270,7 @@ class WivraCaptureForegroundService : Service() {
                 runCatching { activeSession?.stop() }
             }
         }
-        captureState = CaptureState.IDLE
+        setCaptureState(CaptureState.IDLE)
         scope.cancel()
         super.onDestroy()
     }
