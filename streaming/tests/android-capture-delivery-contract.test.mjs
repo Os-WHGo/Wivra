@@ -74,3 +74,13 @@ test('beta installer and emulator artifacts remain available through the Novembe
     assert.match(section, /retention-days: 21/);
   }
 });
+
+test('complete beta publishes verified SHA-256 manifests for Android and iPhone artifacts', () => {
+  const workflow = read('.github/workflows/wivra-complete-beta-assembly.yml');
+  assert.match(workflow, /sha256sum app-full-debug\.apk > app-full-debug\.apk\.sha256/);
+  assert.match(workflow, /sha256sum -c app-full-debug\.apk\.sha256/);
+  assert.match(workflow, /name: Wivra-BETA-Android-SHA256/);
+  assert.match(workflow, /shasum -a 256 Wivra-BETA-UNSIGNED\.ipa > Wivra-BETA-UNSIGNED\.ipa\.sha256/);
+  assert.match(workflow, /shasum -a 256 -c Wivra-BETA-UNSIGNED\.ipa\.sha256/);
+  assert.match(workflow, /name: Wivra-BETA-iOS-SHA256/);
+});
