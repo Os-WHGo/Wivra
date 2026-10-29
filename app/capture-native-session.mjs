@@ -65,16 +65,31 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           const output = await host.stop({ id });
           const segments = output?.segments;
           if (!Array.isArray(segments) || !segments.length) throw new Error('No confirmed media fragments');
+          // Native host must close and verify all fragments before reporting success.
+          // The manifest remains recoverable if any fragment or final output fails.
+          if (typeof output.finalFile !== 'string' || !output.finalFile) throw new Error('Missing finalized output');
+          const previous = (await store.load(id)).segments;
+          let cursor = previous.length ? previous.at(-1).endMs : 0;
+          const names = new Set(previous.map(s => s.file));
+          for (const segment of segments) {
+            if (segment.confirmed !== true || typeof segment.file !== 'string' ||
+                !segment.file || names.has(segment.file) ||
+                !Number.isFinite(segment.startMs) || !Number.isFinite(segment.endMs) ||
+                segment.startMs < cursor || segment.endMs <= segment.startMs) {
+              throw new Error('Invalid confirmed native fragment');
+            }
+            names.add(segment.file);
+            cursor = segment.endMs;
+          }
+          // Persist fragments with intermediate stopping snapshots, never
+          // publish finalized state before every segment is durable.
           let j = await store.load(id);
           for (const segment of segments) {
-            j = await store.transition(id, { state: 'failed', at: timestamp(), segment });
-            // 'failed' is terminal; host must report its segments in one batch.
-            break;
+            j = await store.appendConfirmedSegment(id, segment, timestamp());
           }
-          // Stop output is kept recoverable until a native implementation
-          // provides transactional batch fragment confirmation.
+          j = await store.transition(id, { state: 'finalized', at: timestamp(), finalFile: output.finalFile });
           active = null;
-          return { ok: false, needsRecovery: true, journal: j };
+          return { ok: true, journal: j };
         } catch (error) {
           await store.transition(id, { state: 'failed', at: timestamp() });
           active = null;
