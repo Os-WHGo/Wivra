@@ -12,7 +12,7 @@ test('video must finish privately before user opts into gallery storage', () => 
   assert.match(recorder, /local\.renameTo\(ready\)/);
   assert.doesNotMatch(recorder, /File\.createTempFile\([^\n]*context\.cacheDir/);
   assert.match(recorder, /fun finishToPending\(\): File\?/);
-  assert.match(activity, /val pending = withContext\(Dispatchers\.IO\) \{ recorder\?\.finishToPending\(\) \}/);
+  assert.match(activity, /val finishingRecorder = recorder[\s\S]*?recorder = null[\s\S]*?val pending = withContext\(Dispatchers\.IO\) \{\s*finishingRecorder\?\.finishToPending\(\)\s*\}/);
   assert.match(activity, /WivraHevcMp4Recorder\.publishPending\(applicationContext, part\)/);
   assert.match(recorder, /local\.delete\(\)\s*\n\s*uri/);
 });
