@@ -87,6 +87,7 @@ public final class MainActivity extends Activity {
                     if (accept.contains("video/")) acceptsVideo = true;
                     if (accept.contains("audio/")) acceptsAudio = true;
                 }
+                if (offerSavedDirectorTake(params, callback, acceptsVideo, acceptsImage, acceptsAudio, acceptsJson)) return true;
                 boolean captureChooser = acceptsJson && params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
                 Uri recent = acceptsImage
                     ? WivraMetaPhotoStore.latestCapturedPhoto(MainActivity.this)
@@ -343,6 +344,12 @@ public final class MainActivity extends Activity {
         suggestedDirectorVideo = null;
         suggestedDirectorProjectId = null;
         suggestedDirectorShotId = null;
+    }
+
+    private boolean offerSavedDirectorTake(WebChromeClient.FileChooserParams params,
+            ValueCallback<Uri[]> callback, boolean video, boolean image,
+            boolean audio, boolean json) {
+        return false;
     }
 
     private void launchSystemPicker(WebChromeClient.FileChooserParams params) {
