@@ -11,7 +11,8 @@ test('Director-selected script reaches both native capture sources without dupli
   assert.match(main, /glasses\.setOnClickListener\(v -> launchRayBanCameraFromDirector\(\)\)/);
   assert.match(main, /launchCameraFromDirector\(WivraMetaPreviewActivity\.class\)/);
   assert.match(main, /launchCameraFromDirector\(WivraPhoneCameraActivity\.class\)/);
-  assert.match(main, /localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(main, /const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(main, /localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
   assert.match(main, /if \(script\.length\(\) <= 2200/);
   assert.match(main, /launch\.putExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_SCRIPT, script\)/);
   assert.match(phone, /const val EXTRA_SHOT_SCRIPT/);
@@ -33,7 +34,8 @@ test('Android acknowledges a Director take only after the owner saves its own re
   assert.match(main, /const val EXTRA_SHOT_ID|EXTRA_SHOT_ID/);
   assert.match(main, /launch\.putExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_ID, id\)/);
   assert.match(main, /startActivityForResult\(launch, DIRECTOR_CAPTURE_REQUEST\)/);
-  assert.match(main, /expected\.equals\(data\.getStringExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_ID\)\)/);
+  assert.match(main, /WivraDirectorProjectGuard\.mayComplete\(/);
+  assert.match(main, /data\.getStringExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_ID\)/);
   assert.match(main, /updateShot\(shootPlan/);
   assert.match(main, /saveShootPlan\(\);renderShootPlan\(\);/);
   assert.match(phone, /directorVideoCreatedHere = privateVideo\.name/);
@@ -54,8 +56,8 @@ test('Director native receipt preserves project context without inventing a medi
 });
 
 test('A new Android Director camera selection clears any stale shot receipt', () => {
-  assert.match(main, /Intent launch = new Intent\(this, targetActivity\);\s*pendingDirectorShotId = null;\s*if \(index > 0\)/);
-  assert.match(main, /if \(shots\.length\(\) == 0\) \{\s*pendingDirectorShotId = null;/);
+  assert.match(main, /Intent launch = new Intent\(this, targetActivity\);\s*pendingDirectorShotId = null;\s*pendingDirectorProjectId = null;\s*if \(index > 0\)/);
+  assert.match(main, /shots == null \|\| shots\.length\(\) == 0\) \{\s*pendingDirectorShotId = null;/);
 });
 
 test('Director rejects invalid shot IDs before native camera launch', () => {
@@ -87,4 +89,21 @@ test('Ray-Ban Director receipt requires new, fully saved session and never expos
   assert.match(receipt, /savedSessionId !in pendingBeforeCapture/);
   assert.match(receipt, /successfulParts == expectedParts/);
   assert.doesNotMatch(meta, /putExtra\([^\n]*?(?:EXTRA_MEDIA_URI|EXTRA_VIDEO_FILE|EXTRA_FILE_PATH)/);
+});
+
+test('Native Director receipt is scoped to the active editor project and saved asset import stays explicit', () => {
+  const guard = get('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraDirectorProjectGuard.java');
+  const html = get('app/template.html');
+  assert.match(main, /const pid=typeof pzPid==='string'\?pzPid:''/);
+  assert.match(main, /const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.match(main, /projectId:pid,shots:plan.shots.filter/);
+  assert.match(main, /pendingDirectorProjectId = projectId/);
+  assert.match(main, /state.putString\("directorProjectAwaitingSave", pendingDirectorProjectId\)/);
+  assert.match(main, /if\(!session\|\|pzPid!==/);
+  assert.match(main, /selectedShootId=" \+ id \+ ";"/);
+  assert.match(main, /openSheet\('sDirector'\)/);
+  assert.match(html, /shot.state==='done'&&!shot.assetId\?'Importar video guardado'/);
+  assert.match(guard, /launchedProjectId\.equals\(currentProjectId\)/);
+  assert.match(guard, /launchedShotId\.equals\(savedShotId\)/);
+  assert.doesNotMatch(main, /addJavascriptInterface\(/);
 });
