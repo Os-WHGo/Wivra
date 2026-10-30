@@ -18,6 +18,9 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.sources.audio.NoAudioSource
+import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.rtmp.RtmpStream
 import java.io.File
@@ -173,7 +176,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private fun preparePreview() {
         if (prepared || stream != null || isFinishing) return
         try {
-            val publisher = RtmpStream(applicationContext, this)
+            // Never open the microphone merely because the user previews
+            // or selects video-only LIVE. NoAudioSource is an actual no-op
+            // source; RootEncoder starts its audioSource during encoding.
+            val publisher = RtmpStream(
+                applicationContext, this,
+                Camera2Source(applicationContext), NoAudioSource()
+            )
             // 4:3 portrait conservative compatibility profile. Not Ray-Ban.
             val videoReady = publisher.prepareVideo(
                 640, 480, 1_200_000, fps = 24, rotation = 90
@@ -234,9 +243,15 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val publisher = stream ?: return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         val pending = try {
-            if (withAudio &&
-                !publisher.prepareAudio(44_100, false, 64_000)) {
-                setStatus("No se pudo preparar audio. No se inició LIVE.")
+            if (withAudio) {
+                // The permission is checked BEFORE changing the source.
+                // This is the only path where a real microphone is opened.
+                publisher.changeAudioSource(MicrophoneSource())
+            }
+            // Encoder must be prepared even for NoAudioSource, but no PCM
+            // samples are captured or transmitted in video-only mode.
+            if (!publisher.prepareAudio(44_100, false, 64_000)) {
+                setStatus("No se pudo preparar el audio seleccionado.")
                 return
             }
             WivraPhoneMediaStore.createPrivateVideo(applicationContext)
