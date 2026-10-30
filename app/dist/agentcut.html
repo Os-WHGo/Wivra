@@ -4980,6 +4980,10 @@ async function importCapture(files) {
       say('La selección incluye otros archivos JSON. Importa una captura por vez, sin metadatos ajenos. No se modificó la línea de tiempo.', 'bad');
       return;
     }
+    if (files.length > MAX_IMPORT) {
+      say('Demasiados archivos en una sola captura. Selecciona hasta ' + MAX_IMPORT + ' archivos y vuelve a intentar.', 'bad');
+      return;
+    }
     const byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
