@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateRayBanParts,restoreDirectorAssetLinks,rayBanPartPositions,rayBanContinuation,MAX_SHOT_PARTS} from '../director-parts.mjs';
+import {validateRayBanParts,restoreDirectorAssetLinks,rayBanPartPositions,rayBanContinuation,rayBanAppendAt,MAX_SHOT_PARTS} from '../director-parts.mjs';
 
 const session='abcdef0123456789abcdef0123456789';
 const part=(n,id=session)=>({
