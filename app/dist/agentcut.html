@@ -4965,9 +4965,20 @@ async function importCapture(files) {
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
     const m = r.manifest, selection = captureSelectionPlan(m, files);
     if (!selection.ok) { say(selection.errors.join('\n') + '\nNo se modificó la línea de tiempo. Usa Video para importar un clip sin sus pistas.', 'bad'); return; }
+    const names = new Set();
+    for (const file of files) {
+      if (names.has(file.name)) {
+        say('La selección contiene archivos con el mismo nombre: ' + file.name + '. No se modificó la línea de tiempo.', 'bad');
+        return;
+      }
+      names.add(file.name);
+    }
+    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));
+    if (otherJson.length) {
+      say('La selección incluye otros archivos JSON. Importa una captura por vez, sin metadatos ajenos. No se modificó la línea de tiempo.', 'bad');
+      return;
+    }
     const byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
-    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
-    if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
       if (assets[name]) return assets[name];
@@ -5085,6 +5096,12 @@ let loading = false;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
   if (!files.length || loading) return;
+  // Reject capture metadata in the generic media importer. A capture must
+  // enter through its validated manifest so independent audio stays aligned.
+  if (files.some(f => /\.wivra\.json$/i.test(f.name))) {
+    say('Para importar una captura de Wivra con sus pistas usa Captura, no Video.', 'bad');
+    return;
+  }
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
