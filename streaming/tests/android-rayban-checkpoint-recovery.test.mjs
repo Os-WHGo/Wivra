@@ -9,6 +9,10 @@ const activity = read('../android/app/src/main/java/com/oswhgo/wivra/WivraMetaPr
 
 test('checkpoint boundaries require an HEVC random-access frame and full codec setup', () => {
   assert.match(segmenter, /checkpointIntervalUs: Long = 30_000_000L/);
+  // Pause/resume may reset DAT PTS; wall-clock checkpoint cadence remains monotonic.
+  assert.match(segmenter, /SystemClock\.elapsedRealtimeNanos\(\) \/ 1_000L/);
+  assert.match(segmenter, /nowElapsedUs - segmentStartElapsedUs >= checkpointIntervalUs/);
+  assert.doesNotMatch(segmenter, /ptsUs - segmentStartPtsUs >= checkpointIntervalUs/);
   assert.match(segmenter, /if \(type in 32\.\.34\) codecSets\[type\] = bytes/);
   assert.match(segmenter, /if \(type in 16\.\.21\) randomAccess = true/);
   assert.match(segmenter, /codecSets\.keys\.containsAll\(setOf\(32, 33, 34\)\)/);
