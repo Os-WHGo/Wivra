@@ -333,6 +333,8 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         guard !photoBusy else { return }
         do {
             let url = try nextMediaURL(ext: "mov")
+            // AVCaptureFileOutput may complete asynchronously. Keep the file URL
+            // until its delegate returns, even when the app switches cameras.
             lastMovieURL = nil
             lastCaptureManifestURL = nil
             movieOutput.startRecording(to: url, recordingDelegate: self)
