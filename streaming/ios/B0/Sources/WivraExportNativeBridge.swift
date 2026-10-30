@@ -10,6 +10,7 @@ import WebKit
 
 final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     weak var webView: WKWebView?
+    private let owner = UUID().uuidString
 
     override init() {
         super.init()
@@ -18,8 +19,9 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     }
 
     deinit {
-        // Editor closed mid-export: no partial video stays behind.
-        Task { await WivraExportStore.shared.abortAll() }
+        // Another editor may already exist when this handler is released.
+        let owner = owner
+        Task { await WivraExportStore.shared.abortOwned(owner: owner) }
     }
 
     private struct Request: Sendable {
@@ -81,9 +83,10 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             }
             return
         }
+        let owner = owner
         Task { @MainActor in
             do {
-                let reply = try await Self.perform(request)
+                let reply = try await Self.perform(request, owner: owner)
                 replyHandler(Self.dictionary(reply), nil)
             } catch {
                 replyHandler(nil, error.localizedDescription)
@@ -91,13 +94,13 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
     }
 
-    private static func perform(_ request: Request) async throws -> WivraExportReply {
+    private static func perform(_ request: Request, owner: String) async throws -> WivraExportReply {
         let store = WivraExportStore.shared
         switch request.op {
         case "hello":
             return WivraExportReply()
         case "begin":
-            return try await store.begin(mime: request.mime, estimatedBytes: request.estimatedBytes)
+            return try await store.begin(mime: request.mime, estimatedBytes: request.estimatedBytes, owner: owner)
         case "chunk":
             return try await store.append(token: request.token, seq: request.seq, data: request.data ?? Data())
         case "finish":

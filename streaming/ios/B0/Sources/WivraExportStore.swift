@@ -63,6 +63,7 @@ actor WivraExportStore {
     static let maximumChunkBytes = 32 * 1024 * 1024
 
     private struct Session {
+        let owner: String?
         let handle: FileHandle
         let partialURL: URL
         let finalURL: URL
@@ -104,7 +105,7 @@ actor WivraExportStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    func begin(mime rawMime: String, estimatedBytes: Int64) throws -> WivraExportReply {
+    func begin(mime rawMime: String, estimatedBytes: Int64, owner: String? = nil) throws -> WivraExportReply {
         try prepareDirectory()
         let free = freeBytes(directory)
         let needed = max(0, estimatedBytes) + Self.minimumFreeBytes
@@ -123,7 +124,7 @@ actor WivraExportStore {
         noBackup.isExcludedFromBackup = true
         try? partialURL.setResourceValues(noBackup)
         let handle = try FileHandle(forWritingTo: partialURL)
-        sessions[token] = Session(handle: handle, partialURL: partialURL, finalURL: finalURL, mime: mime)
+        sessions[token] = Session(owner: owner, handle: handle, partialURL: partialURL, finalURL: finalURL, mime: mime)
         return WivraExportReply(token: token, displayName: name)
     }
 
@@ -219,6 +220,10 @@ actor WivraExportStore {
         guard let session = sessions.removeValue(forKey: token) else { return }
         try? session.handle.close()
         try? FileManager.default.removeItem(at: session.partialURL)
+    }
+
+    func abortOwned(owner: String) {
+        for (token, session) in sessions where session.owner == owner { abort(token: token) }
     }
 
     func abortAll() {

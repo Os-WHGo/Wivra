@@ -26,7 +26,7 @@ import java.util.concurrent.Executors
  * reads, lists or deletes other media. — Claude
  */
 class WivraExportBridge(private val activity: Activity, private val webView: WebView) {
-    private val io: ExecutorService = Executors.newSingleThreadExecutor()
+    private val owner = java.util.UUID.randomUUID().toString()
     private val main = Handler(Looper.getMainLooper())
     private val appContext = activity.applicationContext
     @Volatile private var disposed = false
@@ -47,9 +47,9 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
     }
 
     fun dispose() {
+        if (disposed) return
         disposed = true
-        io.execute { WivraExportStore.abortAll(appContext) }
-        io.shutdown()
+        io.execute { WivraExportStore.abortOwned(appContext, owner) }
     }
 
     private fun onMessage(message: WebMessageCompat, reply: JavaScriptReplyProxy) {
@@ -71,7 +71,7 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
                     .put("platform", "android")
             }
             "begin" -> run(reply, rid) {
-                val (token, name) = WivraExportStore.begin(appContext, request.optString("mime"), request.optLong("estimatedBytes", 0L))
+                val (token, name) = WivraExportStore.begin(appContext, request.optString("mime"), request.optLong("estimatedBytes", 0L), owner)
                 JSONObject().put("token", token).put("displayName", name)
             }
             "chunk" -> run(reply, rid) {
@@ -143,6 +143,9 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
     }
 
     companion object {
+        // The store is process-wide. Activity recreation must not create a second
+        // storage worker that races orphan scans, finalization or old-page cleanup.
+        private val io: ExecutorService = Executors.newSingleThreadExecutor()
         const val JS_OBJECT = "WivraExportNative"
         const val EDITOR_URL = "file:///android_asset/agentcut.html"
         const val PROTOCOL = 1
