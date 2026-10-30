@@ -45,3 +45,10 @@ test('Android acknowledges a Director take only after the owner saves its own re
     'the ordinary save path must publish before acknowledging');
   assert.doesNotMatch(phone, /setResult\(Activity\.RESULT_OK, Intent\(\)\.putExtra\(EXTRA_SHOT_SCRIPT/);
 });
+
+test('Director native receipt preserves project context without inventing a media asset', () => {
+  assert.match(main, /updateShot\(shootPlan,.*\{state:'done'\},\{project:session\.project\}\)/);
+  assert.match(main, /if\(!shot\|\|\(shot\.state!=='todo'&&shot\.state!=='retry'\)\)return/);
+  assert.doesNotMatch(main, /\{state:'done',assetId:/);
+  assert.doesNotMatch(phone, /putExtra\(EXTRA_SHOT_ID, shotId\).*putExtra\(.*(file|uri|path)/);
+});
