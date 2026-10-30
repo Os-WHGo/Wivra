@@ -543,6 +543,14 @@ public final class MainActivity extends Activity {
                             suggestedDirectorShotId = expected;
                             suggestedDirectorProjectId = expectedProject;
                             suggestedDirectorRayBan = rayBan;
+                        } else if (rayBan) {
+                            Uri[] grouped = uniqueNewRayBanParts(before);
+                            if (grouped != null) {
+                                suggestedDirectorParts = grouped;
+                                suggestedDirectorShotId = expected;
+                                suggestedDirectorProjectId = expectedProject;
+                                suggestedDirectorRayBan = true;
+                            }
                         }
                     }
                 });
