@@ -24,6 +24,7 @@ public final class MainActivity extends Activity {
     private static final int PICK_FILES_REQUEST = 4207;
     private static final int DIRECTOR_CAPTURE_REQUEST = 4208;
     private String pendingDirectorShotId;
+    private String pendingDirectorProjectId;
     private ValueCallback<Uri[]> pendingFilePicker;
     private WebView editor;
 
@@ -32,6 +33,7 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null) {
             pendingDirectorShotId = savedInstanceState.getString("directorShotAwaitingSave");
+            pendingDirectorProjectId = savedInstanceState.getString("directorProjectAwaitingSave");
         }
         editor = new WebView(this);
         final WebSettings settings = editor.getSettings();
@@ -217,27 +219,37 @@ public final class MainActivity extends Activity {
             startActivity(new Intent(this, targetActivity));
             return;
         }
+        // Read Director shots from the CURRENT editor project; a global
+        // localStorage key may contain a different project's checklist.
         final String readOnly = "(function(){try{" +
-            "const plan=JSON.parse(localStorage.getItem('agentcut-shoot-checklist-v1')||'null');" +
-            "if(!plan||plan.schema!=='agentcut-shoot-plan-v0.1'||!Array.isArray(plan.shots))return '[]';" +
-            "return JSON.stringify(plan.shots.filter(s=>(s.state==='todo'||s.state==='retry')" +
+            "const pid=typeof pzPid==='string'?pzPid:'';" +
+            "const plan=typeof shootPlan==='object'?shootPlan:null;" +
+            "if(!session||!plan||plan.schema!=='agentcut-shoot-plan-v0.1'||" +
+            "!Array.isArray(plan.shots)||!(/^[A-Za-z0-9_-]{1,128}$/).test(pid))" +
+            "return JSON.stringify({projectId:'',shots:[]});" +
+            "return JSON.stringify({projectId:pid,shots:plan.shots.filter(s=>" +
+            "(s.state==='todo'||s.state==='retry')" +
             "&&typeof s.id==='string'&&s.id.length>0&&s.id.length<=120" +
             "&&Array.from(s.id).every(ch=>ch.charCodeAt(0)>=32&&ch.charCodeAt(0)!==127))" +
             ".slice(0,30).map(s=>({id:s.id,title:String(s.title||'')," +
-            "script:typeof s.script==='string'?s.script.slice(0,2200):''})));" +
-            "}catch(e){return '[]';}})();";
+            "script:typeof s.script==='string'?s.script.slice(0,2200):''}))});" +
+            "}catch(e){return JSON.stringify({projectId:'',shots:[]});}})();";
         editor.evaluateJavascript(readOnly, encoded -> {
-            org.json.JSONArray shots = new org.json.JSONArray();
+            org.json.JSONObject payload = new org.json.JSONObject();
             try {
-                Object payload = new org.json.JSONTokener(encoded).nextValue();
-                if (payload instanceof String) {
-                    shots = new org.json.JSONArray((String) payload);
+                Object value = new org.json.JSONTokener(encoded).nextValue();
+                if (value instanceof String) {
+                    payload = new org.json.JSONObject((String) value);
                 }
             } catch (Exception ignored) {
-                // A corrupt or missing checklist never blocks the phone camera.
+                // Invalid editor state never selects a Director shot.
             }
-            if (shots.length() == 0) {
+            final String projectId = payload.optString("projectId", "");
+            final org.json.JSONArray shots = payload.optJSONArray("shots");
+            if (!projectId.matches("[A-Za-z0-9_-]{1,128}") ||
+                shots == null || shots.length() == 0) {
                 pendingDirectorShotId = null;
+                pendingDirectorProjectId = null;
                 startActivity(new Intent(this, targetActivity));
                 return;
             }
