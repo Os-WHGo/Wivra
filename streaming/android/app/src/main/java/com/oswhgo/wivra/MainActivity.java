@@ -24,6 +24,8 @@ import android.webkit.WebViewClient;
  */
 public final class MainActivity extends Activity {
     private static final int PICK_FILES_REQUEST = 4207;
+    // Keep native picker limits identical to the Editor's 40-file import limit.
+    private static final int MAX_PICKER_FILES = 40;
     private static final int DIRECTOR_CAPTURE_REQUEST = 4208;
     private String pendingDirectorShotId;
     private String pendingDirectorProjectId;
@@ -35,6 +37,10 @@ public final class MainActivity extends Activity {
     private boolean suggestedDirectorRayBan;
     private boolean pendingDirectorRayBan;
     private ValueCallback<Uri[]> pendingFilePicker;
+    // Third-party content:// providers may block while opening cloud media.
+    // Their verification must never block Android's UI thread.
+    private final java.util.concurrent.ExecutorService pickerValidator =
+        java.util.concurrent.Executors.newSingleThreadExecutor();
     private WebView editor;
 
     @Override
@@ -460,7 +466,7 @@ public final class MainActivity extends Activity {
      * separately and never pass through this untrusted system picker result.
      */
     private Uri[] safeSystemPickerResult(Uri[] selected) {
-        if (selected == null || selected.length == 0 || selected.length > 32) {
+        if (selected == null || selected.length == 0 || selected.length > MAX_PICKER_FILES) {
             return null;
         }
         java.util.HashSet<Uri> seen = new java.util.HashSet<>();
@@ -560,10 +566,31 @@ public final class MainActivity extends Activity {
         if (requestCode != PICK_FILES_REQUEST || pendingFilePicker == null) {
             return;
         }
-        ValueCallback<Uri[]> completion = pendingFilePicker;
-        pendingFilePicker = null;
-        completion.onReceiveValue(safeSystemPickerResult(
-            WebChromeClient.FileChooserParams.parseResult(resultCode, data)));
+        final ValueCallback<Uri[]> completion = pendingFilePicker;
+        final Uri[] selected;
+        try {
+            selected = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+        } catch (RuntimeException malformed) {
+            clearPendingPicker();
+            return;
+        }
+        // A cloud-backed document provider can take seconds to open each URI.
+        // Validate off the UI thread and deliver the WebView callback only if
+        // this same Activity still owns the original pending file chooser.
+        try {
+            pickerValidator.execute(() -> {
+                Uri[] checked = safeSystemPickerResult(selected);
+                runOnUiThread(() -> {
+                    if (pendingFilePicker != completion || isFinishing() || isDestroyed()) {
+                        return; // Superseded chooser or Activity was destroyed.
+                    }
+                    pendingFilePicker = null;
+                    completion.onReceiveValue(checked);
+                });
+            });
+        } catch (RuntimeException unavailable) {
+            if (pendingFilePicker == completion) clearPendingPicker();
+        }
     }
 
     @Override
@@ -577,6 +604,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        pickerValidator.shutdownNow();
         if (pendingFilePicker != null) {
             pendingFilePicker.onReceiveValue(null);
             pendingFilePicker = null;
