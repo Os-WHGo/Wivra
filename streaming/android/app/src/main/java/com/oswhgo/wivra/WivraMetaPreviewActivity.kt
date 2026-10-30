@@ -661,13 +661,27 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun offerPendingVideo() {
         if (pendingDialogVisible || recordingMode || recordingFinalizing || isFinishing ||
             WivraCaptureForegroundService.isCaptureActive()) return
+        val interrupted = WivraHevcMp4Recorder.listInterruptedCaptures(applicationContext)
         val pending = WivraHevcMp4Recorder.listPendingRecordings(applicationContext)
-            .firstOrNull() ?: return
+            .firstOrNull()
+        if (pending == null) {
+            if (interrupted.isNotEmpty()) {
+                show("Hay " + interrupted.size +
+                    " archivos de captura interrumpida conservados. " +
+                    "No son MP4 finalizados y no se publicarán automáticamente.")
+            }
+            return
+        }
         pendingDialogVisible = true
         val explanation = getString(R.string.recording_pending_explanation) +
-            if (pending.parts.size > 1) {
+            (if (pending.parts.size > 1) {
                 "\n\n" + getString(R.string.recording_pending_multiple_parts, pending.parts.size)
-            } else ""
+            } else "") +
+            (if (interrupted.isNotEmpty()) {
+                "\n\n" + interrupted.size +
+                    " archivo(s) de grabación interrumpida sin finalizar; " +
+                    "permanecen privados y no se incluirán en la galería."
+            } else "")
         val reviewButton = Button(this).apply {
             text = getString(R.string.recording_review_video)
         }
