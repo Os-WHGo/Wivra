@@ -234,7 +234,20 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             window.decorView.post { offerPendingVideo() }
                         }
                     }
-                    WivraCaptureForegroundService.CaptureState.RECORDING -> Unit
+                    WivraCaptureForegroundService.CaptureState.PAUSED ->
+                        show("Ray-Ban en pausa. Los MP4 confirmados permanecen guardados.")
+                    WivraCaptureForegroundService.CaptureState.RECORDING ->
+                        show("Grabando Ray-Ban: primeros cuadros HEVC confirmados.")
+                }
+            }
+        }
+        scope.launch {
+            WivraCaptureForegroundService.captureProgress.collect { progress ->
+                if (WivraCaptureForegroundService.captureState ==
+                        WivraCaptureForegroundService.CaptureState.RECORDING) {
+                    show("Ray-Ban: " + progress.muxedSamples +
+                        " muestras MP4 · " + progress.savedCheckpoints +
+                        " segmentos seguros. Puedes bloquear la pantalla.")
                 }
             }
         }
