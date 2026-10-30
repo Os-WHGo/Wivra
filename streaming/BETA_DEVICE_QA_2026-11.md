@@ -31,6 +31,20 @@ Target: November 13, 2026. This checklist is **not** evidence of a passed physic
 - [ ] Test editor offline, persistence, import, export, orientation, background/lock and local file permissions.
 - [ ] Test Ray-Ban connection, camera, audio and Meta AI coexistence on hardware; distinguish simulator success.
 
+
+## Long Ray-Ban take and export acceptance (P0, NOT YET TESTED)
+- [ ] On one phone with registered physical glasses, record a continuous session long enough to create at least 81 numbered parts; note the session ID privately (never add private captures to GitHub).
+- [ ] Lock the screen and pocket the phone during an owner-initiated recording; confirm real *finalized* MP4 growth, not merely a foreground-service notification. Unplug/reconnect only in a separate, consented recovery test.
+- [ ] Import **40 + 40 + 1** successive original parts into one Director take. Verify exact numeric order, consistent session, all 81 linked assets, saved project, force-close/reopen and all original source files still present.
+- [ ] After each batch, play the beginning and last two cuts using the actual device decoder. Verify the 40/41 and 80/81 boundaries, image, audio, duration, orientation, HEVC support, and any silent or frozen frames.
+- [ ] Export a short selection, a 20-minute selection and (only if the device has enough storage and the risk is acceptable) a 45-minute selection; Wivra currently buffers the final MediaRecorder chunks until completion. Its estimated file size **is not** a measurement of free RAM or proof of export capability.
+- [ ] For each exported file, reopen in the device player, seek the first/middle/last 10 seconds, compare video/audio synchronization against originals, verify nonzero audio where expected, check rotation, duration and actual file size. Repeat a reopen after app force-close.
+- [ ] Record free storage before/after, export wall clock, memory pressure/crash, thermal behavior and battery drop. Treat a frozen render, corrupt file, silent voice loss, wrong clip order or unexplained app termination as FAIL, not as a warning to ignore.
+- [ ] Confirm cancelling an export or running out of storage does not erase, truncate or silently modify the 81 original files. Do not delete source footage to make space.
+- [ ] Repeat on iPhone **only after** owner-provided signing and installation. Emulator, Chromium Linux and unsigned IPA checks are separate and cannot satisfy this checklist.
+
+For audit, record build SHA + run ID, device/OS, 81 source-file count, session identity match, segment-boundary observations, exported container/codec/duration, external-player playability, interruptions and PASS/FAIL. Upload no private footage, credentials or precise location. All checkboxes remain open until actual physical execution.
+
 ## LIVE
 - [ ] Validate authenticated RTMP/streaming with explicit test destination and consent; verify reconnection, audio and local backup.
 - [ ] No production streaming or real platform credentials in CI.
