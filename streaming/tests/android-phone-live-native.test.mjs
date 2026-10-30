@@ -35,7 +35,7 @@ test('broadcast has no covert or paid backend, and live keys are not stored or l
   assert.match(endpoint, /uri\.rawUserInfo == null/);
   assert.match(endpoint, /uri\.rawFragment == null/);
   assert.match(endpoint, /in setOf\("rtmp", "rtmps"\)/);
-  assert.match(endpoint, /uri\.host\?\.take\(120\)/);
+  assert.match(endpoint, /URI\(input\)\.host\?\.take\(120\)/);
 });
 
 test('the local MP4 is armed before public transmission and remains private on failure', () => {
