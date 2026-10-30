@@ -1295,7 +1295,12 @@ async function importSelectedFiles(files) {
     say('Para importar una captura de Wivra con sus pistas usa Captura, no Video.', 'bad');
     return;
   }
-  let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
+  // Never silently omit selected files: a partial import can corrupt a user's intended edit order.
+  if (files.length > MAX_IMPORT) {
+    say(`Seleccionaste ${files.length} archivos. El límite actual es ${MAX_IMPORT} por tanda; divide la selección e importa las tandas en orden. No se agregó ningún archivo.`, 'bad');
+    return;
+  }
+  const capNote = '';
   const previousSession = session;
   const importSession = session;
   let stagingSession = session;
