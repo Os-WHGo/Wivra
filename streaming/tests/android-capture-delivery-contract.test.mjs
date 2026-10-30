@@ -87,7 +87,10 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
   assert.match(service, /firstFrameWatchdog = scope\.launch/);
-  assert.match(service, /delay\(45_000L\)/);
+  assert.match(service, /delay\(5_000L\)/);
+  assert.match(service, /if \(captureState != CaptureState\.PAUSED\) activeWaitMs \+= 5_000L/);
+  assert.match(service, /activeWaitMs >= 45_000L/);
+  assert.match(service, /DeviceSessionState\.PAUSED/);
   assert.match(service, /recorder === muxer && muxer\.samples < 2/);
   assert.match(service, /val wroteSample = samples > lastSamplesTotal/);
   assert.match(service, /if \(wroteSample && samples % 24 == 0\)/);
@@ -103,6 +106,19 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   assert.match(service, /CaptureState\.RECORDING -> "Grabando MP4/);
   assert.match(service, /mutableCaptureProgress\.value = progress/);
   assert.match(service, /runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
+});
+
+test('DAT handles recoverable stream error and headset pause without discarding valid MP4', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  assert.match(service, /StreamState\.PAUSED/);
+  assert.match(service, /StreamState\.STOPPED/);
+  assert.match(service, /StreamState\.CLOSED/);
+  assert.match(service, /if \(streamEverActive\)/);
+  assert.match(service, /activeStream\.errorStream\.collect \{ error ->/);
+  assert.doesNotMatch(service, /errorStream\.collect \{ finalizeCapture\(\) \}/);
+  assert.match(service, /active\.state\.value != DeviceSessionState\.PAUSED/);
+  assert.match(service, /activeStream\.state\.value != StreamState\.PAUSED/);
+  assert.match(service, /mutableCaptureIssue\.value = null\s*setCaptureState\(CaptureState\.RECORDING\)/);
 });
 
 test('foreground notification opens Activity using mutable Intent API safely', () => {
