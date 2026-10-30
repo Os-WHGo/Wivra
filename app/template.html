@@ -1267,6 +1267,12 @@ let loading = false;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
   if (!files.length || loading) return;
+  // Reject capture metadata in the generic media importer. A capture must
+  // enter through its validated manifest so independent audio stays aligned.
+  if (files.some(f => /\.wivra\.json$/i.test(f.name))) {
+    say('Para importar una captura de Wivra con sus pistas usa Captura, no Video.', 'bad');
+    return;
+  }
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [];
