@@ -41,3 +41,10 @@ test('generic import cleans up on rejection and unexpected exceptions', () => {
   assert.match(generic, /finally \{\s*cleanupUncommitted\(\);\s*loading = false;/);
   assert.match(generic, /if \(!committed && added\.length && session\)/);
 });
+
+test('Director only binds an imported asset when the result is unambiguous', () => {
+  assert.match(generic, /const newAssets=\(session\?\.project\.assets \|\| \[\]\)\.filter/);
+  assert.match(generic, /newAssets\.length===1 \? newAssets\[0\] : null/);
+  assert.match(generic, /newAssets\.length>1 && shootPlan && selectedShootId/);
+  assert.match(generic, /assetId:added\.id/);
+});
