@@ -1282,7 +1282,7 @@ function progress(plan){
 function updateShot(plan,shotId,changes,{project=null}={}){
  if(!plan?.shots?.some(s=>s.id===shotId))throw new Error('Unknown shot');
  if(!changes||typeof changes!=='object')throw new Error('Invalid update');
- const permitted=['state','assetId','note','direction','title','durationSeconds'];
+ const permitted=['state','assetId','assetIds','note','direction','title','durationSeconds'];
  if(Object.keys(changes).some(k=>!permitted.includes(k)))throw new Error('Unsupported shot field');
  if('state' in changes&&!['todo','done','retry','skipped'].includes(changes.state))throw new Error('Invalid shot state');
  if('title' in changes)clean(changes.title,130,'shot title');
@@ -1293,8 +1293,24 @@ function updateShot(plan,shotId,changes,{project=null}={}){
  if('assetId' in changes&&changes.assetId!==null){
    if(!project?.assets?.some(asset=>asset.id===changes.assetId))throw new Error('Attach only existing video assets');
  }
+ // One long Ray-Ban take may consist of separately playable MP4 parts.
+ // Keep the original assetId as the first part for older consumers.
+ if('assetIds' in changes){
+   const ids=changes.assetIds;
+   if(ids!==null&&(!Array.isArray(ids)||ids.length>40||
+      ids.some(id=>typeof id!=='string'||!project?.assets?.some(a=>a.id===id))||
+      new Set(ids).size!==ids.length))throw new Error('Attach only unique existing video assets');
+   if('assetId' in changes&&changes.assetId!==(ids?.[0]??null))
+     throw new Error('The primary asset must be the first part');
+ }
  return {...plan,revision:plan.revision+1,
-  shots:plan.shots.map(s=>s.id===shotId?{...s,...changes}:s)};
+  shots:plan.shots.map(s=>{
+   if(s.id!==shotId)return s;
+   const next={...s,...changes};
+   if('assetIds' in changes)next.assetId=changes.assetIds?.[0]??null;
+   else if('assetId' in changes)next.assetIds=changes.assetId?[changes.assetId]:[];
+   return next;
+  })};
 }
 function validateProviderShotPlan(candidate,{subject,platform='reels',maxShots=12}={}){
  if(!candidate||!Array.isArray(candidate.shots)||candidate.shots.length<1||candidate.shots.length>maxShots)
