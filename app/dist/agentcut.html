@@ -6721,7 +6721,9 @@ function restoreDirectorOfProject(sn) {
     $('dirMode').value = 'automatic'; $('dirPlatform').value = 'reels'; $('dirOtherFormats').value = ''; $('dirOutputs').value = 1; $('dirHistory').textContent = '';
     if (d.draft) restoreDirectorDraft(d.draft);
     shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => {
-      const ids = Array.isArray(s.assetIds) ? s.assetIds.filter(id=>known.has(id)) : (known.has(s.assetId)?[s.assetId]:[]);
+      const ids = Array.isArray(s.assetIds)
+        ? (s.assetIds.every(id=>known.has(id)) ? s.assetIds : [])
+        : (known.has(s.assetId)?[s.assetId]:[]);
       return {...s,assetId:ids[0]||null,assetIds:ids};
     }) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
     selectedShootId = null; renderShootPlan();
