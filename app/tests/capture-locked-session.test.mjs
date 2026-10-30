@@ -27,3 +27,14 @@ test('Ray-Ban journal never finalizes an empty capture', () => {
   j = advanceCaptureJournal(j, { state: 'stopping', at: 2 });
   assert.throws(() => advanceCaptureJournal(j, { state: 'finalized', at: 3, finalFile: 'empty.mp4' }));
 });
+
+test('recovery excludes corrupted persisted suffix and requires review', () => {
+  let j = createCaptureJournal({ id: 'capture-corrupt', platform: 'android', startedAt: 0 });
+  j = advanceCaptureJournal(j, { state: 'recording', at: 1 });
+  j = advanceCaptureJournal(j, { state: 'stopping', at: 2, segment: { file: 'safe.mp4', startMs: 0, endMs: 1000, confirmed: true } });
+  j = advanceCaptureJournal(j, { state: 'finalized', at: 3, finalFile: 'final.mp4' });
+  const broken = { ...j, segments: [...j.segments, { file: 'overlap.mp4', startMs: 500, endMs: 1500, confirmed: true }] };
+  assert.deepEqual(recoverCaptureJournal(broken).recoverableFiles, ['safe.mp4']);
+  assert.equal(recoverCaptureJournal(broken).requiresReview, true);
+  assert.deepEqual(recoverCaptureJournal({ ...j, segments: [...j.segments, { file: 'bad.mp4', startMs: 1000, endMs: 1500, confirmed: false }] }).recoverableFiles, ['safe.mp4']);
+});
