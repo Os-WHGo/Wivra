@@ -72,3 +72,7 @@ test('Starting another native recording invalidates a previous Director save rec
   assert.match(phone, /createPrivateVideo\(this\)\s*\/\/ A previous saved take must not acknowledge a later abandoned recording\.\s*setResult\(Activity\.RESULT_CANCELED\)/);
   assert.match(phone, /setResult\(Activity\.RESULT_OK, Intent\(\)\.putExtra\(EXTRA_SHOT_ID, shotId\)\)/);
 });
+
+test('Discarding the current Director recording revokes its saved-take receipt', () => {
+  assert.match(phone, /if \(WivraPhoneMediaStore\.discard\(this, file\)\) \{\s*if \(file\.name == directorVideoCreatedHere\) \{\s*setResult\(Activity\.RESULT_CANCELED\)\s*directorVideoCreatedHere = null/);
+});
