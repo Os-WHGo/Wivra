@@ -1131,7 +1131,6 @@ async function importCapture(files) {
       return;
     }
     const mf = manifests[0];
-    if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
     if (!(mf.size > 0) || mf.size > 128 * 1024) { say('El manifiesto debe medir entre 1 byte y 128 KB.', 'bad'); return; }
     const r = parseManifest(await mf.text());
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
