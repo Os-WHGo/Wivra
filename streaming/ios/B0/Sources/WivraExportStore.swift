@@ -185,14 +185,21 @@ actor WivraExportStore {
         var method = "none", note = ""
         if repair && session.mime == "video/mp4" {
             do {
-                let patched = try WivraMp4Repair.patchFragmented(at: session.finalURL)
-                if patched.changed { method = "mp4-patched" } else { note = patched.reason }
-                let original = await WivraMp4Repair.inspect(session.finalURL)
+                // AVFoundation already understands some fragmented MP4s (e.g. ffmpeg's
+                // indexed H.264/AAC). Patching their media duration first makes Apple
+                // count it twice. Prefer passthrough of the verified recording itself.
+                var original = await WivraMp4Repair.inspect(session.finalURL)
+                if original?.video != true || (original?.durationMs ?? 0) <= 0 {
+                    let patched = try WivraMp4Repair.patchFragmented(at: session.finalURL)
+                    if patched.changed { method = "mp4-patched" } else { note = patched.reason }
+                    original = await WivraMp4Repair.inspect(session.finalURL)
+                }
                 let temp = directory.appendingPathComponent(session.finalURL.lastPathComponent + ".remux.mp4")
                 do {
                     try await WivraMp4Repair.passthrough(from: session.finalURL, to: temp)
                     let copy = await WivraMp4Repair.inspect(temp)
-                    if let copy, copy.video, copy.durationMs > 0, !(original?.audio == true && !copy.audio) {
+                    let durationMatches = original.map { $0.durationMs <= 0 || abs((copy?.durationMs ?? 0) - $0.durationMs) <= max(250, $0.durationMs / 100) } ?? true
+                    if let copy, copy.video, copy.durationMs > 0, durationMatches, !(original?.audio == true && !copy.audio) {
                         _ = try FileManager.default.replaceItemAt(session.finalURL, withItemAt: temp)
                         method = "mp4-passthrough"
                     } else {

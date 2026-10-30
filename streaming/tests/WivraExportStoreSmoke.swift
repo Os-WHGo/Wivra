@@ -104,6 +104,8 @@ struct WivraExportStoreSmoke {
         for (name, mime, expectedMs) in [("ffmpeg-h264-aac-fragmented.mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", 2023.0),
                                          ("chromium-avc1-opus-fragmented.mp4", "video/mp4;codecs=avc1,opus", 2214.0)] {
             let data = try Data(contentsOf: fixtures.appendingPathComponent(name))
+            let unmodified = await WivraMp4Repair.inspect(fixtures.appendingPathComponent(name))
+            print("iOS original \(name): \(String(describing: unmodified))")
             // In-place patch alone, on a copy: measured duration must match the JS implementation.
             let copy = folder.appendingPathComponent("patch-" + name)
             try data.write(to: copy)
