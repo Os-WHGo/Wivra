@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import com.meta.wearable.dat.camera.Camera
 import com.meta.wearable.dat.camera.Stream
 import com.meta.wearable.dat.camera.addCamera
@@ -37,7 +38,12 @@ import kotlinx.coroutines.withContext
  * the process or the glasses disconnect.
  */
 class WivraCaptureForegroundService : Service() {
-    enum class CaptureState { IDLE, CONNECTING, RECORDING, FINALIZING, FAILED }
+    enum class CaptureState { IDLE, CONNECTING, RECORDING, PAUSED, FINALIZING, FAILED }
+    data class CaptureProgress(
+        val receivedPackets: Long = 0L,
+        val muxedSamples: Int = 0,
+        val savedCheckpoints: Int = 0
+    )
 
     companion object {
         const val ACTION_START = "com.oswhgo.wivra.capture.START"
@@ -50,6 +56,8 @@ class WivraCaptureForegroundService : Service() {
             private set
         private val mutableCaptureUpdates = MutableStateFlow(CaptureState.IDLE)
         val captureUpdates: StateFlow<CaptureState> = mutableCaptureUpdates.asStateFlow()
+        private val mutableCaptureProgress = MutableStateFlow(CaptureProgress())
+        val captureProgress: StateFlow<CaptureProgress> = mutableCaptureProgress.asStateFlow()
 
         private fun setCaptureState(next: CaptureState) {
             captureState = next
@@ -57,7 +65,8 @@ class WivraCaptureForegroundService : Service() {
         }
 
         fun isCaptureActive(): Boolean = captureState == CaptureState.CONNECTING ||
-            captureState == CaptureState.RECORDING || captureState == CaptureState.FINALIZING
+            captureState == CaptureState.RECORDING || captureState == CaptureState.PAUSED ||
+            captureState == CaptureState.FINALIZING
 
         // Service and Activity are in the same app process. No serializing an
         // SDK object through Intent or persisting a stale session on disk.
@@ -65,6 +74,7 @@ class WivraCaptureForegroundService : Service() {
             if (isCaptureActive() || offeredSession != null) false
             else {
                 offeredSession = session
+                mutableCaptureProgress.value = CaptureProgress()
                 setCaptureState(CaptureState.CONNECTING)
                 true
             }
@@ -99,6 +109,29 @@ class WivraCaptureForegroundService : Service() {
     private var finalizingRecorder: WivraSegmentedHevcRecorder? = null
     private var finalizingPacketsJob: Job? = null
     private var finishing = false
+    private var packetCount = 0L
+    private var cpuLock: PowerManager.WakeLock? = null
+
+    // A foreground service alone does not prevent the phone CPU from sleeping.
+    // A bounded lease is refreshed only while real HEVC samples arrive.
+    // If glasses go silent, the 90-second lease expires automatically.
+    private fun renewCpuLease() {
+        try {
+            if (cpuLock == null) {
+                cpuLock = getSystemService(PowerManager::class.java)
+                    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Wivra:RayBanCapture")
+                    .apply { setReferenceCounted(false) }
+            }
+            cpuLock?.acquire(90_000L)
+        } catch (_: RuntimeException) {
+            // Never claim that CPU protection is guaranteed on every OEM.
+        }
+    }
+
+    private fun releaseCpuLease() {
+        runCatching { if (cpuLock?.isHeld == true) cpuLock?.release() }
+        cpuLock = null
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -191,6 +224,8 @@ class WivraCaptureForegroundService : Service() {
             stream = activeStream
             val muxer = WivraSegmentedHevcRecorder(applicationContext)
             recorder = muxer
+            packetCount = 0L
+            renewCpuLease()
 
             // Subscribe BEFORE starting the stream. The Activity may be
             // stopped or destroyed; the collection job belongs to this Service.
@@ -204,6 +239,25 @@ class WivraCaptureForegroundService : Service() {
                         packet.get(bytes)
                         muxer.consume(bytes, frame.presentationTimeUs,
                             frame.width, frame.height, frame.isCodecConfig)
+                        packetCount++
+                        val samples = muxer.samples
+                        if (packetCount == 1L || packetCount % 24L == 0L ||
+                            (samples > 0 && captureState == CaptureState.CONNECTING)) {
+                            val progress = CaptureProgress(
+                                packetCount, samples, muxer.checkpointCount
+                            )
+                            withContext(Dispatchers.Main.immediate) {
+                                mutableCaptureProgress.value = progress
+                                if (samples > 0 && (captureState == CaptureState.CONNECTING ||
+                                        captureState == CaptureState.PAUSED)) {
+                                    setCaptureState(CaptureState.RECORDING)
+                                }
+                            }
+                        }
+                        // Do not hold CPU indefinitely without confirmed samples.
+                        if (samples > 0 && packetCount % 24L == 0L) {
+                            renewCpuLease()
+                        }
                     }
                 } catch (_: Exception) {
                     withContext(Dispatchers.Main.immediate) { finalizeCapture() }
@@ -212,6 +266,9 @@ class WivraCaptureForegroundService : Service() {
             streamJob = scope.launch {
                 activeStream.state.collect { state ->
                     if (state == StreamState.CLOSED) finalizeCapture()
+                    if (state == StreamState.PAUSED && !finishing) {
+                        setCaptureState(CaptureState.PAUSED)
+                    }
                     // PAUSED can resume. Do not erase confirmed checkpoints.
                 }
             }
@@ -219,7 +276,8 @@ class WivraCaptureForegroundService : Service() {
                 activeStream.errorStream.collect { finalizeCapture() }
             }
             activeStream.start()
-                .onSuccess { setCaptureState(CaptureState.RECORDING) }
+                // A successful start only means DAT accepted the request.
+                // RECORDING is reported after MP4 accepts a real sample.
                 .onFailure { _, _ -> finalizeCapture() }
         }.onFailure { _, _ -> finalizeCapture() }
     }
@@ -244,6 +302,7 @@ class WivraCaptureForegroundService : Service() {
                 // Earlier checkpoint MP4 files are already finalized privately.
                 setCaptureState(CaptureState.FAILED)
             } finally {
+                releaseCpuLease()
                 streamJob?.cancel()
                 streamErrorJob?.cancel()
                 sessionJob?.cancel()
@@ -284,6 +343,7 @@ class WivraCaptureForegroundService : Service() {
             runCatching { activeCamera?.close() }
             runCatching { activeSession?.stop() }
         }
+        releaseCpuLease()
         setCaptureState(CaptureState.IDLE)
         scope.cancel()
         super.onDestroy()
