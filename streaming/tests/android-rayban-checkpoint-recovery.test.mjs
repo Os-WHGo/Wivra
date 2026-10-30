@@ -9,6 +9,10 @@ const activity = read('../android/app/src/main/java/com/oswhgo/wivra/WivraMetaPr
 
 test('checkpoint boundaries require an HEVC random-access frame and full codec setup', () => {
   assert.match(segmenter, /checkpointIntervalUs: Long = 30_000_000L/);
+  // Pause/resume may reset DAT PTS; wall-clock checkpoint cadence remains monotonic.
+  assert.match(segmenter, /SystemClock\.elapsedRealtimeNanos\(\) \/ 1_000L/);
+  assert.match(segmenter, /nowElapsedUs - segmentStartElapsedUs >= checkpointIntervalUs/);
+  assert.doesNotMatch(segmenter, /ptsUs - segmentStartPtsUs >= checkpointIntervalUs/);
   assert.match(segmenter, /if \(type in 32\.\.34\) codecSets\[type\] = bytes/);
   assert.match(segmenter, /if \(type in 16\.\.21\) randomAccess = true/);
   assert.match(segmenter, /codecSets\.keys\.containsAll\(setOf\(32, 33, 34\)\)/);
@@ -30,6 +34,16 @@ test('checkpointed parts survive a failed final segment and remain visible after
   assert.match(recorder, /partNamePattern\.matchEntire\(file\.name\)/);
   assert.match(activity, /WivraHevcMp4Recorder\.listPendingRecordings\(applicationContext\)/);
   assert.match(activity, /pending\.parts\.count \{ part ->/);
+});
+
+test('interrupted unfinalized muxers remain private and cannot masquerade as completed MP4s', () => {
+  assert.match(recorder, /fun listInterruptedCaptures\(context: Context\): List<File>/);
+  assert.match(recorder, /file\.name\.endsWith\("\.writing"\)/);
+  assert.match(recorder, /file\.canonicalFile\.parentFile == folder/);
+  assert.match(recorder, /file\.extension == "mp4"/);
+  assert.match(activity, /val interrupted = WivraHevcMp4Recorder\.listInterruptedCaptures\(applicationContext\)/);
+  assert.match(activity, /No son MP4 finalizados y no se publicarán automáticamente/);
+  assert.doesNotMatch(recorder, /listInterruptedCaptures\([\s\S]*?file\.delete\(\)/);
 });
 
 test('multi-part storage is honestly labeled, not misrepresented as one merged video', () => {

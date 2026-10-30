@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
 
 const root=fileURLToPath(new URL('../android/app/src/main/res/',import.meta.url));
-const locales=['values','values-en','values-fr','values-de','values-it','values-ja'];
+const locales=['values','values-en','values-fr','values-de','values-it','values-ja','values-pt','values-zh'];
 const parse=(name)=>{
  const xml=readFileSync(join(root,name,'strings.xml'),'utf8');
  assert.match(xml,/<resources>[\s\S]*<\/resources>/);
@@ -35,4 +35,21 @@ test('Native Android UI uses resources rather than mixing Spanish in other local
  assert.ok(names.size>=30);
  assert.match(file,/getString\(R\.string\.frames_status, frames, frame\.width, frame\.height\)/);
  assert.doesNotMatch(file,/show\(".*(?:gafas|permiso|conexi[oó]n|c[aá]mara).*"\)/i);
+});
+
+test('WAV pairing, chooser and Ray-Ban accessibility localized across eight dictionaries',()=>{
+  const baseline=parse('values');
+  for(const locale of locales){
+    const dict=parse(locale);
+    for(const key of ['picker_phone_capture_bundle','picker_capture_title','connect_glasses_accessibility','phone_camera_source_bluetooth','teleprompter_start']){
+      assert.ok(dict.has(key),'Missing '+key+' in '+locale);
+    }
+    assert.match(dict.get('picker_phone_capture_bundle'),/%1\$s/);
+    assert.equal(dict.size,baseline.size);
+  }
+  const main=readFileSync(new URL('../android/app/src/main/java/com/oswhgo/wivra/MainActivity.java',import.meta.url),'utf8');
+  assert.match(main,/R\.string\.picker_phone_capture_bundle/);
+  assert.match(main,/R\.string\.picker_capture_title/);
+  assert.match(main,/getString\(R\.string\.connect_glasses_accessibility\)/);
+  assert.doesNotMatch(main,/glasses\.setContentDescription\("Conectar gafas/);
 });

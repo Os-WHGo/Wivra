@@ -60,8 +60,9 @@ test('Phone MP4 private until user chooses Keep, Later, Delete',()=>{
   assert.doesNotMatch(store,/^import (?:java\.net\.|okhttp|retrofit|android\.webkit\.)/m);
 });
 test('Saved phone media reaches SAME editor through selected content URI',()=>{
-  assert.match(editor,/new Intent\(this, WivraPhoneCameraActivity.class\)/);
-  assert.match(editor,/new Intent\(this, WivraMetaPreviewActivity.class\)/);
+  assert.match(editor,/launchCameraFromDirector\(WivraPhoneCameraActivity.class\)/);
+  assert.match(editor,/launchCameraFromDirector\(WivraMetaPreviewActivity.class\)/);
+  assert.match(editor,/new Intent\(this, targetActivity\)/);
   assert.match(editor,/WivraPhoneMediaStore.latestSavedPhotos\(MainActivity.this\)/);
   assert.match(editor,/WivraPhoneMediaStore.latestSavedVideos\(MainActivity.this\)/);
   assert.match(editor,/WivraSavedRayBanVideos.latestSaved\(MainActivity.this\)/);
@@ -71,7 +72,8 @@ test('Saved phone media reaches SAME editor through selected content URI',()=>{
   assert.match(editor,/launchSystemPicker\(params\)/);
   assert.match(editor,/editor.loadUrl\("file:\/\/\/android_asset\/agentcut.html"\)/);
   assert.match(editor,/editor\.evaluateJavascript\(readOnly, encoded ->/);
-  assert.match(editor,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(editor,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(editor,/localStorage\.getItem\(/);
   assert.doesNotMatch(editor,/addJavascriptInterface\(/);
   assert.doesNotMatch(manifest,/READ_MEDIA_VIDEO|READ_MEDIA_IMAGES|READ_EXTERNAL_STORAGE/);
   assert.match(store,/MediaStore.MediaColumns.OWNER_PACKAGE_NAME/);
@@ -85,8 +87,8 @@ test('Photo during video is attempted only with device-supported binding',()=>{
   assert.match(activity,/photoButton.isEnabled = imageCapture != null/);
   assert.match(activity,/capture\.takePicture\(output, captureExecutor/);
 });
-test('Six native languages include camera permission, audio and chooser strings',()=>{
-  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja']){
+test('Eight native languages include camera permission, audio and chooser strings',()=>{
+  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja','values-pt','values-zh']){
     const file=read('../android/app/src/main/res/'+loc+'/strings.xml');
     for(const key of ['phone_camera_open','phone_camera_title','phone_camera_preview',
       'phone_camera_mic_off','phone_camera_photo_saved','phone_camera_review_pending',
@@ -102,4 +104,20 @@ test('Instrumentation covers private files publish and deletion without Ray-Ban'
   assert.match(instrument,/WivraPhoneMediaStore\.publish\(context, privateVideo\)/);
   assert.match(instrument,/WivraPhoneMediaStore\.discard\(context, privateVideo\)/);
   assert.match(instrument,/published\?\.let \{ context\.contentResolver\.delete\(it, null, null\) \}/);
+});
+
+// Regression: failed start must not erase a partially written recording.
+test('Camera start failure removes only empty placeholders',()=>{
+  assert.match(activity,/currentFile\?\.let \{ file ->/);
+  assert.match(activity,/if \(file\.isFile && file\.length\(\) == 0L\) file\.delete\(\)/);
+  assert.doesNotMatch(activity,/currentFile\?\.delete\(\)/);
+});
+
+test('First video asks for embedded audio or explicitly silent capture',()=>{
+  assert.match(activity,/private var recordingAudioChoiceMade = false/);
+  assert.match(activity,/if \(!recordingAudioChoiceMade\)/);
+  assert.match(activity,/setPositiveButton\(R\.string\.phone_camera_mic_on\)/);
+  assert.match(activity,/setNegativeButton\(R\.string\.phone_camera_mic_off\)/);
+  assert.match(activity,/startAfterAudioPermission = true/);
+  assert.match(activity,/if \(accepted && resumed && !isFinishing && activeRecording == null && !recordingFinishing\)/);
 });

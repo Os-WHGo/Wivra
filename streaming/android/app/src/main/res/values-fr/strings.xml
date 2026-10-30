@@ -152,4 +152,7 @@
     <string name="phone_camera_wav_salvage_explanation">Le WAV ne peut pas être validé. Vous pouvez garder seulement la vidéo. Le son incomplet reste privé pour une éventuelle récupération.</string>
     <string name="phone_camera_save_video_only">Enregistrer la vidéo seule</string>
     <string name="phone_camera_video_only_saved">Vidéo enregistrée. WAV incomplet conservé en privé.</string>
+    <string name="picker_phone_capture_bundle">Importer capture et WAV : %1$s</string>
+    <string name="picker_capture_title">Choisir une capture Wivra</string>
+    <string name="connect_glasses_accessibility">Connecter les lunettes Ray-Ban Meta</string>
 </resources>

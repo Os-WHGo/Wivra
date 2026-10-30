@@ -2,6 +2,8 @@ package com.oswhgo.wivra
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.Activity
+import android.content.Intent
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -53,6 +55,7 @@ import java.util.concurrent.Executor
 class WivraPhoneCameraActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SHOT_SCRIPT = "com.oswhgo.wivra.director.SHOT_SCRIPT"
+        const val EXTRA_SHOT_ID = "com.oswhgo.wivra.director.SHOT_ID"
     }
 
     // Local Director text lives ONLY in native overlay widgets, never in the
@@ -102,10 +105,16 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private var videoCapture: VideoCapture<Recorder>? = null
     private var activeRecording: Recording? = null
     private var currentFile: File? = null
+    // Only a video CREATED by this camera launch can acknowledge this shot.
+    // Reviewing an older pending clip must never complete a different take.
+    private var directorVideoCreatedHere: String? = null
     private var recordingFinishing = false
     private var cameraFront = false
     // 0 = silent MP4; 1 = MP4 with embedded mic; 2 = video-only MP4 + mono WAV
     private var micMode = 0
+    // Ask on the first recording instead of silently producing a mute MP4.
+    private var recordingAudioChoiceMade = false
+    private var startAfterAudioPermission = false
     // A specific route is only meaningful for WAV/AudioRecord; CameraX uses
     // the OS-selected MP4 mic. Never claim control over embedded CameraX audio.
     private var selectedAudioInputId: Int? = null
@@ -131,6 +140,12 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         micMode = if (accepted) 1 else 0
         updateMicLabel()
         if (!accepted) message(R.string.phone_camera_mic_denied)
+        if (startAfterAudioPermission) {
+            startAfterAudioPermission = false
+            if (accepted && resumed && !isFinishing && activeRecording == null && !recordingFinishing) {
+                startRecording()
+            }
+        }
     }
     private val bluetoothPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -359,6 +374,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             message(R.string.phone_camera_audio_locked)
             return
         }
+        recordingAudioChoiceMade = true
         if (micMode == 0 && !hasPermission(Manifest.permission.RECORD_AUDIO)) {
             audioPermission.launch(Manifest.permission.RECORD_AUDIO)
         } else {
@@ -449,7 +465,29 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             activeRecording?.stop()
             wavRecorder?.stop()
         } else if (!recordingFinishing) {
-            startRecording()
+            if (!recordingAudioChoiceMade) {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.phone_camera_source_choose)
+                    .setMessage(R.string.phone_camera_mic_off)
+                    .setPositiveButton(R.string.phone_camera_mic_on) { _, _ ->
+                        recordingAudioChoiceMade = true
+                        micMode = 1
+                        updateMicLabel()
+                        if (hasPermission(Manifest.permission.RECORD_AUDIO)) startRecording()
+                        else {
+                            startAfterAudioPermission = true
+                            audioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }
+                    .setNegativeButton(R.string.phone_camera_mic_off) { _, _ ->
+                        recordingAudioChoiceMade = true
+                        micMode = 0
+                        updateMicLabel()
+                        startRecording()
+                    }
+                    .setNeutralButton(android.R.string.cancel, null)
+                    .show()
+            } else startRecording()
         }
     }
 
@@ -474,7 +512,10 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         }
         try {
             val privateVideo = WivraPhoneMediaStore.createPrivateVideo(this)
+            // A previous saved take must not acknowledge a later abandoned recording.
+            setResult(Activity.RESULT_CANCELED)
             currentFile = privateVideo
+            directorVideoCreatedHere = privateVideo.name
             val pending = video.output.prepareRecording(
                 this, FileOutputOptions.Builder(privateVideo).build()
             )
@@ -517,6 +558,12 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             }
             refreshControls()
         } catch (_: Exception) {
+            // A failed CameraX start can leave the newly-created private MP4
+            // empty. Remove only that empty placeholder; preserve any bytes
+            // already written so the owner can attempt recovery.
+            currentFile?.let { file ->
+                if (file.isFile && file.length() == 0L) file.delete()
+            }
             activeRecording = null
             recordingFinishing = false
             currentFile = null
@@ -543,7 +590,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                         WivraPhoneMediaStore.saveSidecarTiming(
                             this, video, videoStartNs,
                             result.estimatedFirstReadElapsedRealtimeNs,
-                            result.bytesWritten
+                            result.bytesWritten,
+                            WivraPhoneAudioInputs.sourceTag(chosen),
+                            chosen?.let { WivraPhoneAudioInputs.label(this, it) }
                         )
                     } catch (_: Exception) {
                         // Never pretend offset is measured if the sidecar record failed.
@@ -637,6 +686,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                             .setPositiveButton(R.string.phone_camera_save_video_only) { _, _ ->
                                 try {
                                     WivraPhoneMediaStore.publish(this, file)
+                                    acknowledgeSavedDirectorTake(file)
                                     message(R.string.phone_camera_video_only_saved)
                                 } catch (_: Exception) {
                                     message(R.string.phone_camera_keep_failed)
@@ -650,6 +700,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                         } else {
                             WivraPhoneMediaStore.publish(this, file)
                         }
+                        acknowledgeSavedDirectorTake(file)
                         message(R.string.phone_camera_saved_to_editor)
                     }
                 } catch (_: Exception) {
@@ -664,14 +715,29 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                     .setTitle(R.string.recording_discard_confirm_title)
                     .setMessage(R.string.phone_camera_confirm_delete)
                     .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
-                        if (WivraPhoneMediaStore.discard(this, file))
+                        if (WivraPhoneMediaStore.discard(this, file)) {
+                            if (file.name == directorVideoCreatedHere) {
+                                setResult(Activity.RESULT_CANCELED)
+                                directorVideoCreatedHere = null
+                            }
                             message(R.string.recording_discarded)
-                        else message(R.string.recording_delete_failed)
+                        } else message(R.string.recording_delete_failed)
                     }
                     .setNegativeButton(R.string.phone_camera_later, null).show()
             }
             .setOnDismissListener { preview.stopPlayback() }
             .show()
+    }
+
+    private fun acknowledgeSavedDirectorTake(file: File) {
+        if (file.name != directorVideoCreatedHere) return
+        val shotId = intent.getStringExtra(EXTRA_SHOT_ID)
+            ?.takeIf { it.isNotEmpty() && it.length <= 120 && it.all { ch ->
+                ch >= ' ' && ch.code != 127
+            } } ?: return
+        // Publication already succeeded. The editor receives ONLY this shot
+        // identifier on return, never a private path or MediaStore URI.
+        setResult(Activity.RESULT_OK, Intent().putExtra(EXTRA_SHOT_ID, shotId))
     }
 
     private fun safeFinish() {

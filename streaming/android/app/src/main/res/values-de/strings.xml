@@ -152,4 +152,7 @@
     <string name="phone_camera_wav_salvage_explanation">Die WAV-Datei konnte nicht geprüft werden. Du kannst nur das Video speichern. Unvollständiges Audio bleibt für mögliche Wiederherstellung privat.</string>
     <string name="phone_camera_save_video_only">Nur Video speichern</string>
     <string name="phone_camera_video_only_saved">Video gespeichert. Unvollständiges WAV bleibt privat.</string>
+    <string name="picker_phone_capture_bundle">Aufnahme mit WAV importieren: %1$s</string>
+    <string name="picker_capture_title">Wivra-Aufnahme auswählen</string>
+    <string name="connect_glasses_accessibility">Ray-Ban-Meta-Brille verbinden</string>
 </resources>

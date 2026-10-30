@@ -20,7 +20,7 @@ test('B1K emits JSON only after a non-empty iPhone MOV succeeds', () => {
   assert.match(camera, /lastCaptureManifestURL = try WivraCaptureManifest\.write\(/);
   assert.match(camera, /videoURL: url, tracks: \[\], mergedURL: nil,/);
   assert.match(camera, /cameraSource: "iphone-avfoundation"/);
-  assert.match(camera, /lastCaptureManifestURL = nil\s+movieOutput\.startRecording/);
+  assert.match(camera, /lastCaptureManifestURL = nil\s+pendingMovieURL = url\s+movieOutput\.startRecording/);
   const finish = camera.split('private func finishVideo(url: URL, error: String?) {')[1]?.split('\n    func stop()')[0];
   assert.ok(finish, 'expected finalization function');
   assert.ok(finish.indexOf('lastCaptureManifestURL = try WivraCaptureManifest.write(') <

@@ -131,3 +131,11 @@ test('el estilo de los textos se guarda y se reabre; un estilo dañado se quita 
   assert.equal(t[1].pos, undefined); assert.equal(t[1].color, undefined); assert.equal(t[0].box, undefined); assert.equal(t[0].pos, 'top');
   assert.ok(r.warnings.some((w) => /estilo de texto/.test(w)));
 });
+
+test('empty IndexedDB media blobs are not usable for Director', async () => {
+  const {usableProjectMediaBlob} = await import('../persist.mjs');
+  assert.equal(usableProjectMediaBlob(new Blob(['mp4-bytes'])), true);
+  assert.equal(usableProjectMediaBlob(new Blob([])), false);
+  assert.equal(usableProjectMediaBlob(null), false);
+  assert.equal(usableProjectMediaBlob({size:512}), false);
+});

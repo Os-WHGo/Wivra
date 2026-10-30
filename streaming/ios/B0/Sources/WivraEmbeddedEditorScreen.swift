@@ -13,6 +13,16 @@ import UniformTypeIdentifiers
 private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate, WKUIDelegate, UIDocumentPickerDelegate {
     private var pendingFileSelection: (@MainActor @Sendable ([URL]?) -> Void)?
 
+    // SwiftUI can present the editor inside a sheet or navigation container.
+    // Present the chooser from the visible controller, not a hidden root.
+    private func visiblePresenter(for webView: WKWebView) -> UIViewController? {
+        var current = webView.window?.rootViewController
+        while let presented = current?.presentedViewController {
+            current = presented
+        }
+        return current
+    }
+
     private func finishSelection(_ urls: [URL]?) {
         guard let completion = pendingFileSelection else { return }
         pendingFileSelection = nil
@@ -30,14 +40,38 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
     ) {
+        let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard pendingFileSelection == nil,
               frame.isMainFrame,
-              frame.request.url?.isFileURL == true,
-              let presenter = webView.window?.rootViewController else {
+              let requestURL = frame.request.url,
+              requestURL.isFileURL,
+              approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
+              let presenter = visiblePresenter(for: webView) else {
             completionHandler(nil)
             return
         }
         pendingFileSelection = completionHandler
+        // WKOpenPanelParameters exposes only multiple/directory switches, NOT
+        // the HTML input's accept= types. Both #file and #capFile are multiple.
+        // Read one fixed, boolean-only marker from the verified offline editor.
+        // Do not inject URLs, script from captures or arbitrary HTML into JS.
+        let multiple = parameters.allowsMultipleSelection
+        webView.evaluateJavaScript("window.__wivraCaptureInputIntent === true") {
+            [weak self, weak webView, weak presenter] result, _ in
+            guard let self, let webView, let presenter else {
+                self?.finishSelection(nil)
+                return
+            }
+            self.presentFileSelection(in: webView, from: presenter,
+                allowsMultiple: multiple,
+                offerCaptureBundles: multiple && result as? Bool == true)
+        }
+    }
+
+    private func presentFileSelection(
+        in webView: WKWebView, from presenter: UIViewController,
+        allowsMultiple: Bool, offerCaptureBundles: Bool
+    ) {
         let all = WivraLocalCaptureScanner.read().days.flatMap { $0.captures }
         let ready = all.filter { $0.videoURL != nil }
             .sorted { $0.recordedAt > $1.recordedAt }
@@ -49,24 +83,28 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
 
         // A capture requires a manifest AND a video (and optional CAF tracks),
         // so it is only offered for multi-file input elements.
-        if parameters.allowsMultipleSelection {
-            for item in ready.prefix(12) {
-                let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
-                sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
-                    guard let video = item.videoURL else {
+        if offerCaptureBundles {
+            // Keep the first action sheet compact; recordings are selected in
+            // a separate browser. The system Files fallback remains available.
+            sheet.addAction(UIAlertAction(title: "Grabaciones de Wivra (\(ready.count))", style: .default) { [weak self, weak presenter] _ in
+                guard let self, let presenter else { self?.finishSelection(nil); return }
+                let browser = WivraCaptureSearchView(captures: ready) { [weak self] selected in
+                    presenter.dismiss(animated: true)
+                    guard let selected, let video = selected.videoURL else {
                         self?.finishSelection(nil)
                         return
                     }
-                    let urls = [item.manifestURL, video] +
-                        (item.alternateVideoURL.map { [$0] } ?? []) + item.audioURLs
+                    let urls = [selected.manifestURL, video] +
+                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs
                     self?.finishSelection(urls)
-                })
-            }
+                }
+                presenter.present(UIHostingController(rootView: browser), animated: true)
+            })
         }
         sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
             guard let self else { return }
             let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: false)
-            picker.allowsMultipleSelection = parameters.allowsMultipleSelection
+            picker.allowsMultipleSelection = allowsMultiple
             picker.delegate = self
             presenter.present(picker, animated: true)
         })
@@ -111,7 +149,14 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         } else {
             // The offline editor may load local resources, but embedded remote
             // documents must not be able to reach the native file bridge.
-            decisionHandler(url.isFileURL || url.scheme == "about" ? .allow : .cancel)
+            let bundledDirectory = Bundle.main.url(forResource: "agentcut", withExtension: "html")?
+                .deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
+            let localResource = url.isFileURL && bundledDirectory.map { root in
+                let file = url.resolvingSymlinksInPath().standardizedFileURL
+                return file.path.hasPrefix(root.path + "/")
+            } == true
+            let safeBlankDocument = url.absoluteString == "about:blank"
+            decisionHandler(localResource || safeBlankDocument ? .allow : .cancel)
         }
     }
 }
@@ -131,9 +176,17 @@ private struct WivraEditorWebView: UIViewRepresentable {
         )
         // Main-frame-only, fixed method list. JS gets metadata, never a file URL.
         let script = WKUserScript(source: """
+            // Remember only which trusted local input the user actually used.
+            // A label-click is forwarded to the input's own click event.
+            window.__wivraCaptureInputIntent = false;
+            document.addEventListener('click', (event) => {
+              const el = event.target?.closest?.('input[type="file"]');
+              window.__wivraCaptureInputIntent = el?.id === 'capFile';
+            }, true);
             window.WivraHost = Object.freeze({
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
-              listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'})
+              listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
+              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId})
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
@@ -156,6 +209,45 @@ private struct WivraEditorWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
+}
+
+private struct WivraCaptureSearchView: View {
+    let captures: [WivraStoredCapture]
+    let onSelect: (WivraStoredCapture?) -> Void
+    @State private var query = ""
+
+    private var filtered: [WivraStoredCapture] {
+        guard !query.isEmpty else { return captures }
+        return captures.filter {
+            $0.source.localizedCaseInsensitiveContains(query) ||
+            $0.id.localizedCaseInsensitiveContains(query) ||
+            $0.recordedAt.formatted(date: .abbreviated, time: .shortened)
+                .localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(filtered) { capture in
+                Button {
+                    onSelect(capture)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(capture.source).font(.headline)
+                        Text(capture.recordedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .searchable(text: $query, prompt: "Buscar grabaciones")
+            .navigationTitle("Grabaciones de Wivra")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { onSelect(nil) }
+                }
+            }
+        }
+    }
 }
 
 struct WivraEmbeddedEditorScreen: View {

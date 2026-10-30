@@ -51,7 +51,10 @@ final class MetaB0Model {
 
     var lastRecordedURL: URL?
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
-    var captureSelectedAudio = true
+    // Default to the lowest-risk Meta DAT path: uninterrupted HEVC-only
+    // capture. Audio sidecar stays opt-in with explicit route preflight.
+    // Never open HFP/SCO implicitly alongside glasses video streaming.
+    var captureSelectedAudio = false
     var lastSeparateAudioURL: URL?
     var lastCombinedVideoURL: URL?
     var lastAudioSyncOffsetSeconds: Double?
@@ -82,6 +85,9 @@ final class MetaB0Model {
     private var firstFrameTime: CFTimeInterval?
     private var framesThisSecond = 0
     private var lastCountTime: CFTimeInterval?
+    // Initial .stopped is a valid SDK stream state before start(). Only a
+    // previously active stream or a user-requested stop is terminal.
+    private var streamEverActive = false
 
     init(wearables: any WearablesInterface = Wearables.shared) {
         self.wearables = wearables
@@ -107,7 +113,12 @@ final class MetaB0Model {
 
     var isRegistered: Bool { registrationState == .registered }
     var canStartSession: Bool {
-        isRegistered && sessionState == .idle &&
+        // Meta DAT sessions are single-use. After a terminal .stopped event
+        // the previous instance was discarded; allow a NEW session without
+        // forcing the user to restart Wivra. Never overlap an MP4 finalizer.
+        isRegistered && deviceSession == nil && camera == nil &&
+            (sessionState == .idle || sessionState == .stopped) &&
+            !recordingArmed && !recordingFinishing &&
             (!receiveCompressedHEVC || !captureSelectedAudio || audioRoute.hasSelectedRoute)
     }
     var canStartPreview: Bool { sessionState == .started && camera == nil }
@@ -228,6 +239,18 @@ final class MetaB0Model {
 
     func finishRecording() async {
         guard recordingArmed && !recordingFinishing else { return }
+        // Request bounded execution time for MOV/CAF finalization when the
+        // user locks the phone while stopping. This is not permission to
+        // record indefinitely in the background.
+        let finalizationTask = UIApplication.shared.beginBackgroundTask(
+            withName: "WivraMetaRecordingFinalization",
+            expirationHandler: nil
+        )
+        defer {
+            if finalizationTask != .invalid {
+                UIApplication.shared.endBackgroundTask(finalizationTask)
+            }
+        }
         recordingArmed = false
         recordingFinishing = true
         let wantedAudio = captureSelectedAudio
@@ -470,6 +493,14 @@ final class MetaB0Model {
                     guard let self else { return }
                     self.sessionState = state
                     if state == .stopped {
+                        // Glasses can disconnect while HEVC/CAF is armed.
+                        // Finalize the last MOV before abandoning DAT rather
+                        // than leaving only an unreviewable .writing file.
+                        if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingStatus =
+                                "Conexión Ray-Ban terminada. Guardando el último fragmento MOV."
+                            Task { await self.finishRecording() }
+                        }
                         self.clearPreview()
                         self.sessionTokens.clear()
                         self.deviceSession = nil
@@ -544,13 +575,22 @@ final class MetaB0Model {
 
             stream.statePublisher.listen { [weak self] state in
                 Task { @MainActor [weak self] in
-                    self?.streamState = state
-                    if state == .stopped {
-                        if self?.recordingArmed == true {
-                            Task { await self?.finishRecording() }
+                    guard let self else { return }
+                    let wasStopping = self.streamState == .stopping
+                    if state == .streaming { self.streamEverActive = true }
+                    // The SDK's initial .stopped emission is not a terminal
+                    // failure. Do not tear down a new camera before start().
+                    if state == .stopped &&
+                        (self.streamEverActive || wasStopping) {
+                        if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingStatus =
+                                "Transmisión Ray-Ban finalizada. Cerrando MOV pendiente."
+                            Task { await self.finishRecording() }
                         }
-                        self?.camera?.stop()
-                        self?.clearPreview()
+                        self.camera?.stop()
+                        self.clearPreview()
+                    } else if state != .stopped {
+                        self.streamState = state
                     }
                 }
             }.store(in: streamTokens)
@@ -687,6 +727,7 @@ final class MetaB0Model {
     }
 
     private func clearPreview() {
+        streamEverActive = false
         streamTokens.clear()
         if photoCaptureInFlight {
             photoCaptureStatus = "Fotografía interrumpida: se cerró la vista previa."

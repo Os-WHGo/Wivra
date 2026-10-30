@@ -284,8 +284,8 @@ body.dock .back{pointer-events:none;background:transparent}
   <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
     <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
     <div id="qaChips"><button class="btn sec" type="button" data-s="15">15 s</button><button class="btn sec" type="button" data-s="30">30 s</button><button class="btn sec" type="button" data-s="45">45 s</button><button class="btn sec" type="button" data-s="60">60 s</button></div>
-    <label class="m" style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="qaVoice"> <span>Elegir el tramo de cada clip donde más se oye (en vez del centro)</span></label>
-    <p class="m" id="qaVoiceNote">Usa el volumen del audio, en tu teléfono: no entiende palabras ni imágenes. Si un clip tiene volumen parejo, queda el centro.</p>
+    <label class="m" style="display:flex;gap:10px;align-items:flex-start;margin-top:8px"><input type="checkbox" id="qaVoice"> <span>AutoCut: elegir varios momentos usando audio y subtítulos importados</span></label>
+    <p class="m" id="qaVoiceNote">Con un solo video largo, combina varios fragmentos repartidos. Usa el volumen y los tiempos aproximados de SRT/VTT si existen. No reconoce paisajes ni verifica las palabras.</p>
     <label for="qaOther" style="display:block;margin-top:8px">Otra duración (s)</label><input id="qaOther" type="number" min="3" max="600" step="1" inputmode="numeric" style="width:100%">
     <p class="m" id="qaInfo" role="status" aria-live="polite">Elige una duración para ver cómo quedaría.</p>
     <button class="btn" id="qaApply" type="button" disabled>Aplicar montaje</button>
@@ -326,6 +326,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button class="btn sec" type="button" data-gallery>Más efectos</button><button id="fxDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sSpeed"><h2>Velocidad</h2><p class="m" id="spInfo">Elige un video, una capa o un audio en la línea de tiempo.</p>
   <div class="chips" id="spChips" role="group" aria-label="Velocidad"></div>
+  <label class="m" for="spAll"><input type="checkbox" id="spAll"> Aplicar a todos los videos (un solo paso para deshacer)</label>
   <p class="m more">1× es la velocidad normal: menos es cámara lenta y más es rápido. Cambia cuánto dura el clip; lo que sigue se corre.</p>
   <p class="m more" id="spNote" style="display:none">Con menos de 0.5× o más de 2× el sonido puede salir raro o sin voz natural, sobre todo en iPhone (sin verificar). Si no te gusta, silencia ese clip.</p>
   <p class="m" id="spOut" role="status"></p>
@@ -362,6 +363,7 @@ body.dock .back{pointer-events:none;background:transparent}
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
   <label class="btn" for="file" style="cursor:pointer">Video</label><label class="btn sec" for="ovFile" style="cursor:pointer">Video o foto encima (capa)</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label for="wivraMusicSelect">Música original Wivra (30 s)</label><select id="wivraMusicSelect" aria-label="Música original Wivra"><option value="">Elegir pista</option></select><button id="wivraMusicAdd" class="btn sec" type="button">Agregar música</button>
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
   <button id="trkDone" class="btn sec">Cerrar</button></div>
@@ -369,6 +371,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <input id="txt" placeholder="Vancouver" aria-label="Texto en pantalla"><button id="addtxt" class="btn" disabled>Poner texto aquí</button>
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="whisperJsonFile" style="cursor:pointer">Importar transcripción Whisper (.json)</label><input id="whisperJsonFile" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0"><p class="m">Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono.</p>
   <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
 
 <div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
@@ -501,6 +504,7 @@ body.dock .back{pointer-events:none;background:transparent}
     </div>
     <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
     <input type="file" id="directorCamera" aria-label="Grabar con la cámara" accept="video/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0">
+    <input type="file" id="directorParts" aria-label="Importar segmentos Ray-Ban" accept="video/mp4,video/*" multiple style="position:absolute;width:1px;height:1px;opacity:0">
     <p class="m">«Grabar» abre la cámara que ofrezca tu teléfono. La grabación queda en el dispositivo. Este prototipo necesita que Safari o Android devuelva el archivo para asociarlo a la toma.</p>
   </div>
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
@@ -536,6 +540,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <label for="expLoud" style="display:block;margin-top:8px">Volumen del video</label>
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
+  <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
   <button id="expGo" class="btn">Empezar a exportar</button>
   <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
     <button id="expCancel" class="btn sec">Cancelar</button></div>
@@ -730,7 +735,7 @@ function run(ops) {
 }
 
 const PROBE_MS = 30000;      // abrir los datos de un archivo: si el teléfono no responde en tanto (archivo en iCloud, dañado), se rinde en vez de dejar la app esperando para siempre
-function probe(file) {          // lee duración y tamaño de un archivo sin tocar el video principal
+function probe(file, preserveDuration = false) {          // lee duración y tamaño de un archivo sin tocar el video principal
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), t = document.createElement('video'); let done = false;
     t.muted = true; t.playsInline = true; t.preload = 'metadata';
@@ -742,7 +747,7 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onloadedmetadata = () => {
       if (!isFinite(t.duration)) return fail();
       if (t.duration < 0.1) return fail('dura menos de 0.1 s');
-      const r = { url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }; fin(res, r);
+      const r = { url, duration: preserveDuration ? t.duration : Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }; fin(res, r);
     };
     t.src = url;
   });
@@ -972,12 +977,13 @@ $('bSpeed').onclick = () => { $('spOut').textContent = ''; spSync(); openSheet('
 $('spDone').onclick = closeSheets;
 $('spChips').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.disabled || !selId) return;
-  const plan = planSpeed(session.project, selId, Number(b.dataset.v));
+  const plan = $('spAll').checked ? planSpeedAll(session.project, Number(b.dataset.v)) : planSpeed(session.project, selId, Number(b.dataset.v));
   if (!plan.ok) { $('spOut').textContent = plan.error; say(plan.error, 'bad'); return; }
   if (!plan.ops.length) { $('spOut').textContent = plan.warnings[0] || ''; return; }
   stopPlayIfAny(); const r = edit(plan.ops, { ripple: false });
   if (!r.ok) { $('spOut').textContent = 'No se pudo: ' + r.message; say('No se pudo: ' + r.message, 'bad'); return; }
-  $('spOut').textContent = `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).` + (plan.warnings.length ? ' ' + plan.warnings.join(' ') : '');
+  $('spOut').textContent = $('spAll').checked ? `Velocidad ${speedLabel(Number(b.dataset.v))} aplicada a ${plan.count} videos.` : `Ahora dura ${fmt(plan.after)} s (antes ${fmt(plan.before)} s).`;
+  if (plan.warnings.length) $('spOut').textContent += ' ' + plan.warnings.join(' ');
   spSync(); syncMedia();
 });
 $('bFx').onclick = () => { fxSync(); openSheet('sFx'); fxThumbs(anyClip(selId)); }; $('fxDone').onclick = closeSheets;
@@ -1082,6 +1088,21 @@ async function addTrackFile(file, kind) {
 }
 $('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
 $('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+// Música original local: usa la misma importación y persistencia que cualquier WAV del usuario.
+if (typeof MUSIC_TRACKS !== 'undefined') {
+  const select = $('wivraMusicSelect');
+  for (const track of MUSIC_TRACKS) { const option = document.createElement('option'); option.value = track.id; option.textContent = track.name + ' · ' + track.mood; select.appendChild(option); }
+  $('wivraMusicAdd').addEventListener('click', async () => {
+    if (!select.value || !session || loading) { say('Abre un proyecto y elige una pista.', 'bad'); return; }
+    try {
+      const wav = musicWav(select.value);
+      if (!wav) throw new Error('Pista no disponible');
+      const file = new File([wav.bytes], wav.fileName, { type: 'audio/wav' });
+      await addTrackFile(file, 'audio');
+    } catch (e) { say('No se pudo crear la música: ' + (e.message || e), 'bad'); }
+  });
+}
+
 // Los canales pedidos de un audio (p. ej. dos micrófonos grabados en un estéreo) → un WAV mono por canal. Decodifica el archivo entero UNA vez (por eso hay tope de tamaño). Ver app/channel-split.mjs.
 async function decodeChannelWavs(file, channelIndexes) {
   if (file.size > SPLIT_MAX_BYTES) throw new Error(`pesa demasiado para separar sus canales aquí (máximo ${Math.round(SPLIT_MAX_BYTES / 1048576)} MB)`);
@@ -1099,27 +1120,62 @@ async function decodeChannelWavs(file, channelIndexes) {
 // Importa una captura: el .wivra.json elegido junto con sus archivos. Valida el manifiesto, abre lo que el navegador sepa leer y arma UN lote de operaciones (un solo deshacer).
 async function importCapture(files) {
   if (!files.length || loading) return;
+  // Metadata probing is not a timeline operation. Reclaim only newly staged
+  // resources when the complete one-batch capture edit does not commit.
+  const previousSession = session, stagedAssetIDs = [], importedAssetIDs = [];
+  let captureCommitted = false;
+  // A capture must not silently attach to a different project after awaits.
+  const captureSession = session;
+  let stagingSession = session;
   loading = true; stopPlayIfAny();
   try {
-    const mf = files.find(f => /\.json$/i.test(f.name));
-    if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
-    const r = parseManifest(await mf.text());
+    const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
+    if (manifests.length !== 1) {
+      say('Selecciona exactamente un manifiesto .wivra.json por captura. No se modificó la línea de tiempo.', 'bad');
+      return;
+    }
+    const mf = manifests[0];
+    if (!(mf.size > 0) || mf.size > 128 * 1024) { say('El manifiesto debe medir entre 1 byte y 128 KB.', 'bad'); return; }
+    const manifestText = await mf.text();
+    if (session !== stagingSession) { say('El proyecto cambió durante la lectura del manifiesto. Importa de nuevo.', 'bad'); return; }
+    const r = parseManifest(manifestText);
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
-    const m = r.manifest, byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
-    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));     // una captura por vez: lo demás no se importa en silencio
-    if (otherJson.length) notes.push(`Elegiste ${otherJson.length + 1} archivos .json: se importó solo ${mf.name}. Importa cada captura por separado.`);
+    const m = r.manifest, selection = captureSelectionPlan(m, files);
+    if (!selection.ok) { say(selection.errors.join('\n') + '\nNo se modificó la línea de tiempo. Usa Video para importar un clip sin sus pistas.', 'bad'); return; }
+    const names = new Set();
+    for (const file of files) {
+      if (names.has(file.name)) {
+        say('La selección contiene archivos con el mismo nombre: ' + file.name + '. No se modificó la línea de tiempo.', 'bad');
+        return;
+      }
+      names.add(file.name);
+    }
+    const otherJson = files.filter(f => f !== mf && /\.json$/i.test(f.name));
+    if (otherJson.length) {
+      say('La selección incluye otros archivos JSON. Importa una captura por vez, sin metadatos ajenos. No se modificó la línea de tiempo.', 'bad');
+      return;
+    }
+    if (files.length > MAX_IMPORT) {
+      say('Demasiados archivos en una sola captura. Selecciona hasta ' + MAX_IMPORT + ' archivos y vuelve a intentar.', 'bad');
+      return;
+    }
+    const byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
       if (assets[name]) return assets[name];
       const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
       try {
-        const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
-        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); session ||= new Session(createProject({ assets: [] }));
-        session.addAsset({ id, duration: pr.duration, name: f.name }); return (assets[name] = { id, duration: pr.duration, kind });
+        const pr = kind === 'video' ? await probe(f) : await probeAudio(f);
+        if (session !== stagingSession) throw new Error('El proyecto cambió durante la lectura de la captura.');
+        const id = 'a' + (++assetSeq);
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; stagedAssetIDs.push(id); keepFile(id, f, kind);
+        session ||= new Session(createProject({ assets: [] }));
+        stagingSession = session;
+        session.addAsset({ id, duration: pr.duration, name: f.name }); importedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
     };
     let videoFile = null, usedMuxed = false;
-    for (const [name, isMux] of [[m.videoFile, false], [m.muxedVideoFile, true]]) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
+    for (const { name, muxed: isMux } of selection.candidates) { if (name && await open(name, 'video')) { videoFile = name; usedMuxed = isMux; break; } }
     if (!videoFile) { say('No pude abrir el video de la captura. ' + failed.join(' · '), 'bad'); return; }
     if (usedMuxed && m.videoFile) notes.push(`Se usó ${m.muxedVideoFile} (el video original no se pudo abrir en este navegador).`);
     // Audio: con el video combinado, las pistas que ya trae no se importan dos veces. Si el usuario dio los audios sueltos y se abren todos, se importan aparte y se silencia el audio del video.
@@ -1132,10 +1188,15 @@ async function importCapture(files) {
         if (!f) failed.push(`falta ${t.file}`);
         else try {
           const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
+          if (session !== stagingSession) throw new Error('El proyecto cambió durante la separación de canales.');
           for (const [i, x] of group.entries()) {
-            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
-            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); session ||= new Session(createProject({ assets: [] }));
-            session.addAsset({ id, duration: pr.duration, name: nf.name }); split[x.id] = { id, duration: pr.duration };
+            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf);
+            if (session !== stagingSession) throw new Error('El proyecto cambió durante la preparación del audio.');
+            const id = 'a' + (++assetSeq);
+            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; stagedAssetIDs.push(id); keepFile(id, nf, 'audio');
+            session ||= new Session(createProject({ assets: [] }));
+            stagingSession = session;
+            session.addAsset({ id, duration: pr.duration, name: nf.name }); importedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
           }
         } catch (e) { failed.push(`${t.file}: ${e.message}`); }
       }
@@ -1153,15 +1214,26 @@ async function importCapture(files) {
     }
     for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
+    if (session !== stagingSession || (captureSession && session !== captureSession)) {
+      say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
+      return;
+    }
     const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
     const out = planImportOps(plan, { videoStart: startAt, assets, splitChannelAssets: split });
+    if (out.skipped.length) {
+      say('No se importó la captura: las pistas no están completas o el navegador no pudo leerlas.\n' +
+        [...failed, ...out.skipped.map(x => `${x.id || x.file}: ${x.reason}`)].join('\n') +
+        '\nLa línea de tiempo no se modificó.', 'bad');
+      return;
+    }
     out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
     if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
     const first = !session.project.clips.length;
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, assets[videoFile].duration))); }
     const res = run(out.ops);
-    if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    if (!res?.ok) { say('No se pudo importar: ' + (res?.message || 'el editor no confirmó la operación'), 'bad'); return; }
+    captureCommitted = true;   // batch applied: assets now belong to a real edit
     if (first) useAsset(assets[videoFile].id, 0);
     thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
     const na = (session.project.audioClips || []).length;
@@ -1171,9 +1243,40 @@ async function importCapture(files) {
     const all = [...notes, ...failed.filter(x => !/^falta /.test(x)), ...out.warnings, ...out.skipped.filter(x => x.reason !== 'canal independiente sin extraer').map(x => `no se importó ${x.file}: ${x.reason}`)];
     say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
   } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
-  finally { loading = false; }
+  finally {
+    if (stagedAssetIDs.length) {
+      // Session.addAsset copies metadata to all undo/redo snapshots. Remove
+      // only assets not referenced by a clip in ANY snapshot.
+      const states = stagingSession ? [stagingSession.project, ...stagingSession.undoStack, ...stagingSession.redoStack] : [];
+      const referenced = new Set(states.flatMap(p => ['clips','overlayClips','audioClips']
+        .flatMap(k => (p[k] || []).map(c => c.asset_id))));
+      const unreferenced = new Set(stagedAssetIDs.filter(id => !referenced.has(id) && (!captureCommitted || !importedAssetIDs.includes(id))));
+      for (const state of states) state.assets = state.assets.filter(a => !unreferenced.has(a.id));
+      for (const id of unreferenced) {
+        const url = media[id]?.url;
+        if (typeof url === 'string' && url.startsWith('blob:')) {
+          try { URL.revokeObjectURL(url); } catch { /* already released */ }
+        }
+        delete media[id];
+        delete mediaFiles[id];
+      }
+      if (session && session === stagingSession && !previousSession && !session.project.assets.length &&
+          !['clips','overlayClips','audioClips'].some(k => (session.project[k] || []).length)) {
+        session = null;
+      }
+    }
+    loading = false;
+  }
 }
-$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await importCapture(chosen); });
+// The same import path handles user-selected files and a native host picker.
+// Never accept arbitrary native paths or a capture payload from a remote page.
+window.WivraEditorImport = Object.freeze({
+  importFiles: async (files) => {
+    if (!Array.isArray(files) || !files.every(f => typeof File !== 'undefined' && f instanceof File)) throw new TypeError('Archivos de captura inválidos');
+    await importCapture(files);
+  }
+});
+$('capFile').addEventListener('change', async () => { const chosen = [...$('capFile').files]; $('capFile').value = ''; await window.WivraEditorImport.importFiles(chosen); });
 function useAsset(id, time) {      // pone en el video principal el medio `id` en el instante `time`
   const v = $('v'), m = media[id]; if (!m) return;
   if (curAsset !== id) {
@@ -1183,33 +1286,109 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   }
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
-let loading = false;
+let loading = false, directorMultipartBatch = null, directorMultipartInsertAt = null, directorMultipartContext = null;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
+  const requireAll = files === directorMultipartBatch;
   if (!files.length || loading) return;
-  let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
+  // Reject capture metadata in the generic media importer. A capture must
+  // enter through its validated manifest so independent audio stays aligned.
+  if (files.some(f => /\.wivra\.json$/i.test(f.name))) {
+    say('Para importar una captura de Wivra con sus pistas usa Captura, no Video.', 'bad');
+    return;
+  }
+  // Never silently omit selected files: a partial import can corrupt a user's intended edit order.
+  if (files.length > MAX_IMPORT) {
+    say(`Seleccionaste ${files.length} archivos. El límite actual es ${MAX_IMPORT} por tanda; divide la selección e importa las tandas en orden. No se agregó ningún archivo.`, 'bad');
+    return;
+  }
+  const previousSession = session;
+  const importSession = session;
+  let stagingSession = session;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
-  const failed = [], added = [];
+  const failed = [], added = [], staged = [];
+  let committed = false;
+  const cleanupUncommitted = () => {
+    if (staged.length) {
+    // Failed edits may still leave staged metadata in undo/redo snapshots.
+    // Reclaim only assets not used by ANY timeline state.
+    const states = stagingSession ? [stagingSession.project, ...stagingSession.undoStack, ...stagingSession.redoStack] : [];
+    const referenced = new Set(states.flatMap(p => ['clips', 'overlayClips', 'audioClips']
+      .flatMap(k => (p[k] || []).map(c => c.asset_id))));
+    const unused = new Set(staged.filter(id => !referenced.has(id) && (!committed || !added.includes(id))));
+    for (const state of states) state.assets = state.assets.filter(a => !unused.has(a.id));
+    for (const id of unused) {
+      const url = media[id]?.url;
+      if (typeof url === 'string' && url.startsWith('blob:')) {
+        try { URL.revokeObjectURL(url); } catch { /* already released */ }
+      }
+      delete media[id];
+      delete mediaFiles[id];
+    }
+    if (session && session === stagingSession && !previousSession && !session.project.assets.length &&
+        !['clips', 'overlayClips', 'audioClips'].some(k => (session.project[k] || []).length)) session = null;
+  }
+  };
+  try {
   for (const f of files) {
     try {
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
-      const m = photo ? await probeImage(f) : await probe(f); const id = 'a' + (++assetSeq);
-      media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 }; keepFile(id, f, photo ? 'image' : 'video'); if (photo) { await prepGif(id, f); makePhotoThumb(id); }
+      const m = photo ? await probeImage(f) : await probe(f,requireAll);
+      // A project switch during metadata probing must never receive the old file.
+      if (session !== stagingSession) throw new Error('El proyecto cambió durante la lectura del archivo.');
+      const id = 'a' + (++assetSeq);
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 };
+      // Stage before file persistence or GIF decoding can throw.
+      staged.push(id);
+      keepFile(id, f, photo ? 'image' : 'video');
+      if (photo) {
+        await prepGif(id, f);
+        if (session !== stagingSession) throw new Error('El proyecto cambió durante la preparación de la imagen.');
+        makePhotoThumb(id);
+      }
       if (!session) session = new Session(createProject({ assets: [] }));
+      stagingSession = session;
       session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
+  // A segmented take is all-or-nothing. Do not insert half its clips.
+  if (requireAll && (failed.length || added.length!==files.length)) {
+    say('Faltan segmentos válidos. No se agregó ninguna parte a la línea de tiempo.','bad');
+    return;
+  }
   if (added.length) {
+    if (session !== stagingSession || (importSession && session !== importSession)) {
+      say('El proyecto cambió mientras se preparaban los archivos. Importa de nuevo.', 'bad');
+      return;
+    }
+    if(requireAll){
+      const ctx=directorMultipartContext;
+      if(!ctx||ctx.session!==session||ctx.projectId!==pzPid||
+         ctx.plan!==shootPlan||ctx.shotId!==selectedShootId||
+         session.project.revision!==ctx.revision){
+        say('El proyecto o Director cambió mientras se leían los segmentos. No se insertó la tanda.','bad');
+        return;
+      }
+    }
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
-    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
-    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: round2(k.start + D) }));
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = requireAll&&directorMultipartInsertAt!==null
+      ? directorMultipartInsertAt : cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
+    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - (requireAll ? 1e-9 : 0.001)).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
+    const exactParts = requireAll ? rayBanPartPositions(added.map(mainLen),at) : null;
     let start = at; const insertedAt = at;
-    const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: round2(start) }; start += mainLen(id); return o; })];
+    const ops = [...shifts, ...added.map((id, partIndex) => { const pos = requireAll ? exactParts.starts[partIndex] : round2(start); const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: pos }; start += mainLen(id); return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
-    if (first) run(ops); else { const rr = edit(ops, { ripple: false }); if (!rr.ok) say('No se pudo agregar: ' + rr.message, 'bad'); }
+    const result = first ? run(ops) : edit(ops, { ripple: false });
+    if (!result?.ok) {
+      say('No se pudo agregar: ' + (result?.message || 'el editor no confirmó la operación'), 'bad');
+      // Do not report success or generate thumbnails for an uncommitted edit.
+      // Keep staged asset metadata for undo/redo snapshots; cleanup is separate.
+      return;
+    }
+    committed = true;
     if (first && media[added[0]].kind !== 'image') useAsset(added[0], 0);
     for (const id of added) if (media[id].kind !== 'image') thumbQueue = thumbQueue.then(() => makeThumbs(id));
     if (first) showFrame();
@@ -1218,9 +1397,13 @@ async function importSelectedFiles(files) {
     say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? (added.some(id => media[id].kind === 'image') ? `Se cargaron ${added.length} archivos (videos y fotos). Revisa el orden.` : `${added.length} videos cargados. Revisa el orden.`) : media[added[0]].kind === 'image' ? 'Foto cargada (3 s). Alarga su bloque para que dure más.' : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
-  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + (capNote ? '\n' + capNote : '') + '\nNavegador: ' + navigator.userAgent, 'bad');
-  else if (capNote) say(capNote, 'bad');      // al final, para que no lo tape el mensaje de «cargados»
-  loading = false;
+  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
+  } catch (error) {
+    say('No se pudo completar la importación: ' + (error?.message || error), 'bad');
+  } finally {
+    cleanupUncommitted();
+    loading = false;
+  }
 }
 $('file').addEventListener('change', async () => {
   const chosen=[...$('file').files];$('file').value='';
@@ -1229,9 +1412,38 @@ $('file').addEventListener('change', async () => {
 $('directorCamera').addEventListener('change',async()=>{
   const files=[...$('directorCamera').files];$('directorCamera').value='';
   if(!files.length)return;
+  // Director represents one take per shot; reject ambiguous selections BEFORE editing.
+  if(files.length!==1){
+    say('Director necesita un solo archivo por toma. No se importó ningún archivo.', 'bad');
+    return;
+  }
+  if(!shootPlan || !selectedShootId){
+    say('Selecciona primero una toma del plan de Director. No se importó ningún archivo.', 'bad');
+    return;
+  }
+  if(loading){
+    say('Espera a que termine la importación anterior antes de grabar otra toma.', 'bad');
+    return;
+  }
+  const directorSession=session, directorShotId=selectedShootId, directorPlan=shootPlan;
   const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
   await importSelectedFiles(files);
-  const added=session?.project.assets.find(a=>!existing.has(a.id));
+  if((directorSession && session!==directorSession) || selectedShootId!==directorShotId || shootPlan!==directorPlan){
+    say('Cambió el proyecto o la toma de Director durante la importación. No se asociará automáticamente.', 'bad');
+    return;
+  }
+  const newAssets=(session?.project.assets || []).filter(a=>!existing.has(a.id));
+  // A Director shot represents exactly one saved take. Multiple imported
+  // assets cannot be associated unambiguously with that single shot.
+  const added=newAssets.length===1 ? newAssets[0] : null;
+  if(newAssets.length>1) {
+    say('Director no puede identificar una sola toma importada. No se asociará automáticamente.', 'bad');
+    return;
+  }
+  if(!added) {
+    say('No se agregó una toma nueva. Director conserva la toma pendiente.', 'bad');
+    return;
+  }
   if(added&&shootPlan&&selectedShootId){
    try{
      shootPlan=updateShot(shootPlan,selectedShootId,{state:'done',assetId:added.id},{project:session.project});
@@ -1241,12 +1453,52 @@ $('directorCamera').addEventListener('change',async()=>{
   }
 });
 
+$('directorParts').addEventListener('change',async()=>{
+ const input=$('directorParts'), selected=[...input.files];input.value='';
+ if(!session||!shootPlan||!selectedShootId||loading){
+   say('Selecciona una toma y termina cualquier importación anterior.','bad');return;
+ }
+ const shot=shootPlan.shots.find(s=>s.id===selectedShootId);
+ if(!shot){say('Esta toma ya no pertenece al plan activo.','bad');return}
+ const continuation=rayBanContinuation(shot,session.project);
+ if(shot.assetId&&!continuation){
+   say('La toma ya tiene un video distinto asociado. No se añadieron segmentos.','bad');return;
+ }
+ const group=validateRayBanParts(selected,continuation
+   ? {nextPart:continuation.nextPart,expectedSessionId:continuation.sessionId}:{});
+ if(!group.ok){say(group.reason,'bad');return}
+ const appendAt=continuation?rayBanAppendAt(continuation.assetIds,session.project):null;
+ if(continuation&&appendAt===null){
+   say('Se modificó o movió algún segmento anterior. Revisa su orden antes de añadir otros.','bad');return;
+ }
+ const previousSession=session,plan=shootPlan,shotId=selectedShootId,projectId=pzPid;
+ const previous=new Set(session.project.assets.map(a=>a.id));
+ directorMultipartBatch=group.files;
+ directorMultipartInsertAt=appendAt;
+ directorMultipartContext={session,projectId:pzPid,plan:shootPlan,shotId:selectedShootId,revision:session.project.revision};
+ try { await importSelectedFiles(group.files); }
+ finally { directorMultipartBatch=null; directorMultipartInsertAt=null; directorMultipartContext=null; }
+ if(session!==previousSession||shootPlan!==plan||selectedShootId!==shotId||pzPid!==projectId){
+   say('El proyecto cambió durante la importación. No se asociaron los segmentos.','bad');return;
+ }
+ const added=session.project.assets.filter(a=>!previous.has(a.id));
+ if(added.length!==group.files.length||
+    added.some((a,i)=>a.name!==group.files[i].name)){
+   say('Falta algún segmento importado. Los archivos originales siguen intactos; no se vinculó la toma.','bad');return;
+ }
+ try{
+   shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:[...(continuation?.assetIds||[]),...added.map(a=>a.id)]},{project:session.project});
+   saveShootPlan();renderShootPlan();
+   say('Tanda Ray-Ban asociada en orden. Si hay más segmentos, importa la siguiente tanda.','ok');
+ }catch(e){say('No se pudieron asociar los segmentos: '+e.message,'bad')}
+});
+
 /* ---------- Hoja "Tus videos": lista con cuadritos, orden por arrastre ---------- */
 /* Montaje rápido (app/quick-assembly.mjs): propuesta a la duración elegida; al aplicar se recalcula con el proyecto de ese momento. */
 let qaTarget = 0, tpSel = '';
 function tpRender() {      // la lista de plantillas (nombres traducibles: cada botón es un texto propio)
   const l = $('tpList'); l.replaceChildren();
-  for (const t of TPL_CATALOG) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.dataset.id = t.id; b.textContent = t.name; b.setAttribute('aria-pressed', String(t.id === tpSel)); l.appendChild(b); }
+  for (const t of TPL_CATALOG) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.dataset.id = t.id; b.textContent = t.name; b.title = t.desc; b.setAttribute('aria-label', t.name + ': ' + t.desc); b.setAttribute('aria-pressed', String(t.id === tpSel)); l.appendChild(b); }
 }
 function tpPreview() {
   const info = $('tpInfo'), btn = $('tpApply'); info.replaceChildren(); btn.disabled = true; $('tpTitleBox').style.display = 'none';
@@ -1273,8 +1525,18 @@ async function qaPlan(sec) {      // con «donde más se oye» se lee antes el v
   if (!session) return { ok: false, error: 'No hay clips en la línea de tiempo.' };
   if (!$('qaVoice').checked) return planQuickAssembly(session.project, { targetSeconds: sec });
   const ids = [...new Set(session.project.clips.map(c => c.asset_id))].filter(id => { const a = session.project.assets.find(x => x.id === id); return a && a.kind !== 'image' && !siEnv.has(id); });
+  const active = session, revision = session.project.revision;
   for (const id of ids) await siAnalyze(id);
-  return planQuickAssembly(session.project, { targetSeconds: sec, pick: makeAutoPicker(id => siEnv.get(id) || null) });
+  if (active !== session || session.project.revision !== revision) return { ok: false, error: 'El proyecto cambió durante el análisis. Revisa el montaje otra vez.' };
+  const timed = siTimed.get(session);
+  const evidence = id => { const env = siEnv.get(id), captions = timed?.get(id); return captions ? { ...(env || {}), timedSpeech: captions } : (env || null); };
+  const highlights = planAutoHighlights(session.project, { targetSeconds: sec, envOf: evidence });
+  if (highlights?.ok) return highlights;
+  return planQuickAssembly(session.project, { targetSeconds: sec,
+    pick: makeAutoPicker(id => {
+      const env = siEnv.get(id), captions = timed?.get(id);
+      return captions ? { ...(env || {}), timedSpeech: captions } : (env || null);
+    }) });
 }
 async function qaPreview(sec) {
   qaTarget = sec; const info = $('qaInfo'), btn = $('qaApply'), my = ++qaSeq;
@@ -1282,7 +1544,7 @@ async function qaPreview(sec) {
   if ($('qaVoice').checked) { btn.disabled = true; info.textContent = 'Escuchando el volumen de tus videos…'; }
   const pl = await qaPlan(sec); if (my !== qaSeq) return;      // si se tocó otra opción mientras tanto, esa respuesta manda
   if (!pl.ok) { info.textContent = pl.error; btn.disabled = true; return; }
-  info.textContent = `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
+  info.textContent = pl.highlights ? `Quedaría en ${fmt(pl.after)} s, con ${pl.highlights} momentos distintos.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : '') : `Quedaría en ${fmt(pl.after)} s; se acortan ${pl.trimmed} clips.` + (pl.warnings.length ? '\n' + pl.warnings.join(' ') : ''); info.style.whiteSpace = 'pre-line'; btn.disabled = !pl.ops.length;
 }
 $('qaChips').addEventListener('click', (e) => { const b = e.target.closest('button[data-s]'); if (b) { $('qaOther').value = ''; qaPreview(Number(b.dataset.s)); } });
 $('qaOther').addEventListener('input', () => { const v = Number($('qaOther').value); if ($('qaOther').value.trim() !== '') qaPreview(v); });
@@ -1294,7 +1556,7 @@ $('qaApply').onclick = async () => {
   say('Montaje rápido aplicado. Puedes deshacerlo.', 'ok'); renderVids(); qaPreview(qaTarget);
 };
 /* Quitar silencios (app/silence.mjs): se lee el volumen de cada video UNA vez (en el teléfono) y se guarda solo un resumen; cambiar la sensibilidad es instantáneo. */
-let siLevel = 'normal', siBusy = false; const siEnv = new Map();      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
+let siLevel = 'normal', siBusy = false; const siEnv = new Map(), siTimed = new WeakMap();  // Imported SRT/VTT evidence is session-local only.      // asset_id -> { env, win } | null (sin sonido / no se pudo leer)
 async function loadPcm16(assetId) {      // sonido de un medio (izquierda y derecha) a 16 kHz (null si no se puede leer); se usa para medir pausas y volumen
   const AC = window.AudioContext || window.webkitAudioContext; let f = mediaFiles[assetId];
   if (!f && media[assetId] && media[assetId].url) { try { f = await (await fetch(media[assetId].url)).blob(); } catch { f = null; } }
@@ -1810,6 +2072,27 @@ async function readSubtitleText(file) {      // UTF-8; si el archivo no lo es (m
   try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), note: null }; }
   catch { return { text: new TextDecoder('windows-1252').decode(buf), note: aiT('El archivo se leyó como Windows-1252 (no era UTF-8). Revisa los acentos.') }; }
 }
+$('whisperJsonFile').addEventListener('change', async () => {
+  const input = $('whisperJsonFile'), f = input.files[0]; input.value = '';
+  if (!f) return;
+  if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
+  if (f.size > 2 * 1024 * 1024) { say('El JSON de Whisper supera 2 MB.', 'bad'); return; }
+  try {
+    const payload = JSON.parse(await f.text());
+    const duration = totalDuration(session.project);
+    const result = fromWhisperJson(payload, { duration });
+    if (!result.ok) { say(result.message, 'bad'); return; }
+    const { ops, late } = cuesToOps(result.value.segments, duration);
+    if (!ops.length) { say('La transcripción no contiene subtítulos visibles.', 'bad'); return; }
+    if (!confirm('Importar ' + ops.length + ' subtítulos de Whisper al proyecto actual?')) return;
+    const applied = run(ops);
+    if (!applied.ok) { say('No se pudo importar: ' + applied.message, 'bad'); return; }
+    closeSheets();
+    say('Se importaron ' + ops.length + ' subtítulos de Whisper.' + (late ? ' ' + late + ' quedaron fuera del video.' : ''), 'ok');
+  } catch (e) {
+    say('No pude leer el JSON de Whisper: ' + (e?.message || e), 'bad');
+  }
+});
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
   if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
@@ -1819,6 +2102,14 @@ $('subFile').addEventListener('change', async () => {
     const { ops, late } = cuesToOps(r.cues, totalDuration(session.project));
     if (!ops.length) { say(aiT('Ningún subtítulo cabe dentro del video.'), 'bad'); return; }
     const res = run(ops); if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    // Keep evidence only from a successfully imported SRT/VTT, linked to this session.
+    // No automatic word accuracy claims or cross-clip guesses.
+    const timed = timedSpeechFromSingleClipCues(session.project, r.cues);
+    if (timed) {
+      const items = siTimed.get(session) || new Map();
+      items.set(timed.assetId, timed.evidence);
+      siTimed.set(session, items);
+    }
     const notes = [aiT('Se importaron {1} subtítulos.', ops.length)];
     if (r.stats.dropped) notes.push(aiT('{1} subtítulo(s) con tiempos o texto inválidos no se importaron.', r.stats.dropped));
     if (r.stats.split) notes.push(aiT('{1} subtítulo(s) eran muy largos y se partieron en trozos de hasta {2} caracteres.', r.stats.split, MAX_TEXT));
@@ -1894,7 +2185,14 @@ $('bExp').onclick = () => {
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  const exportRisk = exportMemoryRisk(plan.total);
+  $('expLong').textContent = exportRisk.level === 'critical'
+    ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
+    : exportRisk.level === 'elevated'
+      ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
+      : 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.';
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
+  $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
@@ -1912,15 +2210,37 @@ async function loudnessPlan(project, level) {
   return pl.ok ? pl : { why: 'No hay sonido que medir: se exporta con el volumen original.' };
 }
 $('expGo').onclick = async () => {
-  if (expBusy) return; expBusy = true; expCancel = false; stopPlayIfAny();
+  if (expBusy || !session) return;
+  if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
+  const exportSession = session;
+  const exportRevision = session.project.revision;
+  expBusy = true; expCancel = false; stopPlayIfAny();
   $('expGo').style.display = 'none'; $('expBar').style.display = 'block'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
   try {
     let loud = null; const level = $('expLoud').value;
     if (level !== 'off') { $('expMsg').className = 'm'; $('expMsg').textContent = 'Midiendo el volumen…'; try { loud = await loudnessPlan(session.project, level); } catch { loud = { why: 'No se pudo medir el volumen: se exporta con el volumen original.' }; } $('expMsg').textContent = ''; }
     if (expCancel) { $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
-    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
+    if (session !== exportSession || session.project.revision !== exportRevision || pzMissing.length) {
+      $('expBar').style.display = 'none'; $('expGo').style.display = 'block';
+      $('expMsg').className = 'bad';
+      $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
+      return;
+    }
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
+    if (r.audioBlocked) {
+      $('expGo').style.display = 'block'; $('expMsg').className = 'bad';
+      $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder audio. ' +
+        (r.missingAudio.length ? r.missingAudio.length + ' pista(s) independientes no se pudieron decodificar. ' : '') +
+        (r.shortAudio?.length ? r.shortAudio.length + ' pista(s) de audio dura(n) menos que el tramo seleccionado (' +
+          r.shortAudio.map(a => a.secondsLost + ' s').join(', ') + ' perdidos). Recorta esos tramos o reimporta los audios completos. ' : '') +
+        (r.unavailableAudio ? 'Este navegador no permite mezclar/grabar sonido. ' : '') +
+        (r.truncatedVoices?.length ? r.truncatedVoices.length + ' pista(s) de voz se cortarían al finalizar el video (' +
+          r.truncatedVoices.map(v => v.secondsLost + ' s').join(', ') + '). Acorta/reubica las voces o extiende los clips visuales. ' : '') +
+        'Puedes revisar/reimportar las pistas, o marcar la casilla para aceptar expresamente una exportación incompleta.';
+      return;
+    }
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (r.interrupted) { $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez'; $('expMsg').className = 'bad'; $('expMsg').textContent = 'La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida.'; return; }
     if (expUrl) URL.revokeObjectURL(expUrl);
@@ -2219,7 +2539,7 @@ function loadShootPlan(){
   const restored=JSON.parse(localStorage.getItem(SHOOT_STORAGE_KEY)||'null');
   if(restored?.schema==='agentcut-shoot-plan-v0.1'&&Array.isArray(restored.shots)){
     // Saved asset IDs do NOT grant access to files after page reload.
-    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null}))};
+    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null,assetIds:[]}))};
   }
  }catch{ /* ignore corrupt storage */ }
 }
@@ -2276,8 +2596,13 @@ function renderShootPlan(){
    stateBtns.push(mkBtn('Repetir esta toma',()=>setState('retry',(shot.state==='done'||shot.assetId)?aiT('Esta toma ya está hecha. ¿Repetirla? Se quita el video asociado a la toma (el video sigue en el proyecto).'):null)));
    stateBtns.push(mkBtn('Saltar esta toma',()=>setState('skipped',aiT('La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla?',shot.title))));
   }
-  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
+  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent=shot.state==='done'&&!shot.assetId?'Importar video guardado':'Importar video de esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
+  const canContinueParts=rayBanContinuation(shot,session?.project);
+  const importParts=mkBtn(canContinueParts?'Añadir siguientes segmentos Ray-Ban':'Importar todos los segmentos Ray-Ban',()=>{
+    selectedShootId=shot.id;$('directorParts').click();
+  });
+  importParts.disabled=!!shot.assetId&&!canContinueParts;
   const choose=document.createElement('select');
   choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
   choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
@@ -2295,6 +2620,7 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
+  if(!shot.assetId||canContinueParts)row.append(importParts);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.script){
    const sc=document.createElement('p');sc.className='m';sc.style.margin='4px 0';sc.textContent='Guion: '+(shot.script.length>140?shot.script.slice(0,140)+'…':shot.script)+' ('+tpSeconds(shot.script)+' s al leerlo)';
@@ -2307,7 +2633,7 @@ function renderShootPlan(){
    up.setAttribute('aria-label','Subir la toma: '+shot.title);dn.setAttribute('aria-label','Bajar la toma: '+shot.title);row2.append(up,dn);
   }
   if(shot.assetId){
-    const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
+    const linked=document.createElement('small');linked.textContent=(shot.assetIds?.length>1?'Segmentos asociados: '+shot.assetIds.length+' · principal ':'Video asociado en esta sesión: ')+shot.assetId;
     card.append(title,badge,body,linked,row,row2);
   }else card.append(title,badge,body,row,row2);
   list.append(card);
@@ -2554,14 +2880,16 @@ function pzShowMissing() {
   if (pzMissing.length) openSheet('sMiss'); else closeSheets();
 }
 /** Al reabrir un proyecto, el Director vuelve a ser el de ESE proyecto (no el borrador compartido del navegador). */
-function restoreDirectorOfProject(sn) {
+function restoreDirectorOfProject(sn, availableIds) {
   try {
     const d = sn.director || {}, known = new Set(sn.project.assets.map(a => a.id));
     dirDraftRaw = null; directorBrief = null; setDirectorAIContext(null);
     for (const id of ['dirGoal', 'dirNotes', 'dirCorrection', 'dirAssetDescription', 'dirSeconds']) $(id).value = '';
     $('dirMode').value = 'automatic'; $('dirPlatform').value = 'reels'; $('dirOtherFormats').value = ''; $('dirOutputs').value = 1; $('dirHistory').textContent = '';
     if (d.draft) restoreDirectorDraft(d.draft);
-    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => ({ ...s, assetId: known.has(s.assetId) ? s.assetId : null })) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
+    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => ({
+      ...s,...restoreDirectorAssetLinks(s,known,availableIds)
+    })) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
     selectedShootId = null; renderShootPlan();
   } catch (e) { say('No se pudieron recuperar las notas del Director: ' + e.message, 'bad'); }
 }
@@ -2579,7 +2907,7 @@ async function pzRestore(pid) {
     }
     pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
-    restoreDirectorOfProject(sn);
+    restoreDirectorOfProject(sn,new Set(Object.entries(saved.blobs||{}).filter(([id,b])=>!!b).map(([id])=>id)));
     pzMissing = missingAssets(sn, Object.keys(media));
     selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
     pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));

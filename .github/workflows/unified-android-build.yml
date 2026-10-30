@@ -33,19 +33,32 @@ jobs:
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Guard standalone Capture APK and pocket-mode lifecycle contracts
+        run: node --test streaming/tests/android-capture-delivery-contract.test.mjs
       - name: Check Android and iOS Meta SDK parity and privacy defaults
         run: node --test streaming/tests/android-meta-parity.test.mjs
       - name: Check local Ray-Ban preview bounds and permissions
         run: node --test streaming/tests/android-meta-visual-preview.test.mjs
       - name: Verify mobile Wi-Fi uplink observers and privacy warnings
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
+      - name: Verify shared Director teleprompter handoff into Ray-Ban preview
+        run: node --test streaming/tests/android-director-meta-handoff.test.mjs
+      - name: Verify native RTMP phone LIVE safety and local MP4 contracts
+        run: node --test streaming/tests/android-phone-live-native.test.mjs
       - name: Check Android six-language translation parity
         run: node --test streaming/tests/android-native-i18n.test.mjs
-      - name: Require reproducible Claude editor HTML before native packaging
+      - name: Validate native phone camera and audio capture contracts
+        run: |
+          set -eu
+          node --test streaming/tests/android-phone-camera-native.test.mjs
+          node --test streaming/tests/android-phone-wav-sidecar.test.mjs
+          node --test streaming/tests/android-capture-editor-bundle.test.mjs
+      - name: Generate current Wivra editor before native packaging
         run: |
           set -eu
           node app/build.mjs
-          git diff --exit-code -- app/dist/agentcut.html
+          test -s app/dist/agentcut.html
+          # Checked-in file synchronization is handled by audit workflow.
       - name: Check Ray-Ban photo to Claude Editor import and MediaStore privacy
         run: node --test streaming/tests/android-rayban-photo-import.test.mjs
       - name: Check offline HEVC MP4 video-only recording contract
@@ -56,26 +69,42 @@ jobs:
         run: node --test streaming/tests/android-rayban-checkpoint-recovery.test.mjs
       - name: Verify Android local MP4 review cannot delete pending videos
         run: node --test streaming/tests/android-rayban-pending-review.test.mjs
+      - name: Check first-recording audio choice and preserve partial files
+        run: |
+          set -eu
+          grep -q 'recordingAudioChoiceMade = false' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
+          grep -q 'startAfterAudioPermission = true' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
       - name: Compile unsigned-debug Android app using Claude HTML
-        run: gradle -p streaming/android :app:assembleDebug --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleCaptureDebug --no-daemon --stacktrace
+      - name: Check local Ray-Ban video timing for both Android editions
+        run: gradle -p streaming/android :app:testFullDebugUnitTest :app:testCaptureDebugUnitTest --no-daemon --stacktrace
       - name: Compile Meta MockDeviceKit instrumentation tests (no emulator yet)
-        run: gradle -p streaming/android :app:assembleDebugAndroidTest --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Verify instrumentation APK contains MockDeviceKit cases
         run: |
           set -eu
-          test -s streaming/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
       - name: Verify embedded editor and filter pack inside Android APK
         run: |
           set -eu
-          apk=streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          apk=streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
           test -s "$apk"
           unzip -l "$apk" | grep -q 'assets/agentcut.html'
           unzip -l "$apk" | grep -q 'assets/packs/catalog.json'
           echo "Wivra Android editor resources verified (emulator/device not yet tested)"
+      - name: Verify standalone Capture APK exists
+        run: test -s streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
+      - name: Upload standalone Ray-Ban Capture APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WivraCapture-RayBan-DEBUG
+          path: streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
+          retention-days: 7
+          if-no-files-found: error
       - name: Upload Android debug APK (not production or glasses tested)
         uses: actions/upload-artifact@v4
         with:
           name: WivraUnifiedAndroid-DEBUG
-          path: streaming/android/app/build/outputs/apk/debug/app-debug.apk
+          path: streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
           retention-days: 7
           if-no-files-found: error

@@ -26,8 +26,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
     private var muxer: MediaMuxer? = null
     private var track = -1
     private var started = false
-    private var firstPtsUs = -1L
-    private var lastPtsUs = -1L
+    private val ptsNormalizer = WivraVideoPtsNormalizer()
     private var writtenSamples = 0
     private var failed = false
 
@@ -61,7 +60,6 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                         muxer = writer
                         track = index
                         started = true
-                        firstPtsUs = ptsUs
                     } catch (e: Exception) {
                         writer.release()
                         output.delete()
@@ -69,13 +67,14 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     }
                 }
                 if (!started || isCodecConfig && !syncFrame) return
-                val relative = (ptsUs - firstPtsUs).coerceAtLeast(lastPtsUs + 1L)
+                // Pause/resume can rewind DAT PTS. Rebase complete intervals
+                // instead of collapsing resumed frames into 1-microsecond PTS.
+                val relative = ptsNormalizer.next(ptsUs)
                 val info = MediaCodec.BufferInfo().apply {
                     set(0, packet.size, relative,
                         if (syncFrame) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
                 }
                 muxer!!.writeSampleData(track, ByteBuffer.wrap(packet), info)
-                lastPtsUs = relative
                 writtenSamples += 1
             } catch (_: Exception) {
                 // MediaMuxer may refuse malformed CSD/PTS; never claim success.
@@ -163,14 +162,39 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     ?.sortedByDescending { it.lastModified() } ?: emptyList()
             } catch (_: IOException) { emptyList() }
 
+        /**
+         * Files left by Android process death are NOT finalized MP4s.
+         * Expose their count for recovery diagnostics but never automatically
+         * publish, rename or delete them. Confirmed checkpoint .mp4 files are
+         * enumerated separately by listPendingRecordings().
+         */
+        fun listInterruptedCaptures(context: Context): List<File> =
+            try {
+                val folder = pendingDir(context).canonicalFile
+                folder.listFiles()
+                    ?.filter { file ->
+                        file.isFile && file.name.startsWith("wivra_rayban_") &&
+                            file.name.endsWith(".writing") &&
+                            file.length() > 0L &&
+                            file.canonicalFile.parentFile == folder
+                    }
+                    ?.sortedByDescending { it.lastModified() } ?: emptyList()
+            } catch (_: IOException) { emptyList() }
+
         /** Publish to Movies/Wivra ONLY after a user selects Save. */
         fun publishPending(context: Context, local: File): Uri? {
             if (!isPending(context, local) || local.length() <= 0L) return null
             try {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {
+                    // Several MP4 checkpoint parts can be saved in the same
+                    // millisecond. Include the verified private source ID and
+                    // part number to avoid ambiguous gallery names.
+                    val safePartId = local.nameWithoutExtension
+                        .removePrefix("wivra_rayban_")
                     put(MediaStore.Video.Media.DISPLAY_NAME,
-                        "Wivra_RayBan_" + System.currentTimeMillis() + ".mp4")
+                        "Wivra_RayBan_" + System.currentTimeMillis() +
+                        "_" + safePartId + ".mp4")
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Wivra/")
                     put(MediaStore.Video.Media.IS_PENDING, 1)

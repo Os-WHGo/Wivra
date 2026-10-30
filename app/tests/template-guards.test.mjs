@@ -20,6 +20,8 @@ const PIEZAS = [
   ['plan de producción del Director', "$('dirProdCreate').onclick"],
   ['teleprompter', 'function openPrompter('],
   ['velocidad', 'function spSync('],
+  ['velocidad a todos los videos', 'id="spAll"'],
+  ['operación por lotes de velocidad', 'planSpeedAll(session.project'],
   ['transiciones', 'planCutTransitions('],
   ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
   ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],

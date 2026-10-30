@@ -11,6 +11,11 @@ const library = read('../ios/B0/Sources/WivraNativeCaptureLibrary.swift');
 
 test('each video-only MOV begins on a keyframe and checkpoints close at a safe boundary', () => {
   assert.match(segmented, /intervalSeconds: Double = 30/);
+  assert.match(segmented, /import QuartzCore/);
+  assert.match(segmented, /let now = CACurrentMediaTime\(\)/);
+  assert.match(segmented, /now - segmentStartUptime >= intervalSeconds/);
+  assert.doesNotMatch(segmented, /CMTimeGetSeconds\(CMTimeSubtract\(pts, firstPTS\)\)/);
+
   assert.match(segmented, /WivraHEVCRecorder\.isHEVCKeyframe\(buffer\)/);
   assert.match(segmented, /isKeyframe,[\s\S]*?writer\.writtenFrames >= 2/);
   assert.match(segmented, /finalizations\.append\(Task\.detached/);
@@ -18,6 +23,25 @@ test('each video-only MOV begins on a keyframe and checkpoints close at a safe b
   assert.match(segmented, /next\.arm\(fileName: partName\(partIndex\)\)/);
   assert.match(segmented, /current\?\.append\(buffer\)/);
   assert.match(unit, /guard Self\.isHEVCKeyframe\(buffer\)/);
+});
+
+test('iPhone reconnects only with a fresh DAT session after pending MOV finalization', () => {
+  assert.match(model, /isRegistered && deviceSession == nil && camera == nil &&/);
+  assert.match(model, /\(sessionState == \.idle \|\| sessionState == \.stopped\)/);
+  assert.match(model, /!recordingArmed && !recordingFinishing/);
+  assert.match(model, /if state == \.stopped \{[\s\S]*?self\.deviceSession = nil/);
+  assert.match(model, /func startSession\(\) \{\s*guard canStartSession/);
+});
+
+test('iPhone ignores initial DAT STOPPED and finalizes on terminal session loss', () => {
+  assert.match(model, /private var streamEverActive = false/);
+  assert.match(model, /if state == \.streaming \{ self\.streamEverActive = true \}/);
+  assert.match(model, /if state == \.stopped &&\s*\(self\.streamEverActive \|\| wasStopping\)/);
+  assert.match(model, /if self\.recordingArmed && !self\.recordingFinishing \{/);
+  assert.match(model, /Conexión Ray-Ban terminada\. Guardando el último fragmento MOV/);
+  assert.match(model, /Transmisión Ray-Ban finalizada\. Cerrando MOV pendiente/);
+  assert.match(model, /Task \{ await self\.finishRecording\(\) \}/);
+  assert.match(model, /private func clearPreview\(\) \{\s*streamEverActive = false/);
 });
 
 test('working MOV is not published until AVAssetWriter completes successfully', () => {
@@ -29,6 +53,13 @@ test('working MOV is not published until AVAssetWriter completes successfully', 
   assert.match(segmented, /case \.failed\(let message\)/);
   assert.match(segmented, /if !files\.isEmpty \{/);
   assert.match(segmented, /return \.savedSegments\(files,/);
+});
+
+test('iOS Ray-Ban default avoids opening HFP/SCO and retains explicit audio opt-in', () => {
+  assert.match(model, /var captureSelectedAudio = false/);
+  assert.match(model, /if captureSelectedAudio \{/);
+  assert.match(model, /audioRoute\.activateSelectedInput\(\)/);
+  assert.match(model, /captureSelectedAudio \? clipRecorder\.arm\(\) : segmentedRecorder\.arm\(\)/);
 });
 
 test('iPhone video-only uses independent segments without changing audio capture', () => {

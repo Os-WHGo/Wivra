@@ -1,0 +1,178 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const html = readFileSync(new URL('../../app/template.html', import.meta.url), 'utf8');
+const capture = html.slice(html.indexOf('async function importCapture(files) {'), html.indexOf('async function importSelectedFiles(files) {'));
+const generic = html.slice(html.indexOf('async function importSelectedFiles(files) {'));
+
+test('capture import rejects ambiguous manifests before staging assets', () => {
+  assert.match(capture, /manifests\.length !== 1/);
+  assert.match(capture, /names\.has\(file\.name\)/);
+  assert.match(capture, /otherJson\.length/);
+  assert.ok(capture.indexOf('names.has(file.name)') < capture.indexOf('const open = async'));
+  assert.ok(capture.indexOf('otherJson.length') < capture.indexOf('const open = async'));
+});
+
+test('generic media import does not silently treat capture manifest as video', () => {
+  assert.match(generic, /files\.some\(f => \/\\\.wivra\\\.json\$\/i\.test\(f\.name\)\)/);
+  assert.ok(generic.indexOf('files.some(') < generic.indexOf('loading = true'));
+});
+
+test('generic import does not report success after a rejected timeline edit', () => {
+  assert.match(generic, /const result = first \? run\(ops\) : edit\(ops, \{ ripple: false \}\)/);
+  assert.match(generic, /if \(!result\?\.ok\) \{/);
+  assert.ok(generic.indexOf('if (!result?.ok)') < generic.indexOf('thumbQueue = thumbQueue.then'));
+});
+
+test('failed generic import releases only unreferenced staged media', () => {
+  assert.match(generic, /let committed = false/);
+  assert.match(generic, /if \(staged\.length\)/);
+  assert.match(generic, /stagingSession\.undoStack, \.\.\.stagingSession\.redoStack/);
+  assert.match(generic, /staged\.filter\(id => !referenced\.has\(id\)/);
+  assert.match(generic, /URL\.revokeObjectURL\(url\)/);
+  assert.match(generic, /delete mediaFiles\[id\]/);
+});
+
+test('generic import cleans up on rejection and unexpected exceptions', () => {
+  const rejected = generic.slice(generic.indexOf('if (!result?.ok) {'), generic.indexOf('committed = true;'));
+  assert.match(rejected, /return;/);
+  assert.match(generic, /catch \(error\) \{/);
+  assert.match(generic, /finally \{\s*cleanupUncommitted\(\);\s*loading = false;/);
+  assert.match(generic, /if \(staged\.length\)/);
+});
+
+test('Director only binds an imported asset when the result is unambiguous', () => {
+  assert.match(generic, /const newAssets=\(session\?\.project\.assets \|\| \[\]\)\.filter/);
+  assert.match(generic, /newAssets\.length===1 \? newAssets\[0\] : null/);
+  assert.match(generic, /if\(newAssets\.length>1\)/);
+  assert.match(generic, /Director no puede identificar una sola toma importada/);
+  assert.match(generic, /assetId:added\.id/);
+});
+
+test('failed photo preparation is staged but not treated as successfully imported', () => {
+  assert.match(generic, /const failed = \[\], added = \[\], staged = \[\]/);
+  assert.ok(generic.indexOf('staged.push(id)') < generic.indexOf('await prepGif(id, f)'));
+  assert.ok(generic.indexOf('await prepGif(id, f)') < generic.indexOf('added.push(id)'));
+  assert.match(generic, /!committed \|\| !added\.includes\(id\)/);
+});
+
+test('cleanup tolerates a failed media preparation before a session exists', () => {
+  assert.match(generic, /const states = stagingSession \? \[stagingSession\.project/);
+  assert.match(generic, /if \(session && session === stagingSession && !previousSession && !session\.project\.assets\.length/);
+});
+
+test('export revalidates session and revision after async loudness analysis', () => {
+  const exportUI = html.slice(html.indexOf("$('expGo').onclick = async () =>"), html.indexOf('/* ---------- IA directa:', html.indexOf("$('expGo').onclick = async ()")));
+  assert.match(exportUI, /const exportSession = session/);
+  assert.match(exportUI, /const exportRevision = session\.project\.revision/);
+  assert.match(exportUI, /session !== exportSession \|\| session\.project\.revision !== exportRevision \|\| pzMissing\.length/);
+  assert.ok(exportUI.indexOf('session !== exportSession') < exportUI.indexOf('await recordProject('));
+  assert.match(exportUI, /project: exportSession\.project/);
+});
+
+test('capture importer reclaims partially prepared resources after failed audio split', () => {
+  assert.match(capture, /stagedAssetIDs = \[\], importedAssetIDs = \[\]/);
+  assert.ok(capture.indexOf('stagedAssetIDs.push(id)') < capture.indexOf('session.addAsset('));
+  assert.match(capture, /const states = stagingSession \? \[stagingSession\.project/);
+  assert.match(capture, /!captureCommitted \|\| !importedAssetIDs\.includes\(id\)/);
+  assert.match(capture, /URL\.revokeObjectURL\(url\)/);
+});
+
+test('capture import rejects a replaced editor session before applying timeline operations', () => {
+  assert.match(capture, /const captureSession = session/);
+  assert.match(capture, /if \(session !== stagingSession \|\| \(captureSession && session !== captureSession\)\)/);
+  assert.ok(capture.indexOf('session !== captureSession') < capture.indexOf('const out = planImportOps('));
+});
+
+test('generic importer stages media before persistence and rejects replaced sessions', () => {
+  assert.match(generic, /const importSession = session/);
+  assert.match(generic, /if \(session !== stagingSession \|\| \(importSession && session !== importSession\)\)/);
+  assert.ok(generic.indexOf('staged.push(id)') < generic.indexOf("keepFile(id, f, photo ? 'image' : 'video')"));
+  assert.ok(generic.indexOf('session !== importSession') < generic.indexOf('const result = first ? run(ops)'));
+});
+
+test('capture stages both source video and extracted audio before persistence', () => {
+  assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, f, kind\)/);
+  assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, nf, 'audio'\)/);
+});
+
+test('capture selection enforces the same mobile file limit before probing', () => {
+  assert.match(capture, /if \(files\.length > MAX_IMPORT\)/);
+  assert.ok(capture.indexOf('files.length > MAX_IMPORT') < capture.indexOf('const open = async'));
+});
+
+test('cleanup targets the owning editor session even after the user switches projects', () => {
+  for (const source of [capture, generic]) {
+    assert.match(source, /let stagingSession = session/);
+    assert.match(source, /const states = stagingSession \? \[stagingSession\.project, \.\.\.stagingSession\.undoStack, \.\.\.stagingSession\.redoStack\]/);
+    assert.match(source, /session === stagingSession/);
+  }
+});
+
+test('both importers fail closed if timeline engine returns no result', () => {
+  assert.match(generic, /if \(!result\?\.ok\)/);
+  assert.match(capture, /if \(!res\?\.ok\)/);
+  assert.match(generic, /el editor no confirmó la operación/);
+  assert.match(capture, /el editor no confirmó la operación/);
+});
+
+test('async media probing never inserts into a different open project', () => {
+  assert.match(generic, /await probeImage\(f\) : await probe\(f,requireAll\);\s*\/\/ A project switch/);
+  assert.match(generic, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la lectura del archivo\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la lectura de la captura\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la separación de canales\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la preparación del audio\.'\)/);
+});
+
+test('manifest and animated image decoding cannot attach to a replacement project', () => {
+  assert.match(capture, /const manifestText = await mf\.text\(\);\s*if \(session !== stagingSession\)/);
+  assert.match(generic, /await prepGif\(id, f\);\s*if \(session !== stagingSession\)/);
+  assert.match(generic, /El proyecto cambió durante la preparación de la imagen/);
+});
+
+test('capture final timeline guard includes an import that created its own session', () => {
+  assert.match(capture, /if \(session !== stagingSession \|\| \(captureSession && session !== captureSession\)\)/);
+  assert.ok(capture.indexOf('session !== stagingSession || (captureSession') < capture.indexOf('const startAt ='));
+});
+
+test('generic timeline commit checks owner even when the editor initially had no session', () => {
+  assert.match(generic, /if \(session !== stagingSession \|\| \(importSession && session !== importSession\)\)/);
+  assert.ok(generic.indexOf('session !== stagingSession || (importSession') < generic.indexOf('const first = !session.project.clips.length'));
+});
+
+test('generic media selection rejects oversized batches without silent truncation', () => {
+  assert.match(generic, /if \(files\.length > MAX_IMPORT\) \{/);
+  assert.match(generic, /No se agregó ningún archivo/);
+  assert.doesNotMatch(generic, /files = files\.slice\(0, MAX_IMPORT\)/);
+  assert.ok(generic.indexOf('No se agregó ningún archivo') < generic.indexOf('loading = true'));
+});
+
+test('Director rejects multiple camera files before timeline import and snapshots shot identity', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(files\.length!==1\)/);
+  assert.ok(handler.indexOf('if(files.length!==1)') < handler.indexOf('await importSelectedFiles(files)'));
+  assert.match(handler, /directorShotId=selectedShootId, directorPlan=shootPlan/);
+  assert.match(handler, /selectedShootId!==directorShotId \|\| shootPlan!==directorPlan/);
+});
+
+test('Director keeps shot pending when no imported asset was committed', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(!added\) \{/);
+  assert.match(handler, /Director conserva la toma pendiente/);
+  assert.ok(handler.indexOf('if(!added)') < handler.indexOf('updateShot('));
+});
+
+test('Director camera import requires a selected planned shot before editing', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(!shootPlan \|\| !selectedShootId\)/);
+  assert.match(handler, /Selecciona primero una toma del plan de Director/);
+  assert.ok(handler.indexOf('if(!shootPlan || !selectedShootId)') < handler.indexOf('await importSelectedFiles(files)'));
+});
+
+test('Director refuses concurrent import instead of associating a previously added asset', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(loading\)\{/);
+  assert.match(handler, /Espera a que termine la importación anterior/);
+  assert.ok(handler.indexOf('if(loading)') < handler.indexOf('const existing='));
+});

@@ -4,6 +4,7 @@
 import AVFoundation
 import CoreMedia
 import Foundation
+import QuartzCore
 
 /// A segment begins only at an HEVC IRAP picture. The duration target is not
 /// a hard upper bound when the stream does not deliver random-access pictures.
@@ -11,7 +12,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.wivra.meta.hevc-checkpoints")
     private let intervalSeconds: Double
     private var current: WivraHEVCRecorder?
-    private var firstPTS: CMTime?
+    private var segmentStartUptime: CFTimeInterval?
     private var finalizations: [Task<WivraRecordingResult, Never>] = []
     private var sessionID = ""
     private var partIndex = 0
@@ -30,7 +31,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
             guard !active && current == nil else { return false }
             sessionID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
             partIndex = 1
-            firstPTS = nil
+            segmentStartUptime = nil
             finalizations = []
             let writer = WivraHEVCRecorder()
             guard writer.arm(fileName: partName(partIndex)) else { return false }
@@ -50,11 +51,15 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
                   CMSampleBufferDataIsReady(buffer) else { return }
             let pts = CMSampleBufferGetPresentationTimeStamp(buffer)
             let isKeyframe = WivraHEVCRecorder.isHEVCKeyframe(buffer)
-
-            if firstPTS == nil && pts.isValid && isKeyframe { firstPTS = pts }
-            if let firstPTS, pts.isValid, isKeyframe,
-               CMTimeCompare(pts, firstPTS) > 0,
-               CMTimeGetSeconds(CMTimeSubtract(pts, firstPTS)) >= intervalSeconds,
+            // DAT may reset HEVC PTS after a cap-touch pause. Use a host
+            // monotonic clock for checkpoint scheduling only, never to
+            // rewrite the sample's video/audio timestamps.
+            let now = CACurrentMediaTime()
+            if segmentStartUptime == nil && pts.isValid && isKeyframe {
+                segmentStartUptime = now
+            }
+            if let segmentStartUptime, pts.isValid, isKeyframe,
+               now - segmentStartUptime >= intervalSeconds,
                writer.writtenFrames >= 2 {
                 // Intake is serialized: the previous writer sees no more frames.
                 // Finalization proceeds asynchronously while the new MOV begins
@@ -66,7 +71,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
                 partIndex += 1
                 if next.arm(fileName: partName(partIndex)) {
                     current = next
-                    self.firstPTS = pts
+                    self.segmentStartUptime = now
                 } else {
                     // Avoid a false claim of recording if the next part cannot
                     // open. Earlier checkpoint tasks still remain recoverable.
@@ -91,7 +96,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
                 })
             }
             current = nil
-            firstPTS = nil
+            segmentStartUptime = nil
             let submitted = finalizations
             finalizations = []
             return submitted

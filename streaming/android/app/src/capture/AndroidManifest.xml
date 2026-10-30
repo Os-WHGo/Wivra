@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application android:label="Wivra Capture" tools:replace="android:label">
+        <!-- Separate launch surface; reuse the exact same Meta DAT recorder code. -->
+        <activity android:name=".MainActivity" tools:node="remove" />
+        <activity android:name=".WivraMetaPreviewActivity" android:exported="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

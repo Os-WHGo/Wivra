@@ -1,0 +1,37 @@
+name: Wivra light WebRTC VAD libfvad CPU smoke (isolated)
+on:
+  push:
+    branches: [chatgpt/wivra-unified-owner-20261016]
+    paths: [tools/ai_benchmark_libfvad.py, .github/workflows/wivra-libfvad-cpu-smoke.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  libfvad-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install numerical fixture dependency (no app changes)
+        run: python -m pip install numpy==2.2.6
+      - name: Compile audited BSD-3-Clause standalone WebRTC VAD in /tmp
+        shell: bash
+        run: |
+          git clone --quiet --filter=blob:none https://github.com/dpirch/libfvad.git /tmp/wivra-libfvad-upstream
+          cd /tmp/wivra-libfvad-upstream
+          git checkout --quiet 532ab666c20d3cfda38bca63abbb0f152706c369
+          test "$(git rev-parse HEAD)" = 532ab666c20d3cfda38bca63abbb0f152706c369
+          gcc -std=c11 -O2 -fPIC -shared -I ./include -I ./src $(find ./src -name '*.c') -o /tmp/wivra-libfvad.so
+          test -s /tmp/wivra-libfvad.so
+      - name: Real libfvad on the same public audio signals as the Silero benchmark
+        run: python tools/ai_benchmark_libfvad.py
+      - name: Save JSON metrics only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-libfvad-CPU-Smoke-Only
+          path: wivra-libfvad-smoke.json
+          retention-days: 7

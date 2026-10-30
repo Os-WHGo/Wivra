@@ -38,6 +38,7 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     private let movieOutput = AVCaptureMovieFileOutput()
     private var activeDevice: AVCaptureDevice?
     private var closeAfterVideo = false
+    private var pendingMovieURL: URL?
     private var generation = 0
 
     var session: AVCaptureSession { runner.session }
@@ -333,8 +334,11 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
         guard !photoBusy else { return }
         do {
             let url = try nextMediaURL(ext: "mov")
+            // AVCaptureFileOutput may complete asynchronously. Keep the file URL
+            // until its delegate returns, even when the app switches cameras.
             lastMovieURL = nil
             lastCaptureManifestURL = nil
+            pendingMovieURL = url
             movieOutput.startRecording(to: url, recordingDelegate: self)
             isRecording = true
             status = includesAudio ? "REC · MOV con entrada de audio del sistema" : "REC · MOV sin audio"
@@ -359,11 +363,23 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     }
 
     private func finishVideo(url: URL, error: String?) {
+        // Ignore callbacks for a different recording. A late delegate must not
+        // replace the current take or its manifest after a camera restart.
+        guard pendingMovieURL == url else { return }
+        pendingMovieURL = nil
         // Preserve the original MOV even when metadata fails. Do not release
         // the source for Ray-Ban handoff before the atomic JSON write finishes.
+        // Even if AVFoundation reports a recording error, preserve a nonempty
+        // original for manual recovery. A partial MOV is never catalogued as
+        // a completed take without a successful recording callback.
+        let savedBytes = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
         if let error {
-            status = "Error al finalizar video: " + error
-        } else if (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0 > 0 {
+            lastMovieURL = savedBytes > 0 ? url : nil
+            lastCaptureManifestURL = nil
+            status = savedBytes > 0
+                ? "Grabación interrumpida; MOV conservado para recuperación: " + error
+                : "Error al finalizar video: " + error
+        } else if savedBytes > 0 {
             lastMovieURL = url
             do {
                 // MOV may contain embedded system audio; tracks [] means no

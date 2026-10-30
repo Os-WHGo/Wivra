@@ -1,0 +1,75 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const text = p => readFileSync(new URL('../../'+p,import.meta.url),'utf8');
+const native=text('streaming/android/app/src/main/java/com/oswhgo/wivra/MainActivity.java');
+const html=text('app/template.html');
+const core=text('core/shoot-checklist.mjs');
+const build=text('app/build.mjs');
+
+test('a single Ray-Ban recording can be represented by ordered multiple real assets',()=>{
+ assert.match(core,/assetIds/);
+ assert.match(core,/ids\.length>1440/);
+ assert.match(core,/new Set\(ids\)\.size!==ids\.length/);
+ assert.match(core,/next\.assetId=changes\.assetIds\?\.\[0\]/);
+ assert.match(html,/id="directorParts"[^>]*multiple/);
+ assert.match(html,/validateRayBanParts\(selected,continuation/);
+ assert.match(html,/added\.length!==group\.files\.length/);
+ assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
+ assert.match(html,/restoreDirectorAssetLinks\(s,known,availableIds\)/);
+ assert.match(html,/Object\.entries\(saved\.blobs\|\|\{\}\)/);
+ assert.match(build,/'\.\/director-parts\.mjs'/);
+});
+
+test('Ray-Ban published multi-part suggestion rejects mixed sessions and missing part numbers',()=>{
+ assert.match(native,/uniqueNewRayBanParts\(java\.util\.Set<String> before\)/);
+ assert.match(native,/added\.size\(\) < 2 \|\| added\.size\(\) >= 12/);
+ assert.match(native,/String sessionId = null/);
+ assert.match(native,/sessionId\.equals\(match\.group\(1\)\)/);
+ assert.match(native,/for \(int actual : ordered\.keySet\(\)\) if \(actual != expected\+\+\) return null/);
+ assert.match(native,/suggestedDirectorParts = grouped/);
+ assert.match(native,/offerSavedRayBanParts\(params, callback/);
+ assert.match(native,/params\.getMode\(\) != WebChromeClient\.FileChooserParams\.MODE_OPEN_MULTIPLE/);
+ assert.match(native,/java\.util\.Arrays\.equals\(candidates, suggestedDirectorParts\)/);
+ assert.match(native,/callback\.onReceiveValue\(candidates\)/);
+ assert.match(native,/else launchSystemPicker\(params\)/);
+ assert.doesNotMatch(native,/addJavascriptInterface\(/);
+});
+
+test('partial Ray-Ban metadata failure rolls back staged batch before timeline insertion',()=>{
+ assert.match(html,/async function importSelectedFiles\(files\)/);
+ assert.match(html,/const requireAll = files === directorMultipartBatch/);
+ assert.match(html,/if \(requireAll && \(failed\.length \|\| added\.length!==files\.length\)\)/);
+ assert.match(html,/directorMultipartBatch=group\.files/);
+ assert.match(html,/await importSelectedFiles\(group\.files\)/);
+ assert.match(html,/finally \{\s*cleanupUncommitted\(\);\s*loading = false/);
+});
+
+test('Director leaves continuation available after first saved Ray-Ban batch',()=>{
+ assert.match(html,/rayBanContinuation\(shot,session\?\.project\)/);
+ assert.match(html,/Añadir siguientes segmentos Ray-Ban/);
+ assert.match(html,/if\(!shot\.assetId\|\|canContinueParts\)row\.append\(importParts\)/);
+ assert.match(html,/validateRayBanParts\(selected,continuation/);
+ assert.match(html,/nextPart:continuation\.nextPart,expectedSessionId:continuation\.sessionId/);
+ assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
+});
+
+test('multipart continuation is inserted at prior verified boundary, independent of playhead',()=>{
+ assert.match(html,/directorMultipartInsertAt=appendAt/);
+ assert.match(html,/continuation\?rayBanAppendAt\(continuation\.assetIds,session\.project\):null/);
+ assert.match(html,/if\(continuation&&appendAt===null\)/);
+ assert.match(html,/requireAll&&directorMultipartInsertAt!==null/);
+ assert.match(html,/finally \{ directorMultipartBatch=null; directorMultipartInsertAt=null; directorMultipartContext=null; \}/);
+ assert.match(html,/if\(!requireAll\)at=round2\(at\)/);
+ assert.match(html,/probe\(f,requireAll\)/);
+ assert.match(html,/rayBanPartPositions\(added\.map\(mainLen\),at\)/);
+});
+
+test('multipart import will not insert into a replaced project or stale Director plan',()=>{
+ assert.match(html,/directorMultipartContext=\{session,projectId:pzPid,plan:shootPlan,shotId:selectedShootId,revision:session\.project\.revision\}/);
+ assert.match(html,/if\(!ctx\|\|ctx\.session!==session\|\|ctx\.projectId!==pzPid\|\|/);
+ assert.match(html,/ctx\.plan!==shootPlan\|\|ctx\.shotId!==selectedShootId/);
+ assert.match(html,/session\.project\.revision!==ctx\.revision/);
+ assert.match(html,/No se insertó la tanda/);
+ assert.match(html,/directorMultipartContext=null/);
+});

@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Short renewable CPU lease only during user-initiated external HEVC capture. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 13+: optional permission for visible recording controls in notifications. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:allowBackup="false" android:label="Wivra Dev"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
@@ -20,6 +26,15 @@
         <!-- Zero placeholders only for Developer Mode. Release requires Meta-assigned values. -->
         <meta-data android:name="com.meta.wearable.mwdat.APPLICATION_ID" android:value="${mwdat_application_id}" />
         <meta-data android:name="com.meta.wearable.mwdat.CLIENT_TOKEN" android:value="${mwdat_client_token}" />
+        <!-- Not exported: WebView receives only user-selected, read-only cache JSON. -->
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.captureimports"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/wivra_import_paths" />
+        </provider>
+        <service android:name=".WivraCaptureForegroundService"
+            android:exported="false" android:foregroundServiceType="connectedDevice" />
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <activity android:name=".WivraMetaPreviewActivity" android:exported="false" />

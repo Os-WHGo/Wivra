@@ -1,0 +1,90 @@
+name: Wivra Whisper CPU ASR smoke (isolated; no bundled model)
+on:
+  push:
+    branches: [chatgpt/wivra-unified-owner-20261016]
+    paths: [.github/workflows/wivra-whisper-cpu-smoke.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  whisper-cpu-jfk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned upstream whisper.cpp (scratch directory only)
+        shell: bash
+        run: |
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/whisper.cpp.git /tmp/whisper-upstream
+          cd /tmp/whisper-upstream
+          git checkout --quiet 0c7be696371069e0baa2515ed7aa08d5a5473aa6
+          cmake -S . -B build -DWHISPER_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release > /tmp/wivra-cmake.log
+          cmake --build build --config Release --target whisper-cli -j 2 > /tmp/wivra-build.log
+          test -x build/bin/whisper-cli
+      - name: Download licensed tiny English model, pin checksum, verify original speech sample
+        shell: bash
+        run: |
+          curl --fail --location --retry 2 --silent --show-error --max-time 180 \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861/ggml-tiny.en-q5_1.bin \
+            --output /tmp/wivra-whisper-model.bin
+          python3 - <<'PY'
+          import hashlib,pathlib
+          model=pathlib.Path('/tmp/wivra-whisper-model.bin').read_bytes()
+          assert 20000000 < len(model) < 50000000, 'expected 31 MiB quantized model'
+          expected='3fb92ec865cbbc769f08137f22470d6b66e071b6'
+          observed=hashlib.sha1(model).hexdigest()
+          print('model_bytes',len(model),'sha1',observed)
+          assert observed==expected,'published SHA1 differs, no execution'
+          sample=pathlib.Path('/tmp/whisper-upstream/samples/jfk.wav').read_bytes()
+          canonical=hashlib.sha1(b'blob '+str(len(sample)).encode()+b'\0'+sample).hexdigest()
+          assert canonical=='3184d372cd2f8b804d3a540c70ec50d927b335d2','official sample mismatch'
+          PY
+      - name: Run actual ASR on public JFK sample, record CPU memory, evaluate WER against known excerpt
+        shell: bash
+        run: |
+          /usr/bin/time -f 'elapsed_seconds=%e\npeak_rss_kib=%M' -o /tmp/whisper-metrics.txt \
+            /tmp/whisper-upstream/build/bin/whisper-cli \
+             -m /tmp/wivra-whisper-model.bin -f /tmp/whisper-upstream/samples/jfk.wav \
+             -l en -t 2 -otxt -of /tmp/wivra-jfk -ng >/tmp/whisper-stdout.txt 2>/tmp/whisper-stderr.txt
+          python3 - <<'PY'
+          import json,re,pathlib,math
+          transcript=pathlib.Path('/tmp/wivra-jfk.txt').read_text().strip()
+          reference="And so my fellow Americans ask not what your country can do for you ask what you can do for your country"
+          def words(s):return re.findall(r"[a-z']+",s.casefold())
+          expected,observed=words(reference),words(transcript)
+          d=list(range(len(observed)+1))
+          for i,word in enumerate(expected,1):
+              row=[i]
+              for j,guess in enumerate(observed,1):
+                  row.append(min(row[-1]+1,d[j]+1,d[j-1]+int(word!=guess)))
+              d=row
+          wer=d[-1]/len(expected)
+          metrics=dict(line.strip().split('=',1) for line in pathlib.Path('/tmp/whisper-metrics.txt').read_text().splitlines())
+          assert len(observed)>6,'No meaningful recognized speech'
+          out={
+            "test_type":"REAL_WHISPER_CPP_CPU_ENGLISH_ASR_SMOKE",
+            "date":"2026-10-17",
+            "source_code_commit":"0c7be696371069e0baa2515ed7aa08d5a5473aa6",
+            "model":"tiny.en-q5_1 (English only), external scratch use",
+            "model_sha1":"3fb92ec865cbbc769f08137f22470d6b66e071b6",
+            "audio":"official public whisper.cpp samples/jfk.wav",
+            "platform":"GitHub Actions ubuntu-24.04 x86_64 CPU 2 threads",
+            "language":"en",
+            "audio_seconds":11.002,
+            "WER_against_known_quote":round(wer,4),
+            "reference_words":len(expected),
+            "recognized_words":len(observed),
+            "hypothesis":transcript,
+            "elapsed_seconds_including_model_load":float(metrics['elapsed_seconds']),
+            "peak_rss_kib":int(metrics['peak_rss_kib']),
+            "mobile_models_installed":False,
+            "not_tested":"multilingual models, Spanish, physical phone, real Wivra clips, word timing accuracy, heat/battery, Sherpa comparison",
+          }
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          pathlib.Path('wivra-whisper-cpu-smoke.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-Whisper-CPU-English-Smoke-Only
+          path: wivra-whisper-cpu-smoke.json
+          retention-days: 7

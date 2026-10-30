@@ -26,7 +26,12 @@ test('muxer gates on VPS/SPS/PPS and keyframe with bounded sample sizes',()=>{
  assert.match(mux,/if \(type in 16\.\.21\) syncFrame = true/);
  assert.match(mux,/if \(!started \|\| isCodecConfig && !syncFrame\) return/);
  assert.match(mux,/8 \* 1024 \* 1024/);
- assert.match(mux,/relative = \(ptsUs - firstPtsUs\)\.coerceAtLeast\(lastPtsUs \+ 1L\)/);
+ assert.match(mux,/val relative = ptsNormalizer\.next\(ptsUs\)/);
+ const clock = readFileSync(new URL('WivraVideoPtsNormalizer.kt',base),'utf8');
+ assert.match(clock,/deltaUs = sourcePtsUs - previous/);
+ assert.match(clock,/deltaUs in 1_000L\.\.maxSourceGapUs/);
+ assert.match(clock,/previousOutputUs = Math\.addExact\(previousOutputUs, stepUs\)/);
+ assert.doesNotMatch(mux,/coerceAtLeast\(lastPtsUs \+ 1L\)/);
  assert.match(mux,/writtenSamples >= 2/);
  assert.match(mux,/muxer\?\.stop\(\)/);
  assert.match(mux,/file\?\.delete\(\)/);

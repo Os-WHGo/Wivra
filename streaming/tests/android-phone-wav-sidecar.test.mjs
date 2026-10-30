@@ -74,11 +74,12 @@ test('Claude editor gets only user-picked published WAV via content URI',()=>{
   assert.match(store,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
   assert.match(store,/if \(title\.startsWith\(PUBLISHED_PREFIX\)/);
   assert.match(picker,/editor\.evaluateJavascript\(readOnly, encoded ->/);
-  assert.match(picker,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(picker,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(picker,/localStorage\.getItem\(/);
   assert.doesNotMatch(picker,/addJavascriptInterface\(/);
 });
-test('WAV UI text exists in six Android resource dictionaries',()=>{
-  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja']){
+test('WAV UI text exists in eight Android resource dictionaries',()=>{
+  for(const loc of ['values','values-en','values-fr','values-de','values-it','values-ja','values-pt','values-zh']){
     const strings=read('../android/app/src/main/res/'+loc+'/strings.xml');
     for(const key of ['phone_camera_mic_wav','phone_camera_recording_wav',
       'phone_camera_wav_unavailable','phone_camera_wav_failed',
@@ -86,4 +87,48 @@ test('WAV UI text exists in six Android resource dictionaries',()=>{
       assert.match(strings,new RegExp('<string name="'+key+'">[^<]+<\\/string>'));
     }
   }
+});
+
+test('pair association survives crashes and never silently loses WAV identity before publication',()=>{
+  const idxAssociation=store.indexOf('data.put("publishedVideoUri"');
+  const idxWav=store.indexOf('data.put("publishedAudioUri"');
+  const idxVisible=store.indexOf('if (resolver.update(videoUri, visible, null, null)');
+  const idxDelete=store.indexOf('video.delete()',store.indexOf('fun publishPair('));
+  assert.ok(idxAssociation>=0 && idxWav>idxAssociation && idxVisible>idxWav && idxDelete>idxVisible);
+  assert.match(store,/Files\.createTempFile\(timingFile\.parentFile\.toPath\(\)/);
+  assert.match(store,/StandardCopyOption\.ATOMIC_MOVE/);
+  assert.match(store,/Files\.deleteIfExists\(tmp\)/);
+  assert.match(store,/require\(timingFile\.isFile && !Files\.isSymbolicLink/);
+  assert.match(store,/data\.optString\("audioStatus"\) == "ready"/);
+  assert.doesNotMatch(store,/catch \(_:\s*Exception\) \{ \/\* media is already safely published \*\//);
+});
+
+test('The WAV manifest retains the explicitly selected route and microphone name',()=>{
+ const inputs=read(base+'WivraPhoneAudioInputs.kt');
+ const importBundle=read(base+'WivraCaptureImport.kt');
+ for(const tag of ['android-phone-mic','android-wired-mic','android-usb-mic','android-bluetooth-mic','android-system-mic']){
+   assert.match(inputs,new RegExp('"'+tag+'"'));
+   assert.match(importBundle,new RegExp('"'+tag+'"'));
+ }
+ assert.match(camera,/WivraPhoneAudioInputs\.sourceTag\(chosen\)/);
+ assert.match(camera,/chosen\?\.let \{ WivraPhoneAudioInputs\.label\(this, it\) \}/);
+ assert.match(store,/put\("audioSource", audioSource\)/);
+ assert.match(store,/put\("selectedInputName", selectedInputName \?: org\.json\.JSONObject\.NULL\)/);
+ assert.match(store,/put\("source", audioSource\)/);
+ assert.match(store,/put\("inputName", selectedInputName \?: org\.json\.JSONObject\.NULL\)/);
+ assert.match(importBundle,/put\("source", source\)/);
+ assert.match(importBundle,/put\("inputName", safeInput\)/);
+ assert.match(importBundle,/put\("selectedInputName", safeInput\)/);
+ assert.doesNotMatch(importBundle,/put\("audioSource", "android-phone-mic"\)/);
+});
+
+test('Android WAV discovery tolerates system-normalized WAV MIME while retaining app ownership',()=>{
+ const fn=store.slice(store.indexOf('fun latestSavedWav('),store.indexOf('fun saveSidecarTiming('));
+ assert.match(fn,/Music\/Wivra\//);
+ assert.match(fn,/OWNER_PACKAGE_NAME/);
+ assert.match(fn,/IS_PENDING/);
+ assert.match(fn,/SIZE/);
+ assert.match(fn,/PUBLISHED_PREFIX/);
+ assert.doesNotMatch(fn,/MediaStore\.Audio\.Media\.MIME_TYPE} = \?/);
+ assert.doesNotMatch(fn,/arrayOf\("Music\/Wivra\/", "\$PUBLISHED_PREFIX%", "audio\/wav"/);
 });
