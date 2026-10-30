@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import com.meta.wearable.dat.camera.Camera
 import com.meta.wearable.dat.camera.Stream
 import com.meta.wearable.dat.camera.addCamera
@@ -115,6 +116,9 @@ class WivraCaptureForegroundService : Service() {
     private var finishing = false
     private var packetCount = 0L
     private var firstFrameWatchdog: Job? = null
+    private var streamHealthWatchdog: Job? = null
+    @Volatile private var lastMuxedSampleAtMs = 0L
+    private var lastSamplesTotal = 0
     private var lastNotifiedCheckpoint = -1
     private var cpuLock: PowerManager.WakeLock? = null
 
@@ -153,7 +157,19 @@ class WivraCaptureForegroundService : Service() {
             ACTION_START -> {
                 // Must be promoted promptly while the user is in the foreground.
                 // FGS type is connectedDevice: DAT accesses an external wearable.
-                startForeground(NOTIFICATION_ID, captureNotification())
+                try {
+                    startForeground(NOTIFICATION_ID, captureNotification())
+                } catch (failure: RuntimeException) {
+                    // The Activity has already relinquished DAT ownership.
+                    // A denied foreground start must not orphan that session.
+                    mutableCaptureIssue.value =
+                        "Android rechazó el servicio de captura: " +
+                        (failure.localizedMessage ?: "sin detalles")
+                    runCatching { claimSession()?.stop() }
+                    setCaptureState(CaptureState.FAILED)
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
                 if (session == null && !finishing) {
                     val handedOff = claimSession()
                     if (handedOff == null) {
@@ -166,7 +182,15 @@ class WivraCaptureForegroundService : Service() {
                     }
                 }
             }
-            ACTION_STOP -> finalizeCapture()
+            ACTION_STOP -> {
+                // STOP may arrive before ACTION_START has claimed the handoff.
+                // Release that offered session instead of leaving CONNECTING
+                // stuck with an inaccessible DAT connection.
+                if (session == null) {
+                    runCatching { claimSession()?.stop() }
+                }
+                finalizeCapture()
+            }
         }
         return START_NOT_STICKY
     }
@@ -241,16 +265,36 @@ class WivraCaptureForegroundService : Service() {
             val muxer = WivraSegmentedHevcRecorder(applicationContext)
             recorder = muxer
             packetCount = 0L
+            lastSamplesTotal = 0
+            lastMuxedSampleAtMs = 0L
             lastNotifiedCheckpoint = -1
             renewCpuLease()
             // No silent "recording" state if DAT never delivers a keyframe.
             // A timeout also releases the CPU lease and service notification.
             firstFrameWatchdog = scope.launch {
                 delay(45_000L)
-                if (!finishing && recorder === muxer && muxer.samples == 0) {
+                if (!finishing && recorder === muxer && muxer.samples < 2) {
                     mutableCaptureIssue.value =
                         "Ray-Ban no entregó video válido en 45 segundos. Grabación cancelada."
                     finalizeCapture()
+                }
+            }
+
+            // If DAT delivers a few frames then silently stalls, do not
+            // leave a fake active recording or hold battery indefinitely.
+            // A deliberate Meta PAUSED stream is exempt and can resume.
+            streamHealthWatchdog = scope.launch {
+                while (!finishing && recorder === muxer) {
+                    delay(15_000L)
+                    val last = lastMuxedSampleAtMs
+                    if (!finishing && captureState == CaptureState.RECORDING &&
+                        last > 0L && SystemClock.elapsedRealtime() - last >= 75_000L) {
+                        mutableCaptureIssue.value =
+                            "Ray-Ban dejó de enviar video durante 75 segundos. " +
+                            "Se conservarán los MP4 completos."
+                        finalizeCapture()
+                        break
+                    }
                 }
             }
 
@@ -268,20 +312,25 @@ class WivraCaptureForegroundService : Service() {
                             frame.width, frame.height, frame.isCodecConfig)
                         packetCount++
                         val samples = muxer.samples
+                        val wroteSample = samples > lastSamplesTotal
+                        if (wroteSample) {
+                            lastSamplesTotal = samples
+                            lastMuxedSampleAtMs = SystemClock.elapsedRealtime()
+                        }
                         if (packetCount == 1L || packetCount % 24L == 0L ||
-                            (samples > 0 && captureState == CaptureState.CONNECTING)) {
+                            (samples >= 2 && captureState == CaptureState.CONNECTING)) {
                             val progress = CaptureProgress(
                                 packetCount, samples, muxer.checkpointCount
                             )
                             withContext(Dispatchers.Main.immediate) {
                                 mutableCaptureProgress.value = progress
-                                if (samples > 0 && (captureState == CaptureState.CONNECTING ||
+                                if (samples >= 2 && (captureState == CaptureState.CONNECTING ||
                                         captureState == CaptureState.PAUSED)) {
                                     setCaptureState(CaptureState.RECORDING)
                                 }
                                 // Only refresh the notification after the first
                                 // valid sample or a completed 30-second MP4 part.
-                                if (samples > 0 &&
+                                if (samples >= 2 &&
                                     (lastNotifiedCheckpoint < 0 ||
                                         progress.savedCheckpoints > lastNotifiedCheckpoint)) {
                                     lastNotifiedCheckpoint = progress.savedCheckpoints
@@ -295,8 +344,9 @@ class WivraCaptureForegroundService : Service() {
                                 }
                             }
                         }
-                        // Do not hold CPU indefinitely without confirmed samples.
-                        if (samples > 0 && packetCount % 24L == 0L) {
+                        // Refresh the lease ONLY with newly muxed samples.
+                        // Repeated codec headers must never keep the CPU awake.
+                        if (wroteSample && samples % 24 == 0) {
                             renewCpuLease()
                         }
                     }
@@ -338,6 +388,8 @@ class WivraCaptureForegroundService : Service() {
         finishing = true
         firstFrameWatchdog?.cancel()
         firstFrameWatchdog = null
+        streamHealthWatchdog?.cancel()
+        streamHealthWatchdog = null
         setCaptureState(CaptureState.FINALIZING)
         val lastRecorder = recorder
         recorder = null
@@ -355,7 +407,6 @@ class WivraCaptureForegroundService : Service() {
                 // Earlier checkpoint MP4 files are already finalized privately.
                 setCaptureState(CaptureState.FAILED)
             } finally {
-                releaseCpuLease()
                 streamJob?.cancel()
                 streamErrorJob?.cancel()
                 sessionJob?.cancel()
@@ -367,6 +418,9 @@ class WivraCaptureForegroundService : Service() {
                 stream = null
                 camera = null
                 session = null
+                // Keep the bounded CPU lease until the muxer and DAT session
+                // have fully closed, including when the screen is locked.
+                releaseCpuLease()
                 if (captureState != CaptureState.FAILED) setCaptureState(CaptureState.IDLE)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -380,10 +434,12 @@ class WivraCaptureForegroundService : Service() {
         // last MP4. Already finalized checkpoint parts remain untouched.
         // Process death skips onDestroy and cannot be guaranteed here.
         firstFrameWatchdog?.cancel()
+        streamHealthWatchdog?.cancel()
+        val unclaimed = claimSession()
         val abandoned = recorder ?: finalizingRecorder
         val collector = packetsJob ?: finalizingPacketsJob
         val activeCamera = camera
-        val activeSession = session
+        val activeSession = session ?: unclaimed
         recorder = null
         finalizingRecorder = null
         if (abandoned != null) {
