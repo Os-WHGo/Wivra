@@ -136,3 +136,19 @@ test('failed journal write during native start preserves recorder error and rele
   await session.start({ id: 'after-start-failure', platform: 'ios' });
   assert.equal((await session.snapshot('after-start-failure')).state, 'recording');
 });
+
+test('pending recovery scan does not race native stop and journal finalization', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'scan-lock', platform: 'android' });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  host.stop = async () => { entered(); await gate; return { finalFile: 'full.mp4', segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000, confirmed: true }] }; };
+  const stopping = session.stop('scan-lock');
+  await started;
+  await assert.rejects(session.pending(), /operation in progress/);
+  release();
+  await stopping;
+  assert.deepEqual(await session.pending(), []);
+});
