@@ -162,3 +162,10 @@ test('Director keeps shot pending when no imported asset was committed', () => {
   assert.match(handler, /Director conserva la toma pendiente/);
   assert.ok(handler.indexOf('if(!added)') < handler.indexOf('updateShot('));
 });
+
+test('Director camera import requires a selected planned shot before editing', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(!shootPlan \|\| !selectedShootId\)/);
+  assert.match(handler, /Selecciona primero una toma del plan de Director/);
+  assert.ok(handler.indexOf('if(!shootPlan || !selectedShootId)') < handler.indexOf('await importSelectedFiles(files)'));
+});
