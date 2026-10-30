@@ -84,3 +84,25 @@ export function rayBanContinuation(shot,project) {
  }
  return {sessionId:id,nextPart:ids.length+1,assetIds:[...ids]};
 }
+
+/** Resume only after a complete, unedited, contiguous run of the prior parts.
+ * Never append to the cursor after an unrelated edit or altered source trim.
+ */
+export function rayBanAppendAt(assetIds,project) {
+ if(!Array.isArray(assetIds)||!assetIds.length||
+    !Array.isArray(project?.clips)||!Array.isArray(project?.assets))return null;
+ const assets=new Map(project.assets.map(a=>[a.id,a]));
+ let end=null;
+ for(const id of assetIds){
+   const clips=project.clips.filter(c=>c.asset_id===id);
+   if(clips.length!==1)return null;
+   const c=clips[0],asset=assets.get(id),speed=c.speed??1;
+   if(!asset||!Number.isFinite(asset.duration)||asset.duration<=0||
+      !Number.isFinite(c.start)||c.start<0||!Number.isFinite(c.in)||
+      !Number.isFinite(c.out)||Math.abs(c.in)>1e-6||
+      Math.abs(c.out-asset.duration)>1e-6||speed!==1||
+      (end!==null&&Math.abs(c.start-end)>1e-6))return null;
+   end=c.start+asset.duration;
+ }
+ return end;
+}
