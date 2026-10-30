@@ -9,13 +9,13 @@ const build=text('app/build.mjs');
 
 test('a single Ray-Ban recording can be represented by ordered multiple real assets',()=>{
  assert.match(core,/assetIds/);
- assert.match(core,/ids\.length>40/);
+ assert.match(core,/ids\.length>1440/);
  assert.match(core,/new Set\(ids\)\.size!==ids\.length/);
  assert.match(core,/next\.assetId=changes\.assetIds\?\.\[0\]/);
  assert.match(html,/id="directorParts"[^>]*multiple/);
  assert.match(html,/validateRayBanParts\(selected\)/);
  assert.match(html,/added\.length!==group\.files\.length/);
- assert.match(html,/assetIds:added\.map\(a=>a\.id\)/);
+ assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
  assert.match(html,/restoreDirectorAssetLinks\(s,known,availableIds\)/);
  assert.match(html,/Object\.entries\(saved\.blobs\|\|\{\}\)/);
  assert.match(build,/'\.\/director-parts\.mjs'/);
@@ -43,4 +43,13 @@ test('partial Ray-Ban metadata failure rolls back staged batch before timeline i
  assert.match(html,/directorMultipartBatch=group\.files/);
  assert.match(html,/await importSelectedFiles\(group\.files\)/);
  assert.match(html,/finally \{\s*cleanupUncommitted\(\);\s*loading = false/);
+});
+
+test('Director leaves continuation available after first saved Ray-Ban batch',()=>{
+ assert.match(html,/rayBanContinuation\(shot,session\?\.project\)/);
+ assert.match(html,/Añadir siguientes segmentos Ray-Ban/);
+ assert.match(html,/if\(!shot\.assetId\|\|canContinueParts\)row\.append\(importParts\)/);
+ assert.match(html,/validateRayBanParts\(selected,continuation/);
+ assert.match(html,/nextPart:continuation\.nextPart,expectedSessionId:continuation\.sessionId/);
+ assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
 });
