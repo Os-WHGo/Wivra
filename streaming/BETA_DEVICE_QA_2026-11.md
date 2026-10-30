@@ -1,6 +1,6 @@
 # Wivra unified beta: physical-device acceptance checklist
 
-Target: November 13, 2026. This checklist is **not** evidence of a passed physical test.
+Delivery target: before November 19, 2026 (owner instruction, October 30). This checklist is **not** evidence of a passed physical test.
 
 ## Build provenance
 - [ ] Download `Wivra-BETA-Android-DEBUG-apk` and `Wivra-BETA-Android-SHA256` from the **same** successful workflow run.
@@ -37,11 +37,19 @@ Target: November 13, 2026. This checklist is **not** evidence of a passed physic
 - [ ] Lock the screen and pocket the phone during an owner-initiated recording; confirm real *finalized* MP4 growth, not merely a foreground-service notification. Unplug/reconnect only in a separate, consented recovery test.
 - [ ] Import **40 + 40 + 1** successive original parts into one Director take. Verify exact numeric order, consistent session, all 81 linked assets, saved project, force-close/reopen and all original source files still present.
 - [ ] After each batch, play the beginning and last two cuts using the actual device decoder. Verify the 40/41 and 80/81 boundaries, image, audio, duration, orientation, HEVC support, and any silent or frozen frames.
-- [ ] Export a short selection, a 20-minute selection and (only if the device has enough storage and the risk is acceptable) a 45-minute selection; Wivra currently buffers the final MediaRecorder chunks until completion. Its estimated file size **is not** a measurement of free RAM or proof of export capability.
+- [ ] Export a short selection, then 10/30/60 minutes only when storage and thermal conditions permit. In the integrated native build, automatic mode writes chunks progressively with a bounded JS queue; the browser and explicitly selected memory mode still accumulate the output. Container repair may need a second on-disk copy. Estimated file size **is not** a measurement of free RAM or proof of export capability.
 - [ ] For each exported file, reopen in the device player, seek the first/middle/last 10 seconds, compare video/audio synchronization against originals, verify nonzero audio where expected, check rotation, duration and actual file size. Repeat a reopen after app force-close.
 - [ ] Record free storage before/after, export wall clock, memory pressure/crash, thermal behavior and battery drop. Treat a frozen render, corrupt file, silent voice loss, wrong clip order or unexplained app termination as FAIL, not as a warning to ignore.
 - [ ] Confirm cancelling an export or running out of storage does not erase, truncate or silently modify the 81 original files. Do not delete source footage to make space.
 - [ ] Repeat on iPhone **only after** owner-provided signing and installation. Emulator, Chromium Linux and unsigned IPA checks are separate and cannot satisfy this checklist.
+
+## Progressive export and editor recreation (unverified on physical devices)
+- [ ] Confirm automatic mode uses native storage and reports the saved file; separately test the selectable memory fallback on a short clip.
+- [ ] Close the editor during an unfinished export and reopen it. Verify its partial file is removed, a new export completes, and previously published exports remain playable.
+- [ ] Repeat during rotation/recreation and rapid close/reopen. Cleanup from the previous editor must not cancel the new editor's export. Android serializes all bridge storage operations on one process worker; both platforms scope cancellation by editor owner.
+- [ ] Cancel during chunk writing and container finalization. Record whether completion or cancellation won; preserve any verified published output and all original footage. Do not assume a published export can be undone by cancellation.
+- [ ] Reopen the saved video outside Wivra and seek first/middle/last frames. Check duration, independent voice/audio and rotation, including when container repair reports a fallback.
+- [ ] Test screen lock separately for native capture and for editor export. DAT background capture support does not establish that WebView rendering/export continues while locked.
 
 For audit, record build SHA + run ID, device/OS, 81 source-file count, session identity match, segment-boundary observations, exported container/codec/duration, external-player playability, interruptions and PASS/FAIL. Upload no private footage, credentials or precise location. All checkboxes remain open until actual physical execution.
 

@@ -27,7 +27,12 @@ enum WivraMp4Repair {
     private struct Box { let type: String; let start: Int; let body: Int; let end: Int }
 
     private static func u32(_ d: Data, _ p: Int) -> UInt32 {
-        d.withUnsafeBytes { raw in (UInt32(raw[p]) << 24) | (UInt32(raw[p + 1]) << 16) | (UInt32(raw[p + 2]) << 8) | UInt32(raw[p + 3]) }
+        d.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> UInt32 in
+            let high = UInt32(raw[p]) << 24
+            let middle = UInt32(raw[p + 1]) << 16
+            let low = UInt32(raw[p + 2]) << 8
+            return high | middle | low | UInt32(raw[p + 3])
+        }
     }
     private static func u64(_ d: Data, _ p: Int) -> UInt64 { (UInt64(u32(d, p)) << 32) | UInt64(u32(d, p + 4)) }
     private static func type4(_ d: Data, _ p: Int) -> String { String(decoding: d[(d.startIndex + p)..<(d.startIndex + p + 4)], as: UTF8.self) }
