@@ -12,9 +12,9 @@ test('Wivra native capture picker uses existing manifest import, no new editor',
   assert.match(source, /runOpenPanelWith parameters: WKOpenPanelParameters/);
   assert.match(source, /WivraLocalCaptureScanner\.read\(\)/);
   assert.match(source, /parameters\.allowsMultipleSelection/);
-  assert.match(source, /item\.manifestURL, video/);
-  assert.match(source, /item\.audioURLs/);
-  assert.match(source, /item\.alternateVideoURL/);
+  assert.match(source, /selected\.manifestURL, video/);
+  assert.match(source, /selected\.audioURLs/);
+  assert.match(source, /selected\.alternateVideoURL/);
   const index = readFileSync(new URL('../ios/B0/Sources/WivraNativeCaptureLibrary.swift', import.meta.url),'utf8');
   assert.match(index, /alternateVideoURL/);
   assert.match(source, /view\.uiDelegate = context\.coordinator/);
