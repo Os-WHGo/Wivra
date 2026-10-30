@@ -1284,6 +1284,7 @@ async function importSelectedFiles(files) {
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   const previousSession = session;
   const importSession = session;
+  const importRevision = session?.project.revision;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [], staged = [];
   let committed = false;
@@ -1325,6 +1326,10 @@ async function importSelectedFiles(files) {
   if (added.length) {
     if (importSession && session !== importSession) {
       say('El proyecto cambió mientras se preparaban los archivos. Importa de nuevo.', 'bad');
+      return;
+    }
+    if (importSession && session.project.revision < importRevision) {
+      say('La revisión del proyecto retrocedió durante la importación. Revisa la línea de tiempo.', 'bad');
       return;
     }
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
