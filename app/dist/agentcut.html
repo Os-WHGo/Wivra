@@ -5223,8 +5223,18 @@ $('file').addEventListener('change', async () => {
 $('directorCamera').addEventListener('change',async()=>{
   const files=[...$('directorCamera').files];$('directorCamera').value='';
   if(!files.length)return;
+  // Director represents one take per shot; reject ambiguous selections BEFORE editing.
+  if(files.length!==1){
+    say('Director necesita un solo archivo por toma. No se importó ningún archivo.', 'bad');
+    return;
+  }
+  const directorSession=session, directorShotId=selectedShootId, directorPlan=shootPlan;
   const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
   await importSelectedFiles(files);
+  if((directorSession && session!==directorSession) || selectedShootId!==directorShotId || shootPlan!==directorPlan){
+    say('Cambió el proyecto o la toma de Director durante la importación. No se asociará automáticamente.', 'bad');
+    return;
+  }
   const newAssets=(session?.project.assets || []).filter(a=>!existing.has(a.id));
   // A Director shot represents exactly one saved take. Multiple imported
   // assets cannot be associated unambiguously with that single shot.
