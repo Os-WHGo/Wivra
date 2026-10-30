@@ -21,7 +21,6 @@ import com.pedro.common.ConnectChecker
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.rtmp.RtmpStream
 import java.io.File
-import java.net.URI
 
 /**
  * A first native, user-triggered RTMP/RTMPS publisher in the FULL Wivra app.
@@ -72,18 +71,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     companion object {
-        // Reusable safe validation without ever sending a key to analytics/JS.
-        fun validEndpoint(input: String): Boolean {
-            if (input.length !in 12..1500 || input != input.trim() ||
-                input.any { it.isWhitespace() || Character.isISOControl(it) }) return false
-            return try {
-                val uri = URI(input)
-                val parts = (uri.rawPath ?: "").split('/').filter { it.isNotEmpty() }
-                uri.scheme?.lowercase() in setOf("rtmp", "rtmps") &&
-                    !uri.host.isNullOrBlank() && uri.rawUserInfo == null &&
-                    uri.rawFragment == null && parts.size >= 2
-            } catch (_: Exception) { false }
-        }
+        fun validEndpoint(input: String): Boolean = WivraLiveEndpoint.valid(input)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
