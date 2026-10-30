@@ -76,3 +76,15 @@ test('Starting another native recording invalidates a previous Director save rec
 test('Discarding the current Director recording revokes its saved-take receipt', () => {
   assert.match(phone, /if \(WivraPhoneMediaStore\.discard\(this, file\)\) \{\s*if \(file\.name == directorVideoCreatedHere\) \{\s*setResult\(Activity\.RESULT_CANCELED\)\s*directorVideoCreatedHere = null/);
 });
+
+test('Ray-Ban Director receipt requires new, fully saved session and never exposes a media URI', () => {
+  const receipt = get('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraDirectorTakeReceipt.kt');
+  assert.match(meta, /val pendingBefore = WivraHevcMp4Recorder\.listPendingRecordings\(applicationContext\)/);
+  assert.match(meta, /directorPendingBeforeCapture = pendingBefore/);
+  assert.match(meta, /directorPartialSaves\.add\(pending\.id\)/);
+  assert.match(meta, /if \(WivraDirectorTakeReceipt\.mayAcknowledge\(/);
+  assert.match(meta, /setResult\(RESULT_OK, Intent\(\)\.putExtra\(\s*WivraPhoneCameraActivity\.EXTRA_SHOT_ID, shotId\)/);
+  assert.match(receipt, /savedSessionId !in pendingBeforeCapture/);
+  assert.match(receipt, /successfulParts == expectedParts/);
+  assert.doesNotMatch(meta, /putExtra\([^\n]*?(?:EXTRA_MEDIA_URI|EXTRA_VIDEO_FILE|EXTRA_FILE_PATH)/);
+});

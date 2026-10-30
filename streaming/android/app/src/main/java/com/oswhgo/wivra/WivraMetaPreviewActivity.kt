@@ -79,6 +79,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var compressedPackets = 0L
     private var deferCaptureServiceStop = false
     private var pendingDialogVisible = false
+    // Capture identity is private to this Activity instance. If Android recreates
+    // it during pocket recording, fail closed rather than credit an unknown take.
+    private var directorPendingBeforeCapture: Set<String>? = null
+    private val directorPartialSaves = mutableSetOf<String>()
     private lateinit var recordButton: Button
     private lateinit var finishRecordButton: Button
 
@@ -457,6 +461,15 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             show("No se pudo transferir la sesión Ray-Ban al servicio de grabación.")
             return
         }
+        // Snapshot existing private recordings before this capture. Older clips
+        // must never satisfy a newly chosen Director shot's save receipt.
+        val pendingBefore = WivraHevcMp4Recorder.listPendingRecordings(applicationContext)
+            .map { it.id }.toSet()
+        directorPendingBeforeCapture = null
+        directorPartialSaves.clear()
+        if (intent.hasExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) {
+            setResult(RESULT_CANCELED) // A second attempt revokes any previous receipt.
+        }
         try {
             // User action while Activity is visible; Android can then retain
             // external-device capture after this screen is destroyed/locked.
@@ -464,6 +477,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 WivraCaptureForegroundService::class.java).apply {
                 action = WivraCaptureForegroundService.ACTION_START
             })
+            if (WivraDirectorTakeReceipt.validShotId(
+                    intent.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID))) {
+                directorPendingBeforeCapture = pendingBefore
+            }
             // The Activity relinquishes DAT ownership. Its onDestroy must
             // never stop a session that now belongs to the service.
             sessionJob?.cancel(); sessionJob = null
@@ -744,6 +761,23 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             savedCount, pending.parts.size)
                         else -> getString(R.string.recording_keep_failed)
                     })
+                    // The Director acknowledgement is strictly later than
+                    // the user's Save choice AND successful publication of all
+                    // segments. The actual assetId still belongs to the editor's
+                    // own import flow, never to this native camera.
+                    if (savedCount != pending.parts.size) {
+                        directorPartialSaves.add(pending.id)
+                    } else if (pending.id !in directorPartialSaves) {
+                        val shotId = intent.getStringExtra(
+                            WivraPhoneCameraActivity.EXTRA_SHOT_ID)
+                        if (WivraDirectorTakeReceipt.mayAcknowledge(
+                                shotId, directorPendingBeforeCapture,
+                                pending.id, savedCount, pending.parts.size)) {
+                            setResult(RESULT_OK, Intent().putExtra(
+                                WivraPhoneCameraActivity.EXTRA_SHOT_ID, shotId))
+                            directorPendingBeforeCapture = null
+                        }
+                    }
                     if (savedCount > 0) {
                         window.decorView.post { offerPendingVideo() }
                     }
