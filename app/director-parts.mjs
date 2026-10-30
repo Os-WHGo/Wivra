@@ -43,3 +43,17 @@ export function restoreDirectorAssetLinks(shot,projectIds,availableIds) {
  if(shot.assetId && shot.assetId!==raw[0])return empty;
  return {assetId:raw[0],assetIds:[...raw]};
 }
+
+/** Positions for independently playable MP4 parts.
+ * Never round at every cut: 40×30.003s accumulates timing errors when
+ * individual boundaries are snapped to 10ms. Renderer may round labels.
+ */
+export function rayBanPartPositions(durations, start=0) {
+ if(!Array.isArray(durations)||!durations.length||durations.length>MAX_DIRECTOR_PARTS||
+    !Number.isFinite(start)||start<0||
+    durations.some(d=>!Number.isFinite(d)||d<=0))
+   throw new Error('Duraciones o punto de inserción Ray-Ban inválidos.');
+ const starts=[];let cursor=start;
+ for(const duration of durations){starts.push(cursor);cursor+=duration}
+ return {starts,end:cursor,total:cursor-start};
+}
