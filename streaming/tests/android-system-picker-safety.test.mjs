@@ -13,7 +13,7 @@ test('third-party file picker never hands private file schemes or app-private pr
   assert.match(main, /MAX_PICKER_FILES = 40/);
   assert.match(main, /openFileDescriptor\(uri, "r"\)/);
   assert.match(main, /catch \(Exception invalidOrRevoked\)/);
-  assert.match(main, /pickerValidator\.execute\(\(\) => \{/);
+  assert.match(main, /pickerValidator\.execute\(\(\) -> \{/);
   assert.match(main, /Uri\[\] checked = safeSystemPickerResult\(selected\)/);
   assert.match(main, /completion\.onReceiveValue\(checked\)/);
   assert.doesNotMatch(main, /completion\.onReceiveValue\(WebChromeClient\.FileChooserParams\.parseResult/);
@@ -29,7 +29,7 @@ test('existing native user-chosen saved media shortcuts stay separate from untru
 
 test('cloud and multi-part file providers cannot stall the Android UI thread', () => {
   assert.match(main, /Executors\.newSingleThreadExecutor\(\)/);
-  assert.match(main, /pickerValidator\.execute\(\(\) => \{/);
+  assert.match(main, /pickerValidator\.execute\(\(\) -> \{/);
   assert.match(main, /runOnUiThread\(\(\) => \{/);
   assert.match(main, /pendingFilePicker != completion \|\| isFinishing\(\) \|\| isDestroyed\(\)/);
   assert.match(main, /pickerValidator\.shutdownNow\(\)/);
