@@ -5160,7 +5160,7 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
 }
 let loading = false;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
-async function importSelectedFiles(files) {
+async function importSelectedFiles(files, {requireAll=false}={}) {
   if (!files.length || loading) return;
   // Reject capture metadata in the generic media importer. A capture must
   // enter through its validated manifest so independent audio stays aligned.
@@ -5221,6 +5221,11 @@ async function importSelectedFiles(files) {
       stagingSession = session;
       session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
+  }
+  // A segmented take is all-or-nothing. Do not insert half its clips.
+  if (requireAll && (failed.length || added.length!==files.length)) {
+    say('Faltan segmentos válidos. No se agregó ninguna parte a la línea de tiempo.','bad');
+    return;
   }
   if (added.length) {
     if (session !== stagingSession || (importSession && session !== importSession)) {
@@ -5317,7 +5322,7 @@ $('directorParts').addEventListener('change',async()=>{
  }
  const previousSession=session,plan=shootPlan,shotId=selectedShootId,projectId=pzPid;
  const previous=new Set(session.project.assets.map(a=>a.id));
- await importSelectedFiles(group.files);
+ await importSelectedFiles(group.files,{requireAll:true});
  if(session!==previousSession||shootPlan!==plan||selectedShootId!==shotId||pzPid!==projectId){
    say('El proyecto cambió durante la importación. No se asociaron los segmentos.','bad');return;
  }
