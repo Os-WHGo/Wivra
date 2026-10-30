@@ -97,6 +97,20 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
       });
     },
     async pending() { return store.recoverPending(); },
+    // A pending journal is metadata, not proof that an MP4 exists on disk.
+    // Only a finalized session with an explicitly confirmed native file may
+    // be handed to Director; the host must verify the physical media itself.
+    async directorHandoff(id) {
+      const journal = await store.load(id);
+      if (!journal || journal.state !== 'finalized' || !journal.finalFile || !journal.segments.length) {
+        throw new Error('Capture not finalized for Director');
+      }
+      if (typeof host.verifyFile !== 'function' || await host.verifyFile({ id, file: journal.finalFile }) !== true) {
+        throw new Error('Native media verification required for Director');
+      }
+      return { sessionId: id, platform: journal.platform, file: journal.finalFile,
+        segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
+    },
     async snapshot(id) { return store.load(id); }
   };
 }
