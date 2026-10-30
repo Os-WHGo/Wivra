@@ -22,12 +22,17 @@ import android.webkit.WebViewClient;
  */
 public final class MainActivity extends Activity {
     private static final int PICK_FILES_REQUEST = 4207;
+    private static final int DIRECTOR_CAPTURE_REQUEST = 4208;
+    private String pendingDirectorShotId;
     private ValueCallback<Uri[]> pendingFilePicker;
     private WebView editor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            pendingDirectorShotId = savedInstanceState.getString("directorShotAwaitingSave");
+        }
         editor = new WebView(this);
         final WebSettings settings = editor.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -216,9 +221,9 @@ public final class MainActivity extends Activity {
             "const plan=JSON.parse(localStorage.getItem('agentcut-shoot-checklist-v1')||'null');" +
             "if(!plan||plan.schema!=='agentcut-shoot-plan-v0.1'||!Array.isArray(plan.shots))return '[]';" +
             "return JSON.stringify(plan.shots.filter(s=>(s.state==='todo'||s.state==='retry')" +
-            "&&typeof s.script==='string'&&s.script.trim().length>0)" +
-            ".slice(0,30).map(s=>({title:String(s.title||'')," +
-            "script:s.script.slice(0,2200)})));" +
+            "&&typeof s.id==='string'&&s.id.length>0&&s.id.length<=120)" +
+            ".slice(0,30).map(s=>({id:s.id,title:String(s.title||'')," +
+            "script:typeof s.script==='string'?s.script.slice(0,2200):''})));" +
             "}catch(e){return '[]';}})();";
         editor.evaluateJavascript(readOnly, encoded -> {
             org.json.JSONArray shots = new org.json.JSONArray();
@@ -255,6 +260,13 @@ public final class MainActivity extends Activity {
                             if (script.length() <= 2200 && !script.trim().isEmpty()) {
                                 launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_SCRIPT, script);
                             }
+                            String id = shot.optString("id", "");
+                            if (id.length() > 0 && id.length() <= 120) {
+                                launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID, id);
+                                pendingDirectorShotId = id;
+                                startActivityForResult(launch, DIRECTOR_CAPTURE_REQUEST);
+                                return;
+                            }
                         }
                     }
                     startActivity(launch);
@@ -282,8 +294,34 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("directorShotAwaitingSave", pendingDirectorShotId);
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == DIRECTOR_CAPTURE_REQUEST) {
+            final String expected = pendingDirectorShotId;
+            pendingDirectorShotId = null;
+            if (resultCode == RESULT_OK && expected != null && data != null &&
+                expected.equals(data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
+                editor != null && "file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+                // A successful, explicitly saved native capture marks the take
+                // recorded. Never fabricate an editor assetId or expose media URIs.
+                String id = org.json.JSONObject.quote(expected);
+                String update = "(function(){try{" +
+                    "if(!shootPlan||!Array.isArray(shootPlan.shots))return;" +
+                    "const shot=shootPlan.shots.find(s=>s.id===" + id + ");" +
+                    "if(!shot||(shot.state!=='todo'&&shot.state!=='retry'))return;" +
+                    "shootPlan=updateShot(shootPlan," + id + ",{state:'done'});" +
+                    "saveShootPlan();renderShootPlan();" +
+                    "}catch(e){}})();";
+                editor.evaluateJavascript(update, null);
+            }
+            return;
+        }
         if (requestCode != PICK_FILES_REQUEST || pendingFilePicker == null) {
             return;
         }
