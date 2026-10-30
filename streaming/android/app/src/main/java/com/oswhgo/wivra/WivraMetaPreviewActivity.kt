@@ -307,15 +307,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     private fun show(message: String) { status.text = message }
     private fun refreshButtons() {
-        registerButton.isEnabled = sdkReady
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
+        registerButton.isEnabled = sdkReady && !serviceRecording
         connectButton.isEnabled = sdkReady && session == null && !serviceRecording
         previewButton.isEnabled = !serviceRecording &&
             session?.state?.value == DeviceSessionState.STARTED && camera == null
         recordButton.isEnabled = !serviceRecording &&
             session?.state?.value == DeviceSessionState.STARTED &&
             camera == null && !recordingFinalizing
-        finishRecordButton.isEnabled = serviceRecording ||
+        finishRecordButton.isEnabled =
+            (serviceRecording && WivraCaptureForegroundService.captureState !=
+                WivraCaptureForegroundService.CaptureState.FINALIZING) ||
             (recordingMode && !recordingFinalizing)
         photoButton.isEnabled = stream != null && !photoInProgress &&
             lastFrameReceivedMs > 0L &&
@@ -341,13 +343,16 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun registerMeta() {
-        if (!sdkReady) return
+        // Registration can temporarily take the glasses away from a live DAT
+        // session. Never open that flow during user-initiated pocket capture.
+        if (!sdkReady || WivraCaptureForegroundService.isCaptureActive()) return
         Wearables.startRegistration(this)
         show(getString(R.string.authorize_meta))
     }
 
     private fun beginSession() {
-        if (!sdkReady || session != null) return
+        if (!sdkReady || session != null ||
+            WivraCaptureForegroundService.isCaptureActive()) return
         Wearables.createSession(AutoDeviceSelector())
             .onSuccess { created ->
                 session = created
@@ -377,7 +382,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun checkCameraPermission(recording: Boolean = false) {
-        if (session?.state?.value != DeviceSessionState.STARTED || camera != null) {
+        if (WivraCaptureForegroundService.isCaptureActive() ||
+            session?.state?.value != DeviceSessionState.STARTED || camera != null) {
             show(getString(R.string.wait_session))
             return
         }
