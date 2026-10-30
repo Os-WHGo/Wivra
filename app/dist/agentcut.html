@@ -4952,6 +4952,8 @@ async function importCapture(files) {
   // resources when the complete one-batch capture edit does not commit.
   const previousSession = session, stagedAssetIDs = [], importedAssetIDs = [];
   let captureCommitted = false;
+  // A capture must not silently attach to a different project after awaits.
+  const captureSession = session;
   loading = true; stopPlayIfAny();
   try {
     const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
@@ -5026,6 +5028,10 @@ async function importCapture(files) {
     }
     for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
+    if (captureSession && session !== captureSession) {
+      say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
+      return;
+    }
     const startAt = round2(totalDuration(session.project)), nextClip = 'c' + session.project.nextId;
     const out = planImportOps(plan, { videoStart: startAt, assets, splitChannelAssets: split });
     if (out.skipped.length) {
