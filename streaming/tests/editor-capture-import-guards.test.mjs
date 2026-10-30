@@ -39,7 +39,7 @@ test('generic import cleans up on rejection and unexpected exceptions', () => {
   assert.match(rejected, /return;/);
   assert.match(generic, /catch \(error\) \{/);
   assert.match(generic, /finally \{\s*cleanupUncommitted\(\);\s*loading = false;/);
-  assert.match(generic, /if \(!committed && added\.length && session\)/);
+  assert.match(generic, /if \(staged\.length\)/);
 });
 
 test('Director only binds an imported asset when the result is unambiguous', () => {
