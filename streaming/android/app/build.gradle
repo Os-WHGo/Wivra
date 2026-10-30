@@ -54,6 +54,8 @@ dependencies {
     implementation 'androidx.camera:camera-video:1.5.3'
     implementation 'androidx.camera:camera-view:1.5.3'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+    // Local deterministic PTS clock tests, without emulator or physical glasses.
+    testImplementation 'junit:junit:4.13.2'
     // Only tests, never a required runtime service or production dependency.
     androidTestImplementation 'com.meta.wearable:mwdat-mockdevice:1.0.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
