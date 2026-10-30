@@ -5239,8 +5239,13 @@ $('directorCamera').addEventListener('change',async()=>{
   // A Director shot represents exactly one saved take. Multiple imported
   // assets cannot be associated unambiguously with that single shot.
   const added=newAssets.length===1 ? newAssets[0] : null;
-  if(newAssets.length>1 && shootPlan && selectedShootId) {
-    say('Se importaron varios archivos. Elige una sola toma para asociarla a Director.', 'bad');
+  if(newAssets.length>1) {
+    say('Director no puede identificar una sola toma importada. No se asociará automáticamente.', 'bad');
+    return;
+  }
+  if(!added) {
+    say('No se agregó una toma nueva. Director conserva la toma pendiente.', 'bad');
+    return;
   }
   if(added&&shootPlan&&selectedShootId){
    try{
