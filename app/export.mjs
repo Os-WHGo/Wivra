@@ -506,7 +506,10 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     try { if (ac) await ac.close(); } catch { /* context released */ }
     throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
   }
-  const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  // MediaRecorder chunks remain in memory until the final Blob is assembled.
+  // Track their size to diagnose long exports without changing the output format.
+  const chunks = []; let recordedBytes = 0;
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); recordedBytes += e.data.size; } };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
   const photos = new Map();
@@ -618,5 +621,6 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
   if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
+  if (recordedBytes !== blob.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
   return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
