@@ -2,6 +2,8 @@ package com.oswhgo.wivra
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.Activity
+import android.content.Intent
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -53,6 +55,7 @@ import java.util.concurrent.Executor
 class WivraPhoneCameraActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SHOT_SCRIPT = "com.oswhgo.wivra.director.SHOT_SCRIPT"
+        const val EXTRA_SHOT_ID = "com.oswhgo.wivra.director.SHOT_ID"
     }
 
     // Local Director text lives ONLY in native overlay widgets, never in the
@@ -102,6 +105,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private var videoCapture: VideoCapture<Recorder>? = null
     private var activeRecording: Recording? = null
     private var currentFile: File? = null
+    // Only a video CREATED by this camera launch can acknowledge this shot.
+    // Reviewing an older pending clip must never complete a different take.
+    private var directorVideoCreatedHere: String? = null
     private var recordingFinishing = false
     private var cameraFront = false
     // 0 = silent MP4; 1 = MP4 with embedded mic; 2 = video-only MP4 + mono WAV
@@ -507,6 +513,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         try {
             val privateVideo = WivraPhoneMediaStore.createPrivateVideo(this)
             currentFile = privateVideo
+            directorVideoCreatedHere = privateVideo.name
             val pending = video.output.prepareRecording(
                 this, FileOutputOptions.Builder(privateVideo).build()
             )
@@ -677,6 +684,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                             .setPositiveButton(R.string.phone_camera_save_video_only) { _, _ ->
                                 try {
                                     WivraPhoneMediaStore.publish(this, file)
+                                    acknowledgeSavedDirectorTake(file)
                                     message(R.string.phone_camera_video_only_saved)
                                 } catch (_: Exception) {
                                     message(R.string.phone_camera_keep_failed)
@@ -690,6 +698,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                         } else {
                             WivraPhoneMediaStore.publish(this, file)
                         }
+                        acknowledgeSavedDirectorTake(file)
                         message(R.string.phone_camera_saved_to_editor)
                     }
                 } catch (_: Exception) {
@@ -712,6 +721,17 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             }
             .setOnDismissListener { preview.stopPlayback() }
             .show()
+    }
+
+    private fun acknowledgeSavedDirectorTake(file: File) {
+        if (file.name != directorVideoCreatedHere) return
+        val shotId = intent.getStringExtra(EXTRA_SHOT_ID)
+            ?.takeIf { it.isNotEmpty() && it.length <= 120 && it.all { ch ->
+                ch >= ' ' && ch != '\\u007f'
+            } } ?: return
+        // Publication already succeeded. The editor receives ONLY this shot
+        // identifier on return, never a private path or MediaStore URI.
+        setResult(Activity.RESULT_OK, Intent().putExtra(EXTRA_SHOT_ID, shotId))
     }
 
     private fun safeFinish() {
