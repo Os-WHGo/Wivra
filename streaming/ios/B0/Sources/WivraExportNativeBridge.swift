@@ -120,7 +120,15 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         if let value = reply.crc32 { out["crc32"] = value }
         if let value = reply.displayName {
             out["displayName"] = value
-            out["location"] = "Wivra (usa Compartir para guardarlo en Fotos o Archivos)"
+            out["location"] = "Wivra (usa Compartir para guardarlo en Archivos u otra app)"
+        }
+        if let value = reply.recordedBytes { out["recordedBytes"] = value }
+        if let value = reply.recordedCrc32 { out["recordedCrc32"] = value }
+        if let value = reply.repair { out["repair"] = value }
+        if let value = reply.repairNote { out["repairNote"] = value }
+        if let m = reply.media {
+            out["media"] = ["container": m.container, "durationMs": m.durationMs, "video": m.video, "audio": m.audio,
+                            "declaresDuration": m.declaresDuration, "seekIndex": m.seekIndex]
         }
         return out
     }
@@ -131,6 +139,10 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         while let presented = top?.presentedViewController { top = presented }
         guard let presenter = top else { return false }
         let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        // "Save Video" (Photos) requires NSPhotoLibraryAddUsageDescription; without that key iOS
+        // terminates the app when tapped. Adding a privacy permission is the owner's decision,
+        // so it is hidden; Files and other apps remain available.
+        sheet.excludedActivityTypes = [.saveToCameraRoll]
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = webView
             popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.maxY - 40, width: 1, height: 1)

@@ -1,5 +1,5 @@
-// Wivra progressive export, iOS storage side (Foundation only: also compiled and
-// exercised on macOS CI by streaming/tests/WivraExportStoreSmoke.swift).
+// Wivra progressive export, iOS storage side (Foundation + AVFoundation via WivraMp4Repair;
+// also compiled and exercised on macOS CI by streaming/tests/WivraExportStoreSmoke.swift).
 //
 // The editor sends MediaRecorder chunks (~1 s) in order; each is appended to a
 // `.partial` file in Application Support and released. finish() checks the
@@ -15,6 +15,12 @@ struct WivraExportReply: Sendable {
     var bytes: Int64?
     var crc32: UInt32?
     var displayName: String?
+    // Verified recording vs delivered file: they differ when the container was repaired.
+    var recordedBytes: Int64?
+    var recordedCrc32: UInt32?
+    var repair: String?
+    var repairNote: String?
+    var media: WivraMp4Repair.Media?
 }
 
 enum WivraExportError: LocalizedError {
@@ -147,7 +153,7 @@ actor WivraExportStore {
         }
     }
 
-    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int) throws -> WivraExportReply {
+    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true) async throws -> WivraExportReply {
         guard let session = sessions.removeValue(forKey: token) else { throw WivraExportError.unknownSession }
         do {
             guard session.seq > 0, session.bytes == bytes, session.seq == chunks, session.crc == crc32 else {
@@ -165,14 +171,47 @@ actor WivraExportStore {
             }
             try? FileManager.default.removeItem(at: session.finalURL)
             try FileManager.default.moveItem(at: session.partialURL, to: session.finalURL)
-            finished[token] = session.finalURL
-            return WivraExportReply(token: token, bytes: diskBytes, crc32: diskCrc,
-                                    displayName: session.finalURL.lastPathComponent)
         } catch {
             try? session.handle.close()
             try? FileManager.default.removeItem(at: session.partialURL)
             throw error
         }
+        // The recording is verified and in place. Repairs below never delete it unless a
+        // verified replacement exists; any failure keeps the verified recording.
+        finished[token] = session.finalURL
+        var method = "none", note = ""
+        if repair && session.mime == "video/mp4" {
+            do {
+                let patched = try WivraMp4Repair.patchFragmented(at: session.finalURL)
+                if patched.changed { method = "mp4-patched" } else { note = patched.reason }
+                let original = await WivraMp4Repair.inspect(session.finalURL)
+                let temp = directory.appendingPathComponent(session.finalURL.lastPathComponent + ".remux.mp4")
+                do {
+                    try await WivraMp4Repair.passthrough(from: session.finalURL, to: temp)
+                    let copy = await WivraMp4Repair.inspect(temp)
+                    if let copy, copy.video, copy.durationMs > 0, !(original?.audio == true && !copy.audio) {
+                        _ = try FileManager.default.replaceItemAt(session.finalURL, withItemAt: temp)
+                        method = "mp4-passthrough"
+                    } else {
+                        try? FileManager.default.removeItem(at: temp)
+                        note = "La copia sin recodificar no conserva las pistas; se entrega el original reparado."
+                    }
+                } catch {
+                    try? FileManager.default.removeItem(at: temp)
+                    note = error.localizedDescription
+                }
+            } catch {
+                note = error.localizedDescription
+            }
+        } else if repair {
+            note = "WebM en iOS: sin reparación nativa (Fotos no importa WebM)."
+        }
+        let finalSize = (try? FileManager.default.attributesOfItem(atPath: session.finalURL.path)[.size] as? NSNumber)?.int64Value ?? diskBytes
+        var reply = WivraExportReply(token: token, bytes: finalSize, crc32: diskCrc, displayName: session.finalURL.lastPathComponent)
+        reply.recordedBytes = diskBytes; reply.recordedCrc32 = diskCrc
+        reply.repair = method; reply.repairNote = note
+        reply.media = await WivraMp4Repair.inspect(session.finalURL)
+        return reply
     }
 
     /// Idempotent: closes and deletes the partial file.

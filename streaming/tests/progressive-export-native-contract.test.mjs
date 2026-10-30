@@ -72,3 +72,24 @@ test('both platforms keep free-space margins and the same 200 MB reserve', () =>
   assert.match(store, /const val MIN_FREE_BYTES = 200L \* 1024 \* 1024/);
   assert.match(iosStore, /static let minimumFreeBytes: Int64 = 200 \* 1024 \* 1024/);
 });
+
+test('container repair: verified recording is never deleted before a verified repaired copy is published', () => {
+  const finish = store.slice(store.indexOf('fun finish('), store.indexOf('private class Repaired'));
+  assert.ok(finish.indexOf('WivraProgressiveExportSession.measure(') < finish.indexOf('repairCopy(context, item, diskBytes)'));
+  assert.match(finish, /if \(ok\) \{\s*try \{ resolver\.delete\(item\.uri, null, null\) \}/);
+  const repair = store.slice(store.indexOf('private fun repairCopy('));
+  assert.match(repair, /WivraWebmSeekable\.blocksCrc\(src, a\) != sourceBlocks/);
+  assert.match(repair, /if \(!copy\.video \|\| copy\.durationMs <= 0/);
+  const iosFinish = iosStore.slice(iosStore.indexOf('func finish('), iosStore.indexOf('func abort('));
+  assert.ok(iosFinish.indexOf('Self.measure(') < iosFinish.indexOf('WivraMp4Repair.patchFragmented'));
+  assert.match(iosFinish, /replaceItemAt\(session\.finalURL, withItemAt: temp\)/);
+  assert.doesNotMatch(read('ios/B0/Sources/WivraMp4Repair.swift'), /AVAssetExportPreset(High|Medium|Low|\d)/);   // passthrough only, never re-encode
+});
+
+test('shells allow programmatic playback of local clips for export, and iOS hides Save Video without a privacy key', () => {
+  assert.match(main, /settings\.setMediaPlaybackRequiresUserGesture\(false\);/);
+  assert.match(iosScreen, /configuration\.mediaTypesRequiringUserActionForPlayback = \[\]/);
+  assert.match(iosScreen, /configuration\.allowsInlineMediaPlayback = true/);
+  const plist = read('ios/B0/Info.plist');
+  if (!/NSPhotoLibraryAddUsageDescription/.test(plist)) assert.match(iosBridge, /excludedActivityTypes = \[\.saveToCameraRoll\]/);
+});

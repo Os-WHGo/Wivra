@@ -83,6 +83,39 @@ struct WivraExportStoreSmoke {
         let after = try FileManager.default.contentsOfDirectory(atPath: folder.path).count
         precondition(after == before)
 
-        print("Wivra iOS progressive export store smoke: OK (7 scenarios, synthetic data, macOS)")
+        // 8) Real fragmented MP4 recordings (duration 0, no index) become playable with real duration.
+        let fixtures = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("app/tests/fixtures/mediarecorder", isDirectory: true)
+        for (name, mime, expectedMs) in [("ffmpeg-h264-aac-fragmented.mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", 2023.0),
+                                         ("chromium-avc1-opus-fragmented.mp4", "video/mp4;codecs=avc1,opus", 2214.0)] {
+            let data = try Data(contentsOf: fixtures.appendingPathComponent(name))
+            // In-place patch alone, on a copy: measured duration must match the JS implementation.
+            let copy = folder.appendingPathComponent("patch-" + name)
+            try data.write(to: copy)
+            let patched = try WivraMp4Repair.patchFragmented(at: copy)
+            precondition(abs(patched.durationMs - expectedMs) < 2, "\(name) duration \(patched.durationMs)")
+            let afterPatch = await WivraMp4Repair.inspect(copy)
+            print("iOS repair \(name): patch durationMs=\(Int(patched.durationMs)) indexAdded=\(patched.indexAdded) avfoundation=\(String(describing: afterPatch))")
+            // Full store flow: chunks -> verified recording -> repair -> AVFoundation inspection.
+            let started = try await store.begin(mime: mime, estimatedBytes: Int64(data.count))
+            var c: UInt32 = 0, seq = 0
+            for off in stride(from: 0, to: data.count, by: 16_384) {
+                let part = data.subdata(in: off..<min(off + 16_384, data.count))
+                _ = try await store.append(token: started.token!, seq: seq, data: part); c = WivraCRC32.update(c, part); seq += 1
+            }
+            let reply = try await store.finish(token: started.token!, bytes: Int64(data.count), crc32: c, chunks: seq)
+            print("iOS store \(name): repair=\(reply.repair ?? "-") note=\(reply.repairNote ?? "") bytes=\(reply.bytes ?? 0) media=\(String(describing: reply.media))")
+            precondition(reply.recordedBytes == Int64(data.count) && reply.recordedCrc32 == c)
+            precondition(["mp4-passthrough", "mp4-patched"].contains(reply.repair ?? ""), "repair must at least patch")
+            if name.hasPrefix("ffmpeg") {
+                precondition(reply.repair == "mp4-passthrough", "H.264+AAC must become a regular MP4")
+                guard let m = reply.media else { preconditionFailure("AVFoundation must read the export") }
+                precondition(m.video && m.audio && abs(Double(m.durationMs) - expectedMs) < 150, "media \(m)")
+            }
+            let delivered = await store.savedURL(token: started.token!)
+            precondition(delivered.map { FileManager.default.fileExists(atPath: $0.path) } == true, "delivered file must exist")
+        }
+
+        print("Wivra iOS progressive export store smoke: OK (8 scenarios, synthetic + real MediaRecorder MP4, macOS)")
     }
 }
