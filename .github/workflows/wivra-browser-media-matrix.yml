@@ -8,6 +8,13 @@ on:
       - tools/browser-long-multipart-export.cjs
       - app/export.mjs
       - .github/workflows/wivra-browser-media-matrix.yml
+  pull_request:
+    paths:
+      - tools/browser-media-capability-probe.cjs
+      - tools/browser-export-roundtrip.cjs
+      - tools/browser-long-multipart-export.cjs
+      - app/export.mjs
+      - .github/workflows/wivra-browser-media-matrix.yml
   workflow_dispatch:
 permissions:
   contents: read
