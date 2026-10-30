@@ -315,7 +315,7 @@ public final class MainActivity extends Activity {
                     "if(!shootPlan||!Array.isArray(shootPlan.shots))return;" +
                     "const shot=shootPlan.shots.find(s=>s.id===" + id + ");" +
                     "if(!shot||(shot.state!=='todo'&&shot.state!=='retry'))return;" +
-                    "shootPlan=updateShot(shootPlan," + id + ",{state:'done'});" +
+                    "shootPlan=updateShot(shootPlan," + id + ",{state:'done'},{project:session.project});" +
                     "saveShootPlan();renderShootPlan();" +
                     "}catch(e){}})();";
                 editor.evaluateJavascript(update, null);
