@@ -276,10 +276,10 @@ public final class MainActivity extends Activity {
                 .setTitle(R.string.phone_camera_choose_shot)
                 .setItems(options, (dialog, index) -> {
                     Intent launch = new Intent(this, targetActivity);
-                    pendingDirectorShotId = null;
-                    pendingDirectorProjectId = null;
                     priorDirectorVideoIds = null;
                     clearDirectorVideoSuggestion();
+                    pendingDirectorShotId = null;
+                    pendingDirectorProjectId = null;
                     if (index > 0) {
                         org.json.JSONObject shot = safeShots.optJSONObject(index - 1);
                         if (shot != null) {
