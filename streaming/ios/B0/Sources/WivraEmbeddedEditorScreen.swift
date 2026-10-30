@@ -84,8 +84,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         // A capture requires a manifest AND a video (and optional CAF tracks),
         // so it is only offered for multi-file input elements.
         if offerCaptureBundles {
-            // A searchable table avoids a giant action sheet after many takes.
-            // Keep the original Files fallback for external media.
+            // Keep the first action sheet compact; recordings are selected in
+            // a separate browser. The system Files fallback remains available.
             sheet.addAction(UIAlertAction(title: "Grabaciones de Wivra (\(ready.count))", style: .default) { [weak self, weak presenter] _ in
                 guard let self, let presenter else { self?.finishSelection(nil); return }
                 let browser = UIAlertController(title: "Elegir grabación", message: "Selecciona una toma local para importar.", preferredStyle: .actionSheet)
