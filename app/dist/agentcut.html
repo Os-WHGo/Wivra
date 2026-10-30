@@ -4954,6 +4954,7 @@ async function importCapture(files) {
   let captureCommitted = false;
   // A capture must not silently attach to a different project after awaits.
   const captureSession = session;
+  let stagingSession = session;
   loading = true; stopPlayIfAny();
   try {
     const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
@@ -4993,6 +4994,7 @@ async function importCapture(files) {
         const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
         media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; stagedAssetIDs.push(id); keepFile(id, f, kind);
         session ||= new Session(createProject({ assets: [] }));
+        stagingSession = session;
         session.addAsset({ id, duration: pr.duration, name: f.name }); importedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
     };
@@ -5014,6 +5016,7 @@ async function importCapture(files) {
             const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
             media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; stagedAssetIDs.push(id); keepFile(id, nf, 'audio');
             session ||= new Session(createProject({ assets: [] }));
+            stagingSession = session;
             session.addAsset({ id, duration: pr.duration, name: nf.name }); importedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
           }
         } catch (e) { failed.push(`${t.file}: ${e.message}`); }
@@ -5065,7 +5068,7 @@ async function importCapture(files) {
     if (stagedAssetIDs.length) {
       // Session.addAsset copies metadata to all undo/redo snapshots. Remove
       // only assets not referenced by a clip in ANY snapshot.
-      const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
+      const states = stagingSession ? [stagingSession.project, ...stagingSession.undoStack, ...stagingSession.redoStack] : [];
       const referenced = new Set(states.flatMap(p => ['clips','overlayClips','audioClips']
         .flatMap(k => (p[k] || []).map(c => c.asset_id))));
       const unreferenced = new Set(stagedAssetIDs.filter(id => !referenced.has(id) && (!captureCommitted || !importedAssetIDs.includes(id))));
@@ -5078,7 +5081,7 @@ async function importCapture(files) {
         delete media[id];
         delete mediaFiles[id];
       }
-      if (session && !previousSession && !session.project.assets.length &&
+      if (session && session === stagingSession && !previousSession && !session.project.assets.length &&
           !['clips','overlayClips','audioClips'].some(k => (session.project[k] || []).length)) {
         session = null;
       }
@@ -5117,6 +5120,7 @@ async function importSelectedFiles(files) {
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   const previousSession = session;
   const importSession = session;
+  let stagingSession = session;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [], staged = [];
   let committed = false;
@@ -5124,7 +5128,7 @@ async function importSelectedFiles(files) {
     if (staged.length) {
     // Failed edits may still leave staged metadata in undo/redo snapshots.
     // Reclaim only assets not used by ANY timeline state.
-    const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
+    const states = stagingSession ? [stagingSession.project, ...stagingSession.undoStack, ...stagingSession.redoStack] : [];
     const referenced = new Set(states.flatMap(p => ['clips', 'overlayClips', 'audioClips']
       .flatMap(k => (p[k] || []).map(c => c.asset_id))));
     const unused = new Set(staged.filter(id => !referenced.has(id) && (!committed || !added.includes(id))));
@@ -5137,7 +5141,7 @@ async function importSelectedFiles(files) {
       delete media[id];
       delete mediaFiles[id];
     }
-    if (session && !previousSession && !session.project.assets.length &&
+    if (session && session === stagingSession && !previousSession && !session.project.assets.length &&
         !['clips', 'overlayClips', 'audioClips'].some(k => (session.project[k] || []).length)) session = null;
   }
   };
@@ -5152,6 +5156,7 @@ async function importSelectedFiles(files) {
       keepFile(id, f, photo ? 'image' : 'video');
       if (photo) { await prepGif(id, f); makePhotoThumb(id); }
       if (!session) session = new Session(createProject({ assets: [] }));
+      stagingSession = session;
       session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
