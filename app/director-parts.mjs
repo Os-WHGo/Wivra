@@ -2,9 +2,15 @@
 // Never infer session membership from gallery time or file-list ordering.
 const NAME=/^Wivra_RayBan_[0-9]{10,16}_([0-9a-f]{32})_part([0-9]{4})\.mp4$/;
 export const MAX_DIRECTOR_PARTS=40;
+// One Director take can accumulate many independent 30-second MP4 parts.
+// Only a bounded batch is decoded/imported at once to protect mobile memory.
+export const MAX_SHOT_PARTS=1440;
 
-export function validateRayBanParts(files) {
- if(!Array.isArray(files)||files.length<2||files.length>MAX_DIRECTOR_PARTS)
+export function validateRayBanParts(files,{nextPart=1,expectedSessionId=null}={}) {
+ if(!Number.isSafeInteger(nextPart)||nextPart<1||nextPart>MAX_SHOT_PARTS||
+    (expectedSessionId!==null&&!/^[0-9a-f]{32}$/.test(expectedSessionId))||
+    !Array.isArray(files)||files.length<(nextPart===1?2:1)||
+    files.length>MAX_DIRECTOR_PARTS||nextPart+files.length-1>MAX_SHOT_PARTS)
   return {ok:false,reason:'Selecciona entre 2 y 40 segmentos de una sola grabación Ray-Ban.'};
  const parts=[],seen=new Set();
  let session=null;
@@ -14,13 +20,14 @@ export function validateRayBanParts(files) {
   const match=NAME.exec(file.name);
   if(!match)return {ok:false,reason:'Solo se aceptan segmentos MP4 con identificador de sesión Ray-Ban.'};
   const [,id,number]=match,part=Number(number);
-  if(!part||seen.has(part)||session!==null&&session!==id)
+  if(!part||seen.has(part)||session!==null&&session!==id||
+     expectedSessionId!==null&&id!==expectedSessionId)
    return {ok:false,reason:'Hay segmentos repetidos o de distintas sesiones.'};
   session=id;seen.add(part);
   parts.push({file,part});
  }
  parts.sort((a,b)=>a.part-b.part);
- if(parts.some((item,i)=>item.part!==i+1))
+ if(parts.some((item,i)=>item.part!==nextPart+i))
   return {ok:false,reason:'Falta un segmento anterior o intermedio. No se importó la toma incompleta.'};
  return {ok:true,sessionId:session,files:parts.map(x=>x.file)};
 }
@@ -36,7 +43,7 @@ export function restoreDirectorAssetLinks(shot,projectIds,availableIds) {
  if(!shot||!projectIds||!availableIds) return empty;
  const raw=Array.isArray(shot.assetIds) ? shot.assetIds :
    (typeof shot.assetId==='string'&&shot.assetId ? [shot.assetId] : []);
- if(raw.length<1||raw.length>MAX_DIRECTOR_PARTS ||
+ if(raw.length<1||raw.length>MAX_SHOT_PARTS ||
     new Set(raw).size!==raw.length ||
     raw.some(id=>typeof id!=='string'||!projectIds.has(id)||!availableIds.has(id)))
    return empty;
@@ -56,4 +63,24 @@ export function rayBanPartPositions(durations, start=0) {
  const starts=[];let cursor=start;
  for(const duration of durations){starts.push(cursor);cursor+=duration}
  return {starts,end:cursor,total:cursor-start};
+}
+
+/**
+ * Inspect the FIRST already imported batch without reopening its video bytes.
+ * Metadata must still describe parts 0001..N of exactly one Ray-Ban session.
+ * A regular video cannot be accidentally appended to a Ray-Ban recording.
+ */
+export function rayBanContinuation(shot,project) {
+ const ids=Array.isArray(shot?.assetIds)&&shot.assetIds.length
+   ? shot.assetIds : (shot?.assetId?[shot.assetId]:[]);
+ if(!ids.length||ids.length>=MAX_SHOT_PARTS||new Set(ids).size!==ids.length||
+    !Array.isArray(project?.assets))return null;
+ const lookup=new Map(project.assets.map(a=>[a.id,a.name]));
+ let id=null;
+ for(let i=0;i<ids.length;i++){
+   const name=lookup.get(ids[i]),match=typeof name==='string'?NAME.exec(name):null;
+   if(!match||Number(match[2])!==i+1||(id!==null&&id!==match[1]))return null;
+   id=match[1];
+ }
+ return {sessionId:id,nextPart:ids.length+1,assetIds:[...ids]};
 }
