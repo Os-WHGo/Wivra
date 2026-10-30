@@ -154,3 +154,10 @@ test('Director rejects multiple camera files before timeline import and snapshot
   assert.match(handler, /directorShotId=selectedShootId, directorPlan=shootPlan/);
   assert.match(handler, /selectedShootId!==directorShotId \|\| shootPlan!==directorPlan/);
 });
+
+test('Director keeps shot pending when no imported asset was committed', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(!added\) \{/);
+  assert.match(handler, /Director conserva la toma pendiente/);
+  assert.ok(handler.indexOf('if(!added)') < handler.indexOf('updateShot('));
+});
