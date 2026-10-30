@@ -17,6 +17,15 @@ test('video must finish privately before user opts into gallery storage', () => 
   assert.match(recorder, /local\.delete\(\)\s*\n\s*uri/);
 });
 
+test('multiple checkpoint parts publish under distinct names without overwriting local originals', () => {
+  assert.match(recorder, /val safePartId = local\.nameWithoutExtension/);
+  assert.match(recorder, /\.removePrefix\("wivra_rayban_"\)/);
+  assert.match(recorder, /"_" \+ safePartId \+ "\.mp4"/);
+  assert.match(recorder, /MediaStore\.Video\.Media\.IS_PENDING, 1/);
+  assert.match(recorder, /MediaStore\.Video\.Media\.IS_PENDING, 0/);
+  assert.match(recorder, /if \(!isPending\(context, local\) \|\| local\.length\(\) <= 0L\) return null/);
+});
+
 test('no automatic deletion on dismiss and explicit two-step discard', () => {
   assert.match(activity, /private fun offerPendingVideo\(\)/);
   assert.match(activity, /\.setNegativeButton\(R\.string\.recording_discard\)[\s\S]*?confirmDiscardPending\(pending\)/);
