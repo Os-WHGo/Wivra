@@ -31,6 +31,7 @@ public final class MainActivity extends Activity {
     private Uri suggestedDirectorVideo;
     private String suggestedDirectorShotId;
     private String suggestedDirectorProjectId;
+    private boolean suggestedDirectorRayBan;
     private boolean pendingDirectorRayBan;
     private ValueCallback<Uri[]> pendingFilePicker;
     private WebView editor;
@@ -443,6 +444,7 @@ public final class MainActivity extends Activity {
                             suggestedDirectorVideo = published;
                             suggestedDirectorShotId = expected;
                             suggestedDirectorProjectId = expectedProject;
+                            suggestedDirectorRayBan = rayBan;
                         }
                     }
                 });
