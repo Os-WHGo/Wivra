@@ -25,6 +25,14 @@ test('each video-only MOV begins on a keyframe and checkpoints close at a safe b
   assert.match(unit, /guard Self\.isHEVCKeyframe\(buffer\)/);
 });
 
+test('iPhone reconnects only with a fresh DAT session after pending MOV finalization', () => {
+  assert.match(model, /isRegistered && deviceSession == nil && camera == nil &&/);
+  assert.match(model, /\(sessionState == \.idle \|\| sessionState == \.stopped\)/);
+  assert.match(model, /!recordingArmed && !recordingFinishing/);
+  assert.match(model, /if state == \.stopped \{[\s\S]*?self\.deviceSession = nil/);
+  assert.match(model, /func startSession\(\) \{\s*guard canStartSession/);
+});
+
 test('iPhone ignores initial DAT STOPPED and finalizes on terminal session loss', () => {
   assert.match(model, /private var streamEverActive = false/);
   assert.match(model, /if state == \.streaming \{ self\.streamEverActive = true \}/);
