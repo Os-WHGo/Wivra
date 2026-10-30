@@ -27,9 +27,9 @@ test('generic import does not report success after a rejected timeline edit', ()
 
 test('failed generic import releases only unreferenced staged media', () => {
   assert.match(generic, /let committed = false/);
-  assert.match(generic, /if \(!committed && added\.length && session\)/);
+  assert.match(generic, /if \(staged\.length\)/);
   assert.match(generic, /session\.undoStack, \.\.\.session\.redoStack/);
-  assert.match(generic, /added\.filter\(id => !referenced\.has\(id\)\)/);
+  assert.match(generic, /staged\.filter\(id => !referenced\.has\(id\)/);
   assert.match(generic, /URL\.revokeObjectURL\(url\)/);
   assert.match(generic, /delete mediaFiles\[id\]/);
 });
@@ -47,4 +47,11 @@ test('Director only binds an imported asset when the result is unambiguous', () 
   assert.match(generic, /newAssets\.length===1 \? newAssets\[0\] : null/);
   assert.match(generic, /newAssets\.length>1 && shootPlan && selectedShootId/);
   assert.match(generic, /assetId:added\.id/);
+});
+
+test('failed photo preparation is staged but not treated as successfully imported', () => {
+  assert.match(generic, /const failed = \[\], added = \[\], staged = \[\]/);
+  assert.ok(generic.indexOf('staged.push(id)') < generic.indexOf('await prepGif(id, f)'));
+  assert.ok(generic.indexOf('await prepGif(id, f)') < generic.indexOf('added.push(id)'));
+  assert.match(generic, /!committed \|\| !added\.includes\(id\)/);
 });
