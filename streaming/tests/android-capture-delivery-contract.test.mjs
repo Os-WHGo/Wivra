@@ -79,7 +79,7 @@ test('screen-off HEVC processing uses a short renewable CPU lease only for confi
   assert.match(service, /fun isCaptureActive\(\)[\s\S]*?CaptureState.PAUSED/);
   assert.match(service, /val captureProgress: StateFlow<CaptureProgress>/);
   assert.match(activity, /WivraCaptureForegroundService\.captureProgress\.collect/);
-  assert.match(service, /if \(state == StreamState.PAUSED && !finishing\)/);
+  assert.match(service, /StreamState\.PAUSED -> \{\s*if \(!finishing\) setCaptureState\(CaptureState\.PAUSED\)/);
   assert.match(service, /setCaptureState\(CaptureState.FINALIZING\)[\s\S]*?abandoned.finishToPending\(\)[\s\S]*?setCaptureState\(CaptureState.IDLE\)/);
 });
 
