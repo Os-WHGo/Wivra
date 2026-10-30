@@ -2083,13 +2083,23 @@ async function loudnessPlan(project, level) {
   return pl.ok ? pl : { why: 'No hay sonido que medir: se exporta con el volumen original.' };
 }
 $('expGo').onclick = async () => {
-  if (expBusy) return; expBusy = true; expCancel = false; stopPlayIfAny();
+  if (expBusy || !session) return;
+  if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
+  const exportSession = session;
+  const exportRevision = session.project.revision;
+  expBusy = true; expCancel = false; stopPlayIfAny();
   $('expGo').style.display = 'none'; $('expBar').style.display = 'block'; $('expDone').style.display = 'none'; $('expMsg').textContent = '';
   try {
     let loud = null; const level = $('expLoud').value;
     if (level !== 'off') { $('expMsg').className = 'm'; $('expMsg').textContent = 'Midiendo el volumen…'; try { loud = await loudnessPlan(session.project, level); } catch { loud = { why: 'No se pudo medir el volumen: se exporta con el volumen original.' }; } $('expMsg').textContent = ''; }
     if (expCancel) { $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
-    const r = await recordProject({ project: session.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
+    if (session !== exportSession || session.project.revision !== exportRevision || pzMissing.length) {
+      $('expBar').style.display = 'none'; $('expGo').style.display = 'block';
+      $('expMsg').className = 'bad';
+      $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
+      return;
+    }
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.audioBlocked) {
