@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- LIVE is full Wivra only. Not included in Wivra Capture. Explicit
+             user confirmation is mandatory before any public transmission. -->
+        <activity android:name=".WivraPhoneLiveActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+    </application>
+</manifest>
