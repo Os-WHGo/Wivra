@@ -275,9 +275,9 @@ public final class MainActivity extends Activity {
             new AlertDialog.Builder(this)
                 .setTitle(R.string.phone_camera_choose_shot)
                 .setItems(options, (dialog, index) -> {
-                    Intent launch = new Intent(this, targetActivity);
                     priorDirectorVideoIds = null;
                     clearDirectorVideoSuggestion();
+                    Intent launch = new Intent(this, targetActivity);
                     pendingDirectorShotId = null;
                     pendingDirectorProjectId = null;
                     if (index > 0) {
