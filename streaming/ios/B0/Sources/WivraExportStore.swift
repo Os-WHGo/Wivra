@@ -235,7 +235,9 @@ actor WivraExportStore {
         let active = Set(sessions.values.map { $0.partialURL.standardizedFileURL })
         let items = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         var removed = 0
-        for url in items where url.lastPathComponent.hasPrefix("Wivra_Export_") && url.pathExtension == "partial" {
+        // `.partial` = interrupted recording; `.remux.mp4` = interrupted AVFoundation copy.
+        for url in items where url.lastPathComponent.hasPrefix("Wivra_Export_") &&
+            (url.pathExtension == "partial" || url.lastPathComponent.hasSuffix(".remux.mp4")) {
             if active.contains(url.standardizedFileURL) { continue }
             if (try? FileManager.default.removeItem(at: url)) != nil { removed += 1 }
         }
