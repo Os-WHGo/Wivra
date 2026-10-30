@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateRayBanParts,restoreDirectorAssetLinks} from '../director-parts.mjs';
+import {validateRayBanParts,restoreDirectorAssetLinks,rayBanPartPositions} from '../director-parts.mjs';
 
 const session='abcdef0123456789abcdef0123456789';
 const part=(n,id=session)=>({
@@ -49,4 +49,30 @@ test('restore fails closed on corrupt primary, duplicates and foreign identifier
    {assetId:'a1',assetIds:['a1','unknown']},
    {assetIds:['a1',null]},
  ]) assert.deepEqual(restoreDirectorAssetLinks(record,project,files),{assetId:null,assetIds:[]});
+});
+
+test('40 independently recorded Ray-Ban MP4 cuts preserve exact source durations',async()=>{
+ const durations=Array.from({length:40},(_,i)=>30.003+(i%3)*0.0002);
+ const p=rayBanPartPositions(durations,5.125);
+ assert.equal(p.starts.length,40);
+ assert.equal(p.starts[0],5.125);
+ assert.equal(p.starts[1],5.125+durations[0]);
+ for(let i=1;i<p.starts.length;i++)
+   assert.ok(Math.abs((p.starts[i-1]+durations[i-1])-p.starts[i])<1e-9);
+ assert.ok(Math.abs((p.end-5.125)-durations.reduce((a,b)=>a+b,0))<1e-8);
+ const {validateMainVideoExport,exportPlan}=await import('../export.mjs');
+ const clips=durations.map((duration,i)=>({
+   id:'rayban-'+i,asset_id:'part-'+i,start:p.starts[i],in:0,out:duration
+ }));
+ assert.deepEqual(validateMainVideoExport({clips}),{ok:true});
+ assert.ok(Math.abs(exportPlan({clips,texts:[]}).total-p.end)<1e-8);
+});
+
+test('multipart positions reject invalid lengths without touching existing video',()=>{
+ for(const args of [
+   [[],0],[[30,-1],0],[[NaN],0],[[Infinity],0],[[1],-2],
+   [Array.from({length:41},()=>30),0]
+ ]) assert.throws(()=>rayBanPartPositions(...args));
+ const p=rayBanPartPositions([0.2,0.3,0.4],0);
+ assert.deepEqual(p.starts,[0,0.2,0.5]);
 });
