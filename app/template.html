@@ -1276,16 +1276,16 @@ async function importSelectedFiles(files) {
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   const previousSession = session;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
-  const failed = [], added = [];
+  const failed = [], added = [], staged = [];
   let committed = false;
   const cleanupUncommitted = () => {
-    if (!committed && added.length) {
+    if (!committed && staged.length) {
     // Failed edits may still leave staged metadata in undo/redo snapshots.
     // Reclaim only assets not used by ANY timeline state.
     const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
     const referenced = new Set(states.flatMap(p => ['clips', 'overlayClips', 'audioClips']
       .flatMap(k => (p[k] || []).map(c => c.asset_id))));
-    const unused = new Set(added.filter(id => !referenced.has(id)));
+    const unused = new Set(staged.filter(id => !referenced.has(id)));
     for (const state of states) state.assets = state.assets.filter(a => !unused.has(a.id));
     for (const id of unused) {
       const url = media[id]?.url;
@@ -1306,10 +1306,10 @@ async function importSelectedFiles(files) {
       const m = photo ? await probeImage(f) : await probe(f); const id = 'a' + (++assetSeq);
       media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 }; keepFile(id, f, photo ? 'image' : 'video');
       // Register immediately so GIF preparation failures also release staged resources.
-      added.push(id);
+      staged.push(id);
       if (photo) { await prepGif(id, f); makePhotoThumb(id); }
       if (!session) session = new Session(createProject({ assets: [] }));
-      session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) });
+      session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
   if (added.length) {
