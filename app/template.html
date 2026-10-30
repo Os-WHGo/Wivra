@@ -1286,7 +1286,7 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   }
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
-let loading = false, directorMultipartBatch = null;
+let loading = false, directorMultipartBatch = null, directorMultipartInsertAt = null;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
   const requireAll = files === directorMultipartBatch;
@@ -1364,8 +1364,9 @@ async function importSelectedFiles(files) {
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
-    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
-    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = requireAll&&directorMultipartInsertAt!==null
+      ? directorMultipartInsertAt : cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
+    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - (requireAll ? 1e-9 : 0.001)).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
     const exactParts = requireAll ? rayBanPartPositions(added.map(mainLen),at) : null;
     let start = at; const insertedAt = at;
     const ops = [...shifts, ...added.map((id, partIndex) => { const pos = requireAll ? exactParts.starts[partIndex] : round2(start); const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: pos }; start += mainLen(id); return o; })];
@@ -1457,11 +1458,16 @@ $('directorParts').addEventListener('change',async()=>{
  const group=validateRayBanParts(selected,continuation
    ? {nextPart:continuation.nextPart,expectedSessionId:continuation.sessionId}:{});
  if(!group.ok){say(group.reason,'bad');return}
+ const appendAt=continuation?rayBanAppendAt(continuation.assetIds,session.project):null;
+ if(continuation&&appendAt===null){
+   say('Se modificó o movió algún segmento anterior. Revisa su orden antes de añadir otros.','bad');return;
+ }
  const previousSession=session,plan=shootPlan,shotId=selectedShootId,projectId=pzPid;
  const previous=new Set(session.project.assets.map(a=>a.id));
  directorMultipartBatch=group.files;
+ directorMultipartInsertAt=appendAt;
  try { await importSelectedFiles(group.files); }
- finally { directorMultipartBatch=null; }
+ finally { directorMultipartBatch=null; directorMultipartInsertAt=null; }
  if(session!==previousSession||shootPlan!==plan||selectedShootId!==shotId||pzPid!==projectId){
    say('El proyecto cambió durante la importación. No se asociaron los segmentos.','bad');return;
  }
@@ -1473,7 +1479,7 @@ $('directorParts').addEventListener('change',async()=>{
  try{
    shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:[...(continuation?.assetIds||[]),...added.map(a=>a.id)]},{project:session.project});
    saveShootPlan();renderShootPlan();
-   say('Todos los segmentos Ray-Ban están asociados en orden a la toma.','ok');
+   say('Tanda Ray-Ban asociada en orden. Si hay más segmentos, importa la siguiente tanda.','ok');
  }catch(e){say('No se pudieron asociar los segmentos: '+e.message,'bad')}
 });
 
