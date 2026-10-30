@@ -1125,7 +1125,12 @@ async function importCapture(files) {
   let captureCommitted = false;
   loading = true; stopPlayIfAny();
   try {
-    const mf = files.find(f => /\.json$/i.test(f.name));
+    const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
+    if (manifests.length !== 1) {
+      say('Selecciona exactamente un manifiesto .wivra.json por captura. No se modificó la línea de tiempo.', 'bad');
+      return;
+    }
+    const mf = manifests[0];
     if (!mf) { say('Elige también el archivo .wivra.json de la captura, junto con su video y sus audios.', 'bad'); return; }
     if (!(mf.size > 0) || mf.size > 128 * 1024) { say('El manifiesto debe medir entre 1 byte y 128 KB.', 'bad'); return; }
     const r = parseManifest(await mf.text());
