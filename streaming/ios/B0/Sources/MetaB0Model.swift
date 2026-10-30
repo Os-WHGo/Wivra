@@ -82,6 +82,9 @@ final class MetaB0Model {
     private var firstFrameTime: CFTimeInterval?
     private var framesThisSecond = 0
     private var lastCountTime: CFTimeInterval?
+    // Initial .stopped is a valid SDK stream state before start(). Only a
+    // previously active stream or a user-requested stop is terminal.
+    private var streamEverActive = false
 
     init(wearables: any WearablesInterface = Wearables.shared) {
         self.wearables = wearables
@@ -482,6 +485,14 @@ final class MetaB0Model {
                     guard let self else { return }
                     self.sessionState = state
                     if state == .stopped {
+                        // Glasses can disconnect while HEVC/CAF is armed.
+                        // Finalize the last MOV before abandoning DAT rather
+                        // than leaving only an unreviewable .writing file.
+                        if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingStatus =
+                                "Conexión Ray-Ban terminada. Guardando el último fragmento MOV."
+                            Task { await self.finishRecording() }
+                        }
                         self.clearPreview()
                         self.sessionTokens.clear()
                         self.deviceSession = nil
@@ -556,13 +567,22 @@ final class MetaB0Model {
 
             stream.statePublisher.listen { [weak self] state in
                 Task { @MainActor [weak self] in
-                    self?.streamState = state
-                    if state == .stopped {
-                        if self?.recordingArmed == true {
-                            Task { await self?.finishRecording() }
+                    guard let self else { return }
+                    let wasStopping = self.streamState == .stopping
+                    if state == .streaming { self.streamEverActive = true }
+                    // The SDK's initial .stopped emission is not a terminal
+                    // failure. Do not tear down a new camera before start().
+                    if state == .stopped &&
+                        (self.streamEverActive || wasStopping) {
+                        if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingStatus =
+                                "Transmisión Ray-Ban finalizada. Cerrando MOV pendiente."
+                            Task { await self.finishRecording() }
                         }
-                        self?.camera?.stop()
-                        self?.clearPreview()
+                        self.camera?.stop()
+                        self.clearPreview()
+                    } else if state != .stopped {
+                        self.streamState = state
                     }
                 }
             }.store(in: streamTokens)
@@ -699,6 +719,7 @@ final class MetaB0Model {
     }
 
     private func clearPreview() {
+        streamEverActive = false
         streamTokens.clear()
         if photoCaptureInFlight {
             photoCaptureStatus = "Fotografía interrumpida: se cerró la vista previa."
