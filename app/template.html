@@ -1368,7 +1368,7 @@ async function importSelectedFiles(files) {
     const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
     const exactParts = requireAll ? rayBanPartPositions(added.map(mainLen),at) : null;
     let start = at; const insertedAt = at;
-    const ops = [...shifts, ...added.map((id, partIndex) => { const pos = requireAll ? exactParts.starts[partIndex] : round2(start); const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: pos, duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: pos }; start += mainLen(id); return o; })];
+    const ops = [...shifts, ...added.map((id, partIndex) => { const pos = requireAll ? exactParts.starts[partIndex] : round2(start); const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: pos }; start += mainLen(id); return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
     const result = first ? run(ops) : edit(ops, { ripple: false });
