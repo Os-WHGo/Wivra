@@ -99,3 +99,16 @@ test('finalization requires a native verification callback', async () => {
   await assert.rejects(session.stop('unverified'), /verification required for finalization/);
   assert.equal((await session.snapshot('unverified')).state, 'failed');
 });
+
+test('finalization rechecks earlier interrupted fragments as well as new output', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'interrupted', platform: 'android' });
+  await session.interrupted('interrupted', 'connection lost', { file: 'earlier.mp4', startMs: 0, endMs: 1000, confirmed: true });
+  await session.resumed('interrupted');
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [{ file: 'later.mp4', startMs: 1000, endMs: 2000, confirmed: true }] });
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'earlier.mp4'; };
+  await assert.rejects(session.stop('interrupted'), /verification required for finalization/);
+  assert.deepEqual(checked, ['full.mp4', 'earlier.mp4']);
+  assert.equal((await session.snapshot('interrupted')).state, 'failed');
+});
