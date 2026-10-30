@@ -33,3 +33,9 @@ test('failed generic import releases only unreferenced staged media', () => {
   assert.match(generic, /URL\.revokeObjectURL\(url\)/);
   assert.match(generic, /delete mediaFiles\[id\]/);
 });
+
+test('rejected timeline insertion invokes cleanup before returning', () => {
+  const rejected = generic.slice(generic.indexOf('if (!result.ok) {'), generic.indexOf('committed = true;'));
+  assert.match(rejected, /cleanupUncommitted\(\)/);
+  assert.ok(rejected.indexOf('cleanupUncommitted()') < rejected.indexOf('return;'));
+});
