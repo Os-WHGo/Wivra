@@ -30,6 +30,8 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
         const caps = await this.capabilities();
         if (!caps.rayban) throw new Error('Ray-Ban native capture unavailable');
         if (!caps.lockedScreen) throw new Error('Locked-screen capture not supported by this host');
+        // A capability probe is not permission to overwrite an existing
+        // durable session, including one left after a previous crash.
         await store.start({ id, platform, startedAt: timestamp() });
         active = { id, platform };
         try {
@@ -110,7 +112,9 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
         }
       });
     },
-    async pending() { return store.recoverPending(); },
+    async pending() {
+      return locked(async () => store.recoverPending());
+    },
     // A pending journal is metadata, not proof that an MP4 exists on disk.
     // Only a finalized session with an explicitly confirmed native file may
     // be handed to Director; the host must verify the physical media itself.
