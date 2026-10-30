@@ -263,7 +263,8 @@ public final class MainActivity extends Activity {
                                 launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_SCRIPT, script);
                             }
                             String id = shot.optString("id", "");
-                            if (id.length() > 0 && id.length() <= 120) {
+                            if (id.length() > 0 && id.length() <= 120 &&
+                                id.chars().allMatch(ch -> ch >= 32 && ch != 127)) {
                                 launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID, id);
                                 pendingDirectorShotId = id;
                                 startActivityForResult(launch, DIRECTOR_CAPTURE_REQUEST);
