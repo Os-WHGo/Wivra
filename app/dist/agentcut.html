@@ -1875,6 +1875,15 @@ function androidExportHost(obj, { requestMs = EXPORT_SINK_REQUEST_MS } = {}) {
       ? send((id) => encodeExportFrame(id, token, seq, bytes))
       : send((id) => JSON.stringify({ v: EXPORT_SINK_PROTOCOL, rid: id, op: 'chunk', token, seq, size: bytes.length, b64: bytesToBase64(bytes) })),
     async hello() { const r = await host.request({ op: 'hello' }); binary = r.arrayBuffer === true; return r; },
+    /** Binary path: header + chunk built in ONE allocation straight from the Blob (no extra copy);
+     * `bytes` is a view of the payload inside the frame, used for the CRC. rid is set at send time. */
+    async readChunk(blob, token, seq) {
+      if (!binary) { const bytes = new Uint8Array(await blob.arrayBuffer()); return { bytes, send: () => host.sendChunk({ token, seq, bytes }) }; }
+      const head = new ArrayBuffer(EXPORT_FRAME_HEADER), view = new DataView(head);
+      view.setUint32(0, EXPORT_FRAME_MAGIC, true); view.setUint32(8, token >>> 0, true); view.setUint32(12, seq >>> 0, true);
+      const frame = await new Blob([head, blob]).arrayBuffer();
+      return { bytes: new Uint8Array(frame, EXPORT_FRAME_HEADER), send: () => send((id) => { new DataView(frame).setUint32(4, id >>> 0, true); return frame; }) };
+    },
   };
   return host;
 }
@@ -1935,10 +1944,11 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
       if (queuedBytes > maxQueuedBytes) return fail(new Error('El almacenamiento del teléfono no sigue el ritmo de la grabación. Libera espacio o cierra otras apps.'));
       chain = chain.then(async () => {
         if (error) return;
-        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const prepared = typeof host.readChunk === 'function' ? await host.readChunk(blob, token, seq) : null;
+        const bytes = prepared ? prepared.bytes : new Uint8Array(await blob.arrayBuffer());
         if (bytes.length !== size) throw new Error('Un fragmento cambió de tamaño al leerlo.');
         const next = crc32Update(crc, bytes);
-        const r = await host.sendChunk({ token, seq, bytes });
+        const r = prepared ? await prepared.send() : await host.sendChunk({ token, seq, bytes });
         if (r.seq !== seq || r.written !== sentBytes + size) throw new Error('El teléfono confirmó otros datos de los enviados.');
         crc = next; seq++; sentBytes += size; queuedBytes -= size;
       }).catch(fail);

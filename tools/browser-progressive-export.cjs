@@ -85,11 +85,13 @@ function nativeHandle(msg) {
       const project = { clips: [{ id: 'c1', asset_id: 'v', start: 0, in: 0, out: opts.clipSeconds }], overlayClips: [], audioClips: [],
         texts: [{ id: 't', text: 'Progresivo', start: 0.2, end: 1.5, position: 'middle' }], format: { aspect: 'original' } };
       let cancel = false; if (opts.cancelAfterMs) setTimeout(() => { cancel = true; }, opts.cancelAfterMs);
+      // App switch / incoming call: the WebView reports the page as hidden.
+      if (opts.hideAfterMs) setTimeout(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); }, opts.hideAfterMs);
       const t0 = performance.now();
       try {
         const r = await recordProject({ project, media, isCancelled: () => cancel, saveMode: opts.saveMode || 'auto' });
         return { label, ok: true, wallSeconds: +((performance.now() - t0) / 1000).toFixed(2), saved: r.saved || null, progressive: !!r.progressive,
-          memoryBlobBytes: r.blob ? r.blob.size : null, cancelled: !!r.cancelled, mime: r.mime };
+          memoryBlobBytes: r.blob ? r.blob.size : null, cancelled: !!r.cancelled, interrupted: !!r.interrupted, mime: r.mime };
       } catch (e) { return { label, ok: false, error: e.message }; }
     }, { label, opts });
 
@@ -129,6 +131,13 @@ function nativeHandle(msg) {
     report.cases.push(broken);
     check(!broken.ok && /No se pudo guardar el video en el teléfono/.test(broken.error) && /espacio/.test(broken.error), 'disk failure is reported as a save error', broken);
     check(!fs.readdirSync(outDir).some((f) => f.endsWith('.partial')), 'disk failure leaves no partial file', fs.readdirSync(outDir));
+
+    // 3b) Cambio de app / llamada a mitad: se detiene, se informa y no queda archivo.
+    const hidden = await runCase('progressive-app-switch', { sourceFrames: 80, clipSeconds: 5, hideAfterMs: 2000 });
+    report.cases.push(hidden);
+    check(hidden.ok && hidden.interrupted, 'app switch is reported as interrupted (not saved, not cancelled)', hidden);
+    check(!fs.readdirSync(outDir).some((f) => f.endsWith('.partial')), 'app switch leaves no partial file', fs.readdirSync(outDir));
+    await page.evaluate(() => { delete document.hidden; });
 
     // 4) El modo anterior sigue disponible: Blob en memoria, sin tocar el puente.
     const sessionsBefore = sessions.size;

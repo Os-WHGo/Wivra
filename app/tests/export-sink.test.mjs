@@ -191,3 +191,30 @@ test('recordProject keeps memory export as fallback and deletes partial files on
   assert.match(html, /<option value="memory">En memoria \(anterior\)<\/option>/);
   assert.ok(html.indexOf('function createProgressiveExportSink') < html.indexOf('async function recordProject'));
 });
+
+test('android binary frames are built from the Blob in one allocation and match the reference layout', async () => {
+  const sent = []; const obj = { postMessage(m) { sent.push(m); queueMicrotask(() => {
+    if (m instanceof ArrayBuffer) { const v = new DataView(m); obj.onmessage({ data: JSON.stringify({ rid: v.getUint32(4, true), ok: true, seq: v.getUint32(12, true), written: m.byteLength - EXPORT_FRAME_HEADER }) }); }
+    else { const j = JSON.parse(m); obj.onmessage({ data: JSON.stringify({ rid: j.rid, ok: true, arrayBuffer: true, token: 9 }) }); }
+  }); } };
+  const host = androidExportHost(obj); await host.hello();
+  const payload = rand(5000, 11), prepared = await host.readChunk(new Blob([payload]), 9, 4);
+  assert.deepEqual(prepared.bytes, payload);
+  const r = await prepared.send();
+  const frame = sent.at(-1);
+  assert.deepEqual(new Uint8Array(frame), new Uint8Array(encodeExportFrame(new DataView(frame).getUint32(4, true), 9, 4, payload)));
+  assert.deepEqual([r.seq, r.written], [4, 5000]);
+});
+
+test('duplicated, lost or reordered acknowledgements stop the export and keep nothing', async () => {
+  for (const bad of ['dup', 'lost', 'order']) {
+    const native = fakeNative(); const real = native.sendChunk.bind(native); let n = 0;
+    native.sendChunk = async (c) => { const r = await real(c); n++; if (n === 2) { if (bad === 'dup') return { ...r, seq: r.seq - 1 }; if (bad === 'lost') return { ...r, written: r.written - 10 }; return { ...r, seq: r.seq + 1 }; } return r; };
+    const sink = createProgressiveExportSink(native); await sink.begin();
+    for (let i = 0; i < 4; i++) sink.push(blobOf(rand(300, i + 1)));
+    await assert.rejects(sink.finish(), /confirmó otros datos/);
+    await sink.abort('test');
+    assert.equal(native.files.get(sink.token).state, 'deleted');
+  }
+});
+

@@ -139,4 +139,45 @@ public class WivraExportBridgeWebViewTest {
             instrumentation.runOnMainSync(activity::finish);
         }
     }
+
+    @Test
+    public void bridgeThroughputIsMeasuredWithRealWebViewAndMediaStore() throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Activity activity = instrumentation.startActivitySync(
+            new Intent(instrumentation.getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        instrumentation.waitForIdleSync();
+        ContentResolver resolver = instrumentation.getTargetContext().getContentResolver();
+        String name = null;
+        try {
+            WebView editor = findEditor(activity.getWindow().getDecorView());
+            assertNotNull(editor);
+            String ready = "\"loading\"";
+            for (int retry = 0; retry < 45 && "\"loading\"".equals(ready); retry++) {
+                ready = eval(instrumentation, editor, "(function(){return typeof createProgressiveExportSink==='function'&&nativeExportAvailable()?'ok':'loading'})()");
+                if ("\"loading\"".equals(ready)) Thread.sleep(350);
+            }
+            // 32 x 1 MiB: header chunk is WebM-shaped so finish accepts the container check.
+            eval(instrumentation, editor, "(function(){window.__wivraBridgeSpeed='running';(async()=>{try{" +
+                "const host=detectExportHost();const sink=createProgressiveExportSink(host,{mime:'video/webm',ext:'webm',estimatedBytes:40e6});" +
+                "await sink.begin();const MB=1024*1024;const base=new Uint8Array(MB);for(let k=0;k<MB;k++)base[k]=(k*31)&255;base.set([0x1A,0x45,0xDF,0xA3],0);" +
+                "const t0=performance.now();for(let i=0;i<32;i++)sink.push(new Blob([base]));" +
+                "const r=await sink.finish();const s=(performance.now()-t0)/1000;" +
+                "window.__wivraBridgeSpeed=JSON.stringify({binary:host.binary,seconds:s,mbPerSecond:32/s,peakQueuedMB:r.peakQueuedBytes/MB,name:r.displayName,bytes:r.bytes,repair:r.repair});" +
+                "}catch(e){window.__wivraBridgeSpeed='error:'+e.message}})();return 1;})()");
+            String state = "\"running\"";
+            for (int retry = 0; retry < 240 && "\"running\"".equals(state); retry++) { Thread.sleep(250); state = eval(instrumentation, editor, "window.__wivraBridgeSpeed"); }
+            Object decoded = new JSONTokener(state).nextValue();
+            assertTrue("Throughput probe failed: " + state, decoded instanceof String && ((String) decoded).startsWith("{"));
+            JSONObject result = new JSONObject((String) decoded);
+            name = result.getString("name");
+            Bundle b = new Bundle(); b.putString("wivra-export-measure", "android.bridgeThroughput=" + result);
+            instrumentation.sendStatus(0, b);
+            assertEquals(32L * 1024 * 1024, result.getLong("bytes"));
+            // Real-time export at the highest bitrate needs ~1 MB/s; require clear headroom.
+            assertTrue("Bridge too slow for real-time export: " + result, result.getDouble("mbPerSecond") > 2.0);
+        } finally {
+            if (name != null) for (Uri u : rows(resolver, name, MediaStore.MATCH_INCLUDE)) resolver.delete(u, null, null);
+            instrumentation.runOnMainSync(activity::finish);
+        }
+    }
 }
