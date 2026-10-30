@@ -1283,6 +1283,7 @@ async function importSelectedFiles(files) {
   }
   let capNote = ''; if (files.length > MAX_IMPORT) { capNote = `Elegiste ${files.length} archivos; se cargan los primeros ${MAX_IMPORT} para no sobrecargar el teléfono. Agrega el resto después.`; files = files.slice(0, MAX_IMPORT); }
   const previousSession = session;
+  const importSession = session;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
   const failed = [], added = [], staged = [];
   let committed = false;
@@ -1312,15 +1313,20 @@ async function importSelectedFiles(files) {
     try {
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
       const m = photo ? await probeImage(f) : await probe(f); const id = 'a' + (++assetSeq);
-      media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 }; keepFile(id, f, photo ? 'image' : 'video');
-      // Register immediately so GIF preparation failures also release staged resources.
+      media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 };
+      // Stage before file persistence or GIF decoding can throw.
       staged.push(id);
+      keepFile(id, f, photo ? 'image' : 'video');
       if (photo) { await prepGif(id, f); makePhotoThumb(id); }
       if (!session) session = new Session(createProject({ assets: [] }));
       session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
     } catch (e) { failed.push(e.message); }
   }
   if (added.length) {
+    if (importSession && session !== importSession) {
+      say('El proyecto cambió mientras se preparaban los archivos. Importa de nuevo.', 'bad');
+      return;
+    }
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
