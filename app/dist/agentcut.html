@@ -5053,7 +5053,7 @@ async function importCapture(files) {
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, assets[videoFile].duration))); }
     const res = run(out.ops);
-    if (!res.ok) { say('No se pudo importar: ' + res.message, 'bad'); return; }
+    if (!res?.ok) { say('No se pudo importar: ' + (res?.message || 'el editor no confirmó la operación'), 'bad'); return; }
     captureCommitted = true;   // batch applied: assets now belong to a real edit
     if (first) useAsset(assets[videoFile].id, 0);
     thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
@@ -5175,8 +5175,8 @@ async function importSelectedFiles(files) {
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
     const result = first ? run(ops) : edit(ops, { ripple: false });
-    if (!result.ok) {
-      say('No se pudo agregar: ' + result.message, 'bad');
+    if (!result?.ok) {
+      say('No se pudo agregar: ' + (result?.message || 'el editor no confirmó la operación'), 'bad');
       // Do not report success or generate thumbnails for an uncommitted edit.
       // Keep staged asset metadata for undo/redo snapshots; cleanup is separate.
       return;
