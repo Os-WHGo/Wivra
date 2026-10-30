@@ -383,6 +383,12 @@ public final class MainActivity extends Activity {
         suggestedDirectorShotId = null;
     }
 
+    private boolean offerSavedRayBanParts(WebChromeClient.FileChooserParams params,
+            ValueCallback<Uri[]> callback, boolean video, boolean image,
+            boolean audio, boolean json) {
+        return false;
+    }
+
     private boolean offerSavedDirectorTake(WebChromeClient.FileChooserParams params,
             ValueCallback<Uri[]> callback, boolean video, boolean image,
             boolean audio, boolean json) {
