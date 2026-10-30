@@ -343,15 +343,18 @@ class WivraCaptureForegroundService : Service() {
                 } finally {
                     runCatching { activeCamera?.close() }
                     runCatching { activeSession?.stop() }
+                    // Keep the processor awake until the final pending MP4
+                    // has been closed, even when the UI is not visible.
+                    releaseCpuLease()
                     setCaptureState(CaptureState.IDLE)
                 }
             }
         } else {
             runCatching { activeCamera?.close() }
             runCatching { activeSession?.stop() }
+            releaseCpuLease()
             setCaptureState(CaptureState.IDLE)
         }
-        releaseCpuLease()
         scope.cancel()
         super.onDestroy()
     }
