@@ -349,7 +349,31 @@ public final class MainActivity extends Activity {
     private boolean offerSavedDirectorTake(WebChromeClient.FileChooserParams params,
             ValueCallback<Uri[]> callback, boolean video, boolean image,
             boolean audio, boolean json) {
-        return false;
+        if (!params.isCaptureEnabled() || !video || image || audio || json ||
+            params.getMode() != WebChromeClient.FileChooserParams.MODE_OPEN ||
+            suggestedDirectorVideo == null || editor == null) return false;
+        final Uri candidate = suggestedDirectorVideo;
+        final boolean fromRayBan = suggestedDirectorRayBan;
+        final String shot = org.json.JSONObject.quote(suggestedDirectorShotId);
+        final String project = org.json.JSONObject.quote(suggestedDirectorProjectId);
+        final String check = "(function(){try{return !!(session&&shootPlan&&" +
+            "pzPid===" + project + "&&selectedShootId===" + shot +
+            "&&shootPlan.shots.some(s=>s.id===" + shot +
+            "&&s.state==='done'&&!s.assetId));}catch(e){return false}})()";
+        editor.evaluateJavascript(check, accepted -> {
+            if (pendingFilePicker != callback) return;
+            boolean valid = "true".equals(accepted) &&
+                candidate.equals(suggestedDirectorVideo) &&
+                savedDirectorVideos(fromRayBan).contains(candidate.toString());
+            clearDirectorVideoSuggestion();
+            if (valid) {
+                pendingFilePicker = null;
+                callback.onReceiveValue(new Uri[]{candidate});
+            } else {
+                launchSystemPicker(params);
+            }
+        });
+        return true;
     }
 
     private void launchSystemPicker(WebChromeClient.FileChooserParams params) {
