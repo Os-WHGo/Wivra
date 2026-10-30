@@ -155,6 +155,7 @@ actor WivraExportStore {
 
     func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true) async throws -> WivraExportReply {
         guard let session = sessions.removeValue(forKey: token) else { throw WivraExportError.unknownSession }
+        let diskBytes: Int64, diskCrc: UInt32
         do {
             guard session.seq > 0, session.bytes == bytes, session.seq == chunks, session.crc == crc32 else {
                 throw WivraExportError.integrity("El archivo no coincide con lo grabado en el editor.")
@@ -165,7 +166,8 @@ actor WivraExportStore {
             try session.handle.synchronize()
             try session.handle.close()
             // Prove what is actually on disk before giving the file its final name.
-            let (diskBytes, diskCrc) = try Self.measure(session.partialURL)
+            let measured = try Self.measure(session.partialURL)
+            diskBytes = measured.0; diskCrc = measured.1
             guard diskBytes == bytes, diskCrc == crc32 else {
                 throw WivraExportError.integrity("El archivo releído del disco no coincide con lo grabado.")
             }

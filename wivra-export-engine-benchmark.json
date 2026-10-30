@@ -1,0 +1,61 @@
+{
+  "type": "WIVRA_EXPORT_ENGINE_BENCHMARK",
+  "runner": "Playwright Chromium Linux (software codecs), not a phone",
+  "mediabunny": "1.61.6",
+  "montage": {
+    "totalSeconds": 60,
+    "cuts": 20
+  },
+  "engines": {
+    "mediarecorder": {
+      "ok": true,
+      "mime": "video/webm;codecs=vp8,opus",
+      "repaired": true,
+      "wallSeconds": 60.68,
+      "heapPeakMB": 13.3,
+      "chromiumRssPeakMB": 1006,
+      "durationSeconds": 60.367,
+      "plannedSeconds": 60,
+      "driftSeconds": 0.367,
+      "sizeMB": 2.29,
+      "codecs": [
+        "audio:opus",
+        "video:vp8"
+      ],
+      "markers": 40,
+      "beeps": 41,
+      "avOffsetMs": {
+        "mean": 60,
+        "maxAbs": 93,
+        "samples": 40
+      },
+      "speedVsRealtime": 0.99
+    },
+    "mediabunny": {
+      "ok": true,
+      "codec": "avc",
+      "audioCodec": "opus",
+      "container": "mp4",
+      "frames": 1800,
+      "wallSeconds": 7.06,
+      "heapPeakMB": 20.7,
+      "chromiumRssPeakMB": 1022,
+      "durationSeconds": 60.02,
+      "plannedSeconds": 60,
+      "driftSeconds": 0.02,
+      "sizeMB": 1.85,
+      "codecs": [
+        "video:h264",
+        "audio:opus"
+      ],
+      "markers": 40,
+      "beeps": 41,
+      "avOffsetMs": {
+        "mean": 8,
+        "maxAbs": 8,
+        "samples": 40
+      },
+      "speedVsRealtime": 8.5
+    }
+  }
+}
