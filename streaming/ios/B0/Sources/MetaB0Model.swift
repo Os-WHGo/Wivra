@@ -113,7 +113,12 @@ final class MetaB0Model {
 
     var isRegistered: Bool { registrationState == .registered }
     var canStartSession: Bool {
-        isRegistered && sessionState == .idle &&
+        // Meta DAT sessions are single-use. After a terminal .stopped event
+        // the previous instance was discarded; allow a NEW session without
+        // forcing the user to restart Wivra. Never overlap an MP4 finalizer.
+        isRegistered && deviceSession == nil && camera == nil &&
+            (sessionState == .idle || sessionState == .stopped) &&
+            !recordingArmed && !recordingFinishing &&
             (!receiveCompressedHEVC || !captureSelectedAudio || audioRoute.hasSelectedRoute)
     }
     var canStartPreview: Bool { sessionState == .started && camera == nil }
