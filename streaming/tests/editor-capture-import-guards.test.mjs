@@ -21,8 +21,8 @@ test('generic media import does not silently treat capture manifest as video', (
 
 test('generic import does not report success after a rejected timeline edit', () => {
   assert.match(generic, /const result = first \? run\(ops\) : edit\(ops, \{ ripple: false \}\)/);
-  assert.match(generic, /if \(!result\.ok\) \{/);
-  assert.ok(generic.indexOf('if (!result.ok)') < generic.indexOf('thumbQueue = thumbQueue.then'));
+  assert.match(generic, /if \(!result\?\.ok\) \{/);
+  assert.ok(generic.indexOf('if (!result?.ok)') < generic.indexOf('thumbQueue = thumbQueue.then'));
 });
 
 test('failed generic import releases only unreferenced staged media', () => {
@@ -35,7 +35,7 @@ test('failed generic import releases only unreferenced staged media', () => {
 });
 
 test('generic import cleans up on rejection and unexpected exceptions', () => {
-  const rejected = generic.slice(generic.indexOf('if (!result.ok) {'), generic.indexOf('committed = true;'));
+  const rejected = generic.slice(generic.indexOf('if (!result?.ok) {'), generic.indexOf('committed = true;'));
   assert.match(rejected, /return;/);
   assert.match(generic, /catch \(error\) \{/);
   assert.match(generic, /finally \{\s*cleanupUncommitted\(\);\s*loading = false;/);
