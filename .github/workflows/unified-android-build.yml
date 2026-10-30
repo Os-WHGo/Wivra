@@ -41,6 +41,8 @@ jobs:
         run: node --test streaming/tests/android-meta-visual-preview.test.mjs
       - name: Verify mobile Wi-Fi uplink observers and privacy warnings
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
+      - name: Verify shared Director teleprompter handoff into Ray-Ban preview
+        run: node --test streaming/tests/android-director-meta-handoff.test.mjs
       - name: Verify native RTMP phone LIVE safety and local MP4 contracts
         run: node --test streaming/tests/android-phone-live-native.test.mjs
       - name: Check Android six-language translation parity
