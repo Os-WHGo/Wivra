@@ -46,6 +46,7 @@ test('the local MP4 is armed before public transmission and remains private on f
   assert.match(live, /MediaMetadataRetriever\.METADATA_KEY_DURATION/);
   assert.match(live, /WivraPhoneMediaStore\.publish\(this, file\)/);
   assert.match(live, /WivraPhoneMediaStore\.discard\(this, file\)/);
+  assert.match(live, /if \(pending\.length\(\) == 0L\) pending\.delete\(\)/);
   assert.match(live, /El servidor rechazó la clave LIVE\. MP4 local continúa/);
   assert.match(live, /La conexión LIVE falló\. La grabación local continúa/);
 });
