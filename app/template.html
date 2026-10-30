@@ -1295,7 +1295,7 @@ async function importSelectedFiles(files) {
       delete media[id];
       delete mediaFiles[id];
     }
-    if (!previousSession && !session.project.assets.length &&
+    if (session && !previousSession && !session.project.assets.length &&
         !['clips', 'overlayClips', 'audioClips'].some(k => (session.project[k] || []).length)) session = null;
   }
   };
