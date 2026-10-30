@@ -83,6 +83,20 @@ test('screen-off HEVC processing uses a short renewable CPU lease only for confi
   assert.match(service, /setCaptureState\(CaptureState.FINALIZING\)[\s\S]*?abandoned.finishToPending\(\)[\s\S]*?setCaptureState\(CaptureState.IDLE\)/);
 });
 
+test('DAT no-video timeout never masquerades as a confirmed local recording', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
+  assert.match(service, /firstFrameWatchdog = scope\.launch/);
+  assert.match(service, /delay\(45_000L\)/);
+  assert.match(service, /recorder === muxer && muxer\.samples == 0/);
+  assert.match(service, /val captureIssue: StateFlow<String\?>/);
+  assert.match(service, /mutableCaptureIssue\.value = null/);
+  assert.match(activity, /WivraCaptureForegroundService\.captureIssue\.value/);
+  assert.match(service, /CaptureState\.RECORDING -> "Grabando MP4/);
+  assert.match(service, /mutableCaptureProgress\.value = progress/);
+  assert.match(service, /runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
+});
+
 test('foreground notification opens Activity using mutable Intent API safely', () => {
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   assert.match(service, /addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP or Intent\.FLAG_ACTIVITY_CLEAR_TOP\)/);
