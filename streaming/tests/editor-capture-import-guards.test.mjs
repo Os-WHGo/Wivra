@@ -80,7 +80,7 @@ test('capture importer reclaims partially prepared resources after failed audio 
 
 test('capture import rejects a replaced editor session before applying timeline operations', () => {
   assert.match(capture, /const captureSession = session/);
-  assert.match(capture, /if \(captureSession && session !== captureSession\)/);
+  assert.match(capture, /if \(session !== stagingSession \|\| \(captureSession && session !== captureSession\)\)/);
   assert.ok(capture.indexOf('session !== captureSession') < capture.indexOf('const out = planImportOps('));
 });
 
