@@ -45,3 +45,18 @@ test('simultaneous mutations cannot silently overwrite a confirmed fragment', as
   assert.equal(outcomes.filter(x => x.status === 'rejected').length, 1);
   assert.equal((await store.load('parallel')).segments.length, 1);
 });
+
+test('corrupted persisted capture remains untouched and cannot be mutated', async () => {
+  const { store, files } = storage();
+  await store.start({ id: 'damaged', platform: 'android', startedAt: 1 });
+  await store.transition('damaged', { state: 'recording', at: 2 });
+  await store.appendConfirmedSegment('damaged', { file: 'valid.mp4', startMs: 0, endMs: 1000, confirmed: true }, 3);
+  const key = 'wivra-capture-damaged.json';
+  const damaged = JSON.parse(files.get(key));
+  damaged.segments.push({ file: 'overlap.mp4', startMs: 500, endMs: 1500, confirmed: true });
+  const original = JSON.stringify(damaged);
+  files.set(key, original);
+  await assert.rejects(store.transition('damaged', { state: 'stopping', at: 4 }), /Corrupted stored capture segments/);
+  await assert.rejects(store.appendConfirmedSegment('damaged', { file: 'another.mp4', startMs: 1000, endMs: 2000, confirmed: true }, 4), /Corrupted stored capture segments/);
+  assert.equal(files.get(key), original);
+});
