@@ -715,9 +715,13 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                     .setTitle(R.string.recording_discard_confirm_title)
                     .setMessage(R.string.phone_camera_confirm_delete)
                     .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
-                        if (WivraPhoneMediaStore.discard(this, file))
+                        if (WivraPhoneMediaStore.discard(this, file)) {
+                            if (file.name == directorVideoCreatedHere) {
+                                setResult(Activity.RESULT_CANCELED)
+                                directorVideoCreatedHere = null
+                            }
                             message(R.string.recording_discarded)
-                        else message(R.string.recording_delete_failed)
+                        } else message(R.string.recording_delete_failed)
                     }
                     .setNegativeButton(R.string.phone_camera_later, null).show()
             }
