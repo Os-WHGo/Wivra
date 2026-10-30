@@ -459,7 +459,10 @@ class WivraCaptureForegroundService : Service() {
                 // Keep the bounded CPU lease until the muxer and DAT session
                 // have fully closed, including when the screen is locked.
                 releaseCpuLease()
-                if (captureState != CaptureState.FAILED) setCaptureState(CaptureState.IDLE)
+                // Do NOT publish IDLE until onDestroy has actually released
+                // the service. Otherwise the Activity can offer a new DAT
+                // session while this old instance is still tearing down,
+                // and onDestroy may accidentally claim and stop that new one.
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
