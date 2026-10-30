@@ -182,7 +182,12 @@ export async function pzLoad(db, pid) {
   const raw = await pzReq(db.transaction('pj').objectStore('pj').get(pid)); if (raw === undefined) return null;
   const meta = await pzReq(db.transaction('pi').objectStore('pi').get(pid)) || null;
   const keys = await pzReq(db.transaction('pb').objectStore('pb').getAllKeys(pzRange(pid))), blobs = {};
-  for (const k of keys) blobs[k.slice(pid.length + 1)] = await pzReq(db.transaction('pb').objectStore('pb').get(k));
+  for (const k of keys) {
+    const stored = await pzReq(db.transaction('pb').objectStore('pb').get(k));
+    // Missing and zero-byte Blobs still have an IndexedDB key but no playable
+    // media. Treat them as absent; keep the original record for manual repair.
+    if (usableProjectMediaBlob(stored)) blobs[k.slice(pid.length + 1)] = stored;
+  }
   return { raw, meta, blobs };
 }
 export async function pzDeleteProject(db, pid) {
