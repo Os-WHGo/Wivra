@@ -146,3 +146,11 @@ test('generic media selection rejects oversized batches without silent truncatio
   assert.doesNotMatch(generic, /files = files\.slice\(0, MAX_IMPORT\)/);
   assert.ok(generic.indexOf('No se agregó ningún archivo') < generic.indexOf('loading = true'));
 });
+
+test('Director rejects multiple camera files before timeline import and snapshots shot identity', () => {
+  const handler = source.slice(source.indexOf("$('directorCamera').addEventListener"), source.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(files\.length!==1\)/);
+  assert.ok(handler.indexOf('if(files.length!==1)') < handler.indexOf('await importSelectedFiles(files)'));
+  assert.match(handler, /directorShotId=selectedShootId, directorPlan=shootPlan/);
+  assert.match(handler, /selectedShootId!==directorShotId \|\| shootPlan!==directorPlan/);
+});
