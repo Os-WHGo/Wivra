@@ -1135,7 +1135,9 @@ async function importCapture(files) {
     }
     const mf = manifests[0];
     if (!(mf.size > 0) || mf.size > 128 * 1024) { say('El manifiesto debe medir entre 1 byte y 128 KB.', 'bad'); return; }
-    const r = parseManifest(await mf.text());
+    const manifestText = await mf.text();
+    if (session !== stagingSession) { say('El proyecto cambió durante la lectura del manifiesto. Importa de nuevo.', 'bad'); return; }
+    const r = parseManifest(manifestText);
     if (!r.ok) { say('El archivo de la captura no es válido:\n' + r.errors.join('\n'), 'bad'); return; }
     const m = r.manifest, selection = captureSelectionPlan(m, files);
     if (!selection.ok) { say(selection.errors.join('\n') + '\nNo se modificó la línea de tiempo. Usa Video para importar un clip sin sus pistas.', 'bad'); return; }
@@ -1333,7 +1335,11 @@ async function importSelectedFiles(files) {
       // Stage before file persistence or GIF decoding can throw.
       staged.push(id);
       keepFile(id, f, photo ? 'image' : 'video');
-      if (photo) { await prepGif(id, f); makePhotoThumb(id); }
+      if (photo) {
+        await prepGif(id, f);
+        if (session !== stagingSession) throw new Error('El proyecto cambió durante la preparación de la imagen.');
+        makePhotoThumb(id);
+      }
       if (!session) session = new Session(createProject({ assets: [] }));
       stagingSession = session;
       session.addAsset({ id, duration: m.duration, name: f.name, ...(photo ? { kind: 'image' } : {}) }); added.push(id);
