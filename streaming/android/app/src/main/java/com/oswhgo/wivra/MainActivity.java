@@ -27,6 +27,11 @@ public final class MainActivity extends Activity {
     private static final int DIRECTOR_CAPTURE_REQUEST = 4208;
     private String pendingDirectorShotId;
     private String pendingDirectorProjectId;
+    private java.util.Set<String> priorDirectorVideoIds;
+    private Uri suggestedDirectorVideo;
+    private String suggestedDirectorShotId;
+    private String suggestedDirectorProjectId;
+    private boolean pendingDirectorRayBan;
     private ValueCallback<Uri[]> pendingFilePicker;
     private WebView editor;
 
