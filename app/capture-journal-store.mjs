@@ -27,7 +27,12 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
     return j;
   }
   async function save(journal) {
-    recoverCaptureJournal(journal);
+    const recovery = recoverCaptureJournal(journal);
+    // Atomic storage must never persist an invalid or partially corrupted
+    // segment sequence, even if the caller bypasses the transition helpers.
+    if (recovery.recoverableFiles.length !== journal.segments.length) {
+      throw new Error('Corrupted capture segments cannot be saved');
+    }
     await writeAtomic(key(journal.id), JSON.stringify(journal));
     return journal;
   }
