@@ -60,3 +60,18 @@ test('corrupted persisted capture remains untouched and cannot be mutated', asyn
   await assert.rejects(store.appendConfirmedSegment('damaged', { file: 'another.mp4', startMs: 1000, endMs: 2000, confirmed: true }, 4), /Corrupted stored capture segments/);
   assert.equal(files.get(key), original);
 });
+
+test('corrupted journals remain visible for review without exposing unverified media', async () => {
+  const { store, files } = storage();
+  files.set('wivra-capture-broken.json', '{bad json');
+  files.set('wivra-capture-overlap.json', JSON.stringify({ id: 'overlap', schema: 1, state: 'recording', segments: [
+    { file: 'a.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'b.mp4', startMs: 500, endMs: 1500, confirmed: true }
+  ], interruptions: [] }));
+  const pending = await store.recoverPending();
+  assert.deepEqual(pending, [
+    { id: 'broken', state: 'corrupted', files: [] },
+    { id: 'overlap', state: 'corrupted', files: [] }
+  ]);
+  assert.equal(files.get('wivra-capture-broken.json'), '{bad json');
+});
