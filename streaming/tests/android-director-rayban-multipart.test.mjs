@@ -53,3 +53,14 @@ test('Director leaves continuation available after first saved Ray-Ban batch',()
  assert.match(html,/nextPart:continuation\.nextPart,expectedSessionId:continuation\.sessionId/);
  assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
 });
+
+test('multipart continuation is inserted at prior verified boundary, independent of playhead',()=>{
+ assert.match(html,/directorMultipartInsertAt=appendAt/);
+ assert.match(html,/continuation\?rayBanAppendAt\(continuation\.assetIds,session\.project\):null/);
+ assert.match(html,/if\(continuation&&appendAt===null\)/);
+ assert.match(html,/requireAll&&directorMultipartInsertAt!==null/);
+ assert.match(html,/finally \{ directorMultipartBatch=null; directorMultipartInsertAt=null; \}/);
+ assert.match(html,/if\(!requireAll\)at=round2\(at\)/);
+ assert.match(html,/probe\(f,requireAll\)/);
+ assert.match(html,/rayBanPartPositions\(added\.map\(mainLen\),at\)/);
+});
