@@ -586,9 +586,11 @@ public final class MainActivity extends Activity {
         // A cloud-backed document provider can take seconds to open each URI.
         // Validate off the UI thread and deliver the WebView callback only if
         // this same Activity still owns the original pending file chooser.
+        final CancellationSignal signal = new CancellationSignal();
+        pendingPickerSignal = signal;
         try {
             pickerValidator.execute(() -> {
-                Uri[] checked = safeSystemPickerResult(selected, new CancellationSignal());
+                Uri[] checked = safeSystemPickerResult(selected, signal);
                 runOnUiThread(() -> {
                     if (pendingFilePicker != completion || isFinishing() || isDestroyed()) {
                         return; // Superseded chooser or Activity was destroyed.
