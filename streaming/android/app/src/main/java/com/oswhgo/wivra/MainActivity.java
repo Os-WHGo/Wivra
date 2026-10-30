@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -37,6 +38,7 @@ public final class MainActivity extends Activity {
     private boolean suggestedDirectorRayBan;
     private boolean pendingDirectorRayBan;
     private ValueCallback<Uri[]> pendingFilePicker;
+    private CancellationSignal pendingPickerSignal;
     // Third-party content:// providers may block while opening cloud media.
     // Their verification must never block Android's UI thread.
     private final java.util.concurrent.ExecutorService pickerValidator =
@@ -76,6 +78,10 @@ public final class MainActivity extends Activity {
                 ValueCallback<Uri[]> callback,
                 FileChooserParams params
             ) {
+                // A newer selection must cancel an outstanding slow cloud
+                // provider opening from the previous request.
+                if (pendingPickerSignal != null) pendingPickerSignal.cancel();
+                pendingPickerSignal = null;
                 if (pendingFilePicker != null) {
                     pendingFilePicker.onReceiveValue(null);
                 }
@@ -465,12 +471,13 @@ public final class MainActivity extends Activity {
      * resource be read by the WebView. Native Wivra shortcuts are chosen
      * separately and never pass through this untrusted system picker result.
      */
-    private Uri[] safeSystemPickerResult(Uri[] selected) {
+    private Uri[] safeSystemPickerResult(Uri[] selected, CancellationSignal signal) {
         if (selected == null || selected.length == 0 || selected.length > MAX_PICKER_FILES) {
             return null;
         }
         java.util.HashSet<Uri> seen = new java.util.HashSet<>();
         for (Uri uri : selected) {
+            if (signal.isCanceled()) return null;
             if (uri == null ||
                 !ContentResolver.SCHEME_CONTENT.equals(uri.getScheme()) ||
                 uri.getAuthority() == null ||
@@ -482,7 +489,7 @@ public final class MainActivity extends Activity {
             // Check that the app can actually read what the picker supplied.
             // Do not copy bytes or gain broad photo-library permissions.
             try (ParcelFileDescriptor file =
-                     getContentResolver().openFileDescriptor(uri, "r")) {
+                     getContentResolver().openFileDescriptor(uri, "r", signal)) {
                 if (file == null) return null;
             } catch (Exception invalidOrRevoked) {
                 return null;
@@ -492,6 +499,8 @@ public final class MainActivity extends Activity {
     }
 
     private void clearPendingPicker() {
+        if (pendingPickerSignal != null) pendingPickerSignal.cancel();
+        pendingPickerSignal = null;
         if (pendingFilePicker != null) {
             ValueCallback<Uri[]> completion = pendingFilePicker;
             pendingFilePicker = null;
