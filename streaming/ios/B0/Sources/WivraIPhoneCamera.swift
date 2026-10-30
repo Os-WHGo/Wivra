@@ -363,9 +363,17 @@ final class WivraIPhoneCamera: NSObject, AVCapturePhotoCaptureDelegate, AVCaptur
     private func finishVideo(url: URL, error: String?) {
         // Preserve the original MOV even when metadata fails. Do not release
         // the source for Ray-Ban handoff before the atomic JSON write finishes.
+        // Even if AVFoundation reports a recording error, preserve a nonempty
+        // original for manual recovery. A partial MOV is never catalogued as
+        // a completed take without a successful recording callback.
+        let savedBytes = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
         if let error {
-            status = "Error al finalizar video: " + error
-        } else if (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0 > 0 {
+            lastMovieURL = savedBytes > 0 ? url : nil
+            lastCaptureManifestURL = nil
+            status = savedBytes > 0
+                ? "Grabación interrumpida; MOV conservado para recuperación: " + error
+                : "Error al finalizar video: " + error
+        } else if savedBytes > 0 {
             lastMovieURL = url
             do {
                 // MOV may contain embedded system audio; tracks [] means no
