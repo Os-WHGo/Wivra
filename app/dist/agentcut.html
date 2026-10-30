@@ -4991,7 +4991,9 @@ async function importCapture(files) {
       if (assets[name]) return assets[name];
       const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
       try {
-        const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
+        const pr = kind === 'video' ? await probe(f) : await probeAudio(f);
+        if (session !== stagingSession) throw new Error('El proyecto cambió durante la lectura de la captura.');
+        const id = 'a' + (++assetSeq);
         media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; stagedAssetIDs.push(id); keepFile(id, f, kind);
         session ||= new Session(createProject({ assets: [] }));
         stagingSession = session;
@@ -5012,8 +5014,11 @@ async function importCapture(files) {
         if (!f) failed.push(`falta ${t.file}`);
         else try {
           const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
+          if (session !== stagingSession) throw new Error('El proyecto cambió durante la separación de canales.');
           for (const [i, x] of group.entries()) {
-            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
+            const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf);
+            if (session !== stagingSession) throw new Error('El proyecto cambió durante la preparación del audio.');
+            const id = 'a' + (++assetSeq);
             media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; stagedAssetIDs.push(id); keepFile(id, nf, 'audio');
             session ||= new Session(createProject({ assets: [] }));
             stagingSession = session;
@@ -5149,7 +5154,10 @@ async function importSelectedFiles(files) {
   for (const f of files) {
     try {
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
-      const m = photo ? await probeImage(f) : await probe(f); const id = 'a' + (++assetSeq);
+      const m = photo ? await probeImage(f) : await probe(f);
+      // A project switch during metadata probing must never receive the old file.
+      if (session !== stagingSession) throw new Error('El proyecto cambió durante la lectura del archivo.');
+      const id = 'a' + (++assetSeq);
       media[id] = { ...m, name: f.name, thumbs: [], step: 1, w: m.w || 0, h: m.h || 0 };
       // Stage before file persistence or GIF decoding can throw.
       staged.push(id);
