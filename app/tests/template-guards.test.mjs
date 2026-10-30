@@ -14,6 +14,24 @@ const LANGS = I18N_LANGS.map((x) => x[0]).filter((l) => l !== 'es');
 
 // 1) Lo que no puede desaparecer de la plantilla ni del archivo final.
 const PIEZAS = [
+  ['el volumen parejo al exportar', 'async function loudnessPlan('],
+  ['la revisión de ritmo del Director', 'function rhRender('],
+  ['AutoCut: elegir donde más se oye', 'async function qaPlan('],
+  ['plan de producción del Director', "$('dirProdCreate').onclick"],
+  ['teleprompter', 'function openPrompter('],
+  ['velocidad', 'function spSync('],
+  ['transiciones', 'planCutTransitions('],
+  ['subtítulos automáticos', 'async function asrRun('],
+  ['música original de Wivra', 'function musRender('],
+  ['la zona segura de los textos', "$('fmtSafe').addEventListener('change'"],
+  ['Quitar silencios (buscar pausas y cortarlas)', 'function siPreview()'],
+  ['el estilo de los textos en la vista previa', 'function renderTexts()'],
+  ['la hoja de estilo de texto (acoplada abajo, sin tapar el video)', "const DOCKS = ['sFilt', 'sFx', 'sOver', 'sTxStyle'];"],
+  ['el audio del video se pausa al llegar a una foto o hueco', "cur = null; if (!$('v').paused) $('v').pause();"],
+  ['el «+» de la pista de Video agrega a la pista principal', "ln.id === 'vtrack' ? 'main'"],
+  ['el «+» de Capas y el botón «Video o foto encima (capa)»', 'Video o foto encima (capa)'],
+  ['volver a Inicio quitando el «#…» (navegación real)', 'function pzGoHome()'],
+  ['la barra de arriba por encima del fondo oscuro de las hojas', 'position:relative; z-index:31;'],
   ['el traductor en vivo', 'function i18nApply('],
   ['la traducción de lo que aparece después', 'r.addedNodes.forEach(i18nWalk)'],
   ['guardar el idioma elegido', "localStorage.setItem('wivra.lang'"],
@@ -21,6 +39,8 @@ const PIEZAS = [
   ['la lista de idiomas dentro de Ajustes', 'id="setLangs"'],
   ['la pantalla de elegir idioma la primera vez', 'id="sLang"'],
   ['el botón ⚙ que abre Ajustes', 'id="hSet"'],
+  ['miniaturas de la línea de tiempo solo de lo visible', 'function tlFillVisible('],
+  ['recorte rápido: solo se rehace el clip arrastrado', 'function dragRender('],
 ];
 for (const [name, s] of [['plantilla', template], ['archivo final', dist]]) {
   test(`${name}: conserva los idiomas y el panel Ajustes`, () => {
@@ -112,4 +132,26 @@ test('CSS: ningún texto con palabras se dibuja con content:"…" (no se puede t
   const css = [...template.matchAll(/<style[\s\S]*?<\/style>/g)].map((m) => m[0]).join('\n');
   const malos = [...css.matchAll(/content:\s*(["'])((?:(?!\1).)*)\1/g)].map((m) => m[2]).filter((t) => /[A-Za-zÁÉÍÓÚáéíóúñ]{3}/.test(t));
   assert.deepEqual(malos, [], 'Pasa ese texto a un elemento del HTML para que se pueda traducir.');
+});
+
+// 5) El archivo final es un solo <script> con todos los módulos pegados: si dos módulos declaran el mismo nombre global
+//    (p. ej. `const clean` dos veces) el navegador no ejecuta NADA y la app queda muerta. Aquí lo detectamos sin navegador. — Claude
+import vm from 'node:vm';
+test('el archivo final se puede analizar sin nombres globales repetidos', () => {
+  const scripts = [...dist.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 2, 'faltan los <script> del archivo final');
+  scripts.forEach((s, i) => assert.doesNotThrow(() => new vm.Script(s, { filename: `agentcut.html#script${i}` }), `el script ${i} no se puede analizar`));
+});
+
+// 6) Accesibilidad básica: ningún botón de color ni campo de texto del HTML fijo se queda sin nombre para el lector de pantalla. — Claude
+test('los controles fijos del HTML tienen nombre accesible', () => {
+  const tpl = readFileSync(new URL('../template.html', import.meta.url), 'utf8');
+  const colores = tpl.match(/<div class="chips more" id="ovColors">[\s\S]*?<\/div>/)[0];
+  const botones = [...colores.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(botones.length >= 6); botones.forEach((b) => assert.match(b, /aria-label="[^"]+"/, `botón de color sin nombre: ${b}`));
+  for (const id of ['txt', 'dirAssetDescription', 'directorCamera', 'dirQuickEdit', 'tin', 'tout']) {
+    const tag = tpl.match(new RegExp(`<(?:input|textarea)\\b[^>]*\\bid="${id}"[^>]*>`))[0];
+    assert.match(tag, /aria-label="[^"]+"/, `el campo ${id} no tiene nombre accesible`);
+  }
+  assert.match(tpl, /<meta name="description" content="[^"]+">/); assert.match(tpl, /<link rel="icon" href=/);
 });

@@ -1,13 +1,14 @@
 // Línea de tiempo visual: lógica pura (sin DOM) para poder probarla. — Claude
+import { clipLength, srcTime } from '../core/project.mjs';
 import { applyBatch } from '../core/operations.mjs';
 
 export const round2 = (n) => Math.round(n * 100) / 100;
 export const sortedClips = (p) => [...p.clips].sort((a, b) => a.start - b.start);
-export const clipEnd = (c) => c.start + (c.out - c.in);
+export const clipEnd = (c) => c.start + clipLength(c);
 
 // ¿Qué clip se ve en el instante t de la línea de tiempo? Devuelve el clip y el tiempo dentro del video original.
 export function clipAt(p, t) {
-  for (const c of sortedClips(p)) if (t >= c.start && t < clipEnd(c)) return { clip: c, assetTime: round2(c.in + (t - c.start)) };
+  for (const c of sortedClips(p)) if (t >= c.start && t < clipEnd(c)) return { clip: c, assetTime: round2(srcTime(c, t)) };
   return null;
 }
 
@@ -17,7 +18,7 @@ export function rippleOps(p) {
   for (const c of sortedClips(p)) {
     const start = round2(cursor);
     if (Math.abs(start - c.start) > 0.004) ops.push({ op: 'move_clip', clip_id: c.id, start });
-    cursor = start + (c.out - c.in);
+    cursor = start + clipLength(c);
   }
   return ops;
 }
@@ -33,7 +34,7 @@ export function splitAt(project, t, clipId) {
   const hit = clipId ? project.clips.find((c) => c.id === clipId) : clipAt(project, t)?.clip;
   if (!hit) return { ok: false, message: 'No hay clip en ese instante.' };
   if (t <= hit.start + 0.1 || t >= clipEnd(hit) - 0.1) return { ok: false, message: 'Mueve la línea blanca al interior del clip (no en el borde).' };
-  return planEdit(project, [{ op: 'split_clip', clip_id: hit.id, at: round2(hit.in + (t - hit.start)) }], { ripple: false });
+  return planEdit(project, [{ op: 'split_clip', clip_id: hit.id, at: round2(srcTime(hit, t)) }], { ripple: false });
 }
 
 export const fmtTime = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, '0')}`; };
@@ -58,7 +59,7 @@ export function reorderOps(project, orderedIds) {
   for (const id of orderedIds) {
     const c = byId.get(id); const start = round2(cursor);
     if (Math.abs(c.start - start) > 0.004) ops.push({ op: 'move_clip', clip_id: id, start });
-    cursor += c.out - c.in;
+    cursor += clipLength(c);
   }
   return ops;
 }

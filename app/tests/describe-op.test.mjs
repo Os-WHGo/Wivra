@@ -34,6 +34,10 @@ const GOLDEN = [
   [{ op: 'set_clip_audio', clip_id: 'c1' }, 'Audio de c1: '],
   [{ op: 'add_clip', asset_id: 'a1' }, 'Agregar a1 en 0 s'],
   [{ op: 'add_clip', asset_id: 'a1', start: 4 }, 'Agregar a1 en 4 s'],
+  [{ op: 'set_text', text_id: 't1', text: 'Hola' }, 'Texto t1: «Hola»'],
+  [{ op: 'set_text', text_id: 't2', start: 1.5, duration: 2 }, 'Texto t2: desde 1.5 s, por 2 s'],
+  [{ op: 'set_text', text_id: 't3', pos: 'top', box: '#000000' }, 'Texto t3: estilo'],
+  [{ op: 'delete_text', text_id: 't3' }, 'Borrar texto t3'],
   [{ op: 'add_photo_clip', asset_id: 'a3' }, 'Foto a3 en 0 s por 3 s'],
   [{ op: 'add_photo_clip', asset_id: 'a3', start: 12, duration: 4.5 }, 'Foto a3 en 12 s por 4.5 s'],
   [{ op: 'add_text', text: 'Vancouver', start: 0, duration: 3 }, 'Texto «Vancouver» en 0 s por 3 s'],
@@ -47,6 +51,7 @@ const GOLDEN = [
   [{ op: 'set_audio_clip', clip_id: 'c5', track: 2, role: 'music' }, 'Pista de audio c5: fila 2, papel music'],
   [{ op: 'set_audio_clip', clip_id: 'c5', track: 0 }, 'Pista de audio c5: fila 0'],
   [{ op: 'set_audio_clip', clip_id: 'c5', role: 'music' }, 'Pista de audio c5: papel music'],
+  [{ op: 'set_clip_speed', clip_id: 'c1', speed: 0.5 }, 'Velocidad de c1: 0.5×'],
   [{ op: 'set_clip_fx', clip_id: 'c1', intro: 'fade', outro: 'zoom', dur: 0.5 }, 'Efecto de c1: entrada fade, salida zoom, 0.5 s'],
   [{ op: 'set_clip_fx', clip_id: 'c1', intro: 'fade' }, 'Efecto de c1: entrada fade'],
   [{ op: 'set_clip_fx', clip_id: 'c1' }, 'Efecto de c1: '],
@@ -60,6 +65,8 @@ const GOLDEN = [
   [{ op: 'set_format', aspect: '16:9', fit: 'contain' }, 'Formato: cuadro 16:9, barras negras'],
   [{ op: 'set_format', aspect: '1:1' }, 'Formato: cuadro 1:1'],
   [{ op: 'set_format', fit: 'cover' }, 'Formato: rellenar'],
+  [{ op: 'set_format', safe: true }, 'Formato: zona segura de textos'],
+  [{ op: 'set_format', aspect: '9:16', safe: false }, 'Formato: cuadro 9:16, sin zona segura de textos'],
   [{ op: 'set_format' }, 'Formato: '],
   [{ op: 'algo_nuevo', x: 1 }, '{"op":"algo_nuevo","x":1}'],
 ];
@@ -75,8 +82,8 @@ test('fillTemplate: rellena en orden, en una sola pasada, y deja la marca si fal
   assert.equal(fillTemplate('sin marcas', ['x']), 'sin marcas');
 });
 
-test('en español cada operación sale EXACTAMENTE como antes de traducir (40 casos)', () => {
-  assert.equal(GOLDEN.length, 40);
+test('en español cada operación sale EXACTAMENTE como antes de traducir (47 casos)', () => {
+  assert.equal(GOLDEN.length, 47);
   for (const [o, es] of GOLDEN) assert.equal(describeOperation(o, { lookName }), es, JSON.stringify(o));
 });
 
@@ -131,7 +138,7 @@ test('la nota del modo básico es la frase que el código manda, y está traduci
 });
 
 test('ningún texto en español se queda fuera de la traducción (traductor «de mentira» que pone todo en MAYÚSCULAS)', () => {
-  const up = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, ['clip_id', 'asset_id', 'text', 'role', 'intro', 'outro'].includes(k) ? String(v).toUpperCase() : v]));
+  const up = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, ['clip_id', 'asset_id', 'text_id', 'text', 'role', 'intro', 'outro'].includes(k) ? String(v).toUpperCase() : v]));
   const shout = (k, ...a) => fillTemplate(String(k).toUpperCase(), a);
   for (const [o, es] of KNOWN) {
     const s = describeOperation(up(o), { T: shout, lookName }).replace(/\b(x|y|scale)\b/g, ''); // nombres de propiedad del editor: se muestran tal cual
@@ -146,7 +153,7 @@ test('en cada idioma: sin marcas sueltas, con todos los datos, y distinto del es
     for (const [o, es] of KNOWN) {
       const out = describeOperation(o, { T, lookName }), tag = `${l} · ${JSON.stringify(o)} → «${out}»`;
       if (!(o.text || '').includes('{')) assert.ok(!/\{\d+\}/.test(out), 'marca sin rellenar: ' + tag);
-      for (const k of ['clip_id', 'asset_id', 'text']) if (o[k] !== undefined) assert.ok(out.includes(o[k]), `falta ${k}: ` + tag);
+      for (const k of ['clip_id', 'asset_id', 'text_id', 'text']) if (o[k] !== undefined) assert.ok(out.includes(o[k]), `falta ${k}: ` + tag);
       for (const k of ['at', 'in', 'out', 'start', 'duration']) if (typeof o[k] === 'number') assert.ok(out.includes(num(o[k])), `falta ${k}: ` + tag);
       assert.ok(out.length > 0, tag);
       if (MUST_DIFFER.includes(l)) assert.notEqual(out, es, 'quedó en español: ' + tag);

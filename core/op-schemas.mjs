@@ -3,22 +3,26 @@
 // un test falla si una operación del motor no tiene esquema aquí (o al revés). — Claude
 import { SHAPE_IDS, FX, FORMATS, FITS, MAX_TRACKS, AUDIO_ROLES } from './operations.mjs';
 import { LOOK_IDS, FILTER_RANGES } from './filters.mjs';
+import { TEXT_POS, TEXT_SIZES } from './text-style.mjs';
 
 const osT = { type: 'number', minimum: 0, description: 'segundos' };
 const osUnit = (d) => ({ type: 'number', minimum: 0, maximum: 1, description: d });
 const osFilterProps = Object.fromEntries(Object.entries(FILTER_RANGES).map(([k, [lo, hi]]) => [k, { type: 'number', minimum: lo, maximum: hi, description: `${k} (${lo} a ${hi}; 0 = sin cambio)` }]));
 const osP = {
-  clip_id: { type: 'string' }, asset_id: { type: 'string' },
+  clip_id: { type: 'string' }, asset_id: { type: 'string' }, text_id: { type: 'string', description: 'id de un texto en pantalla (t1, t2…)' },
   start: osT, in: osT, out: osT, at: osT, duration: { type: 'number', exclusiveMinimum: 0, description: 'segundos' },
   muted: { type: 'boolean' }, volume: { type: 'number', minimum: 0, maximum: 2, description: '0 a 2; 1 = original' },
   text: { type: 'string', maxLength: 120 },
+  pos: { type: 'string', enum: TEXT_POS, description: 'posición del texto: arriba, centro o abajo (por defecto bottom)' }, size: { type: 'string', enum: Object.keys(TEXT_SIZES), description: 'tamaño del texto (por defecto m)' },
+  color: { type: 'string', description: 'color del texto #rrggbb (por defecto #ffffff)' }, box: { type: 'string', description: "caja de fondo del texto: un color #rrggbb, o 'none' (por defecto)" },
   role: { type: 'string', enum: AUDIO_ROLES }, track: { type: 'integer', minimum: 1, maximum: MAX_TRACKS, description: `fila 1 a ${MAX_TRACKS} (mayor = más arriba)` },
   x: osUnit('centro horizontal, 0 a 1 del cuadro'), y: osUnit('centro vertical, 0 a 1 del cuadro'), scale: { type: 'number', minimum: 0.05, maximum: 1, description: 'ancho, 0.05 a 1 del cuadro' },
   shape: { type: 'string', enum: SHAPE_IDS }, zoom: { type: 'number', minimum: 1, maximum: 4 }, px: osUnit('posición del video dentro de la forma'), py: osUnit('posición del video dentro de la forma'),
   frame: { type: 'number', minimum: 0, maximum: 0.1, description: 'grosor del marco' }, frameColor: { type: 'string', description: 'color #rrggbb' }, opacity: { type: 'number', minimum: 0.1, maximum: 1 },
+  speed: { type: 'number', minimum: 0.25, maximum: 4, description: 'velocidad del clip: 0.5 = cámara lenta, 2 = el doble de rápido, 1 = normal' },
   intro: { type: 'string', enum: FX, description: 'efecto al aparecer' }, outro: { type: 'string', enum: FX, description: 'efecto al desaparecer' }, dur: { type: 'number', minimum: 0.1, maximum: 3, description: 'segundos del efecto' },
   look: { type: 'string', enum: LOOK_IDS, description: 'ajuste preparado; none lo quita' }, reset: { type: 'boolean', description: 'true quita el filtro' }, ...osFilterProps,
-  aspect: { type: 'string', enum: FORMATS }, fit: { type: 'string', enum: FITS, description: 'cover recorta, contain deja barras' },
+  safe: { type: 'boolean', description: 'true: los textos se colocan dentro de la zona segura de Reels/TikTok/Shorts (solo 9:16)' }, aspect: { type: 'string', enum: FORMATS }, fit: { type: 'string', enum: FITS, description: 'cover recorta, contain deja barras' },
 };
 const osF = Object.keys(osFilterProps);
 export const OP_SCHEMAS = {
@@ -28,15 +32,18 @@ export const OP_SCHEMAS = {
   add_overlay_clip: { desc: 'video o imagen superpuesta (capa) con posición y tamaño', required: ['asset_id'], props: ['asset_id', 'start', 'in', 'out', 'track', 'x', 'y', 'scale', 'volume', 'muted'] },
   set_overlay: { desc: 'cambia posición, tamaño, forma, marco u opacidad de una capa', required: ['clip_id'], props: ['clip_id', 'x', 'y', 'scale', 'track', 'shape', 'zoom', 'px', 'py', 'frame', 'frameColor', 'opacity'] },
   set_audio_clip: { desc: 'cambia la fila o el papel de una pista de audio', required: ['clip_id'], props: ['clip_id', 'track', 'role'] },
+  set_clip_speed: { desc: 'velocidad de un clip de video, capa o audio (0.25 a 4; 1 = normal): cambia cuánto dura en la línea de tiempo, no mueve los demás', required: ['clip_id', 'speed'], props: ['clip_id', 'speed'] },
   set_clip_fx: { desc: 'efecto de entrada/salida (fade, slide, zoom) de un clip de video o capa', required: ['clip_id'], props: ['clip_id', 'intro', 'outro', 'dur'] },
   set_clip_filter: { desc: 'filtro de color de un clip de video o capa (look preparado y/o ajustes sueltos)', required: ['clip_id'], props: ['clip_id', 'look', 'reset', ...osF] },
-  set_format: { desc: 'forma del cuadro de salida (original, 9:16, 1:1, 4:5, 16:9) y cómo se ajusta', required: [], props: ['aspect', 'fit'] },
+  set_format: { desc: 'forma del cuadro de salida (original, 9:16, 1:1, 4:5, 16:9), cómo se ajusta y la zona segura de los textos (9:16)', required: [], props: ['aspect', 'fit', 'safe'] },
   trim_clip: { desc: 'recorta un clip (in/out dentro de la duración del medio)', required: ['clip_id', 'in', 'out'], props: ['clip_id', 'in', 'out'] },
   split_clip: { desc: 'corta un clip en dos en el tiempo `at` del medio', required: ['clip_id', 'at'], props: ['clip_id', 'at'] },
   move_clip: { desc: 'mueve un clip a otro instante de la línea de tiempo', required: ['clip_id', 'start'], props: ['clip_id', 'start'] },
   set_clip_audio: { desc: 'silencia o cambia el volumen del audio de un clip', required: ['clip_id'], props: ['clip_id', 'muted', 'volume'] },
   delete_clip: { desc: 'borra un clip', required: ['clip_id'], props: ['clip_id'] },
-  add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration'] },
+  add_text: { desc: 'texto en pantalla', required: ['text', 'start', 'duration'], props: ['text', 'start', 'duration', 'pos', 'size', 'color', 'box'] },
+  set_text: { desc: 'cambia el texto, los tiempos y/o el estilo (posición, tamaño, color, caja) de un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id', 'text', 'start', 'duration', 'pos', 'size', 'color', 'box'] },
+  delete_text: { desc: 'borra un texto en pantalla (subtítulo)', required: ['text_id'], props: ['text_id'] },
 };
 export const OP_SCHEMA_NAMES = Object.keys(OP_SCHEMAS);
 const osPick = (names) => Object.fromEntries(names.map((k) => [k, osP[k]]));
