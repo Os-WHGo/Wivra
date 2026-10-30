@@ -100,12 +100,13 @@ test('Ray-Ban recording continues across 40-file mobile batches without losing s
 test('sequential imports reject wrong session, duplicate or skipped part',()=>{
  const project={assets:[{id:'a1',name:part(1).name},{id:'a2',name:part(2).name}]};
  const next=rayBanContinuation({assetId:'a1',assetIds:['a1','a2']},project);
+ const options={nextPart:next.nextPart,expectedSessionId:next.sessionId};
  assert.equal(next.nextPart,3);
- assert.equal(validateRayBanParts([part(4)],next).ok,false);
- assert.equal(validateRayBanParts([part(3,'10000000000000000000000000000000')],next).ok,false);
- assert.equal(validateRayBanParts([part(3),part(3)],next).ok,false);
- assert.equal(validateRayBanParts([part(3),part(4)],next).ok,true);
- assert.equal(validateRayBanParts([part(1)],next).ok,false);
+ assert.equal(validateRayBanParts([part(4)],options).ok,false);
+ assert.equal(validateRayBanParts([part(3,'10000000000000000000000000000000')],options).ok,false);
+ assert.equal(validateRayBanParts([part(3),part(3)],options).ok,false);
+ assert.equal(validateRayBanParts([part(3),part(4)],options).ok,true);
+ assert.equal(validateRayBanParts([part(1)],options).ok,false);
  const foreign={assets:[{id:'a1',name:'normal.mp4'}]};
  assert.equal(rayBanContinuation({assetId:'a1',assetIds:['a1']},foreign),null);
 });
