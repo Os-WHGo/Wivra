@@ -532,6 +532,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
+      const clipWallStart = performance.now();
       try { await ev.play(); } catch { throw new Error('El navegador no dejó reproducir un video para exportar.'); }
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
@@ -554,6 +555,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         };
         tick();
       });
+      // MediaRecorder records wall-clock time, unlike our precision-preserving
+      // source timeline. Stopping each source up to 30ms early would otherwise
+      // silently subtract time on hundreds of short cuts. Hold the last drawn
+      // frame for only the remaining scheduled clip time; never advance the
+      // source beyond its validated out point or conceal a source-EOF error.
+      // This is bounded to this clip and leaves normal video speed unchanged.
+      while (!stopNow() && performance.now() - clipWallStart < seg.dur * 1000) {
+        const elapsed = (performance.now() - clipWallStart) / 1000;
+        const t = c.start + Math.min(elapsed, seg.dur);
+        audioTick(t); drawFrame(g, W, H, ev, project, t, overlayTick(t)); report(t);
+        await frame();
+      }
       ev.pause();
     }
     await frame(); await frame();
