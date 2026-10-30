@@ -5,6 +5,7 @@ on:
     paths:
       - tools/browser-media-capability-probe.cjs
       - tools/browser-export-roundtrip.cjs
+      - tools/browser-long-multipart-export.cjs
       - app/export.mjs
       - .github/workflows/wivra-browser-media-matrix.yml
   workflow_dispatch:
@@ -34,6 +35,8 @@ jobs:
           ffprobe -version | head -n 1
       - name: Verify both non-contiguous scenes, title rendering attempts and WAV timing
         run: node tools/browser-export-roundtrip.cjs
+      - name: Render 81 synthetic cuts and verify output with ffprobe (not Ray-Ban HEVC)
+        run: node tools/browser-long-multipart-export.cjs
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -42,5 +45,6 @@ jobs:
           path: |
             wivra-media-capabilities.json
             wivra-export-browser-roundtrip.json
+            wivra-long-multipart-export.json
           if-no-files-found: warn
           retention-days: 7
