@@ -24,3 +24,12 @@ test('generic import does not report success after a rejected timeline edit', ()
   assert.match(generic, /if \(!result\.ok\) \{/);
   assert.ok(generic.indexOf('if (!result.ok)') < generic.indexOf('thumbQueue = thumbQueue.then'));
 });
+
+test('failed generic import releases only unreferenced staged media', () => {
+  assert.match(generic, /let committed = false/);
+  assert.match(generic, /if \(!committed && added\.length && session\)/);
+  assert.match(generic, /session\.undoStack, \.\.\.session\.redoStack/);
+  assert.match(generic, /added\.filter\(id => !referenced\.has\(id\)\)/);
+  assert.match(generic, /URL\.revokeObjectURL\(url\)/);
+  assert.match(generic, /delete mediaFiles\[id\]/);
+});
