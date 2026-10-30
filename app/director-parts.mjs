@@ -24,3 +24,22 @@ export function validateRayBanParts(files) {
   return {ok:false,reason:'Falta un segmento anterior o intermedio. No se importó la toma incompleta.'};
  return {ok:true,sessionId:session,files:parts.map(x=>x.file)};
 }
+
+
+/**
+ * Rehydrate ONLY real, available project assets. Project metadata can survive
+ * even when its IndexedDB media blob was evicted or a save ran out of space.
+ * Never claim a complete Ray-Ban take when any one part is unavailable.
+ */
+export function restoreDirectorAssetLinks(shot,projectIds,availableIds) {
+ const empty={assetId:null,assetIds:[]};
+ if(!shot||!projectIds||!availableIds) return empty;
+ const raw=Array.isArray(shot.assetIds) ? shot.assetIds :
+   (typeof shot.assetId==='string'&&shot.assetId ? [shot.assetId] : []);
+ if(raw.length<1||raw.length>MAX_DIRECTOR_PARTS ||
+    new Set(raw).size!==raw.length ||
+    raw.some(id=>typeof id!=='string'||!projectIds.has(id)||!availableIds.has(id)))
+   return empty;
+ if(shot.assetId && shot.assetId!==raw[0])return empty;
+ return {assetId:raw[0],assetIds:[...raw]};
+}
