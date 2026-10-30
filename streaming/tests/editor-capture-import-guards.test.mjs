@@ -60,3 +60,12 @@ test('cleanup tolerates a failed media preparation before a session exists', () 
   assert.match(generic, /const states = session \? \[session\.project/);
   assert.match(generic, /if \(session && !previousSession && !session\.project\.assets\.length/);
 });
+
+test('export revalidates session and revision after async loudness analysis', () => {
+  const exportUI = html.slice(html.indexOf("$('expGo').onclick = async () =>"), html.indexOf('/* ---------- IA directa:', html.indexOf("$('expGo').onclick = async ()")));
+  assert.match(exportUI, /const exportSession = session/);
+  assert.match(exportUI, /const exportRevision = session\.project\.revision/);
+  assert.match(exportUI, /session !== exportSession \|\| session\.project\.revision !== exportRevision \|\| pzMissing\.length/);
+  assert.ok(exportUI.indexOf('session !== exportSession') < exportUI.indexOf('await recordProject('));
+  assert.match(exportUI, /project: exportSession\.project/);
+});
