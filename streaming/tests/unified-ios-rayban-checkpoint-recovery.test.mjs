@@ -47,6 +47,13 @@ test('working MOV is not published until AVAssetWriter completes successfully', 
   assert.match(segmented, /return \.savedSegments\(files,/);
 });
 
+test('iOS Ray-Ban default avoids opening HFP/SCO and retains explicit audio opt-in', () => {
+  assert.match(model, /var captureSelectedAudio = false/);
+  assert.match(model, /if captureSelectedAudio \{/);
+  assert.match(model, /audioRoute\.activateSelectedInput\(\)/);
+  assert.match(model, /captureSelectedAudio \? clipRecorder\.arm\(\) : segmentedRecorder\.arm\(\)/);
+});
+
 test('iPhone video-only uses independent segments without changing audio capture', () => {
   assert.match(model, /let segmentedRecorder = WivraSegmentedHEVCRecorder\(\)/);
   assert.match(model, /captureSelectedAudio \? clipRecorder\.arm\(\) : segmentedRecorder\.arm\(\)/);
