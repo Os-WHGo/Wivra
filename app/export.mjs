@@ -273,6 +273,16 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
 export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
 export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+/** Advisory only: MediaRecorder chunks and final Blob remain buffered until export ends.
+ * Estimated encoded MB is not a measurement of RAM or free storage.
+ * The warning does not certify any duration or block the owner's export.
+ */
+export function exportMemoryRisk(seconds) {
+  const estimatedMB = exportSizeMB(seconds);
+  return {estimatedMB,
+    level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
+    bufferedUntilComplete: true};
+}
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
