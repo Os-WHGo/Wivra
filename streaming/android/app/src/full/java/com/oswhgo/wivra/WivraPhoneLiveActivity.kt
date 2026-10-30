@@ -243,11 +243,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val publisher = stream ?: return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         val pending = try {
-            if (withAudio) {
-                // The permission is checked BEFORE changing the source.
-                // This is the only path where a real microphone is opened.
-                publisher.changeAudioSource(MicrophoneSource())
-            }
+            // Set the requested source on EVERY attempt. Otherwise a user
+            // who enables microphone once then disables it could accidentally
+            // keep capturing microphone audio in the next session.
+            // Mic permission is checked before arriving here.
+            publisher.changeAudioSource(
+                if (withAudio) MicrophoneSource() else NoAudioSource()
+            )
             // Encoder must be prepared even for NoAudioSource, but no PCM
             // samples are captured or transmitted in video-only mode.
             if (!publisher.prepareAudio(44_100, false, 64_000)) {
