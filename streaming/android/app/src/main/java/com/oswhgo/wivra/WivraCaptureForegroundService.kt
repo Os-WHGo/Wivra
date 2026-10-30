@@ -119,6 +119,7 @@ class WivraCaptureForegroundService : Service() {
     private var streamHealthWatchdog: Job? = null
     @Volatile private var lastMuxedSampleAtMs = 0L
     private var lastSamplesTotal = 0
+    private var streamEverActive = false
     private var lastNotifiedCheckpoint = -1
     private var cpuLock: PowerManager.WakeLock? = null
 
@@ -266,6 +267,7 @@ class WivraCaptureForegroundService : Service() {
             recorder = muxer
             packetCount = 0L
             lastSamplesTotal = 0
+            streamEverActive = false
             lastMuxedSampleAtMs = 0L
             lastNotifiedCheckpoint = -1
             renewCpuLease()
@@ -324,7 +326,9 @@ class WivraCaptureForegroundService : Service() {
                             )
                             withContext(Dispatchers.Main.immediate) {
                                 mutableCaptureProgress.value = progress
-                                if (samples >= 2 && (captureState == CaptureState.CONNECTING ||
+                                if (samples >= 2 &&
+                                    activeStream.state.value != StreamState.PAUSED &&
+                                    (captureState == CaptureState.CONNECTING ||
                                         captureState == CaptureState.PAUSED)) {
                                     setCaptureState(CaptureState.RECORDING)
                                 }
@@ -356,19 +360,39 @@ class WivraCaptureForegroundService : Service() {
             }
             streamJob = scope.launch {
                 activeStream.state.collect { state ->
-                    if (state == StreamState.CLOSED) {
-                        mutableCaptureIssue.value =
-                            "Se cerró la transmisión Ray-Ban. Los MP4 completados se conservan."
-                        finalizeCapture()
+                    when (state) {
+                        StreamState.STREAMING -> streamEverActive = true
+                        StreamState.PAUSED -> {
+                            if (!finishing) setCaptureState(CaptureState.PAUSED)
+                        }
+                        StreamState.STOPPED -> {
+                            // The initial STOPPED state is normal before start().
+                            // A terminal stop after actual streaming is not.
+                            if (streamEverActive) {
+                                mutableCaptureIssue.value =
+                                    "La transmisión Ray-Ban se detuvo. " +
+                                    "Los segmentos MP4 cerrados se conservan."
+                                finalizeCapture()
+                            }
+                        }
+                        StreamState.CLOSED -> {
+                            mutableCaptureIssue.value =
+                                "Se cerró la transmisión Ray-Ban. " +
+                                "Los MP4 completados se conservan."
+                            finalizeCapture()
+                        }
+                        else -> Unit
                     }
-                    if (state == StreamState.PAUSED && !finishing) {
-                        setCaptureState(CaptureState.PAUSED)
-                    }
-                    // PAUSED can resume. Do not erase confirmed checkpoints.
                 }
             }
             streamErrorJob = scope.launch {
-                activeStream.errorStream.collect { finalizeCapture() }
+                activeStream.errorStream.collect { error ->
+                    // DAT can emit recoverable STREAM_ERROR when a user pauses.
+                    // State, not an arbitrary error event, determines teardown.
+                    mutableCaptureIssue.value =
+                        "Meta DAT: " + error.description +
+                        ". Se conservan los MP4 completados."
+                }
             }
             activeStream.start()
                 // A successful start only means DAT accepted the request.
