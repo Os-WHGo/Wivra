@@ -64,3 +64,12 @@ test('multipart continuation is inserted at prior verified boundary, independent
  assert.match(html,/probe\(f,requireAll\)/);
  assert.match(html,/rayBanPartPositions\(added\.map\(mainLen\),at\)/);
 });
+
+test('multipart import will not insert into a replaced project or stale Director plan',()=>{
+ assert.match(html,/directorMultipartContext=\{session,projectId:pzPid,plan:shootPlan,shotId:selectedShootId,revision:session\.project\.revision\}/);
+ assert.match(html,/if\(!ctx\|\|ctx\.session!==session\|\|ctx\.projectId!==pzPid\|\|/);
+ assert.match(html,/ctx\.plan!==shootPlan\|\|ctx\.shotId!==selectedShootId/);
+ assert.match(html,/session\.project\.revision!==ctx\.revision/);
+ assert.match(html,/No se insertó la tanda/);
+ assert.match(html,/directorMultipartContext=null/);
+});
