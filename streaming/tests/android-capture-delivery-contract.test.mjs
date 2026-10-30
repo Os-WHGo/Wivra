@@ -108,6 +108,18 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   assert.match(service, /runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
 });
 
+test('long Ray-Ban captures retain a disk reserve for safe MP4 muxer finalization', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  assert.match(service, /MIN_FREE_CAPTURE_BYTES = 128L \* 1024L \* 1024L/);
+  assert.match(service, /applicationContext\.filesDir\.usableSpace >= MIN_FREE_CAPTURE_BYTES/);
+  assert.match(service, /if \(!hasCaptureStorage\(\)\) \{[\s\S]*?finalizeCapture\(\)\s*return/);
+  assert.match(service, /storageWatchdog = scope\.launch/);
+  assert.match(service, /delay\(10_000L\)/);
+  assert.match(service, /Espacio libre bajo\. Cerrando MP4 Ray-Ban con seguridad/);
+  assert.match(service, /storageWatchdog\?\.cancel\(\)/);
+  assert.doesNotMatch(service, /deleteRecursively\(\)/);
+});
+
 test('DAT handles recoverable stream error and headset pause without discarding valid MP4', () => {
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   assert.match(service, /StreamState\.PAUSED/);
