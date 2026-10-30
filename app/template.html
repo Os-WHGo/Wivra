@@ -2848,7 +2848,10 @@ function restoreDirectorOfProject(sn) {
     for (const id of ['dirGoal', 'dirNotes', 'dirCorrection', 'dirAssetDescription', 'dirSeconds']) $(id).value = '';
     $('dirMode').value = 'automatic'; $('dirPlatform').value = 'reels'; $('dirOtherFormats').value = ''; $('dirOutputs').value = 1; $('dirHistory').textContent = '';
     if (d.draft) restoreDirectorDraft(d.draft);
-    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => ({ ...s, assetId: known.has(s.assetId) ? s.assetId : null })) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
+    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => {
+      const ids = Array.isArray(s.assetIds) ? s.assetIds.filter(id=>known.has(id)) : (known.has(s.assetId)?[s.assetId]:[]);
+      return {...s,assetId:ids[0]||null,assetIds:ids};
+    }) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
     selectedShootId = null; renderShootPlan();
   } catch (e) { say('No se pudieron recuperar las notas del Director: ' + e.message, 'bad'); }
 }
