@@ -57,8 +57,8 @@ test('failed photo preparation is staged but not treated as successfully importe
 });
 
 test('cleanup tolerates a failed media preparation before a session exists', () => {
-  assert.match(generic, /const states = session \? \[session\.project/);
-  assert.match(generic, /if \(session && !previousSession && !session\.project\.assets\.length/);
+  assert.match(generic, /const states = stagingSession \? \[stagingSession\.project/);
+  assert.match(generic, /if \(session && session === stagingSession && !previousSession && !session\.project\.assets\.length/);
 });
 
 test('export revalidates session and revision after async loudness analysis', () => {
@@ -73,7 +73,7 @@ test('export revalidates session and revision after async loudness analysis', ()
 test('capture importer reclaims partially prepared resources after failed audio split', () => {
   assert.match(capture, /stagedAssetIDs = \[\], importedAssetIDs = \[\]/);
   assert.ok(capture.indexOf('stagedAssetIDs.push(id)') < capture.indexOf('session.addAsset('));
-  assert.match(capture, /const states = session \? \[session\.project/);
+  assert.match(capture, /const states = stagingSession \? \[stagingSession\.project/);
   assert.match(capture, /!captureCommitted \|\| !importedAssetIDs\.includes\(id\)/);
   assert.match(capture, /URL\.revokeObjectURL\(url\)/);
 });
