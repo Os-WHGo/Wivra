@@ -617,6 +617,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (pendingPickerSignal != null) pendingPickerSignal.cancel();
+        pendingPickerSignal = null;
         pickerValidator.shutdownNow();
         if (pendingFilePicker != null) {
             pendingFilePicker.onReceiveValue(null);
