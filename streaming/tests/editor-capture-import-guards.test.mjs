@@ -100,3 +100,11 @@ test('capture selection enforces the same mobile file limit before probing', () 
   assert.match(capture, /if \(files\.length > MAX_IMPORT\)/);
   assert.ok(capture.indexOf('files.length > MAX_IMPORT') < capture.indexOf('const open = async'));
 });
+
+test('cleanup targets the owning editor session even after the user switches projects', () => {
+  for (const source of [capture, generic]) {
+    assert.match(source, /let stagingSession = session/);
+    assert.match(source, /const states = stagingSession \? \[stagingSession\.project, \.\.\.stagingSession\.undoStack, \.\.\.stagingSession\.redoStack\]/);
+    assert.match(source, /session === stagingSession/);
+  }
+});
