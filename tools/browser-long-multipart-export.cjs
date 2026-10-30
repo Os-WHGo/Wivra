@@ -105,11 +105,12 @@ const server=http.createServer((req,res)=>{
     report.plannedSeconds=result.plannedSeconds;
     report.outputBytes=result.outputBytes;report.inputBytes=result.inputBytes;
     report.elapsedSeconds=result.elapsedSeconds;report.mime=result.mime;
+    report.durationDriftSeconds=+(measured-report.plannedSeconds).toFixed(3);
     report.ffprobe={duration:measured,format:probed.format?.format_name,
       video:(probed.streams||[]).some(s=>s.codec_type==='video'),
       packets:(probed.packets||[]).length};
     if(report.partCount!==81||!report.ffprobe.video||
-       !(measured>8 && measured<25)||
+       Math.abs(report.durationDriftSeconds)>0.45||
        !(report.outputBytes>1000))
       throw new Error('export did not meet long-montage smoke criteria: '+JSON.stringify(report));
     report.pass=true;
