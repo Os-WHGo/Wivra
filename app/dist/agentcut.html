@@ -4987,7 +4987,7 @@ async function importCapture(files) {
       const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
       try {
         const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
-        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); stagedAssetIDs.push(id);
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; stagedAssetIDs.push(id); keepFile(id, f, kind);
         session ||= new Session(createProject({ assets: [] }));
         session.addAsset({ id, duration: pr.duration, name: f.name }); importedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
@@ -5008,7 +5008,7 @@ async function importCapture(files) {
           const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
           for (const [i, x] of group.entries()) {
             const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
-            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); stagedAssetIDs.push(id);
+            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; stagedAssetIDs.push(id); keepFile(id, nf, 'audio');
             session ||= new Session(createProject({ assets: [] }));
             session.addAsset({ id, duration: pr.duration, name: nf.name }); importedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
           }
