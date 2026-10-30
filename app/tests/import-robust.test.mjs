@@ -8,7 +8,7 @@ for (const f of ['../template.html', '../dist/agentcut.html']) {
     assert.match(h, /const PROBE_MS = 30000/); assert.match(h, /setTimeout\(\(\) => fail\('tardó demasiado en abrirse/);
     assert.match(h, /dura menos de 0\.1 s/); assert.match(h, /Más compatible/); assert.match(h, /const MAX_IMPORT = 40/);
     assert.match(h, /t\.removeAttribute\('src'\); t\.load\(\)/, 'se suelta el lector de video temporal');
-    assert.match(h, /else if \(capNote\) say\(capNote/);
+    assert.match(h, /No se agregó ningún archivo/); assert.doesNotMatch(h, /files = files\.slice\(0, MAX_IMPORT\)/);
   });
 }
 
