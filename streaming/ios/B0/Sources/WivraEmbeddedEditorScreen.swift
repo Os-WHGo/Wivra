@@ -84,18 +84,27 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         // A capture requires a manifest AND a video (and optional CAF tracks),
         // so it is only offered for multi-file input elements.
         if offerCaptureBundles {
-            for item in ready {
-                let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
-                sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
-                    guard let video = item.videoURL else {
-                        self?.finishSelection(nil)
-                        return
-                    }
-                    let urls = [item.manifestURL, video] +
-                        (item.alternateVideoURL.map { [$0] } ?? []) + item.audioURLs
-                    self?.finishSelection(urls)
-                })
-            }
+            // A searchable table avoids a giant action sheet after many takes.
+            // Keep the original Files fallback for external media.
+            sheet.addAction(UIAlertAction(title: "Grabaciones de Wivra (\(ready.count))", style: .default) { [weak self, weak presenter] _ in
+                guard let self, let presenter else { self?.finishSelection(nil); return }
+                let browser = UIAlertController(title: "Elegir grabación", message: "Selecciona una toma local para importar.", preferredStyle: .actionSheet)
+                for item in ready {
+                    let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
+                    browser.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
+                        guard let video = item.videoURL else { self?.finishSelection(nil); return }
+                        let urls = [item.manifestURL, video] +
+                            (item.alternateVideoURL.map { [$0] } ?? []) + item.audioURLs
+                        self?.finishSelection(urls)
+                    })
+                }
+                browser.addAction(UIAlertAction(title: "Cancelar", style: .cancel) { [weak self] _ in self?.finishSelection(nil) })
+                if let popover = browser.popoverPresentationController {
+                    popover.sourceView = webView
+                    popover.sourceRect = CGRect(x: webView.bounds.midX, y: 12, width: 1, height: 1)
+                }
+                presenter.present(browser, animated: true)
+            })
         }
         sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
             guard let self else { return }
