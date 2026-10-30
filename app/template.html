@@ -1295,7 +1295,18 @@ async function importSelectedFiles(files) {
     const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: round2(start) }; start += mainLen(id); return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
-    if (first) run(ops); else { const rr = edit(ops, { ripple: false }); if (!rr.ok) say('No se pudo agregar: ' + rr.message, 'bad'); }
+    const result = first ? run(ops) : edit(ops, { ripple: false });
+    if (!result.ok) {
+      say('No se pudo agregar: ' + result.message, 'bad');
+      // Do not report success or generate thumbnails for an uncommitted edit.
+      for (const id of added) {
+        if (!session.project.clips.some(c => c.assetId === id || c.asset_id === id)) {
+          delete media[id];
+        }
+      }
+      loading = false;
+      return;
+    }
     if (first && media[added[0]].kind !== 'image') useAsset(added[0], 0);
     for (const id of added) if (media[id].kind !== 'image') thumbQueue = thumbQueue.then(() => makeThumbs(id));
     if (first) showFrame();
