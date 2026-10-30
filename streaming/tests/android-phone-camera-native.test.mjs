@@ -60,8 +60,9 @@ test('Phone MP4 private until user chooses Keep, Later, Delete',()=>{
   assert.doesNotMatch(store,/^import (?:java\.net\.|okhttp|retrofit|android\.webkit\.)/m);
 });
 test('Saved phone media reaches SAME editor through selected content URI',()=>{
-  assert.match(editor,/new Intent\(this, WivraPhoneCameraActivity.class\)/);
-  assert.match(editor,/new Intent\(this, WivraMetaPreviewActivity.class\)/);
+  assert.match(editor,/launchCameraFromDirector\(WivraPhoneCameraActivity.class\)/);
+  assert.match(editor,/launchCameraFromDirector\(WivraMetaPreviewActivity.class\)/);
+  assert.match(editor,/new Intent\(this, targetActivity\)/);
   assert.match(editor,/WivraPhoneMediaStore.latestSavedPhotos\(MainActivity.this\)/);
   assert.match(editor,/WivraPhoneMediaStore.latestSavedVideos\(MainActivity.this\)/);
   assert.match(editor,/WivraSavedRayBanVideos.latestSaved\(MainActivity.this\)/);
