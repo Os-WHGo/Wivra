@@ -13,7 +13,8 @@ test('Director and native camera refer to same persisted local shot plan',()=>{
   assert.match(plan,/const SHOOT_STORAGE_KEY='agentcut-shoot-checklist-v1'/);
   assert.match(plan,/localStorage\.setItem\(SHOOT_STORAGE_KEY,JSON\.stringify\(shootPlan\)\)/);
   assert.match(plan,/shootPlan\.shots/);
-  assert.match(host,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(host,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(host,/localStorage\.getItem\(/);
   assert.match(host,/agentcut-shoot-plan-v0\.1/);
   assert.match(host,/s\.state==='todo'\|\|s\.state==='retry'/);
   assert.match(host,/s\.script\.slice\(0,2200\)/);
