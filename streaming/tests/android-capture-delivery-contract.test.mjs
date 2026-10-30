@@ -108,6 +108,15 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   assert.match(service, /runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
 });
 
+test('active pocket recording prevents registration, duplicate DAT sessions and repeat stop', () => {
+  const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
+  assert.match(activity, /registerButton\.isEnabled = sdkReady && !serviceRecording/);
+  assert.match(activity, /private fun registerMeta\(\) \{[\s\S]*?if \(!sdkReady \|\| WivraCaptureForegroundService\.isCaptureActive\(\)\) return/);
+  assert.match(activity, /private fun beginSession\(\) \{[\s\S]*?WivraCaptureForegroundService\.isCaptureActive\(\)\) return/);
+  assert.match(activity, /private fun checkCameraPermission\(recording: Boolean = false\) \{[\s\S]*?if \(WivraCaptureForegroundService\.isCaptureActive\(\)/);
+  assert.match(activity, /CaptureState\.FINALIZING\) \|\|/);
+});
+
 test('long Ray-Ban captures retain a disk reserve for safe MP4 muxer finalization', () => {
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   assert.match(service, /MIN_FREE_CAPTURE_BYTES = 128L \* 1024L \* 1024L/);
