@@ -221,7 +221,8 @@ public final class MainActivity extends Activity {
             "const plan=JSON.parse(localStorage.getItem('agentcut-shoot-checklist-v1')||'null');" +
             "if(!plan||plan.schema!=='agentcut-shoot-plan-v0.1'||!Array.isArray(plan.shots))return '[]';" +
             "return JSON.stringify(plan.shots.filter(s=>(s.state==='todo'||s.state==='retry')" +
-            "&&typeof s.id==='string'&&s.id.length>0&&s.id.length<=120)" +
+            "&&typeof s.id==='string'&&s.id.length>0&&s.id.length<=120" +
+            "&&Array.from(s.id).every(ch=>ch.charCodeAt(0)>=32&&ch.charCodeAt(0)!==127))" +
             ".slice(0,30).map(s=>({id:s.id,title:String(s.title||'')," +
             "script:typeof s.script==='string'?s.script.slice(0,2200):''})));" +
             "}catch(e){return '[]';}})();";
