@@ -90,3 +90,8 @@ test('generic importer stages media before persistence and rejects replaced sess
   assert.ok(generic.indexOf('staged.push(id)') < generic.indexOf("keepFile(id, f, photo ? 'image' : 'video')"));
   assert.ok(generic.indexOf('session !== importSession') < generic.indexOf('const result = first ? run(ops)'));
 });
+
+test('capture stages both source video and extracted audio before persistence', () => {
+  assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, f, kind\)/);
+  assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, nf, 'audio'\)/);
+});
