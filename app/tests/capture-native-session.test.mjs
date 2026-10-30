@@ -39,3 +39,18 @@ test('native session keeps failed recording recoverable', async () => {
   assert.equal((await session.snapshot('ski2')).state, 'failed');
   assert.equal((await session.pending()).length, 1);
 });
+
+test('Director handoff requires finalized journal and native file verification', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'handoff', platform: 'android' });
+  await assert.rejects(session.directorHandoff('handoff'), /not finalized/);
+  await session.stop('handoff');
+  await assert.rejects(session.directorHandoff('handoff'), /verification required/);
+  host.verifyFile = async ({ file }) => file === 'full.mp4';
+  assert.deepEqual(await session.directorHandoff('handoff'), {
+    sessionId: 'handoff', platform: 'android', file: 'full.mp4',
+    segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000 }]
+  });
+  host.verifyFile = async () => false;
+  await assert.rejects(session.directorHandoff('handoff'), /verification required/);
+});
