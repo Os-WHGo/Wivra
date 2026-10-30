@@ -88,7 +88,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
             // a separate browser. The system Files fallback remains available.
             sheet.addAction(UIAlertAction(title: "Grabaciones de Wivra (\(ready.count))", style: .default) { [weak self, weak presenter] _ in
                 guard let self, let presenter else { self?.finishSelection(nil); return }
-                let browser = UIAlertController(title: "Elegir grabación", message: "Selecciona una toma local para importar.", preferredStyle: .actionSheet)
+                let browser = UIAlertController(title: "Elegir grabación", message: "Selecciona una toma local para importar. Las grabaciones más recientes aparecen primero.", preferredStyle: .actionSheet)
                 for item in ready {
                     let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
                     browser.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
