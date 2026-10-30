@@ -37,8 +37,8 @@ test('cloud and multi-part file providers cannot stall the Android UI thread', (
 });
 
 test('native system picker supports the same 40-part Ray-Ban group as the editor', () => {
-  const html = readFileSync(new URL('../../../app/template.html', import.meta.url),'utf8');
-  const parts = readFileSync(new URL('../../../app/director-parts.mjs', import.meta.url),'utf8');
+  const html = readFileSync(new URL('../../app/template.html', import.meta.url),'utf8');
+  const parts = readFileSync(new URL('../../app/director-parts.mjs', import.meta.url),'utf8');
   assert.match(main, /MAX_PICKER_FILES = 40/);
   assert.match(parts, /MAX_DIRECTOR_PARTS=40/);
   assert.match(html, /const MAX_IMPORT = 40/);
