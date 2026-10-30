@@ -52,3 +52,8 @@ test('Director native receipt preserves project context without inventing a medi
   assert.doesNotMatch(main, /\{state:'done',assetId:/);
   assert.doesNotMatch(phone, /putExtra\(EXTRA_SHOT_ID, shotId\).*putExtra\(.*(file|uri|path)/);
 });
+
+test('A new Android Director camera selection clears any stale shot receipt', () => {
+  assert.match(main, /Intent launch = new Intent\(this, targetActivity\);\s*pendingDirectorShotId = null;\s*if \(index > 0\)/);
+  assert.match(main, /if \(shots\.length\(\) == 0\) \{\s*pendingDirectorShotId = null;/);
+});
