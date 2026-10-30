@@ -49,3 +49,33 @@ test('exporter rejects source EOF and out-of-range clips instead of writing trun
   assert.match(src,/if \(ev\.ended\) \{/);
   assert.match(src,/El video original termina antes del final elegido/);
 });
+
+
+test('long export estimator flags memory exposure without claiming mobile hardware validation',async()=>{
+  const {exportMemoryRisk,exportPlan,validateMainVideoExport}=await import('../export.mjs');
+  assert.deepEqual(exportMemoryRisk(300),{estimatedMB:120,level:'normal',bufferedUntilComplete:true});
+  assert.equal(exportMemoryRisk(1200).level,'elevated');
+  assert.equal(exportMemoryRisk(1200).estimatedMB,450);
+  assert.equal(exportMemoryRisk(3600).level,'critical');
+  assert.equal(exportMemoryRisk(3600).estimatedMB,1350);
+  const twelveHours=1440*30;
+  assert.equal(exportMemoryRisk(twelveHours).estimatedMB,16200);
+  assert.equal(exportMemoryRisk(twelveHours).level,'critical');
+  const clips=Array.from({length:1440},(_,i)=>({
+    id:'part-'+(i+1),asset_id:'rayban-'+(i+1),start:i*30,in:0,out:30
+  }));
+  assert.deepEqual(validateMainVideoExport({clips}),{ok:true});
+  const plan=exportPlan({clips});
+  assert.equal(plan.segments.length,1440);
+  assert.equal(plan.total,twelveHours);
+  // Scheduling and capacity checks are pure data tests, never a 12h playback claim.
+});
+
+test('the existing export dialog discloses in-memory buffering risk on both source and built HTML',()=>{
+  for(const file of ['../template.html','../dist/agentcut.html']){
+    const html=readFileSync(new URL(file,import.meta.url),'utf8');
+    assert.match(html,/exportMemoryRisk\(plan\.total\)/);
+    assert.match(html,/Este motor acumula datos en memoria/);
+    assert.match(html,/Los originales no se borran/);
+  }
+});
