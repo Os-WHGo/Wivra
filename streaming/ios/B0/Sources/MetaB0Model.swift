@@ -51,7 +51,10 @@ final class MetaB0Model {
 
     var lastRecordedURL: URL?
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
-    var captureSelectedAudio = true
+    // Default to the lowest-risk Meta DAT path: uninterrupted HEVC-only
+    // capture. Audio sidecar stays opt-in with explicit route preflight.
+    // Never open HFP/SCO implicitly alongside glasses video streaming.
+    var captureSelectedAudio = false
     var lastSeparateAudioURL: URL?
     var lastCombinedVideoURL: URL?
     var lastAudioSyncOffsetSeconds: Double?
