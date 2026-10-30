@@ -74,7 +74,8 @@ test('Claude editor gets only user-picked published WAV via content URI',()=>{
   assert.match(store,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
   assert.match(store,/if \(title\.startsWith\(PUBLISHED_PREFIX\)/);
   assert.match(picker,/editor\.evaluateJavascript\(readOnly, encoded ->/);
-  assert.match(picker,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(picker,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(picker,/localStorage\.getItem\(/);
   assert.doesNotMatch(picker,/addJavascriptInterface\(/);
 });
 test('WAV UI text exists in eight Android resource dictionaries',()=>{
