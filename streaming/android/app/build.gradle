@@ -54,6 +54,9 @@ dependencies {
     implementation 'androidx.camera:camera-video:1.5.3'
     implementation 'androidx.camera:camera-view:1.5.3'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+    // Apache-2.0 hardware RTMP/RTMPS publisher; only the full Wivra edition.
+    // JitPack version pinned. The independent Ray-Ban Capture APK stays unchanged.
+    fullImplementation 'com.github.pedroSG94.RootEncoder:library:2.8.1'
     // Local deterministic PTS clock tests, without emulator or physical glasses.
     testImplementation 'junit:junit:4.13.2'
     // Only tests, never a required runtime service or production dependency.
