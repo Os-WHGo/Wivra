@@ -96,8 +96,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           active = null;
           return { ok: true, journal: j };
         } catch (error) {
-          await store.transition(id, { state: 'failed', at: timestamp() });
-          active = null;
+          // A storage failure must not leave this coordinator permanently
+          // occupied. Preserve the original error and the last durable
+          // journal snapshot if marking failure also fails.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Native recovery will inspect the last durable snapshot. */ }
+          finally { active = null; }
           throw error;
         }
       });
