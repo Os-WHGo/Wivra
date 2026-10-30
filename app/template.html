@@ -1125,6 +1125,7 @@ async function importCapture(files) {
   let captureCommitted = false;
   // A capture must not silently attach to a different project after awaits.
   const captureSession = session;
+  let stagingSession = session;
   loading = true; stopPlayIfAny();
   try {
     const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
@@ -1164,6 +1165,7 @@ async function importCapture(files) {
         const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
         media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; stagedAssetIDs.push(id); keepFile(id, f, kind);
         session ||= new Session(createProject({ assets: [] }));
+        stagingSession = session;
         session.addAsset({ id, duration: pr.duration, name: f.name }); importedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
     };
@@ -1185,6 +1187,7 @@ async function importCapture(files) {
             const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
             media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; stagedAssetIDs.push(id); keepFile(id, nf, 'audio');
             session ||= new Session(createProject({ assets: [] }));
+            stagingSession = session;
             session.addAsset({ id, duration: pr.duration, name: nf.name }); importedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
           }
         } catch (e) { failed.push(`${t.file}: ${e.message}`); }
@@ -1236,7 +1239,7 @@ async function importCapture(files) {
     if (stagedAssetIDs.length) {
       // Session.addAsset copies metadata to all undo/redo snapshots. Remove
       // only assets not referenced by a clip in ANY snapshot.
-      const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
+      const states = stagingSession ? [stagingSession.project, ...stagingSession.undoStack, ...stagingSession.redoStack] : [];
       const referenced = new Set(states.flatMap(p => ['clips','overlayClips','audioClips']
         .flatMap(k => (p[k] || []).map(c => c.asset_id))));
       const unreferenced = new Set(stagedAssetIDs.filter(id => !referenced.has(id) && (!captureCommitted || !importedAssetIDs.includes(id))));
@@ -1249,7 +1252,7 @@ async function importCapture(files) {
         delete media[id];
         delete mediaFiles[id];
       }
-      if (session && !previousSession && !session.project.assets.length &&
+      if (session && session === stagingSession && !previousSession && !session.project.assets.length &&
           !['clips','overlayClips','audioClips'].some(k => (session.project[k] || []).length)) {
         session = null;
       }
