@@ -28,6 +28,8 @@ android {
     }
     // One HTML editor source shared with the iOS binary, never a copied fork.
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/wivra-assets'))
+    // Real MediaRecorder samples (Chromium WebM/MP4, ffmpeg H.264+AAC) for container repair tests only.
+    sourceSets.androidTest.assets.srcDir(rootProject.file('../../app/tests/fixtures/mediarecorder'))
 }
 
 // Only static HTML and JSON. No cloud, runtime code downloads or paid services.
@@ -47,6 +49,9 @@ dependencies {
     implementation 'com.meta.wearable:mwdat-camera:1.0.1'
     implementation 'androidx.activity:activity-ktx:1.10.1'
     implementation 'androidx.core:core:1.16.0'
+    // Apache-2.0 AndroidX WebView compat: async WebMessageListener with ArrayBuffer
+    // for progressive export (no addJavascriptInterface, no network, no service).
+    implementation 'androidx.webkit:webkit:1.12.1'
     // Free Apache-2.0 AndroidX CameraX, same phone cameras across Android devices.
     // No external app/service. Pin one tested stable version to avoid API drift.
     implementation 'androidx.camera:camera-camera2:1.5.3'
