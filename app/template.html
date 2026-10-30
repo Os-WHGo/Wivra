@@ -1125,7 +1125,6 @@ async function importCapture(files) {
   let captureCommitted = false;
   // A capture must not silently attach to a different project after awaits.
   const captureSession = session;
-  const captureRevision = session?.project.revision;
   loading = true; stopPlayIfAny();
   try {
     const manifests = files.filter(f => /\.wivra\.json$/i.test(f.name));
@@ -1200,7 +1199,7 @@ async function importCapture(files) {
     }
     for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
-    if (captureSession && (session !== captureSession || session.project.revision !== captureRevision)) {
+    if (captureSession && session !== captureSession) {
       say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
       return;
     }
