@@ -64,3 +64,19 @@ test('Director refuses a finalized take when a source fragment is missing', asyn
   await assert.rejects(session.directorHandoff('partial'), /verification required/);
   assert.deepEqual(checked, ['full.mp4', 'a.mp4']);
 });
+
+test('Director handoff rejects concurrent capture state mutations while verifying media', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'locked', platform: 'android' });
+  await session.stop('locked');
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  host.verifyFile = async () => { entered(); await gate; return true; };
+  const handoff = session.directorHandoff('locked');
+  await started;
+  await assert.rejects(session.start({ id: 'other', platform: 'android' }), /operation in progress/);
+  release();
+  assert.equal((await handoff).sessionId, 'locked');
+});
