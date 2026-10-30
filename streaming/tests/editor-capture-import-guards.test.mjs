@@ -18,3 +18,9 @@ test('generic media import does not silently treat capture manifest as video', (
   assert.match(generic, /files\.some\(f => \/\\\.wivra\\\.json\$\/i\.test\(f\.name\)\)/);
   assert.ok(generic.indexOf('files.some(') < generic.indexOf('loading = true'));
 });
+
+test('generic import does not report success after a rejected timeline edit', () => {
+  assert.match(generic, /const result = first \? run\(ops\) : edit\(ops, \{ ripple: false \}\)/);
+  assert.match(generic, /if \(!result\.ok\) \{/);
+  assert.ok(generic.indexOf('if (!result.ok)') < generic.indexOf('thumbQueue = thumbQueue.then'));
+});
