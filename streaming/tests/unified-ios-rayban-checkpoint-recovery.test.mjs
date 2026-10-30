@@ -11,6 +11,11 @@ const library = read('../ios/B0/Sources/WivraNativeCaptureLibrary.swift');
 
 test('each video-only MOV begins on a keyframe and checkpoints close at a safe boundary', () => {
   assert.match(segmented, /intervalSeconds: Double = 30/);
+  assert.match(segmented, /import QuartzCore/);
+  assert.match(segmented, /let now = CACurrentMediaTime\(\)/);
+  assert.match(segmented, /now - segmentStartUptime >= intervalSeconds/);
+  assert.doesNotMatch(segmented, /CMTimeGetSeconds\(CMTimeSubtract\(pts, firstPTS\)\)/);
+
   assert.match(segmented, /WivraHEVCRecorder\.isHEVCKeyframe\(buffer\)/);
   assert.match(segmented, /isKeyframe,[\s\S]*?writer\.writtenFrames >= 2/);
   assert.match(segmented, /finalizations\.append\(Task\.detached/);
