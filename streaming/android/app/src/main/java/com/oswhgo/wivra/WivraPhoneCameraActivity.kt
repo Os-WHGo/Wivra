@@ -727,7 +727,7 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         if (file.name != directorVideoCreatedHere) return
         val shotId = intent.getStringExtra(EXTRA_SHOT_ID)
             ?.takeIf { it.isNotEmpty() && it.length <= 120 && it.all { ch ->
-                ch >= ' ' && ch != '\\u007f'
+                ch >= ' ' && ch.code != 127
             } } ?: return
         // Publication already succeeded. The editor receives ONLY this shot
         // identifier on return, never a private path or MediaStore URI.
