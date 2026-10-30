@@ -35,7 +35,17 @@ export function advanceCaptureJournal(journal, { state, at = Date.now(), segment
 }
 export function recoverCaptureJournal(journal) {
   if (!journal || journal.schema !== 1 || !STATES.has(journal.state) || !Array.isArray(journal.segments)) throw new TypeError('Invalid capture journal');
-  return { ...journal, recoverableFiles: journal.segments.filter(s => s.confirmed === true && safeName(s.file)).map(s => s.file), requiresReview: journal.state !== 'finalized' };
+  // Recovery must not trust a corrupt persisted snapshot or expose unsafe names.
+  const verified = [];
+  for (const segment of journal.segments) {
+    if (!segment || segment.confirmed !== true || !safeName(segment.file) ||
+        !validTime(segment.startMs) || !validTime(segment.endMs) ||
+        segment.endMs <= segment.startMs ||
+        verified.some(previous => previous.file === segment.file || segment.startMs < previous.endMs)) break;
+    verified.push(segment);
+  }
+  return { ...journal, recoverableFiles: verified.map(s => s.file),
+    requiresReview: journal.state !== 'finalized' || verified.length !== journal.segments.length };
 }
 
 export function appendConfirmedCaptureSegment(journal, segment, at = Date.now()) {
