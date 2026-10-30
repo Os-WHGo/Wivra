@@ -31,7 +31,7 @@ for (const f of ['../template.html','../dist/agentcut.html']) {
   assert.match(block,/const previousSession = session, stagedAssetIDs = \[\], importedAssetIDs = \[\]/);
   assert.match(block,/captureCommitted = true/);
   assert.match(block,/if \(stagedAssetIDs\.length\)/);
-  assert.match(block,/\.\.\.session\.undoStack, \.\.\.session\.redoStack/);
+  assert.match(block,/\.\.\.stagingSession\.undoStack, \.\.\.stagingSession\.redoStack/);
   assert.match(block,/referenced\.has\(id\)/);
   assert.match(block,/state\.assets = state\.assets\.filter/);
   assert.match(block,/URL\.revokeObjectURL\(url\)/);
