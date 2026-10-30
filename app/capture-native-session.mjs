@@ -101,6 +101,7 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
     // Only a finalized session with an explicitly confirmed native file may
     // be handed to Director; the host must verify the physical media itself.
     async directorHandoff(id) {
+      return locked(async () => {
       const journal = await store.load(id);
       if (!journal || journal.state !== 'finalized' || !journal.finalFile || !journal.segments.length) {
         throw new Error('Capture not finalized for Director');
@@ -116,6 +117,7 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
       }
       return { sessionId: id, platform: journal.platform, file: journal.finalFile,
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
+      });
     },
     async snapshot(id) { return store.load(id); }
   };
