@@ -285,9 +285,13 @@ class WivraCaptureForegroundService : Service() {
                                     (lastNotifiedCheckpoint < 0 ||
                                         progress.savedCheckpoints > lastNotifiedCheckpoint)) {
                                     lastNotifiedCheckpoint = progress.savedCheckpoints
-                                    getSystemService(NotificationManager::class.java).notify(
-                                        NOTIFICATION_ID, captureNotification()
-                                    )
+                                    // POST_NOTIFICATIONS can be denied: never
+                                    // sacrifice the MP4 stream for a UI update.
+                                    runCatching {
+                                        getSystemService(NotificationManager::class.java).notify(
+                                            NOTIFICATION_ID, captureNotification()
+                                        )
+                                    }
                                 }
                             }
                         }
