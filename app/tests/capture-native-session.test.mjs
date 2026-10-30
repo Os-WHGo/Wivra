@@ -112,3 +112,17 @@ test('finalization rechecks earlier interrupted fragments as well as new output'
   assert.deepEqual(checked, ['full.mp4', 'earlier.mp4']);
   assert.equal((await session.snapshot('interrupted')).state, 'failed');
 });
+
+test('failed journal write during stop does not strand the active capture lock', async () => {
+  const { host, storage, session } = fixture();
+  const originalWrite = storage.writeAtomic;
+  await session.start({ id: 'broken-write', platform: 'android' });
+  host.stop = async () => { throw new Error('native recorder failed'); };
+  storage.writeAtomic = async (name, value) => {
+    if (name === 'wivra-capture-broken-write.json' && JSON.parse(value).state === 'failed') throw new Error('storage unavailable');
+    return originalWrite(name, value);
+  };
+  await assert.rejects(session.stop('broken-write'), /native recorder failed/);
+  await session.start({ id: 'next-session', platform: 'android' });
+  assert.equal((await session.snapshot('next-session')).state, 'recording');
+});
