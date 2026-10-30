@@ -13,7 +13,7 @@ test('a single Ray-Ban recording can be represented by ordered multiple real ass
  assert.match(core,/new Set\(ids\)\.size!==ids\.length/);
  assert.match(core,/next\.assetId=changes\.assetIds\?\.\[0\]/);
  assert.match(html,/id="directorParts"[^>]*multiple/);
- assert.match(html,/validateRayBanParts\(selected\)/);
+ assert.match(html,/validateRayBanParts\(selected,continuation/);
  assert.match(html,/added\.length!==group\.files\.length/);
  assert.match(html,/assetIds:\[\.\.\.\(continuation\?\.assetIds\|\|\[\]\),\.\.\.added\.map\(a=>a\.id\)\]/);
  assert.match(html,/restoreDirectorAssetLinks\(s,known,availableIds\)/);
