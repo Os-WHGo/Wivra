@@ -735,7 +735,7 @@ function run(ops) {
 }
 
 const PROBE_MS = 30000;      // abrir los datos de un archivo: si el teléfono no responde en tanto (archivo en iCloud, dañado), se rinde en vez de dejar la app esperando para siempre
-function probe(file) {          // lee duración y tamaño de un archivo sin tocar el video principal
+function probe(file, preserveDuration = false) {          // lee duración y tamaño de un archivo sin tocar el video principal
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), t = document.createElement('video'); let done = false;
     t.muted = true; t.playsInline = true; t.preload = 'metadata';
@@ -747,7 +747,7 @@ function probe(file) {          // lee duración y tamaño de un archivo sin toc
     t.onloadedmetadata = () => {
       if (!isFinite(t.duration)) return fail();
       if (t.duration < 0.1) return fail('dura menos de 0.1 s');
-      const r = { url, duration: Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }; fin(res, r);
+      const r = { url, duration: preserveDuration ? t.duration : Math.round(t.duration * 100) / 100, w: t.videoWidth, h: t.videoHeight }; fin(res, r);
     };
     t.src = url;
   });
@@ -1333,7 +1333,7 @@ async function importSelectedFiles(files) {
   for (const f of files) {
     try {
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
-      const m = photo ? await probeImage(f) : await probe(f);
+      const m = photo ? await probeImage(f) : await probe(f,requireAll);
       // A project switch during metadata probing must never receive the old file.
       if (session !== stagingSession) throw new Error('El proyecto cambió durante la lectura del archivo.');
       const id = 'a' + (++assetSeq);
@@ -1364,10 +1364,11 @@ async function importSelectedFiles(files) {
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
-    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = round2(cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0])); }
-    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: round2(k.start + D) }));
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
+    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
+    const exactParts = requireAll ? rayBanPartPositions(added.map(mainLen),at) : null;
     let start = at; const insertedAt = at;
-    const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: round2(start) }; start += mainLen(id); return o; })];
+    const ops = [...shifts, ...added.map(id => { const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: requireAll ? exactParts.starts[added.indexOf(id)] : round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: requireAll ? exactParts.starts[added.indexOf(id)] : round2(start) }; start += mainLen(id); return o; })];
     $('stage').classList.add('on');
     if (first) { selId = null; tlTime = 0; pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, start))); }
     const result = first ? run(ops) : edit(ops, { ripple: false });
