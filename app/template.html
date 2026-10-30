@@ -1346,7 +1346,7 @@ async function importSelectedFiles(files) {
     } catch (e) { failed.push(e.message); }
   }
   if (added.length) {
-    if (importSession && session !== importSession) {
+    if (session !== stagingSession || (importSession && session !== importSession)) {
       say('El proyecto cambió mientras se preparaban los archivos. Importa de nuevo.', 'bad');
       return;
     }
