@@ -36,8 +36,10 @@ test('Ray-Ban published multi-part suggestion rejects mixed sessions and missing
 });
 
 test('partial Ray-Ban metadata failure rolls back staged batch before timeline insertion',()=>{
- assert.match(html,/async function importSelectedFiles\(files, \{requireAll=false\}=\{\}\)/);
+ assert.match(html,/async function importSelectedFiles\(files\)/);
+ assert.match(html,/const requireAll = files === directorMultipartBatch/);
  assert.match(html,/if \(requireAll && \(failed\.length \|\| added\.length!==files\.length\)\)/);
- assert.match(html,/await importSelectedFiles\(group\.files,\{requireAll:true\}\)/);
+ assert.match(html,/directorMultipartBatch=group\.files/);
+ assert.match(html,/await importSelectedFiles\(group\.files\)/);
  assert.match(html,/finally \{\s*cleanupUncommitted\(\);\s*loading = false/);
 });
