@@ -313,7 +313,8 @@ public final class MainActivity extends Activity {
                 expected.equals(data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
                 editor != null && "file:///android_asset/agentcut.html".equals(editor.getUrl())) {
                 // A successful, explicitly saved native capture marks the take
-                // recorded. Never fabricate an editor assetId or expose media URIs.
+                // recorded, but NOT imported into the editor. Never fabricate an
+                // assetId or expose media URIs. Import remains a separate step.
                 String id = org.json.JSONObject.quote(expected);
                 String update = "(function(){try{" +
                     "if(!shootPlan||!Array.isArray(shootPlan.shots))return;" +
