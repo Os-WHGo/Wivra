@@ -3,6 +3,8 @@
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 import { clipLength, speedOf, srcTime } from '../core/project.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
+import { detectExportHost, createProgressiveExportSink } from './export-sink.mjs';
+import { finalizeExportBytes, inspectExport } from './media-container.mjs';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -83,17 +85,42 @@ export function fitRect(vw, vh, W, H, fit) {
 }
 
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
-// Prefer explicit H.264 MP4. Chromium can accept a *bare* 'video/mp4'
-// then silently produce VP9/Opus inside MP4, which is poorly portable.
-// Prefer explicit WebM over an ambiguous MP4 container when AVC is absent.
-// Safari/iOS with only MP4 support retains the final generic MP4 fallback.
+// Prefer explicit H.264 + AAC MP4: it is the only combination every gallery, iPhone Photos and
+// social app accepts. Chromium can accept a *bare* 'video/mp4' then silently produce VP9/Opus
+// inside MP4, and 'video/mp4;codecs=avc1' gives H.264 + OPUS (measured 30-10-2026, Chromium
+// Linux), which QuickTime/iPhone Photos do not play. Outside iOS, WebM VP8/VP9 + Opus is then
+// more reliable (Android plays it natively and Wivra repairs its duration and seek index).
+// iOS keeps every MP4 option before WebM: Photos cannot import WebM.
 export const MIME_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1',
-  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm',
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/mp4;codecs=avc1', 'video/webm',
   'video/mp4'];
-export function pickMime(isSupported) {
-  for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
+export const MIME_CANDIDATES_IOS = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1',
+  'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+export function pickMime(isSupported, { platform = '' } = {}) {
+  for (const m of platform === 'ios' ? MIME_CANDIDATES_IOS : MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
   return '';
+}
+
+/**
+ * Comprueba el archivo terminado frente a lo planificado. errors = archivo inservible
+ * (no se entrega como «listo»); warnings = se entrega, pero se avisa con el dato medido.
+ */
+export function verifyExportedMedia(info, { plannedSeconds = 0, expectAudio = false } = {}) {
+  const errors = [], warnings = [];
+  if (!info) return { ok: false, errors: ['No se pudo leer el archivo exportado.'], warnings };
+  if (!info.video) errors.push('El archivo exportado no tiene pista de video.');
+  if (expectAudio && !info.audio) warnings.push('El archivo exportado no tiene pista de audio.');
+  const got = (info.durationMs || 0) / 1000;
+  if (plannedSeconds > 0) {
+    if (got < plannedSeconds * 0.5) errors.push(`El archivo dura ${r2(got)} s y se esperaban ${r2(plannedSeconds)} s.`);
+    else if (Math.abs(got - plannedSeconds) > Math.max(0.5, plannedSeconds * 0.03))
+      warnings.push(`Duración exportada ${r2(got)} s frente a ${r2(plannedSeconds)} s planificados.`);
+  }
+  if (info.declaresDuration === false) warnings.push('El reproductor puede no mostrar la duración del video.');
+  if (info.seekIndex === false) warnings.push('Puede que no se pueda avanzar o retroceder dentro del video en algunos reproductores.');
+  return { ok: errors.length === 0, errors, warnings, durationSeconds: r2(got) };
 }
 export const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 
@@ -273,16 +300,21 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
 export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
 export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
-/** Advisory only: MediaRecorder chunks and final Blob remain buffered until export ends.
+/** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
+ * until export ends. In progressive mode (native sink) only a bounded queue stays in
+ * memory, so the risk is free storage, not RAM.
  * Estimated encoded MB is not a measurement of RAM or free storage.
  * The warning does not certify any duration or block the owner's export.
  */
-export function exportMemoryRisk(seconds) {
+export function exportMemoryRisk(seconds, { progressive = false } = {}) {
   const estimatedMB = exportSizeMB(seconds);
+  if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
+/** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
+export const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -393,7 +425,9 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
 }
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
+// saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
+// 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
@@ -449,6 +483,22 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     try { if (ac) await ac.close(); } catch { /* context already released */ }
     return { audioBlocked: true, ...audioPreflight };
   }
+  // Escritura progresiva: se abre el archivo nativo ANTES de grabar. Si no hay espacio
+  // o el puente falla, no se graba nada (y se puede elegir el modo en memoria).
+  let sink = null;
+  const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
+  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
+  if (host) {
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    try { await sink.begin(); }
+    catch (error) {
+      await sink.abort('begin');
+      stream.getTracks().forEach(track => track.stop());
+      ev.remove();
+      try { if (ac) await ac.close(); } catch { /* context already released */ }
+      throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
+    }
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
@@ -492,7 +542,6 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
   };
 
-  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   let rec;
   try {
     rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
@@ -504,12 +553,14 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     oList.forEach((o) => { try { o.el.pause(); } catch { /* no media */ } try { o.el.remove(); } catch {} });
     ev.remove();
     try { if (ac) await ac.close(); } catch { /* context released */ }
+    if (sink) await sink.abort('recorder');
     throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
   }
-  // MediaRecorder chunks remain in memory until the final Blob is assembled.
-  // Track their size to diagnose long exports without changing the output format.
+  // Memory mode: MediaRecorder chunks remain in memory until the final Blob is assembled.
+  // Progressive mode: each chunk goes straight to the native file and is released once written.
+  // recordedBytes is checked against the final Blob or against the native file in both modes.
   const chunks = []; let recordedBytes = 0;
-  rec.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); recordedBytes += e.data.size; } };
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) { recordedBytes += e.data.size; if (sink) sink.push(e.data); else chunks.push(e.data); } };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
   const photos = new Map();
@@ -525,9 +576,9 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   };
   // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
-  const stopNow = () => isCancelled() || interrupted || !!recError;
+  const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
-  const t0 = performance.now(); let cancelled = false, recorderStarted = false;
+  const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
@@ -601,10 +652,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       ev.pause();
     }
     await frame(); await frame();
+    completed = !cancelled;
   } finally {
     sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     try {
       await finishMediaRecorder(rec, stopped, { started: recorderStarted });
+      recorderClosed = true;
     } finally {
       // This MUST execute even if MediaRecorder.start/stop throws or onstop
       // never fires. Otherwise a hidden video, microphone or AudioContext
@@ -614,13 +667,38 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
       try { ev.pause(); } catch { /* nada */ } ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
       document.removeEventListener('visibilitychange', onVis);
+      // Any path other than a complete, cleanly closed recording deletes the partial native file.
+      if (sink && (!completed || !recorderClosed || stopNow())) await sink.abort(interrupted ? 'interrupted' : 'stopped');
     }
   }
   if (interrupted) return { interrupted: true };
+  if (sink && sink.error) throw new Error('No se pudo guardar el video en el teléfono: ' + sink.error.message + ' No quedó ningún archivo a medias.');
   if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
   if (cancelled || isCancelled()) return { cancelled: true };
-  const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
-  if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
-  if (recordedBytes !== blob.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
-  return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  const type = rec.mimeType || mime || 'video/webm';
+  if (sink) {
+    if (recordedBytes < 1000) { await sink.abort('empty'); throw new Error('No se grabó nada. Prueba de nuevo.'); }
+    let saved;
+    // The native side repairs the container (duration + seek index) and reports what it measured.
+    try { saved = await sink.finish({ expectedDurationMs: Math.round(plan.total * 1000), expectAudio: hasAudio }); }
+    catch (error) { await sink.abort('finish'); throw new Error('No se pudo cerrar el video guardado: ' + (error?.message || 'error') + ' No quedó ningún archivo a medias.'); }
+    if (saved.recordedBytes !== undefined ? saved.recordedBytes !== recordedBytes : saved.bytes !== recordedBytes) throw new Error('La exportación no conserva todos los fragmentos grabados.');
+    const verification = saved.media ? verifyExportedMedia(saved.media, { plannedSeconds: plan.total, expectAudio: hasAudio }) : null;
+    return { saved, verification, progressive: true, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  }
+  const raw = new Blob(chunks, { type });
+  if (raw.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
+  if (recordedBytes !== raw.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
+  // Repair duration + seek index without re-encoding, then verify the result. If the repair is
+  // not possible the recorded original is delivered unchanged and the reason is reported.
+  let blob = raw, container = null, verification = null;
+  try {
+    const fixed = finalizeExportBytes(new Uint8Array(await raw.arrayBuffer()));
+    const info = inspectExport(fixed.bytes);
+    container = { fixed: fixed.fixed, reason: fixed.reason || '', ...info };
+    verification = verifyExportedMedia(info, { plannedSeconds: plan.total, expectAudio: hasAudio });
+    if (fixed.fixed) blob = new Blob([fixed.bytes], { type });
+  } catch (error) { container = { fixed: false, reason: error?.message || 'no se pudo inspeccionar' }; }
+  if (verification && !verification.ok) throw new Error('El video exportado no es válido: ' + verification.errors.join(' '));
+  return { blob, container, verification, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }

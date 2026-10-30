@@ -541,6 +541,9 @@ body.dock .back{pointer-events:none;background:transparent}
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
   <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
+  <div id="expSaveRow" style="display:none;margin:8px 0"><label for="expSave" style="display:block">Cómo guardar</label>
+    <select id="expSave"><option value="auto">Directo al teléfono, por partes (nuevo, beta)</option><option value="memory">En memoria (anterior)</option></select>
+    <p class="m" id="expSaveInfo">Por partes: cada segundo grabado se escribe en el teléfono y se comprueba al final; usa poca memoria. En memoria: el método anterior, todo el video se guarda en la RAM hasta terminar.</p></div>
   <button id="expGo" class="btn">Empezar a exportar</button>
   <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
     <button id="expCancel" class="btn sec">Cancelar</button></div>
@@ -2185,18 +2188,23 @@ $('bExp').onclick = () => {
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
-  const exportRisk = exportMemoryRisk(plan.total);
+  const nativeSave = nativeExportAvailable();
+  $('expSaveRow').style.display = nativeSave ? 'block' : 'none';
+  const exportRisk = exportMemoryRisk(plan.total, { progressive: nativeSave && $('expSave').value !== 'memory' });
   $('expLong').textContent = exportRisk.level === 'critical'
     ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
     : exportRisk.level === 'elevated'
       ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
-      : 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.';
+      : exportRisk.bufferedUntilComplete ? 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.'
+        : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
 $('expCancel').onclick = () => { expCancel = true; };
+try { const v = localStorage.getItem('wivra.exportSave'); if (v === 'memory' || v === 'auto') $('expSave').value = v; } catch {}
+$('expSave').addEventListener('change', () => { try { localStorage.setItem('wivra.exportSave', $('expSave').value); } catch {} if (session) $('bExp').onclick(); });
 try { const v = localStorage.getItem('wivra.loud'); if (v && LOUD_LEVELS[v]) $('expLoud').value = v; } catch {}
 $('expLoud').addEventListener('change', () => { try { localStorage.setItem('wivra.loud', $('expLoud').value); } catch {} });
 /* Volumen parejo: se mide la mezcla (app/loudness.mjs) antes de grabar; devuelve la ganancia en dB o null (con el motivo en `why`). */
@@ -2226,7 +2234,7 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
       return;
     }
-    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.audioBlocked) {
@@ -2243,7 +2251,19 @@ $('expGo').onclick = async () => {
     }
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (r.interrupted) { $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez'; $('expMsg').className = 'bad'; $('expMsg').textContent = 'La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida.'; return; }
-    if (expUrl) URL.revokeObjectURL(expUrl);
+    if (expUrl) { URL.revokeObjectURL(expUrl); expUrl = null; }
+    if (r.saved) {   // guardado por partes: el archivo ya está en el teléfono y verificado; no hay Blob en memoria
+      const token = r.saved.token, host = detectExportHost();
+      $('expVid').removeAttribute('src'); $('expVid').style.display = 'none'; $('expDl').style.display = 'none';
+      $('expShare').textContent = 'Abrir o compartir';
+      $('expShare').onclick = async () => { try { await shareSavedExport(host, token); } catch (e) { $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; } };
+      $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
+      $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
+      $('expMsg').textContent = `Guardado y verificado: ${r.saved.displayName || 'video'} (${r.saved.location || 'en el teléfono'}), ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${(r.saved.bytes / 1e6).toFixed(1)} MB, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + ' Revísalo antes de publicar.';
+      $('expLoudDone').textContent = !loud ? '' : (loud.ok ? (Math.abs(loud.gainDb) < 0.05 ? 'Volumen: ya estaba cerca del objetivo, no se cambió.' : `Volumen ajustado ${loud.gainDb > 0 ? '+' : ''}${loud.gainDb} dB (de ${loud.before} a ${loud.after} LUFS).`) + (loud.limitedByPeak ? ' ' + loud.note : '') : loud.why);
+      return;
+    }
+    $('expVid').style.display = ''; $('expDl').style.display = ''; $('expShare').textContent = 'Guardar o compartir';
     expUrl = URL.createObjectURL(r.blob); const name = `wivra-${Date.now()}.${r.ext}`;
     $('expVid').src = expUrl; $('expDl').href = expUrl; $('expDl').download = name;
     $('expShare').onclick = async () => {
@@ -2253,7 +2273,7 @@ $('expGo').onclick = async () => {
     };
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
-    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + (r.container && r.container.fixed ? ' Duración y saltos del video comprobados.' : '') + ' Revisa la vista previa antes de publicar.';
     $('expLoudDone').textContent = !loud ? '' : (loud.ok ? (Math.abs(loud.gainDb) < 0.05 ? 'Volumen: ya estaba cerca del objetivo, no se cambió.' : `Volumen ajustado ${loud.gainDb > 0 ? '+' : ''}${loud.gainDb} dB (de ${loud.before} a ${loud.after} LUFS).`) + (loud.limitedByPeak ? ' ' + loud.note : '') : loud.why);
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';

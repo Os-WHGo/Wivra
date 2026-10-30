@@ -44,6 +44,8 @@ public final class MainActivity extends Activity {
     private final java.util.concurrent.ExecutorService pickerValidator =
         java.util.concurrent.Executors.newSingleThreadExecutor();
     private WebView editor;
+    // Progressive export: editor chunks go straight to Movies/Wivra (AndroidX WebMessageListener).
+    private WivraExportBridge exportBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +64,10 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        // Export plays hidden <video> elements of the user's own local clips programmatically,
+        // after async steps (no tap in progress). WebView blocks that by default; measured in
+        // WivraRealExportWebViewTest. Local offline editor only: no remote page is ever loaded.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         editor.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -219,6 +225,10 @@ public final class MainActivity extends Activity {
         shell.addView(editor, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(shell);
+        // Must be installed before loading so the bundled editor sees WivraExportNative.
+        // Without it (old WebView) the editor keeps its previous in-memory export.
+        exportBridge = new WivraExportBridge(this, editor);
+        if (!exportBridge.install()) exportBridge = null;
         editor.loadUrl("file:///android_asset/agentcut.html");
     }
 
@@ -623,6 +633,11 @@ public final class MainActivity extends Activity {
         if (pendingFilePicker != null) {
             pendingFilePicker.onReceiveValue(null);
             pendingFilePicker = null;
+        }
+        if (exportBridge != null) {
+            // Leaving the editor mid-export deletes the partial gallery item.
+            exportBridge.dispose();
+            exportBridge = null;
         }
         if (editor != null) {
             editor.destroy();

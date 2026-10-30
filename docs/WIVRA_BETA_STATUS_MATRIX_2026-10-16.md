@@ -19,6 +19,7 @@ Rama de integración: `claude/beta-editor-integration` (PR #124, base `chatgpt/w
 | Quitar silencios (por volumen, en el teléfono) | EN RAMA (#114) | PENDIENTE | No entiende palabras; no sirve con música o ruido continuo |
 | Volumen parejo al exportar (opcional, −14 / −16 LUFS) | EN RAMA (#119) | PENDIENTE | Medido en Chromium: −15,3 → −14,1 LUFS. Probar en iPhone/Android: el códec puede variar décimas |
 | Exportación 9:16 con audio, cancelable y avisos | EN RAMA (#94) | PENDIENTE | Va en tiempo real: 20 s de video tardan ~20 s |
+| **Exportación larga por partes** (cada segundo se escribe en el teléfono y se verifica con CRC; memoria acotada; el modo en memoria anterior sigue disponible) | EN RAMA (#132, 30-10-2026) | PENDIENTE | Chromium + puente simulado: 12/12. Android: galería `Movies/Wivra`; iPhone: hoja Compartir. Sin probar en teléfono físico, con pantalla bloqueada ni con gafas. Informe: `docs/WIVRA_PROGRESSIVE_EXPORT_2026-10-30.md` |
 | Revisión de ritmo del Director | EN RAMA (#123) | PENDIENTE | Solo cuenta tiempos; no ve ni oye el video |
 | Director: idea, guion y lista de tomas guardados | EN RAMA (#89) | PENDIENTE | |
 | Director: plan de producción con lugares y guion tuyos (reel, minidoc, serie, película vertical), reordenar tomas, estados Hecha/Por repetir/Saltada (saltar pide confirmación) | EN RAMA (contrato #73 + interfaz en #124) | PENDIENTE | No inventa rutas ni datos del lugar; el orden es el que pones |
