@@ -20,7 +20,10 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
     if (data == null) return null;
     const j = JSON.parse(data);
     if (j.id !== id || j.schema !== 1 || !Array.isArray(j.segments)) throw new Error('Invalid stored capture');
-    recoverCaptureJournal(j);
+    const recovery = recoverCaptureJournal(j);
+    // Never mutate a partially corrupted persisted journal. Keep its raw
+    // snapshot untouched so native recovery can inspect the original bytes.
+    if (recovery.recoverableFiles.length !== j.segments.length) throw new Error('Corrupted stored capture segments');
     return j;
   }
   async function save(journal) {
