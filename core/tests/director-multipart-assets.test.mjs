@@ -37,3 +37,13 @@ test('Legacy single-asset shots retain the same update behavior',()=>{
  assert.equal(p.shots[0].assetId,'a1');
  assert.deepEqual(p.shots[0].assetIds,['a1']);
 });
+
+test('long captures retain 81 distinct real assets in a single offline Director shot',()=>{
+ const many=Array.from({length:81},(_,i)=>({id:'part'+(i+1),name:'RayBan_'+(i+1)+'.mp4'}));
+ const ids=many.map(x=>x.id);
+ const result=updateShot(plan(),'shot-1',{state:'done',assetIds:ids},{project:{assets:many}});
+ assert.equal(result.shots[0].assetId,ids[0]);
+ assert.deepEqual(result.shots[0].assetIds,ids);
+ const over=Array.from({length:1441},(_,i)=>({id:'over'+i}));
+ assert.throws(()=>updateShot(plan(),'shot-1',{assetIds:over.map(x=>x.id)},{project:{assets:over}}));
+});
