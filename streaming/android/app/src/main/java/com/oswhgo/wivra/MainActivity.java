@@ -300,6 +300,44 @@ public final class MainActivity extends Activity {
         });
     }
 
+    /**
+     * Only published, nonempty MP4 rows owned by Wivra can be suggested.
+     * If several captures appeared, fail closed instead of guessing a segment.
+     */
+    private java.util.List<String> savedDirectorVideos(boolean rayBan) {
+        java.util.ArrayList<String> result = new java.util.ArrayList<>();
+        if (rayBan) {
+            for (WivraSavedRayBanVideos.SavedVideo item :
+                    WivraSavedRayBanVideos.latestSaved(this)) {
+                result.add(item.getUri().toString());
+            }
+        } else {
+            for (WivraPhoneMediaStore.SavedMedia item :
+                    WivraPhoneMediaStore.latestSavedVideos(this)) {
+                result.add(item.getUri().toString());
+            }
+        }
+        return result;
+    }
+
+    private Uri uniqueNewDirectorVideo(java.util.Set<String> before, boolean rayBan) {
+        if (before == null) return null;
+        String candidate = null;
+        for (String id : savedDirectorVideos(rayBan)) {
+            if (!before.contains(id)) {
+                if (candidate != null) return null;
+                candidate = id;
+            }
+        }
+        return candidate == null ? null : Uri.parse(candidate);
+    }
+
+    private void clearDirectorVideoSuggestion() {
+        suggestedDirectorVideo = null;
+        suggestedDirectorProjectId = null;
+        suggestedDirectorShotId = null;
+    }
+
     private void launchSystemPicker(WebChromeClient.FileChooserParams params) {
         try {
             Intent picker = params.createIntent();
