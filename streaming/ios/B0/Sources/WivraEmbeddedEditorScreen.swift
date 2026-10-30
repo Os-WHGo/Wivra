@@ -84,7 +84,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         // A capture requires a manifest AND a video (and optional CAF tracks),
         // so it is only offered for multi-file input elements.
         if offerCaptureBundles {
-            for item in ready.prefix(12) {
+            for item in ready {
                 let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
                 sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
                     guard let video = item.videoURL else {
