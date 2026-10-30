@@ -107,3 +107,8 @@ test('iOS scanner rejects huge or logically inconsistent sidecars before WebKit 
  assert.match(s,/\$0\.sampleRateHz\.map \{ \$0\.isFinite && \$0 > 0 \}/);
  assert.match(s,/\$0\.startOffsetSeconds\.map \{ \$0\.isFinite \}/);
 });
+
+test('iOS native editor chooser does not truncate older saved captures', () => {
+  assert.match(source, /for item in ready \{/);
+  assert.doesNotMatch(source, /ready\.prefix\(12\)/);
+});
