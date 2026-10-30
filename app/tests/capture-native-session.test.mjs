@@ -46,11 +46,21 @@ test('Director handoff requires finalized journal and native file verification',
   await assert.rejects(session.directorHandoff('handoff'), /not finalized/);
   await session.stop('handoff');
   await assert.rejects(session.directorHandoff('handoff'), /verification required/);
-  host.verifyFile = async ({ file }) => file === 'full.mp4';
+  host.verifyFile = async ({ file }) => ['full.mp4', 'a.mp4'].includes(file);
   assert.deepEqual(await session.directorHandoff('handoff'), {
     sessionId: 'handoff', platform: 'android', file: 'full.mp4',
     segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000 }]
   });
   host.verifyFile = async () => false;
   await assert.rejects(session.directorHandoff('handoff'), /verification required/);
+});
+
+test('Director refuses a finalized take when a source fragment is missing', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'partial', platform: 'ios' });
+  await session.stop('partial');
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'a.mp4'; };
+  await assert.rejects(session.directorHandoff('partial'), /verification required/);
+  assert.deepEqual(checked, ['full.mp4', 'a.mp4']);
 });
