@@ -2593,6 +2593,28 @@ function rayBanContinuation(shot,project) {
  return {sessionId:id,nextPart:ids.length+1,assetIds:[...ids]};
 }
 
+/** Resume only after a complete, unedited, contiguous run of the prior parts.
+ * Never append to the cursor after an unrelated edit or altered source trim.
+ */
+function rayBanAppendAt(assetIds,project) {
+ if(!Array.isArray(assetIds)||!assetIds.length||
+    !Array.isArray(project?.clips)||!Array.isArray(project?.assets))return null;
+ const assets=new Map(project.assets.map(a=>[a.id,a]));
+ let end=null;
+ for(const id of assetIds){
+   const clips=project.clips.filter(c=>c.asset_id===id);
+   if(clips.length!==1)return null;
+   const c=clips[0],asset=assets.get(id),speed=c.speed??1;
+   if(!asset||!Number.isFinite(asset.duration)||asset.duration<=0||
+      !Number.isFinite(c.start)||c.start<0||!Number.isFinite(c.in)||
+      !Number.isFinite(c.out)||Math.abs(c.in)>1e-6||
+      Math.abs(c.out-asset.duration)>1e-6||speed!==1||
+      (end!==null&&Math.abs(c.start-end)>1e-6))return null;
+   end=c.start+asset.duration;
+ }
+ return end;
+}
+
 // Wivra · guardar y reabrir el proyecto en el propio teléfono (IndexedDB). Sin dependencias (solo el estilo de texto del núcleo).
 // Todo queda en el dispositivo: nada se sube a ningún servidor. — Claude
 //
@@ -5230,7 +5252,7 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
   }
   if (pendingSeek == null && Math.abs(v.currentTime - time) > 0.04) { try { v.currentTime = time; } catch {} }
 }
-let loading = false, directorMultipartBatch = null;
+let loading = false, directorMultipartBatch = null, directorMultipartInsertAt = null;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 async function importSelectedFiles(files) {
   const requireAll = files === directorMultipartBatch;
@@ -5308,8 +5330,9 @@ async function importSelectedFiles(files) {
     const first = !session.project.clips.length, pj = session.project, mainLen = (id) => media[id].kind === 'image' ? PHOTO_SECONDS : media[id].duration, D = added.reduce((n, id) => n + mainLen(id), 0);
     // Con video ya cargado, lo nuevo se mete en el corte más cercano a la línea blanca y lo que sigue se corre. Sin video, se pone desde 0.
     let at = totalDuration(pj);
-    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
-    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - 0.001).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
+    if (!first) { const cuts = [0, ...pj.clips.flatMap(k => [k.start, k.start + (clipLength(k))])]; at = requireAll&&directorMultipartInsertAt!==null
+      ? directorMultipartInsertAt : cuts.reduce((b, t) => Math.abs(t - tlTime) < Math.abs(b - tlTime) ? t : b, cuts[0]); if(!requireAll)at=round2(at); }
+    const shifts = first ? [] : [...pj.clips].filter(k => k.start >= at - (requireAll ? 1e-9 : 0.001)).sort((a, b) => b.start - a.start).map(k => ({ op: 'move_clip', clip_id: k.id, start: requireAll ? k.start + D : round2(k.start + D) }));
     const exactParts = requireAll ? rayBanPartPositions(added.map(mainLen),at) : null;
     let start = at; const insertedAt = at;
     const ops = [...shifts, ...added.map((id, partIndex) => { const pos = requireAll ? exactParts.starts[partIndex] : round2(start); const o = media[id].kind === 'image' ? { op: 'add_photo_clip', asset_id: id, start: round2(start), duration: PHOTO_SECONDS } : { op: 'add_clip', asset_id: id, start: pos }; start += mainLen(id); return o; })];
@@ -5389,16 +5412,28 @@ $('directorCamera').addEventListener('change',async()=>{
 
 $('directorParts').addEventListener('change',async()=>{
  const input=$('directorParts'), selected=[...input.files];input.value='';
- const group=validateRayBanParts(selected);
- if(!group.ok){say(group.reason,'bad');return}
  if(!session||!shootPlan||!selectedShootId||loading){
    say('Selecciona una toma y termina cualquier importación anterior.','bad');return;
+ }
+ const shot=shootPlan.shots.find(s=>s.id===selectedShootId);
+ if(!shot){say('Esta toma ya no pertenece al plan activo.','bad');return}
+ const continuation=rayBanContinuation(shot,session.project);
+ if(shot.assetId&&!continuation){
+   say('La toma ya tiene un video distinto asociado. No se añadieron segmentos.','bad');return;
+ }
+ const group=validateRayBanParts(selected,continuation
+   ? {nextPart:continuation.nextPart,expectedSessionId:continuation.sessionId}:{});
+ if(!group.ok){say(group.reason,'bad');return}
+ const appendAt=continuation?rayBanAppendAt(continuation.assetIds,session.project):null;
+ if(continuation&&appendAt===null){
+   say('Se modificó o movió algún segmento anterior. Revisa su orden antes de añadir otros.','bad');return;
  }
  const previousSession=session,plan=shootPlan,shotId=selectedShootId,projectId=pzPid;
  const previous=new Set(session.project.assets.map(a=>a.id));
  directorMultipartBatch=group.files;
+ directorMultipartInsertAt=appendAt;
  try { await importSelectedFiles(group.files); }
- finally { directorMultipartBatch=null; }
+ finally { directorMultipartBatch=null; directorMultipartInsertAt=null; }
  if(session!==previousSession||shootPlan!==plan||selectedShootId!==shotId||pzPid!==projectId){
    say('El proyecto cambió durante la importación. No se asociaron los segmentos.','bad');return;
  }
@@ -5408,9 +5443,9 @@ $('directorParts').addEventListener('change',async()=>{
    say('Falta algún segmento importado. Los archivos originales siguen intactos; no se vinculó la toma.','bad');return;
  }
  try{
-   shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:added.map(a=>a.id)},{project:session.project});
+   shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:[...(continuation?.assetIds||[]),...added.map(a=>a.id)]},{project:session.project});
    saveShootPlan();renderShootPlan();
-   say('Todos los segmentos Ray-Ban están asociados en orden a la toma.','ok');
+   say('Tanda Ray-Ban asociada en orden. Si hay más segmentos, importa la siguiente tanda.','ok');
  }catch(e){say('No se pudieron asociar los segmentos: '+e.message,'bad')}
 });
 
@@ -6513,10 +6548,11 @@ function renderShootPlan(){
   }
   const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent=shot.state==='done'&&!shot.assetId?'Importar video guardado':'Importar video de esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
-  const importParts=mkBtn('Importar todos los segmentos Ray-Ban',()=>{
+  const canContinueParts=rayBanContinuation(shot,session?.project);
+  const importParts=mkBtn(canContinueParts?'Añadir siguientes segmentos Ray-Ban':'Importar todos los segmentos Ray-Ban',()=>{
     selectedShootId=shot.id;$('directorParts').click();
   });
-  importParts.disabled=!!shot.assetId;
+  importParts.disabled=!!shot.assetId&&!canContinueParts;
   const choose=document.createElement('select');
   choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
   choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
@@ -6534,7 +6570,7 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
-  if(!shot.assetId)row.append(importParts);
+  if(!shot.assetId||canContinueParts)row.append(importParts);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.script){
    const sc=document.createElement('p');sc.className='m';sc.style.margin='4px 0';sc.textContent='Guion: '+(shot.script.length>140?shot.script.slice(0,140)+'…':shot.script)+' ('+tpSeconds(shot.script)+' s al leerlo)';
