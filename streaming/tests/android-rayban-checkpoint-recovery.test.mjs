@@ -36,6 +36,16 @@ test('checkpointed parts survive a failed final segment and remain visible after
   assert.match(activity, /pending\.parts\.count \{ part ->/);
 });
 
+test('interrupted unfinalized muxers remain private and cannot masquerade as completed MP4s', () => {
+  assert.match(recorder, /fun listInterruptedCaptures\(context: Context\): List<File>/);
+  assert.match(recorder, /file\.name\.endsWith\("\.writing"\)/);
+  assert.match(recorder, /file\.canonicalFile\.parentFile == folder/);
+  assert.match(recorder, /file\.extension == "mp4"/);
+  assert.match(activity, /val interrupted = WivraHevcMp4Recorder\.listInterruptedCaptures\(applicationContext\)/);
+  assert.match(activity, /No son MP4 finalizados y no se publicarán automáticamente/);
+  assert.doesNotMatch(recorder, /listInterruptedCaptures\([\s\S]*?file\.delete\(\)/);
+});
+
 test('multi-part storage is honestly labeled, not misrepresented as one merged video', () => {
   for (const suffix of ['', '-en', '-fr', '-de', '-it', '-ja']) {
     const xml = read(`../android/app/src/main/res/values${suffix}/strings.xml`);
