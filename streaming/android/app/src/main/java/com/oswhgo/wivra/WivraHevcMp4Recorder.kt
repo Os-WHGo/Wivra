@@ -162,6 +162,25 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     ?.sortedByDescending { it.lastModified() } ?: emptyList()
             } catch (_: IOException) { emptyList() }
 
+        /**
+         * Files left by Android process death are NOT finalized MP4s.
+         * Expose their count for recovery diagnostics but never automatically
+         * publish, rename or delete them. Confirmed checkpoint .mp4 files are
+         * enumerated separately by listPendingRecordings().
+         */
+        fun listInterruptedCaptures(context: Context): List<File> =
+            try {
+                val folder = pendingDir(context).canonicalFile
+                folder.listFiles()
+                    ?.filter { file ->
+                        file.isFile && file.name.startsWith("wivra_rayban_") &&
+                            file.name.endsWith(".writing") &&
+                            file.length() > 0L &&
+                            file.canonicalFile.parentFile == folder
+                    }
+                    ?.sortedByDescending { it.lastModified() } ?: emptyList()
+            } catch (_: IOException) { emptyList() }
+
         /** Publish to Movies/Wivra ONLY after a user selects Save. */
         fun publishPending(context: Context, local: File): Uri? {
             if (!isPending(context, local) || local.length() <= 0L) return null
