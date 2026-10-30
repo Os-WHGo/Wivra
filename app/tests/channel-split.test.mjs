@@ -142,10 +142,11 @@ test('assignAudioLanes: sin operaciones o con datos incompletos no falla', () =>
   assert.doesNotThrow(() => assignAudioLanes([{ op: 'add_audio_clip', asset_id: 'x' }, { op: 'add_audio_clip', asset_id: 'y' }]));
 });
 
-test('importCapture avisa cuando se eligen varios .json (se importa uno solo)', () => {
+test('importCapture rechaza JSON adicionales antes de importar medios', () => {
   for (const [name, s] of [['plantilla', read('../template.html')], ['archivo final', read('../dist/agentcut.html')]]) {
     assert.ok(s.includes("const otherJson = files.filter(f => f !== mf && /\\.json$/i.test(f.name));"), `${name}: falta la detección de otros .json`);
-    assert.ok(s.includes('se importó solo ${mf.name}. Importa cada captura por separado.'), `${name}: falta el aviso`);
+    assert.ok(s.includes('La selección incluye otros archivos JSON. Importa una captura por vez'), `${name}: falta el rechazo seguro`);
+    assert.ok(s.includes('if (otherJson.length) {'), `${name}: falta la condición de rechazo`);
   }
 });
 
