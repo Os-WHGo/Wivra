@@ -59,7 +59,7 @@ test('multipart continuation is inserted at prior verified boundary, independent
  assert.match(html,/continuation\?rayBanAppendAt\(continuation\.assetIds,session\.project\):null/);
  assert.match(html,/if\(continuation&&appendAt===null\)/);
  assert.match(html,/requireAll&&directorMultipartInsertAt!==null/);
- assert.match(html,/finally \{ directorMultipartBatch=null; directorMultipartInsertAt=null; \}/);
+ assert.match(html,/finally \{ directorMultipartBatch=null; directorMultipartInsertAt=null; directorMultipartContext=null; \}/);
  assert.match(html,/if\(!requireAll\)at=round2\(at\)/);
  assert.match(html,/probe\(f,requireAll\)/);
  assert.match(html,/rayBanPartPositions\(added\.map\(mainLen\),at\)/);
