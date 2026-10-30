@@ -95,3 +95,8 @@ test('capture stages both source video and extracted audio before persistence', 
   assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, f, kind\)/);
   assert.match(capture, /stagedAssetIDs\.push\(id\); keepFile\(id, nf, 'audio'\)/);
 });
+
+test('capture selection enforces the same mobile file limit before probing', () => {
+  assert.match(capture, /if \(files\.length > MAX_IMPORT\)/);
+  assert.ok(capture.indexOf('files.length > MAX_IMPORT') < capture.indexOf('const open = async'));
+});
