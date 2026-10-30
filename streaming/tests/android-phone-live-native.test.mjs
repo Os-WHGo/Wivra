@@ -53,7 +53,7 @@ test('the local MP4 is armed before public transmission and remains private on f
 test('microphone and public transmission are opt-in, background publishing cannot continue silently', () => {
   assert.match(live, /micOption = CheckBox\(this\)\.apply \{[\s\S]*?isChecked = false/);
   assert.match(live, /Camera2Source\(applicationContext\), NoAudioSource\(\)/);
-  assert.match(live, /if \(withAudio\) \{[\s\S]*?publisher\.changeAudioSource\(MicrophoneSource\(\)\)/);
+  assert.match(live, /publisher\.changeAudioSource\(\s*if \(withAudio\) MicrophoneSource\(\) else NoAudioSource\(\)/);
   assert.match(live, /micPermission\.launch\(Manifest\.permission\.RECORD_AUDIO\)/);
   assert.match(live, /publisher\.prepareAudio\(44_100, false, 64_000\)/);
   assert.match(live, /RecordController\.RecordTracks\.VIDEO/);
