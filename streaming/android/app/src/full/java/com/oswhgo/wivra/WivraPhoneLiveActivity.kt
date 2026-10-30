@@ -302,13 +302,19 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         pendingFile = null
         runCatching { if (publisher?.isStreaming == true) publisher.stopStream() }
         // MP4 is only usable after RootEncoder's MediaMuxer.stop().
-        val finalized = runCatching {
-            if (publisher?.isRecording == true) publisher.stopRecord() else false
+        val muxerClosed = runCatching {
+            if (publisher?.isRecording == true) {
+                // stopRecord() may return false when a SECOND encoder setup
+                // fails after MediaMuxer.stop() already finalized the file.
+                // Verify actual MP4 bytes separately before offering Save.
+                publisher.stopRecord()
+                true
+            } else false
         }.getOrDefault(false)
         initiatedByUser = false
         stopping = false
         controlsIdle()
-        if (file != null && finalized && verifiedMp4(file)) {
+        if (file != null && muxerClosed && verifiedMp4(file)) {
             setStatus("LIVE detenido. MP4 local disponible para revisar.")
             if (!isFinishing && !isDestroyed && window.decorView.hasWindowFocus()) askKeep(file)
         } else {
@@ -384,6 +390,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         setStatus("Intentando conectar con el servidor LIVE…")
     }
     override fun onConnectionSuccess() {
+        if (!liveRequested || !initiatedByUser || stopping) return
         connected = true
         setStatus("EN VIVO. Grabando copia local mientras transmites.")
     }
