@@ -839,9 +839,29 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             text = getString(R.string.recording_review_disclaimer)
         })
         var index = 0
+        var inspectionSerial = 0
         val display: () -> Unit = {
             player.stopPlayback()
             info.text = getString(R.string.recording_review_part, index + 1, clips.size)
+            // Probe finalized private MP4s off the UI thread. Never delete or
+            // publish a segment just because a decoder is unavailable.
+            val selected = clips[index]
+            val serial = ++inspectionSerial
+            scope.launch {
+                val report = withContext(Dispatchers.IO) {
+                    WivraMp4Probe.inspect(selected)
+                }
+                if (serial != inspectionSerial || isFinishing || info.windowToken == null)
+                    return@launch
+                info.append(if (report.appearsReadable) {
+                    "\nHEVC: " + report.width + "×" + report.height +
+                        " · pista detectada · decodificador Android: " +
+                        (if (report.decoderListed) "disponible" else "no confirmado") +
+                        ". La reproducción completa requiere prueba real."
+                } else {
+                    "\nNo se pudo verificar la pista HEVC. El archivo no se modifica."
+                })
+            }
             previous.isEnabled = index > 0
             next.isEnabled = index < clips.size - 1
             player.setVideoPath(clips[index].absolutePath)
