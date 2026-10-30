@@ -83,3 +83,10 @@ test('capture import rejects a replaced editor session before applying timeline 
   assert.match(capture, /if \(captureSession && session !== captureSession\)/);
   assert.ok(capture.indexOf('session !== captureSession') < capture.indexOf('const out = planImportOps('));
 });
+
+test('generic importer stages media before persistence and rejects replaced sessions', () => {
+  assert.match(generic, /const importSession = session/);
+  assert.match(generic, /if \(importSession && session !== importSession\)/);
+  assert.ok(generic.indexOf('staged.push(id)') < generic.indexOf("keepFile(id, f, photo ? 'image' : 'video')"));
+  assert.ok(generic.indexOf('session !== importSession') < generic.indexOf('const result = first ? run(ops)'));
+});
