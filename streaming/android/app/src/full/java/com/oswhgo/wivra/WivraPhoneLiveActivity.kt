@@ -5,6 +5,8 @@ import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -55,6 +57,17 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private var connected = false
     private var initiatedByUser = false
     private var awaitingMicPermission = false
+    private val storageHandler = Handler(Looper.getMainLooper())
+    private val minFreeBytes = 128L * 1024L * 1024L
+    private val storageCheck = object : Runnable {
+        override fun run() {
+            if (!initiatedByUser || stopping) return
+            if (applicationContext.filesDir.usableSpace < minFreeBytes) {
+                setStatus("Espacio bajo. Deteniendo LIVE para conservar el MP4 local.")
+                stopAndReview()
+            } else storageHandler.postDelayed(this, 10_000L)
+        }
+    }
 
     private val cameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -242,6 +255,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private fun startLive(address: String, withAudio: Boolean) {
         val publisher = stream ?: return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
+        if (applicationContext.filesDir.usableSpace < minFreeBytes) {
+            setStatus("Faltan al menos 128 MB libres. LIVE no se inició.")
+            return
+        }
         val pending = try {
             // Set the requested source on EVERY attempt. Otherwise a user
             // who enables microphone once then disables it could accidentally
@@ -280,6 +297,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             micOption.isEnabled = false
             endpointInput.isEnabled = false
             publisher.startStream(address)
+            storageHandler.removeCallbacks(storageCheck)
+            storageHandler.postDelayed(storageCheck, 10_000L)
             // Never log or persist the URL, including on failure.
             endpointInput.text?.clear()
             setStatus("Conectando LIVE… Grabación local en curso.")
@@ -311,6 +330,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun stopAndReview() {
         if (stopping) return
+        storageHandler.removeCallbacks(storageCheck)
         stopping = true
         liveRequested = false
         connected = false
@@ -352,7 +372,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 (reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: 0L) > 0L
         } catch (_: Exception) { false }
-        finally { reader.release() }
+        finally { runCatching { reader.release() } }
     }
 
     private fun askKeep(file: File) {
@@ -458,6 +478,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     override fun onDestroy() {
+        storageHandler.removeCallbacks(storageCheck)
         if (initiatedByUser || stream?.isStreaming == true ||
             stream?.isRecording == true) stopAndReview()
         runCatching { stream?.release() }
