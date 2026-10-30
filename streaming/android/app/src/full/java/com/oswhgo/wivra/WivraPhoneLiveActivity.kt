@@ -312,7 +312,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 pendingFile = pending
                 stopAndReview()
             } else {
-                pending.delete()
+                // Only an empty file can be safely cleaned up after a
+                // failed start. A file with any bytes might contain media,
+                // and is never deleted without explicit user consent.
+                if (pending.length() == 0L) pending.delete()
                 initiatedByUser = false
                 controlsIdle()
             }
