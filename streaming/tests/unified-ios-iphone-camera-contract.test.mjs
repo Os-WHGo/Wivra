@@ -31,3 +31,9 @@ test('interrupted iPhone MOV is retained without falsely cataloguing it as compl
   assert.match(camera, /lastCaptureManifestURL = nil\s*status = savedBytes > 0/);
   assert.match(camera, /else if savedBytes > 0 \{/);
 });
+
+test('late AVFoundation callbacks cannot overwrite another iPhone recording', () => {
+  assert.match(camera, /private var pendingMovieURL: URL\?/);
+  assert.match(camera, /pendingMovieURL = url\s*movieOutput\.startRecording/);
+  assert.match(camera, /guard pendingMovieURL == url else \{ return \}\s*pendingMovieURL = nil/);
+});
