@@ -342,6 +342,40 @@ public final class MainActivity extends Activity {
         return candidate == null ? null : Uri.parse(candidate);
     }
 
+    /**
+     * A multi-part Ray-Ban recording shares one random 128-bit session id.
+     * All published rows must be new, app-owned, consecutive and from ONE
+     * session. The bounded recent list cannot prove groups of 12+ parts:
+     * those remain available via explicit system file selection.
+     */
+    private Uri[] uniqueNewRayBanParts(java.util.Set<String> before) {
+        if (before == null) return null;
+        java.util.List<WivraSavedRayBanVideos.SavedVideo> recent =
+            WivraSavedRayBanVideos.latestSaved(this);
+        java.util.List<WivraSavedRayBanVideos.SavedVideo> added =
+            new java.util.ArrayList<>();
+        for (WivraSavedRayBanVideos.SavedVideo item : recent) {
+            if (!before.contains(item.getUri().toString())) added.add(item);
+        }
+        if (added.size() < 2 || added.size() >= 12) return null;
+        java.util.regex.Pattern name = java.util.regex.Pattern.compile(
+            "^Wivra_RayBan_[0-9]{10,16}_([0-9a-f]{32})_part([0-9]{4})\\.mp4$");
+        String sessionId = null;
+        java.util.TreeMap<Integer, Uri> ordered = new java.util.TreeMap<>();
+        for (WivraSavedRayBanVideos.SavedVideo item : added) {
+            java.util.regex.Matcher match = name.matcher(item.getTitle());
+            if (!match.matches()) return null;
+            if (sessionId == null) sessionId = match.group(1);
+            else if (!sessionId.equals(match.group(1))) return null;
+            int sequence = Integer.parseInt(match.group(2));
+            if (sequence < 1 || ordered.put(sequence, item.getUri()) != null)
+                return null;
+        }
+        int expected = 1;
+        for (int actual : ordered.keySet()) if (actual != expected++) return null;
+        return ordered.values().toArray(new Uri[0]);
+    }
+
     private void clearDirectorVideoSuggestion() {
         suggestedDirectorVideo = null;
         suggestedDirectorParts = null;
