@@ -126,3 +126,13 @@ test('failed journal write during stop does not strand the active capture lock',
   await session.start({ id: 'next-session', platform: 'android' });
   assert.equal((await session.snapshot('next-session')).state, 'recording');
 });
+
+test('failed journal write during native start preserves recorder error and releases session', async () => {
+  const { host, failWritesForState, session } = fixture();
+  host.start = async () => { throw new Error('native start unavailable'); };
+  failWritesForState('failed');
+  await assert.rejects(session.start({ id: 'bad-start', platform: 'ios' }), /native start unavailable/);
+  host.start = async () => {};
+  await session.start({ id: 'after-start-failure', platform: 'ios' });
+  assert.equal((await session.snapshot('after-start-failure')).state, 'recording');
+});
