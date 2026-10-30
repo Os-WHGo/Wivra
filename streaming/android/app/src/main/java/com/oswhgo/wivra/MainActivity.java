@@ -597,6 +597,7 @@ public final class MainActivity extends Activity {
                         return; // Superseded chooser or Activity was destroyed.
                     }
                     pendingFilePicker = null;
+                    pendingPickerSignal = null;
                     completion.onReceiveValue(checked);
                 });
             });
