@@ -105,8 +105,14 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
       if (!journal || journal.state !== 'finalized' || !journal.finalFile || !journal.segments.length) {
         throw new Error('Capture not finalized for Director');
       }
-      if (typeof host.verifyFile !== 'function' || await host.verifyFile({ id, file: journal.finalFile }) !== true) {
-        throw new Error('Native media verification required for Director');
+      if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for Director');
+      // A verified final output does not prove its referenced source fragments
+      // still exist. Verify every file before advertising the complete take.
+      const files = [journal.finalFile, ...journal.segments.map(segment => segment.file)];
+      for (const file of new Set(files)) {
+        if (await host.verifyFile({ id, file }) !== true) {
+          throw new Error('Native media verification required for Director');
+        }
       }
       return { sessionId: id, platform: journal.platform, file: journal.finalFile,
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
