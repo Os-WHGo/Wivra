@@ -38,6 +38,15 @@ jobs:
             streaming/tests/WivraAudioRecoverySmoke.swift \
             -o /tmp/wivra-audio-recovery-smoke
           /tmp/wivra-audio-recovery-smoke
+      - name: Run macOS synthetic progressive export store lifecycle (order, CRC, re-read, cleanup)
+        run: |
+          set -eu
+          node --test streaming/tests/progressive-export-native-contract.test.mjs
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraExportStore.swift \
+            streaming/tests/WivraExportStoreSmoke.swift \
+            -o /tmp/wivra-export-store-smoke
+          /tmp/wivra-export-store-smoke
       - name: Verify mobile Wi-Fi uplink observers and privacy warnings
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders

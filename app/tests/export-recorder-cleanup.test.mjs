@@ -31,7 +31,7 @@ test('broken WebView never emits onstop: bounded error instead of indefinite spi
 test('editor releases media and removes visibility listener even if closing the recorder fails',()=>{
  const code=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
  assert.match(code,/rec\.start\(1000\);\s*recorderStarted = true;/);
- assert.match(code,/try \{\s*await finishMediaRecorder\(rec, stopped, \{ started: recorderStarted \}\);\s*\} finally \{/);
+ assert.match(code,/try \{\s*await finishMediaRecorder\(rec, stopped, \{ started: recorderStarted \}\);\s*recorderClosed = true;\s*\} finally \{/);
  assert.match(code,/document\.removeEventListener\('visibilitychange', onVis\)/);
  assert.equal(RECORDER_STOP_TIMEOUT_MS>=5000,true);
 });
@@ -63,7 +63,7 @@ test('video start: cancellation before or during pending play returns false',asy
 });
 test('recorder failure cannot be mistaken for user cancel, and video pauses on cleanup',()=>{
   const source=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
-  assert.match(source,/const stopNow = \(\) => isCancelled\(\) \|\| interrupted \|\| !!recError;/);
+  assert.match(source,/const stopNow = \(\) => isCancelled\(\) \|\| interrupted \|\| !!recError \|\| !!\(sink && sink\.error\);/);
   assert.match(source,/if \(recError\) throw new Error\('La grabación falló/);
   assert.ok(source.indexOf("if (recError) throw new Error('La grabación falló") <
     source.lastIndexOf("if (cancelled || isCancelled()) return { cancelled: true }"));

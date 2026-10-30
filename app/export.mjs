@@ -3,6 +3,7 @@
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 import { clipLength, speedOf, srcTime } from '../core/project.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
+import { detectExportHost, createProgressiveExportSink } from './export-sink.mjs';
 
 const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -273,16 +274,21 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
 export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
 export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
-/** Advisory only: MediaRecorder chunks and final Blob remain buffered until export ends.
+/** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
+ * until export ends. In progressive mode (native sink) only a bounded queue stays in
+ * memory, so the risk is free storage, not RAM.
  * Estimated encoded MB is not a measurement of RAM or free storage.
  * The warning does not certify any duration or block the owner's export.
  */
-export function exportMemoryRisk(seconds) {
+export function exportMemoryRisk(seconds, { progressive = false } = {}) {
   const estimatedMB = exportSizeMB(seconds);
+  if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
+/** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
+export const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -393,7 +399,9 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
 }
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
+// saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
+// 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
@@ -449,6 +457,22 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     try { if (ac) await ac.close(); } catch { /* context already released */ }
     return { audioBlocked: true, ...audioPreflight };
   }
+  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
+  // Escritura progresiva: se abre el archivo nativo ANTES de grabar. Si no hay espacio
+  // o el puente falla, no se graba nada (y se puede elegir el modo en memoria).
+  let sink = null;
+  const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
+  if (host) {
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    try { await sink.begin(); }
+    catch (error) {
+      await sink.abort('begin');
+      stream.getTracks().forEach(track => track.stop());
+      ev.remove();
+      try { if (ac) await ac.close(); } catch { /* context already released */ }
+      throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
+    }
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
@@ -492,7 +516,6 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
   };
 
-  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   let rec;
   try {
     rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
@@ -504,12 +527,14 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     oList.forEach((o) => { try { o.el.pause(); } catch { /* no media */ } try { o.el.remove(); } catch {} });
     ev.remove();
     try { if (ac) await ac.close(); } catch { /* context released */ }
+    if (sink) await sink.abort('recorder');
     throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
   }
-  // MediaRecorder chunks remain in memory until the final Blob is assembled.
-  // Track their size to diagnose long exports without changing the output format.
+  // Memory mode: MediaRecorder chunks remain in memory until the final Blob is assembled.
+  // Progressive mode: each chunk goes straight to the native file and is released once written.
+  // recordedBytes is checked against the final Blob or against the native file in both modes.
   const chunks = []; let recordedBytes = 0;
-  rec.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); recordedBytes += e.data.size; } };
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) { recordedBytes += e.data.size; if (sink) sink.push(e.data); else chunks.push(e.data); } };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
   const photos = new Map();
@@ -525,9 +550,9 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   };
   // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
-  const stopNow = () => isCancelled() || interrupted || !!recError;
+  const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
-  const t0 = performance.now(); let cancelled = false, recorderStarted = false;
+  const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
@@ -601,10 +626,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       ev.pause();
     }
     await frame(); await frame();
+    completed = !cancelled;
   } finally {
     sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     try {
       await finishMediaRecorder(rec, stopped, { started: recorderStarted });
+      recorderClosed = true;
     } finally {
       // This MUST execute even if MediaRecorder.start/stop throws or onstop
       // never fires. Otherwise a hidden video, microphone or AudioContext
@@ -614,12 +641,24 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
       try { ev.pause(); } catch { /* nada */ } ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
       document.removeEventListener('visibilitychange', onVis);
+      // Any path other than a complete, cleanly closed recording deletes the partial native file.
+      if (sink && (!completed || !recorderClosed || stopNow())) await sink.abort(interrupted ? 'interrupted' : 'stopped');
     }
   }
   if (interrupted) return { interrupted: true };
+  if (sink && sink.error) throw new Error('No se pudo guardar el video en el teléfono: ' + sink.error.message + ' No quedó ningún archivo a medias.');
   if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
   if (cancelled || isCancelled()) return { cancelled: true };
-  const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
+  const type = rec.mimeType || mime || 'video/webm';
+  if (sink) {
+    if (recordedBytes < 1000) { await sink.abort('empty'); throw new Error('No se grabó nada. Prueba de nuevo.'); }
+    let saved;
+    try { saved = await sink.finish(); }
+    catch (error) { await sink.abort('finish'); throw new Error('No se pudo cerrar el video guardado: ' + (error?.message || 'error') + ' No quedó ningún archivo a medias.'); }
+    if (saved.bytes !== recordedBytes) throw new Error('La exportación no conserva todos los fragmentos grabados.');
+    return { saved, progressive: true, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  }
+  const blob = new Blob(chunks, { type });
   if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
   if (recordedBytes !== blob.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
   return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };

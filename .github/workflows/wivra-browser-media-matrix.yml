@@ -6,6 +6,8 @@ on:
       - tools/browser-export-roundtrip.cjs
       - tools/browser-long-multipart-export.cjs
       - app/export.mjs
+      - app/export-sink.mjs
+      - tools/browser-progressive-export.cjs
       - .github/workflows/wivra-browser-media-matrix.yml
   workflow_dispatch:
 permissions:
@@ -36,6 +38,8 @@ jobs:
         run: node tools/browser-export-roundtrip.cjs
       - name: Render 81 synthetic cuts and verify output with ffprobe (not Ray-Ban HEVC)
         run: node tools/browser-long-multipart-export.cjs
+      - name: Progressive export to disk through simulated native bridge (byte/CRC/ffmpeg, cancel, disk failure)
+        run: node tools/browser-progressive-export.cjs
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,5 +49,6 @@ jobs:
             wivra-media-capabilities.json
             wivra-export-browser-roundtrip.json
             wivra-long-multipart-export.json
+            wivra-progressive-export.json
           if-no-files-found: warn
           retention-days: 7
