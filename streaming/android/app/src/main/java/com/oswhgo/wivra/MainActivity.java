@@ -174,6 +174,19 @@ public final class MainActivity extends Activity {
         shell.addView(sources, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
+        // Native RTMP publisher is installed ONLY in the full edition.
+        // No reflection, third-party encoder or LIVE control in Wivra Capture.
+        if ("com.oswhgo.wivra".equals(getPackageName())) {
+            Button phoneLive = new Button(this);
+            phoneLive.setText("LIVE · cámara del teléfono");
+            phoneLive.setContentDescription("Transmitir LIVE con consentimiento");
+            phoneLive.setOnClickListener(v -> {
+                Intent live = new Intent();
+                live.setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity");
+                startActivity(live);
+            });
+            shell.addView(phoneLive);
+        }
         shell.addView(editor, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(shell);
