@@ -38,7 +38,8 @@ test('chooser is explicitly user-triggered and remains one Claude editor',()=>{
   assert.match(host,/clearPendingPicker\(\)/);
   assert.match(host,/editor.loadUrl\("file:\/\/\/android_asset\/agentcut.html"\)/);
   assert.match(host,/editor\.evaluateJavascript\(readOnly, encoded ->/);
-  assert.match(host,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(host,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(host,/localStorage\.getItem\(/);
   assert.doesNotMatch(host,/addJavascriptInterface\(/);
 });
 
