@@ -1279,13 +1279,13 @@ async function importSelectedFiles(files) {
   const failed = [], added = [], staged = [];
   let committed = false;
   const cleanupUncommitted = () => {
-    if (!committed && staged.length) {
+    if (staged.length) {
     // Failed edits may still leave staged metadata in undo/redo snapshots.
     // Reclaim only assets not used by ANY timeline state.
     const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
     const referenced = new Set(states.flatMap(p => ['clips', 'overlayClips', 'audioClips']
       .flatMap(k => (p[k] || []).map(c => c.asset_id))));
-    const unused = new Set(staged.filter(id => !referenced.has(id)));
+    const unused = new Set(staged.filter(id => !referenced.has(id) && (!committed || !added.includes(id))));
     for (const state of states) state.assets = state.assets.filter(a => !unused.has(a.id));
     for (const id of unused) {
       const url = media[id]?.url;
