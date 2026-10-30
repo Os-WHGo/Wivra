@@ -25,6 +25,17 @@ test('each video-only MOV begins on a keyframe and checkpoints close at a safe b
   assert.match(unit, /guard Self\.isHEVCKeyframe\(buffer\)/);
 });
 
+test('iPhone ignores initial DAT STOPPED and finalizes on terminal session loss', () => {
+  assert.match(model, /private var streamEverActive = false/);
+  assert.match(model, /if state == \.streaming \{ self\.streamEverActive = true \}/);
+  assert.match(model, /if state == \.stopped &&\s*\(self\.streamEverActive \|\| wasStopping\)/);
+  assert.match(model, /if self\.recordingArmed && !self\.recordingFinishing \{/);
+  assert.match(model, /Conexión Ray-Ban terminada\. Guardando el último fragmento MOV/);
+  assert.match(model, /Transmisión Ray-Ban finalizada\. Cerrando MOV pendiente/);
+  assert.match(model, /Task \{ await self\.finishRecording\(\) \}/);
+  assert.match(model, /private func clearPreview\(\) \{\s*streamEverActive = false/);
+});
+
 test('working MOV is not published until AVAssetWriter completes successfully', () => {
   assert.match(unit, /finalName \+ "\.writing\.mov"/);
   assert.match(unit, /writer\.finishWriting/);
