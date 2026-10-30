@@ -169,8 +169,14 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
             try {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {
+                    // Several MP4 checkpoint parts can be saved in the same
+                    // millisecond. Include the verified private source ID and
+                    // part number to avoid ambiguous gallery names.
+                    val safePartId = local.nameWithoutExtension
+                        .removePrefix("wivra_rayban_")
                     put(MediaStore.Video.Media.DISPLAY_NAME,
-                        "Wivra_RayBan_" + System.currentTimeMillis() + ".mp4")
+                        "Wivra_RayBan_" + System.currentTimeMillis() +
+                        "_" + safePartId + ".mp4")
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
                     put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Wivra/")
                     put(MediaStore.Video.Media.IS_PENDING, 1)
