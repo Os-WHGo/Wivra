@@ -9,6 +9,13 @@ import { TEXT_STYLE_KEYS, textStyleProblem } from '../core/text-style.mjs';
 
 export const PERSIST_SCHEMA = 'wivra-project';
 export const PERSIST_VERSION = 1;
+/** A project can keep its metadata even when the IndexedDB media bytes are
+ * missing, corrupt or an interrupted save left an empty Blob.
+ * A zero-byte placeholder must never be advertised as a playable asset.
+ */
+export const usableProjectMediaBlob = (value) =>
+  typeof Blob !== 'undefined' && value instanceof Blob && value.size > 0;
+
 
 const pzNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const PZ_GROUPS = ['clips', 'overlayClips', 'audioClips'];
