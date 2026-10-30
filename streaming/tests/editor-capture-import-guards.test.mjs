@@ -55,3 +55,8 @@ test('failed photo preparation is staged but not treated as successfully importe
   assert.ok(generic.indexOf('await prepGif(id, f)') < generic.indexOf('added.push(id)'));
   assert.match(generic, /!committed \|\| !added\.includes\(id\)/);
 });
+
+test('cleanup tolerates a failed media preparation before a session exists', () => {
+  assert.match(generic, /const states = session \? \[session\.project/);
+  assert.match(generic, /if \(session && !previousSession && !session\.project\.assets\.length/);
+});
