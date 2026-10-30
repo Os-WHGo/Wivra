@@ -34,8 +34,10 @@ test('failed generic import releases only unreferenced staged media', () => {
   assert.match(generic, /delete mediaFiles\[id\]/);
 });
 
-test('rejected timeline insertion invokes cleanup before returning', () => {
+test('generic import cleans up on rejection and unexpected exceptions', () => {
   const rejected = generic.slice(generic.indexOf('if (!result.ok) {'), generic.indexOf('committed = true;'));
-  assert.match(rejected, /cleanupUncommitted\(\)/);
-  assert.ok(rejected.indexOf('cleanupUncommitted()') < rejected.indexOf('return;'));
+  assert.match(rejected, /return;/);
+  assert.match(generic, /catch \(error\) \{/);
+  assert.match(generic, /finally \{\s*cleanupUncommitted\(\);\s*loading = false;/);
+  assert.match(generic, /if \(!committed && added\.length && session\)/);
 });
