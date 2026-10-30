@@ -74,7 +74,7 @@ test('screen-off HEVC processing uses a short renewable CPU lease only for confi
   assert.match(manifest, /android.permission.WAKE_LOCK/);
   assert.match(service, /PowerManager.PARTIAL_WAKE_LOCK/);
   assert.match(service, /cpuLock\?\.acquire\(90_000L\)/);
-  assert.match(service, /if \(samples > 0 && packetCount % 24L == 0L\)/);
+  assert.match(service, /if \(wroteSample && samples % 24 == 0\)/);
   assert.match(service, /releaseCpuLease\(\)/);
   assert.match(service, /fun isCaptureActive\(\)[\s\S]*?CaptureState.PAUSED/);
   assert.match(service, /val captureProgress: StateFlow<CaptureProgress>/);
@@ -88,7 +88,15 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
   assert.match(service, /firstFrameWatchdog = scope\.launch/);
   assert.match(service, /delay\(45_000L\)/);
-  assert.match(service, /recorder === muxer && muxer\.samples == 0/);
+  assert.match(service, /recorder === muxer && muxer\.samples < 2/);
+  assert.match(service, /val wroteSample = samples > lastSamplesTotal/);
+  assert.match(service, /if \(wroteSample && samples % 24 == 0\)/);
+  assert.match(service, /streamHealthWatchdog = scope\.launch/);
+  assert.match(service, /SystemClock\.elapsedRealtime\(\) - last >= 75_000L/);
+  assert.match(service, /captureState == CaptureState\.RECORDING/);
+  assert.match(service, /claimSession\(\)\?\.stop\(\)/);
+  assert.match(service, /Android rechazó el servicio de captura/);
+  assert.match(service, /val activeSession = session \?: unclaimed/);
   assert.match(service, /val captureIssue: StateFlow<String\?>/);
   assert.match(service, /mutableCaptureIssue\.value = null/);
   assert.match(activity, /WivraCaptureForegroundService\.captureIssue\.value/);
