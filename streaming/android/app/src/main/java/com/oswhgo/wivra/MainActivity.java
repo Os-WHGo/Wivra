@@ -588,7 +588,7 @@ public final class MainActivity extends Activity {
         // this same Activity still owns the original pending file chooser.
         try {
             pickerValidator.execute(() -> {
-                Uri[] checked = safeSystemPickerResult(selected);
+                Uri[] checked = safeSystemPickerResult(selected, new CancellationSignal());
                 runOnUiThread(() -> {
                     if (pendingFilePicker != completion || isFinishing() || isDestroyed()) {
                         return; // Superseded chooser or Activity was destroyed.
