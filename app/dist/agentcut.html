@@ -5129,7 +5129,6 @@ async function importSelectedFiles(files) {
     say(`Seleccionaste ${files.length} archivos. El límite actual es ${MAX_IMPORT} por tanda; divide la selección e importa las tandas en orden. No se agregó ningún archivo.`, 'bad');
     return;
   }
-  const capNote = '';
   const previousSession = session;
   const importSession = session;
   let stagingSession = session;
@@ -5209,8 +5208,7 @@ async function importSelectedFiles(files) {
     say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? (added.some(id => media[id].kind === 'image') ? `Se cargaron ${added.length} archivos (videos y fotos). Revisa el orden.` : `${added.length} videos cargados. Revisa el orden.`) : media[added[0]].kind === 'image' ? 'Foto cargada (3 s). Alarga su bloque para que dure más.' : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
-  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + (capNote ? '\n' + capNote : '') + '\nNavegador: ' + navigator.userAgent, 'bad');
-  else if (capNote) say(capNote, 'bad');      // al final, para que no lo tape el mensaje de «cargados»
+  if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
   } catch (error) {
     say('No se pudo completar la importación: ' + (error?.message || error), 'bad');
   } finally {
