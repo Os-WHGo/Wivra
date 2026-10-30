@@ -45,7 +45,8 @@ test('generic import cleans up on rejection and unexpected exceptions', () => {
 test('Director only binds an imported asset when the result is unambiguous', () => {
   assert.match(generic, /const newAssets=\(session\?\.project\.assets \|\| \[\]\)\.filter/);
   assert.match(generic, /newAssets\.length===1 \? newAssets\[0\] : null/);
-  assert.match(generic, /newAssets\.length>1 && shootPlan && selectedShootId/);
+  assert.match(generic, /if\(newAssets\.length>1\)/);
+  assert.match(generic, /Director no puede identificar una sola toma importada/);
   assert.match(generic, /assetId:added\.id/);
 });
 
