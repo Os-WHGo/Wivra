@@ -4950,7 +4950,7 @@ async function importCapture(files) {
   if (!files.length || loading) return;
   // Metadata probing is not a timeline operation. Reclaim only newly staged
   // resources when the complete one-batch capture edit does not commit.
-  const previousSession = session, stagedAssetIDs = [];
+  const previousSession = session, stagedAssetIDs = [], importedAssetIDs = [];
   let captureCommitted = false;
   loading = true; stopPlayIfAny();
   try {
@@ -4985,8 +4985,9 @@ async function importCapture(files) {
       const f = byName.get(name); if (!f) { failed.push(`falta ${name}`); return null; }
       try {
         const pr = kind === 'video' ? await probe(f) : await probeAudio(f), id = 'a' + (++assetSeq);
-        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); session ||= new Session(createProject({ assets: [] }));
-        session.addAsset({ id, duration: pr.duration, name: f.name }); stagedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
+        media[id] = { ...pr, name: f.name, thumbs: [], step: 1, w: pr.w || 0, h: pr.h || 0 }; keepFile(id, f, kind); stagedAssetIDs.push(id);
+        session ||= new Session(createProject({ assets: [] }));
+        session.addAsset({ id, duration: pr.duration, name: f.name }); importedAssetIDs.push(id); return (assets[name] = { id, duration: pr.duration, kind });
       } catch (e) { failed.push(e.message); return null; }
     };
     let videoFile = null, usedMuxed = false;
@@ -5005,8 +5006,9 @@ async function importCapture(files) {
           const wavs = await decodeChannelWavs(f, group.map(x => x.channelIndex));
           for (const [i, x] of group.entries()) {
             const nf = new File([wavs[i]], splitFileName(f.name, x.channelIndex), { type: 'audio/wav' }), pr = await probeAudio(nf), id = 'a' + (++assetSeq);
-            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); session ||= new Session(createProject({ assets: [] }));
-            session.addAsset({ id, duration: pr.duration, name: nf.name }); stagedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
+            media[id] = { ...pr, name: nf.name, thumbs: [], step: 1, w: 0, h: 0 }; keepFile(id, nf, 'audio'); stagedAssetIDs.push(id);
+            session ||= new Session(createProject({ assets: [] }));
+            session.addAsset({ id, duration: pr.duration, name: nf.name }); importedAssetIDs.push(id); split[x.id] = { id, duration: pr.duration };
           }
         } catch (e) { failed.push(`${t.file}: ${e.message}`); }
       }
@@ -5050,13 +5052,13 @@ async function importCapture(files) {
     say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
   } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
   finally {
-    if (!captureCommitted && stagedAssetIDs.length && session) {
+    if (stagedAssetIDs.length) {
       // Session.addAsset copies metadata to all undo/redo snapshots. Remove
       // only assets not referenced by a clip in ANY snapshot.
-      const states = [session.project, ...session.undoStack, ...session.redoStack];
+      const states = session ? [session.project, ...session.undoStack, ...session.redoStack] : [];
       const referenced = new Set(states.flatMap(p => ['clips','overlayClips','audioClips']
         .flatMap(k => (p[k] || []).map(c => c.asset_id))));
-      const unreferenced = new Set(stagedAssetIDs.filter(id => !referenced.has(id)));
+      const unreferenced = new Set(stagedAssetIDs.filter(id => !referenced.has(id) && (!captureCommitted || !importedAssetIDs.includes(id))));
       for (const state of states) state.assets = state.assets.filter(a => !unreferenced.has(a.id));
       for (const id of unreferenced) {
         const url = media[id]?.url;
