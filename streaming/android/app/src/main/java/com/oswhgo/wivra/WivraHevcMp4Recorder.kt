@@ -26,8 +26,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
     private var muxer: MediaMuxer? = null
     private var track = -1
     private var started = false
-    private var firstPtsUs = -1L
-    private var lastPtsUs = -1L
+    private val ptsNormalizer = WivraVideoPtsNormalizer()
     private var writtenSamples = 0
     private var failed = false
 
@@ -61,7 +60,6 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                         muxer = writer
                         track = index
                         started = true
-                        firstPtsUs = ptsUs
                     } catch (e: Exception) {
                         writer.release()
                         output.delete()
@@ -69,13 +67,14 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                     }
                 }
                 if (!started || isCodecConfig && !syncFrame) return
-                val relative = (ptsUs - firstPtsUs).coerceAtLeast(lastPtsUs + 1L)
+                // Pause/resume can rewind DAT PTS. Rebase complete intervals
+                // instead of collapsing resumed frames into 1-microsecond PTS.
+                val relative = ptsNormalizer.next(ptsUs)
                 val info = MediaCodec.BufferInfo().apply {
                     set(0, packet.size, relative,
                         if (syncFrame) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
                 }
                 muxer!!.writeSampleData(track, ByteBuffer.wrap(packet), info)
-                lastPtsUs = relative
                 writtenSamples += 1
             } catch (_: Exception) {
                 // MediaMuxer may refuse malformed CSD/PTS; never claim success.
