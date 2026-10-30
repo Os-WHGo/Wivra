@@ -80,8 +80,10 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
             names.add(segment.file);
             cursor = segment.endMs;
           }
+          // Existing fragments can disappear during an interrupted recording.
+          // Recheck the entire assembled take before publishing final state.
           if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for finalization');
-          for (const file of new Set([output.finalFile, ...segments.map(segment => segment.file)])) {
+          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
             if (await host.verifyFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
           }
           // Persist fragments with intermediate stopping snapshots, never
