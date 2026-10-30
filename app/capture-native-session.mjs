@@ -80,6 +80,10 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
             names.add(segment.file);
             cursor = segment.endMs;
           }
+          if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for finalization');
+          for (const file of new Set([output.finalFile, ...segments.map(segment => segment.file)])) {
+            if (await host.verifyFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
           // Persist fragments with intermediate stopping snapshots, never
           // publish finalized state before every segment is durable.
           let j = await store.load(id);
