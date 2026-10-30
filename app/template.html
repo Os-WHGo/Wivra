@@ -1151,8 +1151,11 @@ async function importCapture(files) {
       say('La selección incluye otros archivos JSON. Importa una captura por vez, sin metadatos ajenos. No se modificó la línea de tiempo.', 'bad');
       return;
     }
+    if (files.length > MAX_IMPORT) {
+      say('Demasiados archivos en una sola captura. Selecciona hasta ' + MAX_IMPORT + ' archivos y vuelve a intentar.', 'bad');
+      return;
+    }
     const byName = new Map(files.map(f => [f.name, f])), notes = [...r.warnings], assets = {}, failed = [];
-    const sessionAtSelection = session;
     $('info').textContent = 'Leyendo la captura…';
     const open = async (name, kind) => {
       if (assets[name]) return assets[name];
@@ -1200,10 +1203,6 @@ async function importCapture(files) {
     }
     for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
-    if (sessionAtSelection && session !== sessionAtSelection) {
-      say('La sesión cambió durante la lectura de la captura. Vuelve a seleccionarla.', 'bad');
-      return;
-    }
     if (captureSession && session !== captureSession) {
       say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
       return;
