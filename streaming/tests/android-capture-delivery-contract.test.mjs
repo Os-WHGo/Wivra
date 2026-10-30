@@ -67,6 +67,22 @@ test('foreground connected-device notification is declared and tied to recording
   assert.match(activity, /stopService\(Intent\(this, WivraCaptureForegroundService::class.java\)\)/);
 });
 
+test('screen-off HEVC processing uses a short renewable CPU lease only for confirmed samples', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  const activity = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMetaPreviewActivity.kt');
+  const manifest = read('streaming/android/app/src/main/AndroidManifest.xml');
+  assert.match(manifest, /android.permission.WAKE_LOCK/);
+  assert.match(service, /PowerManager.PARTIAL_WAKE_LOCK/);
+  assert.match(service, /cpuLock\?\.acquire\(90_000L\)/);
+  assert.match(service, /if \(samples > 0 && packetCount % 24L == 0L\)/);
+  assert.match(service, /releaseCpuLease\(\)/);
+  assert.match(service, /fun isCaptureActive\(\)[\s\S]*?CaptureState.PAUSED/);
+  assert.match(service, /val captureProgress: StateFlow<CaptureProgress>/);
+  assert.match(activity, /WivraCaptureForegroundService\.captureProgress\.collect/);
+  assert.match(service, /if \(state == StreamState.PAUSED && !finishing\)/);
+  assert.match(service, /setCaptureState\(CaptureState.FINALIZING\)[\s\S]*?abandoned.finishToPending\(\)[\s\S]*?setCaptureState\(CaptureState.IDLE\)/);
+});
+
 test('foreground notification opens Activity using mutable Intent API safely', () => {
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   assert.match(service, /addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP or Intent\.FLAG_ACTIVITY_CLEAR_TOP\)/);
