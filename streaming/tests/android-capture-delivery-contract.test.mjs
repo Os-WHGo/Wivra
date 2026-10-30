@@ -121,6 +121,18 @@ test('DAT handles recoverable stream error and headset pause without discarding 
   assert.match(service, /mutableCaptureIssue\.value = null\s*setCaptureState\(CaptureState\.RECORDING\)/);
 });
 
+test('service teardown blocks a second DAT handoff until the old owner is destroyed', () => {
+  const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
+  const finalize = service.split('private fun finalizeCapture()')[1]?.split('override fun onDestroy()')[0];
+  const destroy = service.split('override fun onDestroy()')[1];
+  assert.ok(finalize && destroy);
+  assert.match(finalize, /setCaptureState\(CaptureState\.FINALIZING\)/);
+  assert.match(finalize, /stopSelf\(\)/);
+  assert.doesNotMatch(finalize, /setCaptureState\(CaptureState\.IDLE\)/);
+  assert.match(destroy, /setCaptureState\(CaptureState\.IDLE\)/);
+  assert.match(service, /if \(isCaptureActive\(\) \|\| offeredSession != null\) false/);
+});
+
 test('foreground notification opens Activity using mutable Intent API safely', () => {
   const service = read('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraCaptureForegroundService.kt');
   assert.match(service, /addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP or Intent\.FLAG_ACTIVITY_CLEAR_TOP\)/);
