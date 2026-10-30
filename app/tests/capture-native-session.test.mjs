@@ -4,6 +4,7 @@ import { createNativeCaptureSession } from '../capture-native-session.mjs';
 
 function fixture({ lockedScreen = true } = {}) {
   const files = new Map();
+  let writeFailureState = null;
   let t = 0;
   const host = {
     capabilities: async () => ({ rayban: true, lockedScreen, backgroundVerified: false }),
@@ -12,11 +13,14 @@ function fixture({ lockedScreen = true } = {}) {
     verifyFile: async () => true
   };
   const storage = {
-    writeAtomic: async (n,v) => files.set(n,v),
+    writeAtomic: async (n,v) => {
+      if (writeFailureState && JSON.parse(v).state === writeFailureState) throw new Error('storage unavailable');
+      files.set(n,v);
+    },
     read: async n => files.get(n) ?? null,
     list: async prefix => [...files.keys()].filter(n => n.startsWith(prefix))
   };
-  return { host, storage, session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
+  return { host, storage, failWritesForState: state => { writeFailureState = state; }, session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
 }
 test('native session rejects unavailable locked-screen capability', async () => {
   const { session } = fixture({ lockedScreen: false });
@@ -114,14 +118,10 @@ test('finalization rechecks earlier interrupted fragments as well as new output'
 });
 
 test('failed journal write during stop does not strand the active capture lock', async () => {
-  const { host, storage, session } = fixture();
-  const originalWrite = storage.writeAtomic;
+  const { host, failWritesForState, session } = fixture();
   await session.start({ id: 'broken-write', platform: 'android' });
   host.stop = async () => { throw new Error('native recorder failed'); };
-  storage.writeAtomic = async (name, value) => {
-    if (name === 'wivra-capture-broken-write.json' && JSON.parse(value).state === 'failed') throw new Error('storage unavailable');
-    return originalWrite(name, value);
-  };
+  failWritesForState('failed');
   await assert.rejects(session.stop('broken-write'), /native recorder failed/);
   await session.start({ id: 'next-session', platform: 'android' });
   assert.equal((await session.snapshot('next-session')).state, 'recording');
