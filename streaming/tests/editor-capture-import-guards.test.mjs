@@ -134,3 +134,8 @@ test('capture final timeline guard includes an import that created its own sessi
   assert.match(capture, /if \(session !== stagingSession \|\| \(captureSession && session !== captureSession\)\)/);
   assert.ok(capture.indexOf('session !== stagingSession || (captureSession') < capture.indexOf('const startAt ='));
 });
+
+test('generic timeline commit checks owner even when the editor initially had no session', () => {
+  assert.match(generic, /if \(session !== stagingSession \|\| \(importSession && session !== importSession\)\)/);
+  assert.ok(generic.indexOf('session !== stagingSession || (importSession') < generic.indexOf('const first = !session.project.clips.length'));
+});
