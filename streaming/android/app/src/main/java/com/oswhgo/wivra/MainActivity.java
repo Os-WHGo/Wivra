@@ -236,6 +236,7 @@ public final class MainActivity extends Activity {
                 // A corrupt or missing checklist never blocks the phone camera.
             }
             if (shots.length() == 0) {
+                pendingDirectorShotId = null;
                 startActivity(new Intent(this, targetActivity));
                 return;
             }
