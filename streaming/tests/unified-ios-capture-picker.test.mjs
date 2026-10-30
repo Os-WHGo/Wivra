@@ -110,5 +110,7 @@ test('iOS scanner rejects huge or logically inconsistent sidecars before WebKit 
 
 test('iOS native editor chooser does not truncate older saved captures', () => {
   assert.match(source, /for item in ready \{/);
+  assert.match(source, /Grabaciones de Wivra/);
+  assert.match(source, /Elegir grabación/);
   assert.doesNotMatch(source, /ready\.prefix\(12\)/);
 });
