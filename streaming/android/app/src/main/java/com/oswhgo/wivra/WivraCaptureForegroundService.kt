@@ -333,18 +333,25 @@ class WivraCaptureForegroundService : Service() {
         recorder = null
         finalizingRecorder = null
         if (abandoned != null) {
+            // Keep FINALIZING visible until the rescue has really completed.
+            // The UI must not miss a pending MP4 by checking too early.
+            setCaptureState(CaptureState.FINALIZING)
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                collector?.cancelAndJoin()
-                runCatching { abandoned.finishToPending() }
-                runCatching { activeCamera?.close() }
-                runCatching { activeSession?.stop() }
+                try {
+                    collector?.cancelAndJoin()
+                    runCatching { abandoned.finishToPending() }
+                } finally {
+                    runCatching { activeCamera?.close() }
+                    runCatching { activeSession?.stop() }
+                    setCaptureState(CaptureState.IDLE)
+                }
             }
         } else {
             runCatching { activeCamera?.close() }
             runCatching { activeSession?.stop() }
+            setCaptureState(CaptureState.IDLE)
         }
         releaseCpuLease()
-        setCaptureState(CaptureState.IDLE)
         scope.cancel()
         super.onDestroy()
     }
