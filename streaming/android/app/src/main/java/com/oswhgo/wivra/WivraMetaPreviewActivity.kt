@@ -12,6 +12,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.ViewGroup
+import android.view.Gravity
+import android.view.View
+import android.graphics.Color
+import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -183,9 +187,41 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             scaleType = ImageView.ScaleType.FIT_CENTER
             setBackgroundColor(0xFF151515.toInt())
         }
-        root.addView(imagePreview, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            (300 * resources.displayMetrics.density).toInt()
+        val previewHeight = (300 * resources.displayMetrics.density).toInt()
+        val previewFrame = FrameLayout(this)
+        previewFrame.addView(imagePreview, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, previewHeight
+        ))
+        // Director sends only a user-selected script, never a media path.
+        // This ScrollView is placed OVER the native UI preview. The HEVC
+        // recorder consumes DAT packets, not the screen, so the script
+        // is never burnt into video saved from the glasses.
+        val shotScript = intent.getStringExtra(
+            WivraPhoneCameraActivity.EXTRA_SHOT_SCRIPT
+        )?.takeIf { it.length in 1..2200 && it.isNotBlank() }?.trim()
+        if (!shotScript.isNullOrEmpty()) {
+            val prompt = ScrollView(this).apply {
+                setBackgroundColor(Color.argb(192, 0, 0, 0))
+                contentDescription = "Guion del Director, solo visible en pantalla"
+            }
+            prompt.addView(TextView(this).apply {
+                text = shotScript
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                setPadding(14, 8, 14, 12)
+            })
+            previewFrame.addView(prompt, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (125 * resources.displayMetrics.density).toInt(), Gravity.BOTTOM
+            ))
+            button(root, "Mostrar / ocultar guion del Director") {
+                prompt.visibility = if (prompt.visibility == View.VISIBLE) {
+                    View.GONE
+                } else View.VISIBLE
+            }
+        }
+        root.addView(previewFrame, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, previewHeight
         ))
         registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
         connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
