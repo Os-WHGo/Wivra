@@ -25,3 +25,9 @@ test('iPhone video only reports a saved take after a nonempty MOV and manifest',
 test('iPhone MOV does not claim to have an independent audio sidecar', () => {
   assert.match(camera, /videoURL: url, tracks: \[\], mergedURL: nil/);
 });
+
+test('interrupted iPhone MOV is retained without falsely cataloguing it as complete', () => {
+  assert.match(camera, /lastMovieURL = savedBytes > 0 \? url : nil/);
+  assert.match(camera, /lastCaptureManifestURL = nil\s*status = savedBytes > 0/);
+  assert.match(camera, /else if savedBytes > 0 \{/);
+});
