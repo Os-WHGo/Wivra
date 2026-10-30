@@ -268,6 +268,7 @@ public final class MainActivity extends Activity {
                 .setItems(options, (dialog, index) -> {
                     Intent launch = new Intent(this, targetActivity);
                     pendingDirectorShotId = null;
+                    pendingDirectorProjectId = null;
                     if (index > 0) {
                         org.json.JSONObject shot = safeShots.optJSONObject(index - 1);
                         if (shot != null) {
@@ -280,6 +281,7 @@ public final class MainActivity extends Activity {
                                 id.chars().allMatch(ch -> ch >= 32 && ch != 127)) {
                                 launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID, id);
                                 pendingDirectorShotId = id;
+                                pendingDirectorProjectId = projectId;
                                 startActivityForResult(launch, DIRECTOR_CAPTURE_REQUEST);
                                 return;
                             }
@@ -313,6 +315,7 @@ public final class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         state.putString("directorShotAwaitingSave", pendingDirectorShotId);
+        state.putString("directorProjectAwaitingSave", pendingDirectorProjectId);
     }
 
     @Override
@@ -320,20 +323,28 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == DIRECTOR_CAPTURE_REQUEST) {
             final String expected = pendingDirectorShotId;
+            final String expectedProject = pendingDirectorProjectId;
             pendingDirectorShotId = null;
-            if (resultCode == RESULT_OK && expected != null && data != null &&
-                expected.equals(data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
+            pendingDirectorProjectId = null;
+            if (resultCode == RESULT_OK && data != null &&
+                WivraDirectorProjectGuard.mayComplete(
+                    expectedProject, expectedProject, expected,
+                    data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
                 editor != null && "file:///android_asset/agentcut.html".equals(editor.getUrl())) {
                 // A successful, explicitly saved native capture marks the take
                 // recorded, but NOT imported into the editor. Never fabricate an
                 // assetId or expose media URIs. Import remains a separate step.
                 String id = org.json.JSONObject.quote(expected);
+                String project = org.json.JSONObject.quote(expectedProject);
                 String update = "(function(){try{" +
-                    "if(!shootPlan||!Array.isArray(shootPlan.shots))return;" +
+                    "if(!session||pzPid!==" + project + "||!shootPlan||!Array.isArray(shootPlan.shots))return;" +
                     "const shot=shootPlan.shots.find(s=>s.id===" + id + ");" +
                     "if(!shot||(shot.state!=='todo'&&shot.state!=='retry'))return;" +
                     "shootPlan=updateShot(shootPlan," + id + ",{state:'done'},{project:session.project});" +
+                    "selectedShootId=" + id + ";" +
                     "saveShootPlan();renderShootPlan();" +
+                    "refreshDirectorAssets();openSheet('sDirector');" +
+                    "say('Toma guardada. Importa el video desde Director para asociarlo al proyecto.','ok');" +
                     "}catch(e){}})();";
                 editor.evaluateJavascript(update, null);
             }
