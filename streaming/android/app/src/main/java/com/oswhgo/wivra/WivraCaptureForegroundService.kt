@@ -52,6 +52,8 @@ class WivraCaptureForegroundService : Service() {
         const val ACTION_STOP = "com.oswhgo.wivra.capture.STOP"
         private const val CHANNEL = "wivra_capture"
         private const val NOTIFICATION_ID = 3001
+        // Reserve room for MediaMuxer.stop() and the pending MP4 handoff.
+        private const val MIN_FREE_CAPTURE_BYTES = 128L * 1024L * 1024L
         private val handoffLock = Any()
         private var offeredSession: DeviceSession? = null
         @Volatile var captureState = CaptureState.IDLE
@@ -117,6 +119,7 @@ class WivraCaptureForegroundService : Service() {
     private var packetCount = 0L
     private var firstFrameWatchdog: Job? = null
     private var streamHealthWatchdog: Job? = null
+    private var storageWatchdog: Job? = null
     @Volatile private var lastMuxedSampleAtMs = 0L
     private var lastSamplesTotal = 0
     private var streamEverActive = false
@@ -252,8 +255,18 @@ class WivraCaptureForegroundService : Service() {
         // StateFlow delivers its current state to the new owner.
     }
 
+    private fun hasCaptureStorage(): Boolean =
+        applicationContext.filesDir.usableSpace >= MIN_FREE_CAPTURE_BYTES
+
     private fun attachCamera(active: DeviceSession) {
         if (camera != null || finishing) return
+        if (!hasCaptureStorage()) {
+            mutableCaptureIssue.value =
+                "Espacio insuficiente para MP4 Ray-Ban. " +
+                "Libera al menos 128 MB antes de iniciar otra grabación."
+            finalizeCapture()
+            return
+        }
         active.addCamera(StreamConfiguration(
             videoQuality = VideoQuality.MEDIUM,
             frameRate = 24,
@@ -306,6 +319,21 @@ class WivraCaptureForegroundService : Service() {
                         mutableCaptureIssue.value =
                             "Ray-Ban dejó de enviar video durante 75 segundos. " +
                             "Se conservarán los MP4 completos."
+                        finalizeCapture()
+                        break
+                    }
+                }
+            }
+
+            // Private MP4 parts must remain readable after storage runs low.
+            // Stop while there is still a reserve for the muxer header/index.
+            // Never delete previously finalized checkpoints automatically.
+            storageWatchdog = scope.launch {
+                while (!finishing && recorder === muxer) {
+                    delay(10_000L)
+                    if (!finishing && !hasCaptureStorage()) {
+                        mutableCaptureIssue.value =
+                            "Espacio libre bajo. Cerrando MP4 Ray-Ban con seguridad."
                         finalizeCapture()
                         break
                     }
@@ -428,6 +456,8 @@ class WivraCaptureForegroundService : Service() {
         firstFrameWatchdog = null
         streamHealthWatchdog?.cancel()
         streamHealthWatchdog = null
+        storageWatchdog?.cancel()
+        storageWatchdog = null
         setCaptureState(CaptureState.FINALIZING)
         val lastRecorder = recorder
         recorder = null
@@ -476,6 +506,7 @@ class WivraCaptureForegroundService : Service() {
         // Process death skips onDestroy and cannot be guaranteed here.
         firstFrameWatchdog?.cancel()
         streamHealthWatchdog?.cancel()
+        storageWatchdog?.cancel()
         val unclaimed = claimSession()
         val abandoned = recorder ?: finalizingRecorder
         val collector = packetsJob ?: finalizingPacketsJob
