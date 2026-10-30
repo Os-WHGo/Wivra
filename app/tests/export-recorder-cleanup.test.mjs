@@ -69,3 +69,10 @@ test('recorder failure cannot be mistaken for user cancel, and video pauses on c
     source.lastIndexOf("if (cancelled || isCancelled()) return { cancelled: true }"));
   assert.match(source,/try \{ ev\.pause\(\); \} catch \{ \/\* nada \*\/ \} ev\.remove\(\)/);
 });
+
+test('recorded chunks are accounted for and final Blob byte size is verified',()=>{
+ const code=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
+ assert.match(code,/let recordedBytes = 0/);
+ assert.match(code,/recordedBytes \+= e\.data\.size/);
+ assert.match(code,/if \(recordedBytes !== blob\.size\) throw new Error/);
+});
