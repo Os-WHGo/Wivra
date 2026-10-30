@@ -30,7 +30,7 @@ test('existing native user-chosen saved media shortcuts stay separate from untru
 test('cloud and multi-part file providers cannot stall the Android UI thread', () => {
   assert.match(main, /Executors\.newSingleThreadExecutor\(\)/);
   assert.match(main, /pickerValidator\.execute\(\(\) -> \{/);
-  assert.match(main, /runOnUiThread\(\(\) => \{/);
+  assert.match(main, /runOnUiThread\(\(\) -> \{/);
   assert.match(main, /pendingFilePicker != completion \|\| isFinishing\(\) \|\| isDestroyed\(\)/);
   assert.match(main, /pickerValidator\.shutdownNow\(\)/);
   assert.match(main, /if \(pendingFilePicker == completion\) clearPendingPicker\(\)/);
