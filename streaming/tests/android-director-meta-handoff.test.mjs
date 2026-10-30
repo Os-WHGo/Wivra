@@ -67,3 +67,8 @@ test('Director checklist excludes malformed shot IDs before showing native captu
   assert.match(main, /Array\.from\(s\.id\)\.every\(ch=>ch\.charCodeAt\(0\)>=32&&ch\.charCodeAt\(0\)!==127\)/);
   assert.match(main, /id\.chars\(\)\.allMatch\(ch -> ch >= 32 && ch != 127\)/);
 });
+
+test('Starting another native recording invalidates a previous Director save receipt', () => {
+  assert.match(phone, /createPrivateVideo\(this\)\s*\/\/ A previous saved take must not acknowledge a later abandoned recording\.\s*setResult\(Activity\.RESULT_CANCELED\)/);
+  assert.match(phone, /setResult\(Activity\.RESULT_OK, Intent\(\)\.putExtra\(EXTRA_SHOT_ID, shotId\)\)/);
+});
