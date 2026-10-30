@@ -1213,7 +1213,7 @@ async function importCapture(files) {
     }
     for (const t of tracks) await openTrack(t);
     const plan = { videoFile, audioTracks: tracks };
-    if (captureSession && session !== captureSession) {
+    if (session !== stagingSession || (captureSession && session !== captureSession)) {
       say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
       return;
     }
