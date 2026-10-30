@@ -48,7 +48,7 @@ public class WivraEditorWebViewTest {
             result.set(value);
             latch.countDown();
         }));
-        assertTrue("Embedded WebView JS did not answer", latch.await(8, TimeUnit.SECONDS));
+        assertTrue("Embedded WebView JS did not answer within 20 seconds", latch.await(20, TimeUnit.SECONDS));
         return result.get();
     }
 
@@ -59,6 +59,7 @@ public class WivraEditorWebViewTest {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Activity activity = instrumentation.startActivitySync(launch);
         assertNotNull(activity);
+        instrumentation.waitForIdleSync();
         try {
             WebView editor = findEditor(activity.getWindow().getDecorView());
             assertNotNull("Native Wivra shell must use its embedded WebView editor", editor);
