@@ -14,7 +14,7 @@ const report={test:'81 logical cuts, 40+40+1',environment:'Chromium Linux',
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://local.test').pathname);
   const file=path.resolve(root,'.'+pathname);
-  if(!file.startsWith(root+path.sep)||!/\\.(mjs|js|html)$/.test(file)){
+  if(!file.startsWith(root+path.sep)||!/\.(mjs|js|html)$/.test(file)){
     res.writeHead(404);return res.end();
   }
   try{res.writeHead(200,{'Content-Type':'text/javascript'});res.end(readFileSync(file))}
