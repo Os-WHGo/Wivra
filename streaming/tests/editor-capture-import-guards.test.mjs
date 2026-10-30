@@ -69,3 +69,11 @@ test('export revalidates session and revision after async loudness analysis', ()
   assert.ok(exportUI.indexOf('session !== exportSession') < exportUI.indexOf('await recordProject('));
   assert.match(exportUI, /project: exportSession\.project/);
 });
+
+test('capture importer reclaims partially prepared resources after failed audio split', () => {
+  assert.match(capture, /stagedAssetIDs = \[\], importedAssetIDs = \[\]/);
+  assert.ok(capture.indexOf('stagedAssetIDs.push(id)') < capture.indexOf('session.addAsset('));
+  assert.match(capture, /const states = session \? \[session\.project/);
+  assert.match(capture, /!captureCommitted \|\| !importedAssetIDs\.includes\(id\)/);
+  assert.match(capture, /URL\.revokeObjectURL\(url\)/);
+});
