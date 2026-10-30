@@ -57,3 +57,8 @@ test('A new Android Director camera selection clears any stale shot receipt', ()
   assert.match(main, /Intent launch = new Intent\(this, targetActivity\);\s*pendingDirectorShotId = null;\s*if \(index > 0\)/);
   assert.match(main, /if \(shots\.length\(\) == 0\) \{\s*pendingDirectorShotId = null;/);
 });
+
+test('Director rejects invalid shot IDs before native camera launch', () => {
+  assert.match(main, /id\.chars\(\)\.allMatch\(ch -> ch >= 32 && ch != 127\)/);
+  assert.match(phone, /ch >= ' ' && ch\.code != 127/);
+});
