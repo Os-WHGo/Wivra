@@ -50,6 +50,15 @@ test('the local MP4 is armed before public transmission and remains private on f
   assert.match(live, /La conexión LIVE falló\. La grabación local continúa/);
 });
 
+test('public LIVE aborts safely if local storage falls below muxer reserve', () => {
+  assert.match(live, /private val minFreeBytes = 128L \* 1024L \* 1024L/);
+  assert.match(live, /if \(applicationContext\.filesDir\.usableSpace < minFreeBytes\)/);
+  assert.match(live, /storageHandler\.postDelayed\(storageCheck, 10_000L\)/);
+  assert.match(live, /storageHandler\.removeCallbacks\(storageCheck\)/);
+  assert.match(live, /Espacio bajo\. Deteniendo LIVE para conservar el MP4 local/);
+  assert.doesNotMatch(live, /deleteRecursively\(\)/);
+});
+
 test('microphone and public transmission are opt-in, background publishing cannot continue silently', () => {
   assert.match(live, /micOption = CheckBox\(this\)\.apply \{[\s\S]*?isChecked = false/);
   assert.match(live, /Camera2Source\(applicationContext\), NoAudioSource\(\)/);
