@@ -1299,11 +1299,7 @@ async function importSelectedFiles(files) {
     if (!result.ok) {
       say('No se pudo agregar: ' + result.message, 'bad');
       // Do not report success or generate thumbnails for an uncommitted edit.
-      for (const id of added) {
-        if (!session.project.clips.some(c => c.assetId === id || c.asset_id === id)) {
-          delete media[id];
-        }
-      }
+      // Keep staged asset metadata for undo/redo snapshots; cleanup is separate.
       loading = false;
       return;
     }
