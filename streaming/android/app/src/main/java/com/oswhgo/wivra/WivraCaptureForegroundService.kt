@@ -115,6 +115,7 @@ class WivraCaptureForegroundService : Service() {
     private var finishing = false
     private var packetCount = 0L
     private var firstFrameWatchdog: Job? = null
+    private var lastNotifiedCheckpoint = -1
     private var cpuLock: PowerManager.WakeLock? = null
 
     // A foreground service alone does not prevent the phone CPU from sleeping.
@@ -188,7 +189,13 @@ class WivraCaptureForegroundService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setContentTitle("Wivra · Ray-Ban")
-            .setContentText("Captura en curso. Toca para volver a Wivra.")
+            .setContentText(when (captureState) {
+                CaptureState.RECORDING -> "Grabando MP4 · " +
+                    mutableCaptureProgress.value.savedCheckpoints + " segmentos seguros"
+                CaptureState.PAUSED -> "Ray-Ban en pausa. MP4 previos conservados."
+                CaptureState.FINALIZING -> "Cerrando último MP4. Conserva la grabación."
+                else -> "Conectando gafas. Esperando video válido..."
+            })
             .setContentIntent(open)
             .addAction(Notification.Action.Builder(
                 android.R.drawable.ic_media_pause, "Detener y conservar MP4", stop
@@ -234,6 +241,7 @@ class WivraCaptureForegroundService : Service() {
             val muxer = WivraSegmentedHevcRecorder(applicationContext)
             recorder = muxer
             packetCount = 0L
+            lastNotifiedCheckpoint = -1
             renewCpuLease()
             // No silent "recording" state if DAT never delivers a keyframe.
             // A timeout also releases the CPU lease and service notification.
@@ -270,6 +278,16 @@ class WivraCaptureForegroundService : Service() {
                                 if (samples > 0 && (captureState == CaptureState.CONNECTING ||
                                         captureState == CaptureState.PAUSED)) {
                                     setCaptureState(CaptureState.RECORDING)
+                                }
+                                // Only refresh the notification after the first
+                                // valid sample or a completed 30-second MP4 part.
+                                if (samples > 0 &&
+                                    (lastNotifiedCheckpoint < 0 ||
+                                        progress.savedCheckpoints > lastNotifiedCheckpoint)) {
+                                    lastNotifiedCheckpoint = progress.savedCheckpoints
+                                    getSystemService(NotificationManager::class.java).notify(
+                                        NOTIFICATION_ID, captureNotification()
+                                    )
                                 }
                             }
                         }
