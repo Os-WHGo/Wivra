@@ -8,7 +8,8 @@ function fixture({ lockedScreen = true } = {}) {
   const host = {
     capabilities: async () => ({ rayban: true, lockedScreen, backgroundVerified: false }),
     start: async () => {},
-    stop: async () => ({ finalFile: 'full.mp4', segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000, confirmed: true }] })
+    stop: async () => ({ finalFile: 'full.mp4', segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000, confirmed: true }] }),
+    verifyFile: async () => true
   };
   const storage = {
     writeAtomic: async (n,v) => files.set(n,v),
@@ -45,6 +46,7 @@ test('Director handoff requires finalized journal and native file verification',
   await session.start({ id: 'handoff', platform: 'android' });
   await assert.rejects(session.directorHandoff('handoff'), /not finalized/);
   await session.stop('handoff');
+  host.verifyFile = undefined;
   await assert.rejects(session.directorHandoff('handoff'), /verification required/);
   host.verifyFile = async ({ file }) => ['full.mp4', 'a.mp4'].includes(file);
   assert.deepEqual(await session.directorHandoff('handoff'), {
@@ -79,4 +81,21 @@ test('Director handoff rejects concurrent capture state mutations while verifyin
   await assert.rejects(session.start({ id: 'other', platform: 'android' }), /operation in progress/);
   release();
   assert.equal((await handoff).sessionId, 'locked');
+});
+
+test('finalization fails closed when a native fragment is missing', async () => {
+  const { host, session } = fixture();
+  host.verifyFile = async ({ file }) => file !== 'a.mp4';
+  await session.start({ id: 'missing', platform: 'android' });
+  await assert.rejects(session.stop('missing'), /verification required for finalization/);
+  assert.equal((await session.snapshot('missing')).state, 'failed');
+  assert.equal((await session.pending()).length, 1);
+});
+
+test('finalization requires a native verification callback', async () => {
+  const { host, session } = fixture();
+  host.verifyFile = undefined;
+  await session.start({ id: 'unverified', platform: 'ios' });
+  await assert.rejects(session.stop('unverified'), /verification required for finalization/);
+  assert.equal((await session.snapshot('unverified')).state, 'failed');
 });
