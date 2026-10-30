@@ -108,3 +108,10 @@ test('cleanup targets the owning editor session even after the user switches pro
     assert.match(source, /session === stagingSession/);
   }
 });
+
+test('both importers fail closed if timeline engine returns no result', () => {
+  assert.match(generic, /if \(!result\?\.ok\)/);
+  assert.match(capture, /if \(!res\?\.ok\)/);
+  assert.match(generic, /el editor no confirmó la operación/);
+  assert.match(capture, /el editor no confirmó la operación/);
+});
