@@ -29,6 +29,7 @@ public final class MainActivity extends Activity {
     private String pendingDirectorProjectId;
     private java.util.Set<String> priorDirectorVideoIds;
     private Uri suggestedDirectorVideo;
+    private Uri[] suggestedDirectorParts;
     private String suggestedDirectorShotId;
     private String suggestedDirectorProjectId;
     private boolean suggestedDirectorRayBan;
@@ -87,6 +88,7 @@ public final class MainActivity extends Activity {
                     if (accept.contains("video/")) acceptsVideo = true;
                     if (accept.contains("audio/")) acceptsAudio = true;
                 }
+                if (offerSavedRayBanParts(params, callback, acceptsVideo, acceptsImage, acceptsAudio, acceptsJson)) return true;
                 if (offerSavedDirectorTake(params, callback, acceptsVideo, acceptsImage, acceptsAudio, acceptsJson)) return true;
                 boolean captureChooser = acceptsJson && params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
                 Uri recent = acceptsImage
@@ -342,6 +344,7 @@ public final class MainActivity extends Activity {
 
     private void clearDirectorVideoSuggestion() {
         suggestedDirectorVideo = null;
+        suggestedDirectorParts = null;
         suggestedDirectorProjectId = null;
         suggestedDirectorShotId = null;
     }
