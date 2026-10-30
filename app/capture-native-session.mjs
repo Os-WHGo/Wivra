@@ -36,7 +36,11 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           await host.start({ id, profile });
           return await store.transition(id, { state: 'recording', at: timestamp() });
         } catch (error) {
-          try { await store.transition(id, { state: 'failed', at: timestamp() }); } finally { active = null; }
+          // The native start may fail at the same time as journal storage.
+          // Preserve its original error and release the coordinator lock.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Keep the last durable snapshot for recovery. */ }
+          finally { active = null; }
           throw error;
         }
       });
