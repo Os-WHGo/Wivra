@@ -1298,7 +1298,7 @@ function updateShot(plan,shotId,changes,{project=null}={}){
  // Keep the original assetId as the first part for older consumers.
  if('assetIds' in changes){
    const ids=changes.assetIds;
-   if(ids!==null&&(!Array.isArray(ids)||ids.length>40||
+   if(ids!==null&&(!Array.isArray(ids)||ids.length>1440||
       ids.some(id=>typeof id!=='string'||!project?.assets?.some(a=>a.id===id))||
       new Set(ids).size!==ids.length))throw new Error('Attach only unique existing video assets');
    if('assetId' in changes&&changes.assetId!==(ids?.[0]??null))
