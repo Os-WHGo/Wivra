@@ -39,3 +39,44 @@ test('native session keeps failed recording recoverable', async () => {
   assert.equal((await session.snapshot('ski2')).state, 'failed');
   assert.equal((await session.pending()).length, 1);
 });
+
+test('Director handoff requires finalized journal and native file verification', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'handoff', platform: 'android' });
+  await assert.rejects(session.directorHandoff('handoff'), /not finalized/);
+  await session.stop('handoff');
+  await assert.rejects(session.directorHandoff('handoff'), /verification required/);
+  host.verifyFile = async ({ file }) => ['full.mp4', 'a.mp4'].includes(file);
+  assert.deepEqual(await session.directorHandoff('handoff'), {
+    sessionId: 'handoff', platform: 'android', file: 'full.mp4',
+    segments: [{ file: 'a.mp4', startMs: 0, endMs: 5000 }]
+  });
+  host.verifyFile = async () => false;
+  await assert.rejects(session.directorHandoff('handoff'), /verification required/);
+});
+
+test('Director refuses a finalized take when a source fragment is missing', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'partial', platform: 'ios' });
+  await session.stop('partial');
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'a.mp4'; };
+  await assert.rejects(session.directorHandoff('partial'), /verification required/);
+  assert.deepEqual(checked, ['full.mp4', 'a.mp4']);
+});
+
+test('Director handoff rejects concurrent capture state mutations while verifying media', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'locked', platform: 'android' });
+  await session.stop('locked');
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  host.verifyFile = async () => { entered(); await gate; return true; };
+  const handoff = session.directorHandoff('locked');
+  await started;
+  await assert.rejects(session.start({ id: 'other', platform: 'android' }), /operation in progress/);
+  release();
+  assert.equal((await handoff).sessionId, 'locked');
+});
