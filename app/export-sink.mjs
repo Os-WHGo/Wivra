@@ -163,20 +163,24 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
       }).catch(fail);
     },
     /** Espera a que todo esté escrito y pide al nativo cerrar, sincronizar y verificar. */
-    async finish({ timeoutMs } = {}) {
+    async finish({ timeoutMs, expectedDurationMs = 0, expectAudio = false } = {}) {
       if (state !== 'open') throw error || new Error('El guardado no está abierto.');
       await chain;
       if (error) throw error;
       if (sentBytes !== receivedBytes) throw new Error('No se escribieron todos los fragmentos grabados.');
       state = 'finishing';
-      // Cerrar incluye releer el archivo del disco para comprobar el CRC: puede tardar en archivos grandes.
-      const ms = timeoutMs || Math.max(EXPORT_SINK_REQUEST_MS, 60000 + Math.ceil(sentBytes / (8 * MiB)) * 1000);
+      // Cerrar incluye releer el archivo del disco para comprobar el CRC y reparar el contenedor
+      // (duración + índice para avanzar/retroceder): puede tardar en archivos grandes.
+      const ms = timeoutMs || Math.max(EXPORT_SINK_REQUEST_MS, 60000 + Math.ceil(sentBytes / (4 * MiB)) * 1000);
       let r;
-      try { r = await host.request({ op: 'finish', token, bytes: sentBytes, crc32: crc, chunks: seq }, ms); }
+      try { r = await host.request({ op: 'finish', token, bytes: sentBytes, crc32: crc, chunks: seq, expectedDurationMs, expectAudio }, ms); }
       catch (e) { state = 'failed'; fail(e); throw error; }
-      if (r.bytes !== sentBytes || (r.crc32 >>> 0) !== crc) { state = 'failed'; fail(new Error('El archivo guardado no coincide con lo grabado.')); throw error; }
+      // The native side reports the VERIFIED recording (recordedBytes/recordedCrc32) and, when it
+      // repaired the container, the size of the final file in `bytes`. Older natives only send bytes/crc32.
+      const verifiedBytes = r.recordedBytes ?? r.bytes, verifiedCrc = (r.recordedCrc32 ?? r.crc32) >>> 0;
+      if (verifiedBytes !== sentBytes || verifiedCrc !== crc) { state = 'failed'; fail(new Error('El archivo guardado no coincide con lo grabado.')); throw error; }
       state = 'done';
-      return { ...r, bytes: sentBytes, crc32: crc, chunks: seq, peakQueuedBytes, platform: host.platform };
+      return { ...r, recordedBytes: sentBytes, bytes: r.bytes ?? sentBytes, crc32: crc, chunks: seq, peakQueuedBytes, platform: host.platform };
     },
     /** Idempotente. Borra el archivo parcial en el nativo; nunca lanza. */
     async abort(reason = 'cancelled') {

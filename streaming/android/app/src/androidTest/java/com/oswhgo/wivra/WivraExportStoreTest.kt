@@ -23,6 +23,9 @@ class WivraExportStoreTest {
     private val webmHead = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private fun chunk(size: Int, seed: Int) = ByteArray(size) { ((it * 13 + seed) and 0xFF).toByte() }
 
+    /** While recording, the pending row carries "_rec"; the delivered video gets the returned name. */
+    private fun rec(name: String) = name.replace(Regex("\\.(webm|mp4)$"), "_rec.$1")
+
     private fun rowsNamed(name: String, pending: Boolean): List<Uri> {
         val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         val args = Bundle().apply {
@@ -50,8 +53,8 @@ class WivraExportStoreTest {
                 crc.update(part)
             }
             // While recording, the item exists only as a pending row, invisible to the gallery.
-            assertEquals(0, rowsNamed(name, pending = false).size)
-            assertEquals(1, rowsNamed(name, pending = true).size)
+            assertEquals(0, rowsNamed(rec(name), pending = false).size)
+            assertEquals(1, rowsNamed(rec(name), pending = true).size)
             saved = WivraExportStore.finish(context, token, total, crc.value, parts.size)
             assertEquals(total, saved.bytes)
             assertEquals(crc.value, saved.crc32)
@@ -72,7 +75,7 @@ class WivraExportStoreTest {
         WivraExportStore.append(context, token, 0, webmHead + chunk(10_000, 4), 0, 10_004)
         WivraExportStore.abort(context, token)
         WivraExportStore.abort(context, token)
-        assertEquals(0, rowsNamed(name, pending = true).size)
+        assertEquals(0, rowsNamed(rec(name), pending = true).size + rowsNamed(name, pending = true).size)
     }
 
     @Test fun wrongTotalsOrOutOfOrderChunksNeverReachTheGallery() {
@@ -83,7 +86,7 @@ class WivraExportStoreTest {
             WivraExportStore.finish(context, token, data.size.toLong(), 12345L, 1)
             fail("CRC mismatch must not publish")
         } catch (_: WivraProgressiveExportSession.IntegrityException) { }
-        assertEquals(0, rowsNamed(name, pending = true).size)
+        assertEquals(0, rowsNamed(rec(name), pending = true).size + rowsNamed(name, pending = true).size)
 
         val (second, secondName) = WivraExportStore.begin(context, "video/webm", 0)
         WivraExportStore.append(context, second, 0, data, 0, data.size)
@@ -91,7 +94,7 @@ class WivraExportStoreTest {
             WivraExportStore.append(context, second, 5, data, 0, data.size)
             fail("out-of-order chunk must fail")
         } catch (_: WivraProgressiveExportSession.IntegrityException) { }
-        assertEquals(0, rowsNamed(secondName, pending = true).size)
+        assertEquals(0, rowsNamed(rec(secondName), pending = true).size)
     }
 
     @Test fun impossibleSpaceRequestCreatesNothing() {
@@ -122,7 +125,7 @@ class WivraExportStoreTest {
             assertTrue(WivraExportStore.cleanupOrphans(context) >= 1)
             assertEquals(0, rowsNamed(name, pending = true).size)
             assertEquals(1, rowsNamed(keepName, pending = true).size)
-            assertEquals("an export in progress is never treated as an orphan", 1, rowsNamed(activeName, pending = true).size)
+            assertEquals("an export in progress is never treated as an orphan", 1, rowsNamed(rec(activeName), pending = true).size)
         } finally {
             WivraExportStore.abort(context, active)
             resolver.delete(keep, null, null)
@@ -130,5 +133,62 @@ class WivraExportStoreTest {
             // with SecurityException, so this fallback cleanup must not mask the result.
             try { resolver.delete(orphan, null, null) } catch (_: SecurityException) { }
         }
+    }
+
+    private fun asset(name: String): ByteArray =
+        InstrumentationRegistry.getInstrumentation().context.assets.open(name).use { it.readBytes() }
+
+    private fun exportBytes(mime: String, data: ByteArray, repair: Boolean): WivraExportStore.Saved {
+        val (token, _) = WivraExportStore.begin(context, mime, data.size.toLong())
+        val crc = CRC32(); var seq = 0; var off = 0
+        while (off < data.size) { val n = minOf(64 * 1024, data.size - off); WivraExportStore.append(context, token, seq++, data, off, n); crc.update(data, off, n); off += n }
+        return WivraExportStore.finish(context, token, data.size.toLong(), crc.value, seq, repair)
+    }
+
+    private fun report(key: String, value: String) {
+        val b = android.os.Bundle(); b.putString("wivra-export-measure", "$key=$value")
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, b)
+        android.util.Log.i("WivraExportMeasure", "$key=$value")
+    }
+
+    @Test fun realChromiumWebmGetsDurationAndSeekIndexWithoutReencoding() {
+        val raw = asset("chromium-vp8-opus.webm")
+        val before = exportBytes("video/webm;codecs=vp8,opus", raw, repair = false)
+        val after = exportBytes("video/webm;codecs=vp8,opus", raw, repair = true)
+        try {
+            report("webm.before", before.media.toString()); report("webm.after", after.media.toString() + " repair=" + after.repair + " " + after.repairNote)
+            assertEquals("webm-cues", after.repair)
+            assertEquals(raw.size.toLong(), after.recordedBytes)
+            val m = after.media!!
+            assertTrue(m.declaresDuration && m.seekIndex && m.video && m.audio)
+            assertTrue("Android must read a real duration: $m", m.durationMs in 1800..2600)
+            assertEquals(0, rowsNamed(rec(after.displayName), pending = true).size)
+        } finally {
+            context.contentResolver.delete(before.uri, null, null); context.contentResolver.delete(after.uri, null, null)
+        }
+    }
+
+    @Test fun fragmentedH264AacMp4IsRemuxedIntoARegularMp4() {
+        val raw = asset("ffmpeg-h264-aac-fragmented.mp4")
+        val saved = exportBytes("video/mp4;codecs=avc1.42E01E,mp4a.40.2", raw, repair = true)
+        try {
+            report("mp4aac.after", saved.media.toString() + " repair=" + saved.repair + " " + saved.repairNote)
+            assertEquals("mp4-remux", saved.repair)
+            val m = saved.media!!
+            assertTrue(m.video && m.audio && m.durationMs in 1700..2400)
+        } finally { context.contentResolver.delete(saved.uri, null, null) }
+    }
+
+    @Test fun chromiumH264OpusMp4IsRepairedOrDeliveredUnchangedNeverLost() {
+        val raw = asset("chromium-avc1-opus-fragmented.mp4")
+        val saved = exportBytes("video/mp4;codecs=avc1,opus", raw, repair = true)
+        try {
+            report("mp4opus.after", saved.media.toString() + " repair=" + saved.repair + " " + saved.repairNote)
+            assertTrue(saved.repair == "mp4-remux" || (saved.repair == "none" && saved.repairNote.isNotEmpty()))
+            if (saved.repair == "none") {
+                val (bytes, crc) = WivraProgressiveExportSession.measure(context.contentResolver.openInputStream(saved.uri)!!)
+                assertEquals(raw.size.toLong(), bytes); assertEquals(CRC32().apply { update(raw) }.value, crc)
+            }
+        } finally { context.contentResolver.delete(saved.uri, null, null) }
     }
 }

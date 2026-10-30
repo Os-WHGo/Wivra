@@ -31,13 +31,22 @@ object WivraExportStore {
 
     class InsufficientStorageException(message: String) : IOException(message)
 
-    data class Saved(val uri: Uri, val displayName: String, val bytes: Long, val crc32: Long, val mime: String)
+    /**
+     * bytes/crc32 = the file the user gets; recordedBytes/recordedCrc32 = the verified recording.
+     * They differ when the container was repaired (duration + seek index), which never re-encodes.
+     */
+    data class Saved(
+        val uri: Uri, val displayName: String, val bytes: Long, val crc32: Long, val mime: String,
+        val recordedBytes: Long = bytes, val recordedCrc32: Long = crc32,
+        val media: WivraExportFinalizer.Media? = null, val repair: String = "none", val repairNote: String = "",
+    )
 
     private class Active(
         val session: WivraProgressiveExportSession,
         val uri: Uri,
         val descriptor: ParcelFileDescriptor,
         val displayName: String,
+        val finalName: String,
         var nextSpaceCheck: Long,
     )
 
@@ -60,9 +69,12 @@ object WivraExportStore {
         val cleanMime = WivraProgressiveExportSession.normalizedMime(mime)
         var token: Int
         do { token = 1 + random.nextInt(Int.MAX_VALUE - 1) } while (active.containsKey(token) || saved.containsKey(token))
-        // Unique name: MediaStore would silently rename a duplicate and the editor would show the wrong one.
-        val displayName = PREFIX + System.currentTimeMillis() + "_" + Integer.toHexString(token) + "." +
-            WivraProgressiveExportSession.extensionFor(cleanMime)
+        // Unique names: MediaStore would silently rename a duplicate and the editor would show the wrong one.
+        // The raw recording carries "_rec"; the repaired copy (or the raw one, renamed) gets the final name.
+        val base = PREFIX + System.currentTimeMillis() + "_" + Integer.toHexString(token)
+        val ext = "." + WivraProgressiveExportSession.extensionFor(cleanMime)
+        val displayName = base + "_rec" + ext
+        val finalName = base + ext
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
             put(MediaStore.Video.Media.MIME_TYPE, cleanMime)
@@ -78,8 +90,8 @@ object WivraExportStore {
             // Closing this stream also closes the descriptor, which lets MediaStore finalize the item.
             val stream = ParcelFileDescriptor.AutoCloseOutputStream(descriptor)
             val session = WivraProgressiveExportSession(token, cleanMime, stream, sync = { stream.fd.sync() })
-            active[token] = Active(session, uri, descriptor, displayName, SPACE_CHECK_BYTES)
-            return token to displayName
+            active[token] = Active(session, uri, descriptor, displayName, finalName, SPACE_CHECK_BYTES)
+            return token to finalName
         } catch (error: Exception) {
             try { resolver.delete(uri, null, null) } catch (_: Exception) { }
             throw error
@@ -104,28 +116,110 @@ object WivraExportStore {
     }
 
     @JvmStatic
-    fun finish(context: Context, token: Int, bytes: Long, crc32: Long, chunks: Int): Saved {
+    fun finish(context: Context, token: Int, bytes: Long, crc32: Long, chunks: Int, repair: Boolean = true): Saved {
         val item = active.remove(token) ?: throw IOException("Sesión de exportación desconocida.")
         val resolver = context.contentResolver
+        val diskBytes: Long; val diskCrc: Long
         try {
             item.session.finish(bytes, crc32, chunks)
             item.descriptor.close()
             // Prove what is actually on storage, not what we believe we wrote.
-            val (diskBytes, diskCrc) = WivraProgressiveExportSession.measure(
+            val measured = WivraProgressiveExportSession.measure(
                 resolver.openInputStream(item.uri) ?: throw IOException("No se pudo releer el archivo."))
+            diskBytes = measured.first; diskCrc = measured.second
             if (diskBytes != bytes || diskCrc != (crc32 and 0xFFFFFFFFL))
                 throw WivraProgressiveExportSession.IntegrityException("El archivo releído del disco no coincide con lo grabado.")
-            val visible = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-            if (resolver.update(item.uri, visible, null, null) != 1)
-                throw IOException("No se pudo publicar el video en la galería.")
-            val result = Saved(item.uri, item.displayName, diskBytes, diskCrc, item.session.mime)
-            saved[token] = result
-            return result
         } catch (error: Exception) {
             item.session.abort()
             try { item.descriptor.close() } catch (_: IOException) { }
             // Never let a failed cleanup hide the original integrity/storage error.
             try { resolver.delete(item.uri, null, null) } catch (_: Exception) { }
+            throw error
+        }
+        // The recording is verified. From here on it is only deleted once a repaired copy is
+        // verified AND published; any repair failure publishes the verified recording instead.
+        var repaired: Repaired? = null; var note = ""
+        if (repair) {
+            try { repaired = repairCopy(context, item, diskBytes) }
+            catch (problem: Exception) { note = problem.message ?: problem.javaClass.simpleName }
+        }
+        val chosen = repaired
+        if (chosen != null) {
+            val ok = try { resolver.update(chosen.uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null) == 1 } catch (_: Exception) { false }
+            if (ok) {
+                try { resolver.delete(item.uri, null, null) } catch (_: Exception) { }
+            } else {
+                note = "No se pudo publicar la copia reparada."
+                try { resolver.delete(chosen.uri, null, null) } catch (_: Exception) { }
+                repaired = null
+            }
+        }
+        val done = repaired
+        val result = if (done != null) {
+            Saved(done.uri, done.displayName, done.bytes, diskCrc, item.session.mime, diskBytes, diskCrc,
+                runCatching { WivraExportFinalizer.inspect(context, done.uri, item.session.mime) }.getOrNull(), done.method)
+        } else {
+            val visible = ContentValues().apply {
+                put(MediaStore.Video.Media.IS_PENDING, 0)
+                put(MediaStore.Video.Media.DISPLAY_NAME, item.finalName)
+            }
+            if (resolver.update(item.uri, visible, null, null) != 1) {
+                try { resolver.delete(item.uri, null, null) } catch (_: Exception) { }
+                throw IOException("No se pudo publicar el video en la galería.")
+            }
+            Saved(item.uri, item.finalName, diskBytes, diskCrc, item.session.mime, diskBytes, diskCrc,
+                runCatching { WivraExportFinalizer.inspect(context, item.uri, item.session.mime) }.getOrNull(), "none", note)
+        }
+        saved[token] = result
+        return result
+    }
+
+    private class Repaired(val uri: Uri, val displayName: String, val bytes: Long, val method: String)
+
+    /** Writes a repaired (duration + seek index) copy as a NEW pending row and verifies it. */
+    private fun repairCopy(context: Context, item: Active, recordedBytes: Long): Repaired {
+        val free = freeBytes(context)
+        if (free < recordedBytes + MIN_FREE_BYTES / 2) throw InsufficientStorageException(
+            "Sin espacio para reparar la duración (${free / 1_000_000} MB libres); se guarda el original verificado.")
+        val resolver = context.contentResolver
+        val container = WivraExportFinalizer.containerOf(item.session.mime)
+        val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, item.finalName)
+            put(MediaStore.Video.Media.MIME_TYPE, item.session.mime)
+            put(MediaStore.Video.Media.RELATIVE_PATH, FOLDER)
+            put(MediaStore.Video.Media.IS_PENDING, 1)
+        }) ?: throw IOException("No se pudo crear la copia reparada.")
+        try {
+            val method: String
+            val descriptor = resolver.openFileDescriptor(uri, "rw") ?: throw IOException("No se pudo abrir la copia reparada.")
+            if (container == "webm") {
+                val out = ParcelFileDescriptor.AutoCloseOutputStream(descriptor)
+                val (result, sourceBlocks) = out.use { stream ->
+                    val buffered = java.io.BufferedOutputStream(stream, 1024 * 1024)
+                    val r = WivraExportFinalizer.rewriteWebm(context, item.uri, buffered)
+                    buffered.flush(); stream.fd.sync(); r
+                }
+                // Proof: same audio/video blocks, plus Duration and Cues present in the new file.
+                resolver.openFileDescriptor(uri, "r")?.use { pfd -> java.io.FileInputStream(pfd.fileDescriptor).channel.use { ch ->
+                    val src = WivraExportFinalizer.FileChannelSource(ch)
+                    val a = WivraWebmSeekable.analyze(src)
+                    if (ch.size() != result.bytesWritten || !a.hasDuration || !a.hasCues ||
+                        WivraWebmSeekable.blocksCrc(src, a) != sourceBlocks || sourceBlocks != result.blocksCrc32)
+                        throw WivraProgressiveExportSession.IntegrityException("La copia reparada no coincide con la grabación.")
+                } } ?: throw IOException("No se pudo releer la copia reparada.")
+                method = "webm-cues"
+            } else {
+                descriptor.use { pfd -> WivraExportFinalizer.remuxMp4(context, item.uri, pfd); android.system.Os.fsync(pfd.fileDescriptor) }
+                val original = WivraExportFinalizer.inspect(context, item.uri, item.session.mime)
+                val copy = WivraExportFinalizer.inspect(context, uri, item.session.mime)
+                if (!copy.video || copy.durationMs <= 0 || (original.audio && !copy.audio))
+                    throw WivraProgressiveExportSession.IntegrityException("El MP4 reparado no tiene las mismas pistas.")
+                method = "mp4-remux"
+            }
+            val size = resolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+            return Repaired(uri, item.finalName, size, method)
+        } catch (error: Exception) {
+            try { resolver.delete(uri, null, null) } catch (_: Exception) { }
             throw error
         }
     }

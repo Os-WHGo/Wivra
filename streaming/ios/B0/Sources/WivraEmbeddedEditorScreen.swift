@@ -198,6 +198,11 @@ private struct WivraEditorWebView: UIViewRepresentable {
         configuration.userContentController.addScriptMessageHandler(
             exportBridge, contentWorld: .page, name: "wivraExport")
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // Export plays hidden <video> elements of the user's own clips programmatically, after
+        // async steps (no tap in progress). WKWebView on iPhone requires a gesture for media and
+        // plays fullscreen unless inline playback is allowed. Not yet measured on a device.
+        configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         let view = WKWebView(frame: .zero, configuration: configuration)
         exportBridge.webView = view
         view.navigationDelegate = context.coordinator

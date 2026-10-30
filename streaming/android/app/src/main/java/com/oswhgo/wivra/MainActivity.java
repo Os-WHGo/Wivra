@@ -64,6 +64,10 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        // Export plays hidden <video> elements of the user's own local clips programmatically,
+        // after async steps (no tap in progress). WebView blocks that by default; measured in
+        // WivraRealExportWebViewTest. Local offline editor only: no remote page is ever loaded.
+        settings.setMediaPlaybackRequiresUserGesture(false);
         editor.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {

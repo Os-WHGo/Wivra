@@ -85,8 +85,13 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
                 val token = request.getInt("token")
                 val saved = WivraExportStore.finish(appContext, token, request.getLong("bytes"),
                     request.getLong("crc32"), request.getInt("chunks"))
-                JSONObject().put("token", token).put("bytes", saved.bytes).put("crc32", saved.crc32)
+                val reply = JSONObject().put("token", token).put("bytes", saved.bytes).put("crc32", saved.crc32)
+                    .put("recordedBytes", saved.recordedBytes).put("recordedCrc32", saved.recordedCrc32)
                     .put("displayName", saved.displayName).put("location", "Galería › Movies/Wivra")
+                    .put("repair", saved.repair).put("repairNote", saved.repairNote)
+                saved.media?.let { m -> reply.put("media", JSONObject().put("container", m.container).put("durationMs", m.durationMs)
+                    .put("video", m.video).put("audio", m.audio).put("declaresDuration", m.declaresDuration).put("seekIndex", m.seekIndex)) }
+                reply
             }
             "abort" -> run(reply, rid) {
                 WivraExportStore.abort(appContext, request.getInt("token"))

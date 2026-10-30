@@ -74,5 +74,5 @@ test('recorded chunks are accounted for and final Blob byte size is verified',()
  const code=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
  assert.match(code,/let recordedBytes = 0/);
  assert.match(code,/recordedBytes \+= e\.data\.size/);
- assert.match(code,/if \(recordedBytes !== blob\.size\) throw new Error/);
+ assert.match(code,/if \(recordedBytes !== raw\.size\) throw new Error/);
 });

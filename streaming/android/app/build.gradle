@@ -28,6 +28,8 @@ android {
     }
     // One HTML editor source shared with the iOS binary, never a copied fork.
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/wivra-assets'))
+    // Real MediaRecorder samples (Chromium WebM/MP4, ffmpeg H.264+AAC) for container repair tests only.
+    sourceSets.androidTest.assets.srcDir(rootProject.file('../../app/tests/fixtures/mediarecorder'))
 }
 
 // Only static HTML and JSON. No cloud, runtime code downloads or paid services.
