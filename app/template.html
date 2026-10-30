@@ -1399,6 +1399,10 @@ $('directorCamera').addEventListener('change',async()=>{
     say('Director necesita un solo archivo por toma. No se importó ningún archivo.', 'bad');
     return;
   }
+  if(!shootPlan || !selectedShootId){
+    say('Selecciona primero una toma del plan de Director. No se importó ningún archivo.', 'bad');
+    return;
+  }
   const directorSession=session, directorShotId=selectedShootId, directorPlan=shootPlan;
   const existing=new Set(session?.project.assets.map(a=>a.id)||[]);
   await importSelectedFiles(files);
