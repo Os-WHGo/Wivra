@@ -313,6 +313,34 @@ export async function finishMediaRecorder(rec, stopped, { started = false, ms = 
   }
 }
 
+/** Bound native WebView video.play() waits. A source can report metadata
+ * yet never resolve play() when the decoder or app lifecycle stalls.
+ * Cancellation must release the wait; caller still owns recorder cleanup.
+ * Returns false only for an explicit caller interruption.
+ */
+export function playVideoForExport(el, { ms = 15000, isCancelled = () => false } = {}) {
+  if (isCancelled()) return Promise.resolve(false);
+  return new Promise((resolve, reject) => {
+    let finished = false, timer, poll;
+    const settle = (fn, value) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer); clearInterval(poll);
+      fn(value);
+    };
+    timer = setTimeout(() => settle(reject, new Error('El video tardó demasiado en comenzar la reproducción para exportar.')), ms);
+    poll = setInterval(() => { if (isCancelled()) settle(resolve, false); }, 100);
+    try {
+      Promise.resolve(el.play()).then(
+        () => settle(resolve, true),
+        () => settle(reject, new Error('El navegador no dejó reproducir un video para exportar.'))
+      );
+    } catch {
+      settle(reject, new Error('El navegador no dejó reproducir un video para exportar.'));
+    }
+  });
+}
+
 // Graba el proyecto. `media[id]` = { url, w, h }. Devuelve { blob, mime, ext, w, h, seconds }.
 // Fail closed before recording when a requested voice track was not decoded.
 // This is deliberately pure so its decision can be tested without a browser.
@@ -494,7 +522,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   };
   // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
-  const stopNow = () => isCancelled() || interrupted;
+  const stopNow = () => isCancelled() || interrupted || !!recError;
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
   const t0 = performance.now(); let cancelled = false, recorderStarted = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
@@ -533,7 +561,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
       const clipWallStart = performance.now();
-      try { await ev.play(); } catch { throw new Error('El navegador no dejó reproducir un video para exportar.'); }
+      if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {
@@ -581,13 +609,13 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* already stopped */ } });
       oList.forEach((o) => { try { o.el.pause(); } catch { /* nada */ } o.el.remove(); });
       photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
-      ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
+      try { ev.pause(); } catch { /* nada */ } ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
       document.removeEventListener('visibilitychange', onVis);
     }
   }
   if (interrupted) return { interrupted: true };
-  if (cancelled || isCancelled()) return { cancelled: true };
   if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
+  if (cancelled || isCancelled()) return { cancelled: true };
   const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
   if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
   return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
