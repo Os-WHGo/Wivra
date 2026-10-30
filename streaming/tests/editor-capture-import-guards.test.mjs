@@ -28,7 +28,7 @@ test('generic import does not report success after a rejected timeline edit', ()
 test('failed generic import releases only unreferenced staged media', () => {
   assert.match(generic, /let committed = false/);
   assert.match(generic, /if \(staged\.length\)/);
-  assert.match(generic, /session\.undoStack, \.\.\.session\.redoStack/);
+  assert.match(generic, /stagingSession\.undoStack, \.\.\.stagingSession\.redoStack/);
   assert.match(generic, /staged\.filter\(id => !referenced\.has\(id\)/);
   assert.match(generic, /URL\.revokeObjectURL\(url\)/);
   assert.match(generic, /delete mediaFiles\[id\]/);
