@@ -123,3 +123,9 @@ test('async media probing never inserts into a different open project', () => {
   assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la separación de canales\.'\)/);
   assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la preparación del audio\.'\)/);
 });
+
+test('manifest and animated image decoding cannot attach to a replacement project', () => {
+  assert.match(capture, /const manifestText = await mf\.text\(\);\s*if \(session !== stagingSession\)/);
+  assert.match(generic, /await prepGif\(id, f\);\s*if \(session !== stagingSession\)/);
+  assert.match(generic, /El proyecto cambió durante la preparación de la imagen/);
+});
