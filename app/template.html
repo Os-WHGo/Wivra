@@ -1445,11 +1445,18 @@ $('directorCamera').addEventListener('change',async()=>{
 
 $('directorParts').addEventListener('change',async()=>{
  const input=$('directorParts'), selected=[...input.files];input.value='';
- const group=validateRayBanParts(selected);
- if(!group.ok){say(group.reason,'bad');return}
  if(!session||!shootPlan||!selectedShootId||loading){
    say('Selecciona una toma y termina cualquier importación anterior.','bad');return;
  }
+ const shot=shootPlan.shots.find(s=>s.id===selectedShootId);
+ if(!shot){say('Esta toma ya no pertenece al plan activo.','bad');return}
+ const continuation=rayBanContinuation(shot,session.project);
+ if(shot.assetId&&!continuation){
+   say('La toma ya tiene un video distinto asociado. No se añadieron segmentos.','bad');return;
+ }
+ const group=validateRayBanParts(selected,continuation
+   ? {nextPart:continuation.nextPart,expectedSessionId:continuation.sessionId}:{});
+ if(!group.ok){say(group.reason,'bad');return}
  const previousSession=session,plan=shootPlan,shotId=selectedShootId,projectId=pzPid;
  const previous=new Set(session.project.assets.map(a=>a.id));
  directorMultipartBatch=group.files;
@@ -1464,7 +1471,7 @@ $('directorParts').addEventListener('change',async()=>{
    say('Falta algún segmento importado. Los archivos originales siguen intactos; no se vinculó la toma.','bad');return;
  }
  try{
-   shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:added.map(a=>a.id)},{project:session.project});
+   shootPlan=updateShot(shootPlan,shotId,{state:'done',assetIds:[...(continuation?.assetIds||[]),...added.map(a=>a.id)]},{project:session.project});
    saveShootPlan();renderShootPlan();
    say('Todos los segmentos Ray-Ban están asociados en orden a la toma.','ok');
  }catch(e){say('No se pudieron asociar los segmentos: '+e.message,'bad')}
@@ -2569,10 +2576,11 @@ function renderShootPlan(){
   }
   const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent=shot.state==='done'&&!shot.assetId?'Importar video guardado':'Importar video de esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
-  const importParts=mkBtn('Importar todos los segmentos Ray-Ban',()=>{
+  const canContinueParts=rayBanContinuation(shot,session?.project);
+  const importParts=mkBtn(canContinueParts?'Añadir siguientes segmentos Ray-Ban':'Importar todos los segmentos Ray-Ban',()=>{
     selectedShootId=shot.id;$('directorParts').click();
   });
-  importParts.disabled=!!shot.assetId;
+  importParts.disabled=!!shot.assetId&&!canContinueParts;
   const choose=document.createElement('select');
   choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
   choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
@@ -2590,7 +2598,7 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
-  if(!shot.assetId)row.append(importParts);
+  if(!shot.assetId||canContinueParts)row.append(importParts);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.script){
    const sc=document.createElement('p');sc.className='m';sc.style.margin='4px 0';sc.textContent='Guion: '+(shot.script.length>140?shot.script.slice(0,140)+'…':shot.script)+' ('+tpSeconds(shot.script)+' s al leerlo)';
