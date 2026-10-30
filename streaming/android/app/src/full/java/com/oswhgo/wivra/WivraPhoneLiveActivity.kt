@@ -3,6 +3,7 @@ package com.oswhgo.wivra
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
+import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.text.InputType
 import android.view.SurfaceHolder
@@ -74,7 +75,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         // Reusable safe validation without ever sending a key to analytics/JS.
         fun validEndpoint(input: String): Boolean {
             if (input.length !in 12..1500 || input != input.trim() ||
-                input.any { it.isWhitespace() || it.isISOControl() }) return false
+                input.any { it.isWhitespace() || Character.isISOControl(it) }) return false
             return try {
                 val uri = URI(input)
                 val parts = (uri.rawPath ?: "").split('/').filter { it.isNotEmpty() }
@@ -319,9 +320,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         initiatedByUser = false
         stopping = false
         controlsIdle()
-        if (file != null && finalized && file.length() > 2048L) {
+        if (file != null && finalized && verifiedMp4(file)) {
             setStatus("LIVE detenido. MP4 local disponible para revisar.")
-            if (!isFinishing && !isDestroyed) askKeep(file)
+            if (!isFinishing && !isDestroyed && window.decorView.hasWindowFocus()) askKeep(file)
         } else {
             // Never silently discard a potentially salvageable video.
             setStatus("LIVE detenido. El último archivo no se pudo certificar. " +
@@ -329,7 +330,25 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         }
     }
 
+    private fun verifiedMp4(file: File): Boolean {
+        // Do not trust a nonempty .mp4 suffix. Only offer a local recording
+        // when the decoder can read a completed duration and video track.
+        if (!file.isFile || file.length() <= 4096L) return false
+        val reader = MediaMetadataRetriever()
+        return try {
+            reader.setDataSource(file.absolutePath)
+            reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes" &&
+                (reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull() ?: 0L) > 0L
+        } catch (_: Exception) { false }
+        finally { reader.release() }
+    }
+
     private fun askKeep(file: File) {
+        if (!verifiedMp4(file)) {
+            setStatus("MP4 aún incompleto. Se conserva privado.")
+            return
+        }
         AlertDialog.Builder(this)
             .setTitle("Video LIVE guardado localmente")
             .setMessage("¿Quieres añadir este MP4 a Fotos/Galería? " +
@@ -366,7 +385,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             .setTitle("Videos locales pendientes")
             .setItems(titles.toTypedArray()) { _, i ->
                 // A stale or invalid file is never claimed as verified.
-                if (files[i].length() > 2048L) askKeep(files[i])
+                if (verifiedMp4(files[i])) askKeep(files[i])
                 else setStatus("Archivo incompleto. Se conserva privado.")
             }
             .setNegativeButton("Cerrar", null).show()
@@ -406,12 +425,23 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onAuthSuccess() { /* Never expose credentials. */ }
 
     override fun onStop() {
-        super.onStop()
         // The background UI does not secretly keep broadcasting. Recording
-        // finishes privately, and appears in the pending review on return.
+        // finishes privately, and appears in pending review on return.
         if (initiatedByUser || stream?.isStreaming == true ||
             stream?.isRecording == true) {
             stopAndReview()
+        }
+        runCatching {
+            if (stream?.isOnPreview == true) stream?.stopPreview()
+        }
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (prepared && !isFinishing && preview.holder.surface.isValid &&
+            stream?.isOnPreview != true) {
+            runCatching { stream?.startPreview(preview) }
         }
     }
 
