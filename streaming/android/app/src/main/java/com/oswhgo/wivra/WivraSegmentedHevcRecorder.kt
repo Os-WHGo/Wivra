@@ -1,6 +1,7 @@
 package com.oswhgo.wivra
 
 import android.content.Context
+import android.os.SystemClock
 import java.io.File
 import java.util.UUID
 
@@ -24,7 +25,7 @@ internal class WivraSegmentedHevcRecorder(
     private val codecSets = mutableMapOf<Int, ByteArray>()
     private val finishedParts = mutableListOf<File>()
     private var recorder = WivraHevcMp4Recorder(context)
-    private var segmentStartPtsUs = -1L
+    private var segmentStartElapsedUs = -1L
     private var finishedSamples = 0
     private var nextPart = 1
     private var closed = false
@@ -46,8 +47,12 @@ internal class WivraSegmentedHevcRecorder(
             if (type in 16..21) randomAccess = true
         }
 
-        val canCheckpoint = segmentStartPtsUs >= 0L &&
-            ptsUs - segmentStartPtsUs >= checkpointIntervalUs &&
+        // DAT PTS can regress or reset when glasses pause/resume.
+        // Use monotonic phone time only for checkpoint scheduling. The
+        // MP4 muxer still receives the true per-frame DAT timestamps.
+        val nowElapsedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
+        val canCheckpoint = segmentStartElapsedUs >= 0L &&
+            nowElapsedUs - segmentStartElapsedUs >= checkpointIntervalUs &&
             recorder.samples >= 2 &&
             codecSets.keys.containsAll(setOf(32, 33, 34)) &&
             randomAccess && !isCodecConfig
@@ -55,7 +60,7 @@ internal class WivraSegmentedHevcRecorder(
         if (canCheckpoint) {
             closeCurrentPart()
             recorder = WivraHevcMp4Recorder(context)
-            segmentStartPtsUs = -1L
+            segmentStartElapsedUs = -1L
             // Each new HEVC segment needs VPS/SPS/PPS even if the SDK emits
             // them only once at the beginning of the whole capture.
             val config = codecSets.toSortedMap().values.fold(
@@ -65,8 +70,8 @@ internal class WivraSegmentedHevcRecorder(
         }
 
         recorder.consume(packet, ptsUs, width, height, isCodecConfig)
-        if (segmentStartPtsUs < 0L && recorder.hasStarted) {
-            segmentStartPtsUs = ptsUs
+        if (segmentStartElapsedUs < 0L && recorder.hasStarted) {
+            segmentStartElapsedUs = nowElapsedUs
         }
     }
 
