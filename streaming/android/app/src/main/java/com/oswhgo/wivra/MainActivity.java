@@ -432,8 +432,20 @@ public final class MainActivity extends Activity {
                     "saveShootPlan();renderShootPlan();" +
                     "refreshDirectorAssets();openSheet('sDirector');" +
                     "say('Toma guardada. Importa el video desde Director para asociarlo al proyecto.','ok');" +
-                    "}catch(e){}})();";
-                editor.evaluateJavascript(update, null);
+                    "return true;}catch(e){return false;}})();";
+                // A receipt means a successful user-approved native Save, but a
+                // single eligible published MP4 is offered ONLY after the
+                // current WebView accepts this project+shot identity.
+                editor.evaluateJavascript(update, accepted -> {
+                    if ("true".equals(accepted) && before != null) {
+                        Uri published = uniqueNewDirectorVideo(before, rayBan);
+                        if (published != null) {
+                            suggestedDirectorVideo = published;
+                            suggestedDirectorShotId = expected;
+                            suggestedDirectorProjectId = expectedProject;
+                        }
+                    }
+                });
             }
             return;
         }
