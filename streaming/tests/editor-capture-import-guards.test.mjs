@@ -139,3 +139,10 @@ test('generic timeline commit checks owner even when the editor initially had no
   assert.match(generic, /if \(session !== stagingSession \|\| \(importSession && session !== importSession\)\)/);
   assert.ok(generic.indexOf('session !== stagingSession || (importSession') < generic.indexOf('const first = !session.project.clips.length'));
 });
+
+test('generic media selection rejects oversized batches without silent truncation', () => {
+  assert.match(generic, /if \(files\.length > MAX_IMPORT\) \{/);
+  assert.match(generic, /No se agregó ningún archivo/);
+  assert.doesNotMatch(generic, /files = files\.slice\(0, MAX_IMPORT\)/);
+  assert.ok(generic.indexOf('No se agregó ningún archivo') < generic.indexOf('loading = true'));
+});
