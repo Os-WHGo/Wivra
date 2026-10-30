@@ -117,3 +117,24 @@ test('per-selection bound remains 40, while complete shot capacity supports mult
  const over=validateRayBanParts([part(1441)],{nextPart:1441,expectedSessionId:session});
  assert.equal(over.ok,false);
 });
+
+test('append position uses last contiguous original clip boundary',()=>{
+ const durations=[29.997,30.003,30.001],assets=[],clips=[],ids=[];
+ let cursor=7.25;
+ durations.forEach((duration,i)=>{
+  const id='a'+i;ids.push(id);assets.push({id,duration,name:part(i+1).name});
+  clips.push({id:'c'+i,asset_id:id,start:cursor,in:0,out:duration});
+  cursor+=duration;
+ });
+ const project={assets,clips};
+ assert.ok(Math.abs(rayBanAppendAt(ids,project)-cursor)<1e-9);
+ const changed=structuredClone(project);
+ changed.clips[1].start+=0.02;
+ assert.equal(rayBanAppendAt(ids,changed),null);
+ const trimmed=structuredClone(project);
+ trimmed.clips[2].out-=1;
+ assert.equal(rayBanAppendAt(ids,trimmed),null);
+ const duplicated=structuredClone(project);
+ duplicated.clips.push({...duplicated.clips[0],id:'duplicate'});
+ assert.equal(rayBanAppendAt(ids,duplicated),null);
+});
