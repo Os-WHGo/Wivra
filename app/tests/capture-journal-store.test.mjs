@@ -75,3 +75,16 @@ test('corrupted journals remain visible for review without exposing unverified m
   ]);
   assert.equal(files.get('wivra-capture-broken.json'), '{bad json');
 });
+
+test('save refuses corrupt segment suffix without replacing durable journal', async () => {
+  const { store, files } = storage();
+  const journal = await store.start({ id: 'safe-write', platform: 'android', startedAt: 1 });
+  const key = 'wivra-capture-safe-write.json';
+  const original = files.get(key);
+  const corrupted = { ...journal, segments: [
+    { file: 'valid.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'overlap.mp4', startMs: 500, endMs: 1500, confirmed: true }
+  ] };
+  await assert.rejects(store.save(corrupted), /Corrupted capture segments cannot be saved/);
+  assert.equal(files.get(key), original);
+});
