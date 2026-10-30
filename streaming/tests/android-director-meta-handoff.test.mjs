@@ -62,3 +62,8 @@ test('Director rejects invalid shot IDs before native camera launch', () => {
   assert.match(main, /id\.chars\(\)\.allMatch\(ch -> ch >= 32 && ch != 127\)/);
   assert.match(phone, /ch >= ' ' && ch\.code != 127/);
 });
+
+test('Director checklist excludes malformed shot IDs before showing native capture choices', () => {
+  assert.match(main, /Array\.from\(s\.id\)\.every\(ch=>ch\.charCodeAt\(0\)>=32&&ch\.charCodeAt\(0\)!==127\)/);
+  assert.match(main, /id\.chars\(\)\.allMatch\(ch -> ch >= 32 && ch != 127\)/);
+});
