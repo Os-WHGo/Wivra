@@ -592,7 +592,8 @@ public final class MainActivity extends Activity {
             pickerValidator.execute(() -> {
                 Uri[] checked = safeSystemPickerResult(selected, signal);
                 runOnUiThread(() -> {
-                    if (pendingFilePicker != completion || isFinishing() || isDestroyed()) {
+                    if (pendingFilePicker != completion || pendingPickerSignal != signal ||
+                        isFinishing() || isDestroyed()) {
                         return; // Superseded chooser or Activity was destroyed.
                     }
                     pendingFilePicker = null;
