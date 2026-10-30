@@ -126,7 +126,9 @@ class WivraExportStoreTest {
         } finally {
             WivraExportStore.abort(context, active)
             resolver.delete(keep, null, null)
-            resolver.delete(orphan, null, null)
+            // Normally already deleted by cleanupOrphans; MediaStore answers a missing id
+            // with SecurityException, so this fallback cleanup must not mask the result.
+            try { resolver.delete(orphan, null, null) } catch (_: SecurityException) { }
         }
     }
 }

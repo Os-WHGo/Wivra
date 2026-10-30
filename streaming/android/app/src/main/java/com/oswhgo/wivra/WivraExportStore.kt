@@ -81,7 +81,7 @@ object WivraExportStore {
             active[token] = Active(session, uri, descriptor, displayName, SPACE_CHECK_BYTES)
             return token to displayName
         } catch (error: Exception) {
-            resolver.delete(uri, null, null)
+            try { resolver.delete(uri, null, null) } catch (_: Exception) { }
             throw error
         }
     }
@@ -124,7 +124,8 @@ object WivraExportStore {
         } catch (error: Exception) {
             item.session.abort()
             try { item.descriptor.close() } catch (_: IOException) { }
-            resolver.delete(item.uri, null, null)
+            // Never let a failed cleanup hide the original integrity/storage error.
+            try { resolver.delete(item.uri, null, null) } catch (_: Exception) { }
             throw error
         }
     }
