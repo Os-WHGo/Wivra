@@ -22,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +59,8 @@ class WivraCaptureForegroundService : Service() {
         val captureUpdates: StateFlow<CaptureState> = mutableCaptureUpdates.asStateFlow()
         private val mutableCaptureProgress = MutableStateFlow(CaptureProgress())
         val captureProgress: StateFlow<CaptureProgress> = mutableCaptureProgress.asStateFlow()
+        private val mutableCaptureIssue = MutableStateFlow<String?>(null)
+        val captureIssue: StateFlow<String?> = mutableCaptureIssue.asStateFlow()
 
         private fun setCaptureState(next: CaptureState) {
             captureState = next
@@ -75,6 +78,7 @@ class WivraCaptureForegroundService : Service() {
             else {
                 offeredSession = session
                 mutableCaptureProgress.value = CaptureProgress()
+                mutableCaptureIssue.value = null
                 setCaptureState(CaptureState.CONNECTING)
                 true
             }
@@ -110,6 +114,7 @@ class WivraCaptureForegroundService : Service() {
     private var finalizingPacketsJob: Job? = null
     private var finishing = false
     private var packetCount = 0L
+    private var firstFrameWatchdog: Job? = null
     private var cpuLock: PowerManager.WakeLock? = null
 
     // A foreground service alone does not prevent the phone CPU from sleeping.
@@ -151,6 +156,7 @@ class WivraCaptureForegroundService : Service() {
                 if (session == null && !finishing) {
                     val handedOff = claimSession()
                     if (handedOff == null) {
+                        mutableCaptureIssue.value = "No se pudo recuperar una sesión Ray-Ban activa."
                         setCaptureState(CaptureState.FAILED)
                         stopSelf()
                     } else {
@@ -202,7 +208,10 @@ class WivraCaptureForegroundService : Service() {
             }
         }
         errorJob = scope.launch {
-            active.errors.collect { finalizeCapture() }
+            active.errors.collect {
+                mutableCaptureIssue.value = "La conexión Meta DAT notificó un error. Revisa los MP4 guardados."
+                finalizeCapture()
+            }
         }
         // The session is already STARTED when the Activity hands it off.
         // StateFlow delivers its current state to the new owner.
@@ -226,6 +235,16 @@ class WivraCaptureForegroundService : Service() {
             recorder = muxer
             packetCount = 0L
             renewCpuLease()
+            // No silent "recording" state if DAT never delivers a keyframe.
+            // A timeout also releases the CPU lease and service notification.
+            firstFrameWatchdog = scope.launch {
+                delay(45_000L)
+                if (!finishing && recorder === muxer && muxer.samples == 0) {
+                    mutableCaptureIssue.value =
+                        "Ray-Ban no entregó video válido en 45 segundos. Grabación cancelada."
+                    finalizeCapture()
+                }
+            }
 
             // Subscribe BEFORE starting the stream. The Activity may be
             // stopped or destroyed; the collection job belongs to this Service.
@@ -265,7 +284,11 @@ class WivraCaptureForegroundService : Service() {
             }
             streamJob = scope.launch {
                 activeStream.state.collect { state ->
-                    if (state == StreamState.CLOSED) finalizeCapture()
+                    if (state == StreamState.CLOSED) {
+                        mutableCaptureIssue.value =
+                            "Se cerró la transmisión Ray-Ban. Los MP4 completados se conservan."
+                        finalizeCapture()
+                    }
                     if (state == StreamState.PAUSED && !finishing) {
                         setCaptureState(CaptureState.PAUSED)
                     }
@@ -278,13 +301,21 @@ class WivraCaptureForegroundService : Service() {
             activeStream.start()
                 // A successful start only means DAT accepted the request.
                 // RECORDING is reported after MP4 accepts a real sample.
-                .onFailure { _, _ -> finalizeCapture() }
-        }.onFailure { _, _ -> finalizeCapture() }
+                .onFailure { _, _ ->
+                    mutableCaptureIssue.value = "Meta DAT rechazó iniciar la transmisión."
+                    finalizeCapture()
+                }
+        }.onFailure { _, _ ->
+            mutableCaptureIssue.value = "Meta DAT no autorizó conectar la cámara."
+            finalizeCapture()
+        }
     }
 
     private fun finalizeCapture() {
         if (finishing) return
         finishing = true
+        firstFrameWatchdog?.cancel()
+        firstFrameWatchdog = null
         setCaptureState(CaptureState.FINALIZING)
         val lastRecorder = recorder
         recorder = null
@@ -326,6 +357,7 @@ class WivraCaptureForegroundService : Service() {
         // interrupts an active finalizer, a separate IO owner rescues its
         // last MP4. Already finalized checkpoint parts remain untouched.
         // Process death skips onDestroy and cannot be guaranteed here.
+        firstFrameWatchdog?.cancel()
         val abandoned = recorder ?: finalizingRecorder
         val collector = packetsJob ?: finalizingPacketsJob
         val activeCamera = camera
