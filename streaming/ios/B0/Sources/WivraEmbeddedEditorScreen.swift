@@ -216,6 +216,45 @@ private struct WivraEditorWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 }
 
+private struct WivraCaptureSearchView: View {
+    let captures: [WivraStoredCapture]
+    let onSelect: (WivraStoredCapture?) -> Void
+    @State private var query = ""
+
+    private var filtered: [WivraStoredCapture] {
+        guard !query.isEmpty else { return captures }
+        return captures.filter {
+            $0.source.localizedCaseInsensitiveContains(query) ||
+            $0.id.localizedCaseInsensitiveContains(query) ||
+            $0.recordedAt.formatted(date: .abbreviated, time: .shortened)
+                .localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(filtered) { capture in
+                Button {
+                    onSelect(capture)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(capture.source).font(.headline)
+                        Text(capture.recordedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .searchable(text: $query, prompt: "Buscar grabaciones")
+            .navigationTitle("Grabaciones de Wivra")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { onSelect(nil) }
+                }
+            }
+        }
+    }
+}
+
 struct WivraEmbeddedEditorScreen: View {
     @Environment(\.dismiss) private var dismiss
 
