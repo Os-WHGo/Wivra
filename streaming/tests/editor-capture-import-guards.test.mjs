@@ -129,3 +129,8 @@ test('manifest and animated image decoding cannot attach to a replacement projec
   assert.match(generic, /await prepGif\(id, f\);\s*if \(session !== stagingSession\)/);
   assert.match(generic, /El proyecto cambió durante la preparación de la imagen/);
 });
+
+test('capture final timeline guard includes an import that created its own session', () => {
+  assert.match(capture, /if \(session !== stagingSession \|\| \(captureSession && session !== captureSession\)\)/);
+  assert.ok(capture.indexOf('session !== stagingSession || (captureSession') < capture.indexOf('const startAt ='));
+});
