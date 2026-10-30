@@ -234,6 +234,9 @@ class WivraCaptureForegroundService : Service() {
             active.state.collect { state ->
                 when (state) {
                     DeviceSessionState.STARTED -> attachCamera(active)
+                    DeviceSessionState.PAUSED -> {
+                        if (!finishing) setCaptureState(CaptureState.PAUSED)
+                    }
                     DeviceSessionState.STOPPED -> finalizeCapture()
                     else -> Unit
                 }
@@ -274,11 +277,20 @@ class WivraCaptureForegroundService : Service() {
             // No silent "recording" state if DAT never delivers a keyframe.
             // A timeout also releases the CPU lease and service notification.
             firstFrameWatchdog = scope.launch {
-                delay(45_000L)
-                if (!finishing && recorder === muxer && muxer.samples < 2) {
-                    mutableCaptureIssue.value =
-                        "Ray-Ban no entregó video válido en 45 segundos. Grabación cancelada."
-                    finalizeCapture()
+                var activeWaitMs = 0L
+                while (!finishing && recorder === muxer && muxer.samples < 2) {
+                    delay(5_000L)
+                    // A user-initiated glasses pause is not a failed startup.
+                    // Count only active waiting time, not paused time.
+                    if (captureState != CaptureState.PAUSED) activeWaitMs += 5_000L
+                    if (activeWaitMs >= 45_000L &&
+                        !finishing && recorder === muxer && muxer.samples < 2) {
+                        mutableCaptureIssue.value =
+                            "Ray-Ban no entregó video válido tras 45 segundos activos. " +
+                            "Se conservan los MP4 completados."
+                        finalizeCapture()
+                        break
+                    }
                 }
             }
 
@@ -327,9 +339,11 @@ class WivraCaptureForegroundService : Service() {
                             withContext(Dispatchers.Main.immediate) {
                                 mutableCaptureProgress.value = progress
                                 if (samples >= 2 &&
+                                    active.state.value != DeviceSessionState.PAUSED &&
                                     activeStream.state.value != StreamState.PAUSED &&
                                     (captureState == CaptureState.CONNECTING ||
                                         captureState == CaptureState.PAUSED)) {
+                                    mutableCaptureIssue.value = null
                                     setCaptureState(CaptureState.RECORDING)
                                 }
                                 // Only refresh the notification after the first
