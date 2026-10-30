@@ -512,6 +512,8 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         }
         try {
             val privateVideo = WivraPhoneMediaStore.createPrivateVideo(this)
+            // A previous saved take must not acknowledge a later abandoned recording.
+            setResult(Activity.RESULT_CANCELED)
             currentFile = privateVideo
             directorVideoCreatedHere = privateVideo.name
             val pending = video.output.prepareRecording(
