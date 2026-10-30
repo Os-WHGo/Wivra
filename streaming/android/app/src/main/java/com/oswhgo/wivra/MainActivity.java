@@ -3,8 +3,10 @@ package com.oswhgo.wivra;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.webkit.ValueCallback;
@@ -303,6 +305,38 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /**
+     * FileChooserParams.parseResult may expose URIs supplied by third-party
+     * applications. Never let a forged file:// or our own private FileProvider
+     * resource be read by the WebView. Native Wivra shortcuts are chosen
+     * separately and never pass through this untrusted system picker result.
+     */
+    private Uri[] safeSystemPickerResult(Uri[] selected) {
+        if (selected == null || selected.length == 0 || selected.length > 32) {
+            return null;
+        }
+        java.util.HashSet<Uri> seen = new java.util.HashSet<>();
+        for (Uri uri : selected) {
+            if (uri == null ||
+                !ContentResolver.SCHEME_CONTENT.equals(uri.getScheme()) ||
+                uri.getAuthority() == null ||
+                uri.getAuthority().equals(getPackageName()) ||
+                uri.getAuthority().equals(getPackageName() + ".captureimports") ||
+                !seen.add(uri)) {
+                return null;
+            }
+            // Check that the app can actually read what the picker supplied.
+            // Do not copy bytes or gain broad photo-library permissions.
+            try (ParcelFileDescriptor file =
+                     getContentResolver().openFileDescriptor(uri, "r")) {
+                if (file == null) return null;
+            } catch (Exception invalidOrRevoked) {
+                return null;
+            }
+        }
+        return selected;
+    }
+
     private void clearPendingPicker() {
         if (pendingFilePicker != null) {
             ValueCallback<Uri[]> completion = pendingFilePicker;
@@ -355,7 +389,8 @@ public final class MainActivity extends Activity {
         }
         ValueCallback<Uri[]> completion = pendingFilePicker;
         pendingFilePicker = null;
-        completion.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+        completion.onReceiveValue(safeSystemPickerResult(
+            WebChromeClient.FileChooserParams.parseResult(resultCode, data)));
     }
 
     @Override
