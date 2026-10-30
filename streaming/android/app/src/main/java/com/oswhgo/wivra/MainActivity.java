@@ -156,8 +156,7 @@ public final class MainActivity extends Activity {
         Button glasses = new Button(this);
         glasses.setText("Ray-Ban Meta");
         glasses.setContentDescription(getString(R.string.connect_glasses_accessibility));
-        glasses.setOnClickListener(v -> startActivity(
-            new Intent(this, WivraMetaPreviewActivity.class)));
+        glasses.setOnClickListener(v -> launchRayBanCameraFromDirector());
         // A View can have only one parent. The glasses shortcut belongs to
         // the horizontal sources row; adding it to shell first crashes startup.
         Button phone = new Button(this);
@@ -198,10 +197,19 @@ public final class MainActivity extends Activity {
      * explicit "Phone camera" tap. No JavascriptInterface, HTTP, or upload.
      * The selected text is carried in an app-private non-exported Intent.
      */
+    private void launchRayBanCameraFromDirector() {
+        launchCameraFromDirector(WivraMetaPreviewActivity.class);
+    }
+
     private void launchPhoneCameraFromDirector() {
+        launchCameraFromDirector(WivraPhoneCameraActivity.class);
+    }
+
+    /** Same sanitized read-only Director checklist for both native cameras. */
+    private void launchCameraFromDirector(Class<?> targetActivity) {
         if (editor == null ||
             !"file:///android_asset/agentcut.html".equals(editor.getUrl())) {
-            startActivity(new Intent(this, WivraPhoneCameraActivity.class));
+            startActivity(new Intent(this, targetActivity));
             return;
         }
         final String readOnly = "(function(){try{" +
@@ -223,7 +231,7 @@ public final class MainActivity extends Activity {
                 // A corrupt or missing checklist never blocks the phone camera.
             }
             if (shots.length() == 0) {
-                startActivity(new Intent(this, WivraPhoneCameraActivity.class));
+                startActivity(new Intent(this, targetActivity));
                 return;
             }
             final org.json.JSONArray safeShots = shots;
@@ -239,7 +247,7 @@ public final class MainActivity extends Activity {
             new AlertDialog.Builder(this)
                 .setTitle(R.string.phone_camera_choose_shot)
                 .setItems(options, (dialog, index) -> {
-                    Intent launch = new Intent(this, WivraPhoneCameraActivity.class);
+                    Intent launch = new Intent(this, targetActivity);
                     if (index > 0) {
                         org.json.JSONObject shot = safeShots.optJSONObject(index - 1);
                         if (shot != null) {
