@@ -2501,7 +2501,7 @@ function loadShootPlan(){
   const restored=JSON.parse(localStorage.getItem(SHOOT_STORAGE_KEY)||'null');
   if(restored?.schema==='agentcut-shoot-plan-v0.1'&&Array.isArray(restored.shots)){
     // Saved asset IDs do NOT grant access to files after page reload.
-    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null}))};
+    shootPlan={...restored,shots:restored.shots.map(s=>({...s,assetId:null,assetIds:[]}))};
   }
  }catch{ /* ignore corrupt storage */ }
 }
