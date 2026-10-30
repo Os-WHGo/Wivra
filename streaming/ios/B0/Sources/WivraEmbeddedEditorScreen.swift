@@ -88,22 +88,17 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
             // a separate browser. The system Files fallback remains available.
             sheet.addAction(UIAlertAction(title: "Grabaciones de Wivra (\(ready.count))", style: .default) { [weak self, weak presenter] _ in
                 guard let self, let presenter else { self?.finishSelection(nil); return }
-                let browser = UIAlertController(title: "Elegir grabación", message: "Selecciona una toma local para importar. Las grabaciones más recientes aparecen primero.", preferredStyle: .actionSheet)
-                for item in ready {
-                    let label = "\(item.source) · \(item.recordedAt.formatted(date: .abbreviated, time: .shortened))"
-                    browser.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
-                        guard let video = item.videoURL else { self?.finishSelection(nil); return }
-                        let urls = [item.manifestURL, video] +
-                            (item.alternateVideoURL.map { [$0] } ?? []) + item.audioURLs
-                        self?.finishSelection(urls)
-                    })
+                let browser = WivraCaptureSearchView(captures: ready) { [weak self] selected in
+                    presenter.dismiss(animated: true)
+                    guard let selected, let video = selected.videoURL else {
+                        self?.finishSelection(nil)
+                        return
+                    }
+                    let urls = [selected.manifestURL, video] +
+                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs
+                    self?.finishSelection(urls)
                 }
-                browser.addAction(UIAlertAction(title: "Cancelar", style: .cancel) { [weak self] _ in self?.finishSelection(nil) })
-                if let popover = browser.popoverPresentationController {
-                    popover.sourceView = webView
-                    popover.sourceRect = CGRect(x: webView.bounds.midX, y: 12, width: 1, height: 1)
-                }
-                presenter.present(browser, animated: true)
+                presenter.present(UIHostingController(rootView: browser), animated: true)
             })
         }
         sheet.addAction(UIAlertAction(title: NSLocalizedString("ios.picker.browse", comment: ""), style: .default) { [weak self] _ in
