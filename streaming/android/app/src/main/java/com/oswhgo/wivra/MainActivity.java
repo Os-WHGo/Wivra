@@ -276,6 +276,8 @@ public final class MainActivity extends Activity {
                     Intent launch = new Intent(this, targetActivity);
                     pendingDirectorShotId = null;
                     pendingDirectorProjectId = null;
+                    priorDirectorVideoIds = null;
+                    clearDirectorVideoSuggestion();
                     if (index > 0) {
                         org.json.JSONObject shot = safeShots.optJSONObject(index - 1);
                         if (shot != null) {
@@ -289,6 +291,10 @@ public final class MainActivity extends Activity {
                                 launch.putExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID, id);
                                 pendingDirectorShotId = id;
                                 pendingDirectorProjectId = projectId;
+                                pendingDirectorRayBan =
+                                    targetActivity == WivraMetaPreviewActivity.class;
+                                priorDirectorVideoIds = new java.util.HashSet<>(
+                                    savedDirectorVideos(pendingDirectorRayBan));
                                 startActivityForResult(launch, DIRECTOR_CAPTURE_REQUEST);
                                 return;
                             }
@@ -401,8 +407,12 @@ public final class MainActivity extends Activity {
         if (requestCode == DIRECTOR_CAPTURE_REQUEST) {
             final String expected = pendingDirectorShotId;
             final String expectedProject = pendingDirectorProjectId;
+            final java.util.Set<String> before = priorDirectorVideoIds;
+            final boolean rayBan = pendingDirectorRayBan;
             pendingDirectorShotId = null;
             pendingDirectorProjectId = null;
+            priorDirectorVideoIds = null;
+            clearDirectorVideoSuggestion();
             if (resultCode == RESULT_OK && data != null &&
                 WivraDirectorProjectGuard.mayComplete(
                     expectedProject, expectedProject, expected,
