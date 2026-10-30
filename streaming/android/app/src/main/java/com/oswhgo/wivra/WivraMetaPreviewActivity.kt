@@ -232,6 +232,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             "Captura interrumpida. Revisa los MP4 pendientes.")
                     WivraCaptureForegroundService.CaptureState.IDLE -> {
                         WivraCaptureForegroundService.captureIssue.value?.let { show(it) }
+                        if (!sdkReady && window.decorView.hasWindowFocus()) checkBluetooth()
                         if (window.decorView.hasWindowFocus()) {
                             window.decorView.post { offerPendingVideo() }
                         }
@@ -253,8 +254,18 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 }
             }
         }
-        checkBluetooth()
+        if (!WivraCaptureForegroundService.isCaptureActive()) checkBluetooth()
         window.decorView.post { offerPendingVideo() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A service can finish while this Activity has no window focus.
+        // On return, recover finalized parts without requiring a new session.
+        if (!WivraCaptureForegroundService.isCaptureActive()) {
+            if (!sdkReady) checkBluetooth()
+            window.decorView.post { offerPendingVideo() }
+        }
     }
 
     override fun onStart() {
