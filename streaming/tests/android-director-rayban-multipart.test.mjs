@@ -16,7 +16,8 @@ test('a single Ray-Ban recording can be represented by ordered multiple real ass
  assert.match(html,/validateRayBanParts\(selected\)/);
  assert.match(html,/added\.length!==group\.files\.length/);
  assert.match(html,/assetIds:added\.map\(a=>a\.id\)/);
- assert.match(html,/assetIds:ids/);
+ assert.match(html,/restoreDirectorAssetLinks\(s,known,availableIds\)/);
+ assert.match(html,/Object\.entries\(saved\.blobs\|\|\{\}\)/);
  assert.match(build,/'\.\/director-parts\.mjs'/);
 });
 
