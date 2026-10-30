@@ -44,7 +44,8 @@ test('Claude shared editor image chooser offers only recent app-owned Ray-Ban ph
  assert.match(store,/PHOTO_DIRECTORY, "\$FILE_PREFIX%"/);
  assert.match(store,/MediaStore.Images.Media.DATE_ADDED/);
  assert.match(editorHost,/editor\.evaluateJavascript\(readOnly, encoded ->/);
-  assert.match(editorHost,/localStorage\.getItem\('agentcut-shoot-checklist-v1'\)/);
+  assert.match(editorHost,/const plan=typeof shootPlan==='object'\?shootPlan:null/);
+  assert.doesNotMatch(editorHost,/localStorage\.getItem\(/);
   assert.doesNotMatch(editorHost,/addJavascriptInterface\(/);
 });
 test('Android emulated MediaStore verification checks JPEG and removes test photo',()=>{
