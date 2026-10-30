@@ -2185,6 +2185,12 @@ $('bExp').onclick = () => {
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  const exportRisk = exportMemoryRisk(plan.total);
+  $('expLong').textContent = exportRisk.level === 'critical'
+    ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
+    : exportRisk.level === 'elevated'
+      ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
+      : 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.';
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
