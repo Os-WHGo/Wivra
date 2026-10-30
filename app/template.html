@@ -2849,19 +2849,16 @@ function pzShowMissing() {
   if (pzMissing.length) openSheet('sMiss'); else closeSheets();
 }
 /** Al reabrir un proyecto, el Director vuelve a ser el de ESE proyecto (no el borrador compartido del navegador). */
-function restoreDirectorOfProject(sn) {
+function restoreDirectorOfProject(sn, availableIds) {
   try {
     const d = sn.director || {}, known = new Set(sn.project.assets.map(a => a.id));
     dirDraftRaw = null; directorBrief = null; setDirectorAIContext(null);
     for (const id of ['dirGoal', 'dirNotes', 'dirCorrection', 'dirAssetDescription', 'dirSeconds']) $(id).value = '';
     $('dirMode').value = 'automatic'; $('dirPlatform').value = 'reels'; $('dirOtherFormats').value = ''; $('dirOutputs').value = 1; $('dirHistory').textContent = '';
     if (d.draft) restoreDirectorDraft(d.draft);
-    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => {
-      const ids = Array.isArray(s.assetIds)
-        ? (s.assetIds.every(id=>known.has(id)) ? s.assetIds : [])
-        : (known.has(s.assetId)?[s.assetId]:[]);
-      return {...s,assetId:ids[0]||null,assetIds:ids};
-    }) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
+    shootPlan = d.shootPlan ? { ...d.shootPlan, shots: d.shootPlan.shots.map(s => ({
+      ...s,...restoreDirectorAssetLinks(s,known,availableIds)
+    })) } : null;      // una toma solo conserva su video si ese video sigue en el proyecto
     selectedShootId = null; renderShootPlan();
   } catch (e) { say('No se pudieron recuperar las notas del Director: ' + e.message, 'bad'); }
 }
@@ -2879,7 +2876,7 @@ async function pzRestore(pid) {
     }
     pzBase = { raw: saved.raw, meta: saved.meta, ids: sn.assets.map(a => a.id) };
     session = new Session(sn.project);
-    restoreDirectorOfProject(sn);
+    restoreDirectorOfProject(sn,new Set(Object.entries(saved.blobs||{}).filter(([id,b])=>!!b).map(([id])=>id)));
     pzMissing = missingAssets(sn, Object.keys(media));
     selId = null; tlTime = Math.min(sn.tlTime, timelineEnd(sn.project));
     pps = Math.max(12, Math.min(160, ($('tlwrap').clientWidth * 0.7) / Math.max(1, timelineEnd(sn.project))));
