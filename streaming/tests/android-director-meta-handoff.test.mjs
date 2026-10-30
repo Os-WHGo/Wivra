@@ -28,3 +28,20 @@ test('Ray-Ban teleprompter lives in UI, never in compressed video or broadcast',
   assert.doesNotMatch(meta, /drawText\(shotScript|muxer\.consume\(shotScript/);
   assert.doesNotMatch(main, /addJavascriptInterface\(/);
 });
+
+test('Android acknowledges a Director take only after the owner saves its own recording', () => {
+  assert.match(main, /const val EXTRA_SHOT_ID|EXTRA_SHOT_ID/);
+  assert.match(main, /launch\.putExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_ID, id\)/);
+  assert.match(main, /startActivityForResult\(launch, DIRECTOR_CAPTURE_REQUEST\)/);
+  assert.match(main, /expected\.equals\(data\.getStringExtra\(WivraPhoneCameraActivity\.EXTRA_SHOT_ID\)\)/);
+  assert.match(main, /updateShot\(shootPlan/);
+  assert.match(main, /saveShootPlan\(\);renderShootPlan\(\);/);
+  assert.match(phone, /directorVideoCreatedHere = privateVideo\.name/);
+  assert.match(phone, /if \(file\.name != directorVideoCreatedHere\) return/);
+  assert.match(phone, /setResult\(Activity\.RESULT_OK, Intent\(\)\.putExtra\(EXTRA_SHOT_ID, shotId\)\)/);
+  const confirm = 'acknowledgeSavedDirectorTake(file)';
+  assert.equal(phone.split(confirm).length, 3, 'only video-only salvage and normal successful keep may acknowledge');
+  assert.ok(phone.indexOf('WivraPhoneMediaStore.publish(this, file)') < phone.indexOf(confirm),
+    'the ordinary save path must publish before acknowledging');
+  assert.doesNotMatch(phone, /setResult\(Activity\.RESULT_OK, Intent\(\)\.putExtra\(EXTRA_SHOT_SCRIPT/);
+});
