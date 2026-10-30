@@ -169,3 +169,10 @@ test('Director camera import requires a selected planned shot before editing', (
   assert.match(handler, /Selecciona primero una toma del plan de Director/);
   assert.ok(handler.indexOf('if(!shootPlan || !selectedShootId)') < handler.indexOf('await importSelectedFiles(files)'));
 });
+
+test('Director refuses concurrent import instead of associating a previously added asset', () => {
+  const handler = html.slice(html.indexOf("$('directorCamera').addEventListener"), html.indexOf('/* ---------- Hoja "Tus videos"'));
+  assert.match(handler, /if\(loading\)\{/);
+  assert.match(handler, /Espera a que termine la importación anterior/);
+  assert.ok(handler.indexOf('if(loading)') < handler.indexOf('const existing='));
+});
