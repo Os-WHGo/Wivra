@@ -6361,7 +6361,7 @@ function renderShootPlan(){
    stateBtns.push(mkBtn('Repetir esta toma',()=>setState('retry',(shot.state==='done'||shot.assetId)?aiT('Esta toma ya está hecha. ¿Repetirla? Se quita el video asociado a la toma (el video sigue en el proyecto).'):null)));
    stateBtns.push(mkBtn('Saltar esta toma',()=>setState('skipped',aiT('La toma «{1}» se salta y no cuenta como grabada. ¿Saltarla?',shot.title))));
   }
-  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent='Grabar esta toma';
+  const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent=shot.state==='done'&&!shot.assetId?'Importar video guardado':'Importar video de esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
   const choose=document.createElement('select');
   choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
