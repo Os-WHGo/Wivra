@@ -2535,6 +2535,10 @@ function renderShootPlan(){
   }
   const cam=document.createElement('button');cam.className='btn sec';cam.style.marginTop='4px';cam.textContent=shot.state==='done'&&!shot.assetId?'Importar video guardado':'Importar video de esta toma';
   cam.onclick=()=>{selectedShootId=shot.id;$('directorCamera').click()};
+  const importParts=mkBtn('Importar todos los segmentos Ray-Ban',()=>{
+    selectedShootId=shot.id;$('directorParts').click();
+  });
+  importParts.disabled=!!shot.assetId;
   const choose=document.createElement('select');
   choose.setAttribute('aria-label','Asociar archivo a '+shot.title);
   choose.style.cssText='width:100%;font:inherit;background:#10131b;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px';
@@ -2552,6 +2556,7 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
+  if(!shot.assetId)row.append(importParts);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.script){
    const sc=document.createElement('p');sc.className='m';sc.style.margin='4px 0';sc.textContent='Guion: '+(shot.script.length>140?shot.script.slice(0,140)+'…':shot.script)+' ('+tpSeconds(shot.script)+' s al leerlo)';
@@ -2564,7 +2569,7 @@ function renderShootPlan(){
    up.setAttribute('aria-label','Subir la toma: '+shot.title);dn.setAttribute('aria-label','Bajar la toma: '+shot.title);row2.append(up,dn);
   }
   if(shot.assetId){
-    const linked=document.createElement('small');linked.textContent='Video asociado en esta sesión: '+shot.assetId;
+    const linked=document.createElement('small');linked.textContent=(shot.assetIds?.length>1?'Segmentos asociados: '+shot.assetIds.length+' · principal ':'Video asociado en esta sesión: ')+shot.assetId;
     card.append(title,badge,body,linked,row,row2);
   }else card.append(title,badge,body,row,row2);
   list.append(card);
