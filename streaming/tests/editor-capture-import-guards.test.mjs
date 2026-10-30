@@ -115,3 +115,11 @@ test('both importers fail closed if timeline engine returns no result', () => {
   assert.match(generic, /el editor no confirmó la operación/);
   assert.match(capture, /el editor no confirmó la operación/);
 });
+
+test('async media probing never inserts into a different open project', () => {
+  assert.match(generic, /await probeImage\(f\) : await probe\(f\);\s*\/\/ A project switch/);
+  assert.match(generic, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la lectura del archivo\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la lectura de la captura\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la separación de canales\.'\)/);
+  assert.match(capture, /if \(session !== stagingSession\) throw new Error\('El proyecto cambió durante la preparación del audio\.'\)/);
+});
