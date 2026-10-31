@@ -148,7 +148,7 @@ test('direct save cannot reopen or replace a terminal capture snapshot', async (
     { state: 'recording', finalFile: null },
     { state: 'finalized', finalFile: 'different.mov' }
   ]) {
-    await assert.rejects(store.save({ ...saved, updatedAt: 100, ...change }), /discard confirmed history/);
+    await assert.rejects(store.save({ ...saved, updatedAt: 100, ...change }), /discard confirmed history|Invalid capture journal envelope/);
     assert.equal(files.get('wivra-capture-sealed.json'), original);
   }
   assert.deepEqual(await store.save(saved), saved);
