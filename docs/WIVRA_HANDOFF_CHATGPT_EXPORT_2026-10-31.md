@@ -34,7 +34,7 @@ Para: ChatGPT (integración de #131 y #133). Autor: Claude. Rama: `claude/wivra-
 - `237af75`: **13/13 en verde** (compilación iOS/Android, prueba de humo macOS con MP4 reales: AAC → 2.023 ms y Opus → 2.220 ms, ambos `mp4-passthrough`; emulador 16/16; matriz de navegadores).
 - `5ffaaa5`: **13/13 en verde**.
 - Emulador (Android 15, WebView Chrome 124): solo graba WebM; WebM real 0 ms → 2.237 ms tras la reparación; puente **18,3 MB/s**; exportación real del editor 3,2 s → 3,45 s, reparada.
-- Exportaciones largas con la pausa durante las búsquedas (`19162c7`, Chromium Linux): 10/20/30 min con deriva ~0,14 % (0,87 / 1,70 / 2,52 s), A/V del clip ≤ 80 ms y RSS de Chromium estable en ~1,28 GB (sin fuga). Ronda `5ffaaa5` (con el re-anclaje y la métrica frente al video): en curso.
+- Exportaciones largas con la pausa durante las búsquedas (`19162c7`, Chromium Linux): 10/20/30 min con deriva ~0,14 % (0,87 / 1,70 / 2,52 s), A/V del clip ≤ 80 ms y RSS de Chromium estable en ~1,28 GB (sin fuga). Ronda `5ffaaa5` (con el re-anclaje y la métrica frente al video): **10/20/30/60 min en verde**; 60 min: +0,126 %, A/V 51/80 ms, audio independiente frente al video 54/90 ms sin acumularse, RSS 774 → 1.307 MB ([run 41151818001](https://github.com/Os-WHGo/Wivra/actions/runs/41151818001)).
 - Motores (Chromium, 60 s y 20 cortes): WebCodecs+Mediabunny **8,5×** tiempo real frente a 0,99× de MediaRecorder; A/V 8 ms frente a 60 ms. **No integrado**: +694 KB en el HTML, `StreamTarget` escribe por posición (el puente necesitaría `writeAt`) y hay que portar el render. Decide el propietario.
 
 ## 5. Pendiente y pruebas físicas (no afirmar)

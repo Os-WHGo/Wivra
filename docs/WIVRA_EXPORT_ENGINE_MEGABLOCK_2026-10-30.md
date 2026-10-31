@@ -70,7 +70,14 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 - **[V CI] 10 min con el código anterior** (`2bf8016`): deriva +0,441 %, A/V del clip 54/74 ms, RSS 745 → 1.249 MB.
 - **[V CI] 10 min con pausa durante las búsquedas** (`19162c7`): deriva **+0,145 %**, A/V del clip 52/76 ms, RSS 781 → 1.275 MB (máximo 1.290; se estabiliza, no crece sin parar), 26,6 MB, 591 fragmentos. Con la baliza se vio otro efecto: el **audio independiente** (voces y música grabadas aparte) se alejaba hasta 695 ms del tiempo planificado, porque cada corte todavía añade unos 7–9 ms al video mientras el audio independiente sigue el reloj sin pausas.
 - **Corrección** (`5ffaaa5`): en cada corte, con el grabador en pausa, las fuentes independientes se vuelven a arrancar en la posición exacta del video. **[V LOCAL, 2 min]** audio independiente frente al video: media 65 ms, máximo 97 ms, **sin acumularse** (51 → 63 ms), igual al desfase constante del propio clip (~64 ms).
-- **Resultados de 10/20/30/60 min con la corrección:** workflow `Wivra Long Export Soak` en `5ffaaa5` (ver el PR).
+- **[V CI] Resultados finales con las dos correcciones** (`5ffaaa5`, [run 41151818001](https://github.com/Os-WHGo/Wivra/actions/runs/41151818001)): **10, 20, 30 y 60 min pasan todas las comprobaciones**.
+
+| Duración | Exportado | Deriva | A/V del clip (media/máx) | Audio independiente frente al video (media/máx) | RSS de Chromium (inicio → máximo) | Tamaño |
+|---|---|---|---|---|---|---|
+| 30 min | 1.802,17 s | +0,121 % | 51/80 ms | 54/91 ms (primer y último cuarto: 55/54) | 776 → 1.293 MB | 79,7 MB |
+| 60 min | 3.604,55 s | +0,126 % | 51/80 ms | 54/90 ms (55/55) | 774 → 1.307 MB | 159,8 MB · 3.540 fragmentos · 1.101 entradas de índice |
+
+La sincronía **no empeora con la duración**, la memoria de Chromium **se estabiliza** (~1,3 GB, sin fuga) y la deriva total se mantiene en ~0,12 % (≈ +4,5 s por hora). Es Chromium en Linux con un puente simulado: **no es un teléfono**.
 
 ### 3.5 Recuperación y tolerancia a fallos
 
@@ -136,7 +143,8 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 | `23c00fe` | Rendimiento del puente en el emulador | 16/16 · **18,3 MB/s** ([run 41147207594](https://github.com/Os-WHGo/Wivra/actions/runs/41147207594)) · la prueba de humo macOS detectó la duración doble de AVFoundation |
 | `237af75` | Duración solo en `mehd`, prueba de humo iOS con MP4 reales, compilación iOS/Android, navegador | **13/13 en verde**. iOS (AVFoundation, macOS): H.264+AAC → `mp4-passthrough`, 2.023 ms, A+V; H.264+Opus de Chromium → `mp4-passthrough`, 2.220 ms, A+V |
 | `2bf8016` | Exportación larga de 10 min (código previo a la pausa durante las búsquedas) | OK: deriva +2,647 s (+0,441 %), A/V media 54 ms y máximo 74 ms, RSS 745 → 1.249 MB, 26,6 MB, 591 fragmentos ([run 41146650807](https://github.com/Os-WHGo/Wivra/actions/runs/41146650807)) |
-| `19162c7` | Exportaciones largas de 10/20/30/60 min con la pausa durante las búsquedas y la baliza de audio independiente | en curso al redactar (ver el PR) |
+| `19162c7` | Exportaciones largas con la pausa durante las búsquedas | 10/20/30/60 min: deriva ~0,14 %, A/V ≤ 80 ms y RSS estable; detectó el desfase del audio independiente (métrica antigua: «failure») |
+| `5ffaaa5` | Re-anclaje del audio independiente + métrica frente al video | **13/13 en verde y 10/20/30/60 min en verde** (ver §3.4) |
 
 ## 9. Riesgos de integración con el PR #131
 
