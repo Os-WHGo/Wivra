@@ -58,7 +58,18 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
           const prefixMatches = (before, after) => Array.isArray(after) &&
             before.length <= after.length &&
             before.every((item, index) => JSON.stringify(item) === JSON.stringify(after[index]));
-          if (journal.startedAt !== current.startedAt ||
+          const nextStates = {
+            connecting: ['recording', 'failed'],
+            recording: ['interrupted', 'stopping', 'failed'],
+            interrupted: ['recording', 'stopping', 'failed'],
+            stopping: ['finalized', 'failed'],
+            finalized: [],
+            failed: []
+          };
+          const legalState = journal.state === current.state ||
+            (nextStates[current.state] || []).includes(journal.state);
+          if (!legalState ||
+              journal.startedAt !== current.startedAt ||
               journal.platform !== current.platform ||
               journal.source !== current.source ||
               journal.schema !== current.schema ||
