@@ -298,7 +298,10 @@ const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { onc
 const frame = () => new Promise((res) => requestAnimationFrame(res));
 /** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
-export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+// Native progressive exports write chunks to disk, so duration alone should
+// not force a quality reduction. Browser-only exports keep the memory guard.
+export const exportBitrate = (seconds, { progressive = false } = {}) =>
+  progressive ? EXPORT_BPS : Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
 export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
 /** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
  * until export ends. In progressive mode (native sink) only a bounded queue stays in
@@ -489,7 +492,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: Math.round((exportBitrate(plan.total, { progressive: true }) + 128_000) * plan.total / 8) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
@@ -530,7 +533,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -538,13 +541,13 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
   let rec;
   try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) });
   } catch (error) {
     // Some WebViews advertise a container through isTypeSupported(), then
     // throw from the constructor. This is before the main recording try/finally.
@@ -578,6 +581,26 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
+  // Loading/seeking the next cut takes tens of ms. Meanwhile MediaRecorder kept recording the
+  // last frame and WebAudio kept running: measured +0.63 % duration (~34 ms per cut, Chromium,
+  // tools/long-export-soak.cjs). Pause the recorder AND suspend the AudioContext together, so
+  // the gap is not recorded and independent audio stays aligned with the video timeline.
+  let holdPaused = false;
+  const holdRecording = async () => {
+    if (holdPaused || rec.state !== 'recording' || typeof rec.pause !== 'function') return;
+    try { rec.pause(); holdPaused = true; } catch { return; }
+    try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
+  };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
+  const releaseRecording = async () => {
+    if (!holdPaused) return;
+    holdPaused = false;
+    try { if (ac && ac.state === 'suspended') await ac.resume(); } catch { /* contexto cerrado */ }
+    try { if (rec.state === 'paused') rec.resume(); } catch { /* grabador detenido */ }
+  };
   const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
@@ -606,6 +629,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         }
         continue;
       }
+      if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
@@ -614,8 +643,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
-      const clipWallStart = performance.now();
+      // Keep the recorder paused through play() start-up as well, so that latency is not recorded;
+      // the clip's own clock (clipWallStart) then counts only recorded time.
+      if (ev.paused) await holdRecording();
       if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
+      await releaseRecording();
+      const clipWallStart = performance.now();
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {

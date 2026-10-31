@@ -17,7 +17,7 @@ Leyenda: **[V]** verificado con prueba o fuente (se indica dónde) · **[NV]** n
 | Función | Archivos | Estado |
 |---|---|---|
 | Reparación WebM: Duration, Cues, SeekHead y tamaños conocidos; bloques intactos | `app/media-container.mjs` (JS) · `WivraWebmSeekable.kt` (Kotlin en flujo, **idéntico byte a byte** al JS) | IMPLEMENTADO · PROBADO (JVM, EMU, Chromium) |
-| Reparación MP4 fragmentado: duración real (mvhd/tkhd/mdhd, mehd) + índice `mfra`, sin mover muestras | `media-container.mjs` · `WivraMp4Repair.swift` (en el sitio, sin `mehd`) | IMPLEMENTADO · PROBADO (JS; Swift en macOS CI) |
+| Reparación MP4 fragmentado: duración real **solo en `mehd`** (como pide ISO/IEC 14496-12) + índice `mfra`, sin mover muestras | `media-container.mjs` · `WivraMp4Repair.swift` (solo `mfra` en el sitio; la duración la escribe el remux de AVFoundation) | IMPLEMENTADO · PROBADO (JS + ffprobe; Swift en macOS CI) |
 | MP4 fragmentado → MP4 normal (`moov` completo) | Android `WivraExportFinalizer.remuxMp4` (MediaExtractor→MediaMuxer) · iOS AVFoundation passthrough | IMPLEMENTADO · Android PROBADO EMU con H.264+AAC; con H.264+Opus MediaMuxer lo rechaza y se conserva el original |
 | Verificación del archivo final: pista de video, audio esperado, duración planificada frente a medida, si declara duración y tiene índice | `verifyExportedMedia` (JS) · `WivraExportFinalizer.inspect` (MediaMetadataRetriever) · `WivraMp4Repair.inspect` (AVFoundation) | IMPLEMENTADO · los avisos se muestran en el diálogo de exportación |
 | Publicación segura: la copia reparada solo sustituye a la grabación verificada si la copia también se verifica; si no, se entrega el original con el motivo | `WivraExportStore.finish/repairCopy` · `WivraExportStore.swift finish` | IMPLEMENTADO · PROBADO EMU |
@@ -67,7 +67,10 @@ En el CI la misma prueba corre también con WebKit de Linux (`tools/browser-cont
 El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, música independiente en bucle y voz independiente. Se exporta por el camino progresivo y se mide al final.
 
 - **[V LOCAL] 1 min:** 15 cortes, deriva +0,635 %, A/V media 57 ms y máximo 94 ms (sin empeorar entre el primer y el último cuarto), reparado con Duration y Cues, RSS de Chromium 709 → 1.076 MB.
-- **CI 10 / 20 / 30 / 60 min:** ver §8 (se completa con los resultados del workflow `Wivra Long Export Soak`).
+- **[V CI] 10 min con el código anterior** (`2bf8016`): deriva +0,441 %, A/V del clip 54/74 ms, RSS 745 → 1.249 MB.
+- **[V CI] 10 min con pausa durante las búsquedas** (`19162c7`): deriva **+0,145 %**, A/V del clip 52/76 ms, RSS 781 → 1.275 MB (máximo 1.290; se estabiliza, no crece sin parar), 26,6 MB, 591 fragmentos. Con la baliza se vio otro efecto: el **audio independiente** (voces y música grabadas aparte) se alejaba hasta 695 ms del tiempo planificado, porque cada corte todavía añade unos 7–9 ms al video mientras el audio independiente sigue el reloj sin pausas.
+- **Corrección** (`5ffaaa5`): en cada corte, con el grabador en pausa, las fuentes independientes se vuelven a arrancar en la posición exacta del video. **[V LOCAL, 2 min]** audio independiente frente al video: media 65 ms, máximo 97 ms, **sin acumularse** (51 → 63 ms), igual al desfase constante del propio clip (~64 ms).
+- **Resultados de 10/20/30/60 min con la corrección:** workflow `Wivra Long Export Soak` en `5ffaaa5` (ver el PR).
 
 ### 3.5 Recuperación y tolerancia a fallos
 
@@ -101,6 +104,9 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 5. Elección de formato: H.264+Opus en MP4 ya no se prefiere fuera de iOS.
 6. Puente Android: una copia de memoria menos por fragmento.
 7. Errores de compilación Swift 6 detectados por el CI y corregidos.
+8. **Duración doble en AVFoundation** (macOS CI): la primera versión escribía la duración en `mvhd`/`tkhd`/`mdhd` de un MP4 fragmentado y AVFoundation leía 4.046 ms en un video de 2.023 ms. Ahora la duración va solo en `mehd`, como pide la norma; ffprobe lee 2,023 s y 2,214 s y el salto funciona.
+9. **Deriva por cortes** (banco largo): mientras se busca el siguiente corte, MediaRecorder seguía grabando (unos 34 ms por corte). Ahora se pausa el grabador y se suspende el AudioContext durante la carga, la búsqueda y el arranque de `play()`. Montaje de 2 min con 23 cortes: deriva de 0,755 % a **0,222 %**; audio independiente, media/máximo, de 140/647 ms a **24/121 ms**; A/V del clip, máximo, de 165 ms a 97 ms.
+10. **Audio independiente desalineado en montajes largos** (medido con la baliza): se re-ancla en cada corte mientras no se graba; deja de acumularse.
 
 ## 6. Limitaciones y pruebas físicas pendientes
 
@@ -123,7 +129,14 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 
 ## 8. Resultados de CI de esta entrega
 
-(Se completan al terminar los workflows; ver el PR #132.)
+| Commit | Qué valida | Resultado |
+|---|---|---|
+| `6b014ca` | Reparación JS/Kotlin, emulador con muestras reales y exportación real del editor | 13/13 · emulador 15/15 ([run 41145372038](https://github.com/Os-WHGo/Wivra/actions/runs/41145372038)) |
+| `7d4c31b`, `ace8df0`, `efe3d1c` | Primeros intentos de la reparación iOS | `compile-ios` falló: alcance de variables y luego tiempo de comprobación de tipos de Swift 6. Corregido |
+| `23c00fe` | Rendimiento del puente en el emulador | 16/16 · **18,3 MB/s** ([run 41147207594](https://github.com/Os-WHGo/Wivra/actions/runs/41147207594)) · la prueba de humo macOS detectó la duración doble de AVFoundation |
+| `237af75` | Duración solo en `mehd`, prueba de humo iOS con MP4 reales, compilación iOS/Android, navegador | **13/13 en verde**. iOS (AVFoundation, macOS): H.264+AAC → `mp4-passthrough`, 2.023 ms, A+V; H.264+Opus de Chromium → `mp4-passthrough`, 2.220 ms, A+V |
+| `2bf8016` | Exportación larga de 10 min (código previo a la pausa durante las búsquedas) | OK: deriva +2,647 s (+0,441 %), A/V media 54 ms y máximo 74 ms, RSS 745 → 1.249 MB, 26,6 MB, 591 fragmentos ([run 41146650807](https://github.com/Os-WHGo/Wivra/actions/runs/41146650807)) |
+| `19162c7` | Exportaciones largas de 10/20/30/60 min con la pausa durante las búsquedas y la baliza de audio independiente | en curso al redactar (ver el PR) |
 
 ## 9. Riesgos de integración con el PR #131
 
