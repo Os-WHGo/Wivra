@@ -105,3 +105,51 @@ test('two stores sharing the native atomic writer cannot race the same session',
   await assert.rejects(second.save(stale), /Stale capture snapshot/);
   assert.equal(files.get('wivra-capture-shared.json'), saved);
 });
+
+test('newer direct snapshots cannot erase or rewrite verified capture history', async () => {
+  const { store, files } = storage();
+  await store.start({ id: 'history', platform: 'android', startedAt: 1 });
+  await store.transition('history', { state: 'recording', at: 2 });
+  await store.appendConfirmedSegment('history', { file: 'first.mp4', startMs: 0, endMs: 1000, confirmed: true }, 3);
+  await store.transition('history', { state: 'interrupted', at: 4, reason: 'link lost' });
+  const current = await store.load('history');
+  const snapshot = files.get('wivra-capture-history.json');
+  const newer = changes => ({ ...current, updatedAt: 100, ...changes });
+
+  for (const invalid of [
+    newer({ segments: [] }),
+    newer({ segments: [{ ...current.segments[0], file: 'replacement.mp4' }] }),
+    newer({ interruptions: [] }),
+    newer({ platform: 'ios' }),
+    newer({ startedAt: 2 }),
+    newer({ state: 'connecting' })
+  ]) {
+    await assert.rejects(store.save(invalid), /discard confirmed history/);
+    assert.equal(files.get('wivra-capture-history.json'), snapshot);
+  }
+  // Identical retry is safe, and the ordinary state machine can still resume.
+  assert.deepEqual(await store.save(current), current);
+  await store.transition('history', { state: 'recording', at: 5 });
+  await store.appendConfirmedSegment('history', { file: 'second.mp4', startMs: 1000, endMs: 2000, confirmed: true }, 6);
+  assert.deepEqual((await store.load('history')).segments.map(s => s.file), ['first.mp4', 'second.mp4']);
+});
+
+test('direct save cannot reopen or replace a terminal capture snapshot', async () => {
+  const { store, files } = storage();
+  await store.start({ id: 'sealed', platform: 'ios', startedAt: 1 });
+  await store.transition('sealed', { state: 'recording', at: 2 });
+  await store.appendConfirmedSegment('sealed', { file: 'verified.mov', startMs: 0, endMs: 5000, confirmed: true }, 3);
+  await store.transition('sealed', { state: 'stopping', at: 4 });
+  await store.transition('sealed', { state: 'finalized', at: 5, finalFile: 'finished.mov' });
+  const saved = await store.load('sealed');
+  const original = files.get('wivra-capture-sealed.json');
+  for (const change of [
+    { state: 'failed' },
+    { state: 'recording', finalFile: null },
+    { state: 'finalized', finalFile: 'different.mov' }
+  ]) {
+    await assert.rejects(store.save({ ...saved, updatedAt: 100, ...change }), /discard confirmed history/);
+    assert.equal(files.get('wivra-capture-sealed.json'), original);
+  }
+  assert.deepEqual(await store.save(saved), saved);
+});
