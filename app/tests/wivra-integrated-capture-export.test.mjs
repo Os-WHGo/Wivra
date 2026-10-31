@@ -54,6 +54,8 @@ test('iOS capture picker verifies real media before releasing an existing captur
   assert.match(ios, /allowedFolders\.contains\(captureRoot\)/);
   assert.match(ios, /trackNames\.allSatisfy\(\{ names\.contains\(\$0\) \}\)/);
   assert.match(ios, /tracks\.count <= 32/);
+  assert.match(ios, /guard names == declaredNames else \{ return nil \}/);
+  assert.match(ios, /declaredNames\.insert\(original\)/);
   assert.match(ios, /guard let tracks = declared\["tracks"\] as\? \[\[String: Any\]\]/);
   assert.match(ios, /declared\["muxedVideoFile"\]/);
   assert.match(ios, /manifestSize > 0, manifestSize <= 128 \* 1024/);
