@@ -67,7 +67,10 @@ En el CI la misma prueba corre también con WebKit de Linux (`tools/browser-cont
 El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, música independiente en bucle y voz independiente. Se exporta por el camino progresivo y se mide al final.
 
 - **[V LOCAL] 1 min:** 15 cortes, deriva +0,635 %, A/V media 57 ms y máximo 94 ms (sin empeorar entre el primer y el último cuarto), reparado con Duration y Cues, RSS de Chromium 709 → 1.076 MB.
-- **CI 10 / 20 / 30 / 60 min:** ver §8 (se completa con los resultados del workflow `Wivra Long Export Soak`).
+- **[V CI] 10 min con el código anterior** (`2bf8016`): deriva +0,441 %, A/V del clip 54/74 ms, RSS 745 → 1.249 MB.
+- **[V CI] 10 min con pausa durante las búsquedas** (`19162c7`): deriva **+0,145 %**, A/V del clip 52/76 ms, RSS 781 → 1.275 MB (máximo 1.290; se estabiliza, no crece sin parar), 26,6 MB, 591 fragmentos. Con la baliza se vio otro efecto: el **audio independiente** (voces y música grabadas aparte) se alejaba hasta 695 ms del tiempo planificado, porque cada corte todavía añade unos 7–9 ms al video mientras el audio independiente sigue el reloj sin pausas.
+- **Corrección** (`5ffaaa5`): en cada corte, con el grabador en pausa, las fuentes independientes se vuelven a arrancar en la posición exacta del video. **[V LOCAL, 2 min]** audio independiente frente al video: media 65 ms, máximo 97 ms, **sin acumularse** (51 → 63 ms), igual al desfase constante del propio clip (~64 ms).
+- **Resultados de 10/20/30/60 min con la corrección:** workflow `Wivra Long Export Soak` en `5ffaaa5` (ver el PR).
 
 ### 3.5 Recuperación y tolerancia a fallos
 
@@ -103,6 +106,7 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 7. Errores de compilación Swift 6 detectados por el CI y corregidos.
 8. **Duración doble en AVFoundation** (macOS CI): la primera versión escribía la duración en `mvhd`/`tkhd`/`mdhd` de un MP4 fragmentado y AVFoundation leía 4.046 ms en un video de 2.023 ms. Ahora la duración va solo en `mehd`, como pide la norma; ffprobe lee 2,023 s y 2,214 s y el salto funciona.
 9. **Deriva por cortes** (banco largo): mientras se busca el siguiente corte, MediaRecorder seguía grabando (unos 34 ms por corte). Ahora se pausa el grabador y se suspende el AudioContext durante la carga, la búsqueda y el arranque de `play()`. Montaje de 2 min con 23 cortes: deriva de 0,755 % a **0,222 %**; audio independiente, media/máximo, de 140/647 ms a **24/121 ms**; A/V del clip, máximo, de 165 ms a 97 ms.
+10. **Audio independiente desalineado en montajes largos** (medido con la baliza): se re-ancla en cada corte mientras no se graba; deja de acumularse.
 
 ## 6. Limitaciones y pruebas físicas pendientes
 
