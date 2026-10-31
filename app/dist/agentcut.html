@@ -541,6 +541,9 @@ body.dock .back{pointer-events:none;background:transparent}
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
   <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
+  <div id="expSaveRow" style="display:none;margin:8px 0"><label for="expSave" style="display:block">Cómo guardar</label>
+    <select id="expSave"><option value="auto">Directo al teléfono, por partes (nuevo, beta)</option><option value="memory">En memoria (anterior)</option></select>
+    <p class="m" id="expSaveInfo">Por partes: cada segundo grabado se escribe en el teléfono y se comprueba al final; usa poca memoria. En memoria: el método anterior, todo el video se guarda en la RAM hasta terminar.</p></div>
   <button id="expGo" class="btn">Empezar a exportar</button>
   <div id="expBar" style="display:none;margin-top:12px"><div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden"><div id="expFill" style="height:100%;width:0;background:var(--ac)"></div></div><div id="expPct" class="m" style="margin-top:6px"></div>
     <button id="expCancel" class="btn sec">Cancelar</button></div>
@@ -1776,9 +1779,550 @@ function reorderOps(project, orderedIds) {
   return ops;
 }
 
+// Wivra · exportación progresiva. Cada fragmento de MediaRecorder (≈1 s) sale del
+// WebView hacia un archivo nativo en cuanto existe, en orden y con CRC-32 de extremo
+// a extremo. La memoria queda acotada por la cola (no por la duración del video).
+// Sin puente nativo (navegador normal) se usa la exportación en memoria de siempre.
+// Protocolo v1: begin → chunk(seq 0..n) → finish(bytes, crc32, chunks) | abort. — Claude
+
+const EXPORT_SINK_PROTOCOL = 1;
+const MiB = 1024 * 1024;
+// Cola máxima pendiente de confirmar por el almacenamiento: a 8 Mbps son ~48 s de
+// video. Si el disco no sigue el ritmo se corta con un error claro, nunca crece sin fin.
+const EXPORT_SINK_MAX_QUEUED_BYTES = 48 * MiB;
+// Un fragmento de 1 s nunca debería pasar de unos MB; 32 MiB descarta datos absurdos.
+const EXPORT_SINK_MAX_CHUNK_BYTES = 32 * MiB;
+const EXPORT_SINK_REQUEST_MS = 30000;
+// Android usa este prefijo binario antes de cada fragmento: 'WVX1', rid, token, seq (u32 LE).
+const EXPORT_FRAME_MAGIC = 0x31585657;
+const EXPORT_FRAME_HEADER = 16;
+
+const EXPORT_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+/** CRC-32 IEEE (el mismo que zlib, java.util.zip.CRC32 y el de iOS en Wivra). Incremental. */
+function crc32Update(crc, bytes) {
+  let c = (crc ^ 0xFFFFFFFF) >>> 0;
+  for (let i = 0; i < bytes.length; i++) c = EXPORT_CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function bytesToBase64(bytes) {
+  if (typeof bytes.toBase64 === 'function') return bytes.toBase64();
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** Marco binario para Android: cabecera de 16 bytes + datos, en un único ArrayBuffer. */
+function encodeExportFrame(rid, token, seq, bytes) {
+  const buf = new ArrayBuffer(EXPORT_FRAME_HEADER + bytes.length), view = new DataView(buf);
+  view.setUint32(0, EXPORT_FRAME_MAGIC, true); view.setUint32(4, rid >>> 0, true);
+  view.setUint32(8, token >>> 0, true); view.setUint32(12, seq >>> 0, true);
+  new Uint8Array(buf, EXPORT_FRAME_HEADER).set(bytes);
+  return buf;
+}
+
+const withTimeout = (promise, ms, what) => {
+  let timer;
+  return Promise.race([promise, new Promise((_, no) => { timer = setTimeout(() => no(new Error(what + ' no respondió a tiempo.')), ms); })])
+    .finally(() => clearTimeout(timer));
+};
+
+/** iOS: WKScriptMessageHandlerWithReply → postMessage devuelve una promesa. Sin canal
+ * binario en WebKit: el fragmento viaja en base64 (≈33 % extra, solo 1 fragmento a la vez). */
+function iosExportHost(handler, { requestMs = EXPORT_SINK_REQUEST_MS } = {}) {
+  const call = (msg, ms = requestMs) => withTimeout(Promise.resolve(handler.postMessage({ version: EXPORT_SINK_PROTOCOL, ...msg })), ms, 'El guardado del teléfono')
+    .then((r) => { if (!r || r.ok !== true) throw new Error((r && r.error) || 'Respuesta nativa inválida.'); return r; },
+      (e) => { throw e instanceof Error ? e : new Error(String(e)); });
+  return {
+    platform: 'ios', binary: false,
+    request: (msg, ms) => call(msg, ms),
+    sendChunk: ({ token, seq, bytes }) => call({ op: 'chunk', token, seq, size: bytes.length, b64: bytesToBase64(bytes) }),
+  };
+}
+
+/** Android: objeto inyectado por WebViewCompat.addWebMessageListener (solo en el HTML del APK).
+ * Peticiones en JSON; fragmentos como ArrayBuffer si el WebView lo admite (si no, base64).
+ * Las respuestas llegan por onmessage con el mismo rid. */
+function androidExportHost(obj, { requestMs = EXPORT_SINK_REQUEST_MS } = {}) {
+  let rid = 0, binary = false;
+  const pending = new Map();
+  const onReply = (event) => {
+    let r; try { r = JSON.parse(event && event.data); } catch { return; }
+    const p = r && pending.get(r.rid); if (!p) return;
+    pending.delete(r.rid); clearTimeout(p.timer);
+    if (r.ok === true) p.resolve(r); else p.reject(new Error(r.error || 'Error del guardado nativo.'));
+  };
+  if (typeof obj.addEventListener === 'function') obj.addEventListener('message', onReply); else obj.onmessage = onReply;
+  const send = (build, ms = requestMs) => new Promise((resolve, reject) => {
+    const id = ++rid;
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error('El guardado del teléfono no respondió a tiempo.')); }, ms);
+    pending.set(id, { resolve, reject, timer });
+    try { obj.postMessage(build(id)); } catch (e) { pending.delete(id); clearTimeout(timer); reject(e); }
+  });
+  const host = {
+    platform: 'android',
+    get binary() { return binary; },
+    request: (msg, ms) => send((id) => JSON.stringify({ v: EXPORT_SINK_PROTOCOL, rid: id, ...msg }), ms),
+    sendChunk: ({ token, seq, bytes }) => binary
+      ? send((id) => encodeExportFrame(id, token, seq, bytes))
+      : send((id) => JSON.stringify({ v: EXPORT_SINK_PROTOCOL, rid: id, op: 'chunk', token, seq, size: bytes.length, b64: bytesToBase64(bytes) })),
+    async hello() { const r = await host.request({ op: 'hello' }); binary = r.arrayBuffer === true; return r; },
+    /** Binary path: header + chunk built in ONE allocation straight from the Blob (no extra copy);
+     * `bytes` is a view of the payload inside the frame, used for the CRC. rid is set at send time. */
+    async readChunk(blob, token, seq) {
+      if (!binary) { const bytes = new Uint8Array(await blob.arrayBuffer()); return { bytes, send: () => host.sendChunk({ token, seq, bytes }) }; }
+      const head = new ArrayBuffer(EXPORT_FRAME_HEADER), view = new DataView(head);
+      view.setUint32(0, EXPORT_FRAME_MAGIC, true); view.setUint32(8, token >>> 0, true); view.setUint32(12, seq >>> 0, true);
+      const frame = await new Blob([head, blob]).arrayBuffer();
+      return { bytes: new Uint8Array(frame, EXPORT_FRAME_HEADER), send: () => send((id) => { new DataView(frame).setUint32(4, id >>> 0, true); return frame; }) };
+    },
+  };
+  return host;
+}
+
+const nativeExportObject = (g) => {
+  const ios = g && g.webkit && g.webkit.messageHandlers && g.webkit.messageHandlers.wivraExport;
+  if (ios && typeof ios.postMessage === 'function') return { kind: 'ios', obj: ios };
+  const android = g && g.WivraExportNative;
+  if (android && typeof android.postMessage === 'function') return { kind: 'android', obj: android };
+  return null;
+};
+/** ¿Hay puente nativo de guardado? No crea nada (sirve para mostrar u ocultar opciones). */
+const nativeExportAvailable = (g = globalThis) => !!nativeExportObject(g);
+// Un único adaptador por objeto nativo: dos adaptadores sobre el mismo canal Android
+// repetirían números de petición y una respuesta podría resolver la petición ajena.
+const EXPORT_HOST_CACHE = new WeakMap();
+/** Puente nativo disponible, o null (navegador normal: exportación en memoria). */
+function detectExportHost(g = globalThis) {
+  const found = nativeExportObject(g);
+  if (!found) return null;
+  if (!EXPORT_HOST_CACHE.has(found.obj)) EXPORT_HOST_CACHE.set(found.obj, found.kind === 'ios' ? iosExportHost(found.obj) : androidExportHost(found.obj));
+  return EXPORT_HOST_CACHE.get(found.obj);
+}
+
+/**
+ * Sumidero progresivo. push(blob) nunca bloquea a MediaRecorder: encola y envía en
+ * orden; cada fragmento se libera cuando el nativo confirma haberlo escrito.
+ * `error` se activa ante cualquier fallo (cola llena, escritura, integridad) y la
+ * exportación debe detenerse y llamar a abort(), que borra el archivo parcial.
+ */
+function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes = 0,
+  maxQueuedBytes = EXPORT_SINK_MAX_QUEUED_BYTES, maxChunkBytes = EXPORT_SINK_MAX_CHUNK_BYTES } = {}) {
+  let state = 'idle', token = 0, seq = 0, crc = 0, sentBytes = 0, receivedBytes = 0,
+    queuedBytes = 0, peakQueuedBytes = 0, error = null, chain = Promise.resolve(), info = null;
+  const fail = (e) => {
+    if (error) return;
+    error = e instanceof Error ? e : new Error(String(e));
+    if (state === 'open') state = 'failed';
+  };
+  const sink = {
+    get error() { return error; },
+    get state() { return state; },
+    get token() { return token; },
+    get platform() { return host.platform; },
+    async begin() {
+      if (state !== 'idle') throw new Error('El guardado ya empezó.');
+      if (typeof host.hello === 'function') await host.hello();
+      const r = await host.request({ op: 'begin', mime, ext, estimatedBytes: Math.max(0, Math.round(estimatedBytes || 0)) });
+      if (!Number.isInteger(r.token) || r.token <= 0) throw new Error('El guardado nativo no devolvió una sesión válida.');
+      token = r.token; info = r; state = 'open';
+      return r;
+    },
+    push(blob) {
+      const size = blob && blob.size;
+      if (state !== 'open' || error || !size) return;
+      if (size > maxChunkBytes) return fail(new Error('Fragmento de video anormalmente grande (' + size + ' bytes).'));
+      receivedBytes += size; queuedBytes += size; peakQueuedBytes = Math.max(peakQueuedBytes, queuedBytes);
+      if (queuedBytes > maxQueuedBytes) return fail(new Error('El almacenamiento del teléfono no sigue el ritmo de la grabación. Libera espacio o cierra otras apps.'));
+      chain = chain.then(async () => {
+        if (error) return;
+        const prepared = typeof host.readChunk === 'function' ? await host.readChunk(blob, token, seq) : null;
+        const bytes = prepared ? prepared.bytes : new Uint8Array(await blob.arrayBuffer());
+        if (bytes.length !== size) throw new Error('Un fragmento cambió de tamaño al leerlo.');
+        const next = crc32Update(crc, bytes);
+        const r = prepared ? await prepared.send() : await host.sendChunk({ token, seq, bytes });
+        if (r.seq !== seq || r.written !== sentBytes + size) throw new Error('El teléfono confirmó otros datos de los enviados.');
+        crc = next; seq++; sentBytes += size; queuedBytes -= size;
+      }).catch(fail);
+    },
+    /** Espera a que todo esté escrito y pide al nativo cerrar, sincronizar y verificar. */
+    async finish({ timeoutMs, expectedDurationMs = 0, expectAudio = false } = {}) {
+      if (state !== 'open') throw error || new Error('El guardado no está abierto.');
+      await chain;
+      if (error) throw error;
+      if (sentBytes !== receivedBytes) throw new Error('No se escribieron todos los fragmentos grabados.');
+      state = 'finishing';
+      // Cerrar incluye releer el archivo del disco para comprobar el CRC y reparar el contenedor
+      // (duración + índice para avanzar/retroceder): puede tardar en archivos grandes.
+      const ms = timeoutMs || Math.max(EXPORT_SINK_REQUEST_MS, 60000 + Math.ceil(sentBytes / (4 * MiB)) * 1000);
+      let r;
+      try { r = await host.request({ op: 'finish', token, bytes: sentBytes, crc32: crc, chunks: seq, expectedDurationMs, expectAudio }, ms); }
+      catch (e) { state = 'failed'; fail(e); throw error; }
+      // The native side reports the VERIFIED recording (recordedBytes/recordedCrc32) and, when it
+      // repaired the container, the size of the final file in `bytes`. Older natives only send bytes/crc32.
+      const verifiedBytes = r.recordedBytes ?? r.bytes, verifiedCrc = (r.recordedCrc32 ?? r.crc32) >>> 0;
+      if (verifiedBytes !== sentBytes || verifiedCrc !== crc) { state = 'failed'; fail(new Error('El archivo guardado no coincide con lo grabado.')); throw error; }
+      state = 'done';
+      return { ...r, recordedBytes: sentBytes, bytes: r.bytes ?? sentBytes, crc32: crc, chunks: seq, peakQueuedBytes, platform: host.platform };
+    },
+    /** Idempotente. Borra el archivo parcial en el nativo; nunca lanza. */
+    async abort(reason = 'cancelled') {
+      if (state === 'idle' || state === 'done' || state === 'aborted') { if (state === 'idle') state = 'aborted'; return; }
+      const hadToken = token > 0; state = 'aborted';
+      if (!hadToken) return;
+      try { await host.request({ op: 'abort', token, reason: String(reason).slice(0, 120) }); } catch { /* el nativo limpia huérfanos al iniciar */ }
+    },
+    stats: () => ({ state, seq, sentBytes, receivedBytes, queuedBytes, peakQueuedBytes, crc32: crc, info }),
+  };
+  return sink;
+}
+
+/** Pide al nativo abrir el menú de compartir/guardar del archivo ya verificado. */
+function shareSavedExport(host, token) {
+  return host.request({ op: 'share', token });
+}
+
+// Wivra · contenedores de exportación sin dependencias. MediaRecorder escribe WebM y MP4
+// «en vivo»: el WebM no lleva duración ni índice (Cues) y el MP4 fragmentado declara
+// duración 0 y no tiene índice (mfra). Muchas galerías no muestran la duración ni dejan
+// avanzar o retroceder. Aquí se reparan SIN recodificar: se copian los mismos bytes de
+// audio y video y solo se reescriben las cabeceras. Si algo no se entiende, se devuelve
+// el original intacto con el motivo: nunca se entrega un archivo peor que el grabado. — Claude
+
+// ---------- EBML (WebM / Matroska) ----------
+const MC_EB = {
+  EBML: 0x1A45DFA3, Segment: 0x18538067, SeekHead: 0x114D9B74, Seek: 0x4DBB, SeekID: 0x53AB, SeekPosition: 0x53AC,
+  Info: 0x1549A966, TimecodeScale: 0x2AD7B1, Duration: 0x4489, Tracks: 0x1654AE6B, TrackEntry: 0xAE,
+  TrackNumber: 0xD7, TrackType: 0x83, CodecID: 0x86, Cluster: 0x1F43B675, Timecode: 0xE7, SimpleBlock: 0xA3,
+  BlockGroup: 0xA0, Block: 0xA1, ReferenceBlock: 0xFB, Cues: 0x1C53BB6B, CuePoint: 0xBB, CueTime: 0xB3,
+  CueTrackPositions: 0xB7, CueTrack: 0xF7, CueClusterPosition: 0xF1, Void: 0xEC,
+};
+const MC_TOP_LEVEL = new Set([MC_EB.SeekHead, MC_EB.Info, MC_EB.Tracks, MC_EB.Cluster, MC_EB.Cues, 0x1254C367, 0x1043A770, 0x1941A469, MC_EB.Void]);
+const MC_UNKNOWN = -1;
+
+function mcReadId(b, p) {
+  const first = b[p];
+  const len = first >= 0x80 ? 1 : first >= 0x40 ? 2 : first >= 0x20 ? 3 : first >= 0x10 ? 4 : 0;
+  if (!len || p + len > b.length) throw new Error('EBML: identificador inválido en ' + p);
+  let id = 0; for (let i = 0; i < len; i++) id = id * 256 + b[p + i];
+  return { id, len };
+}
+function mcReadSize(b, p) {
+  const first = b[p]; let len = 1, mask = 0x80;
+  while (len <= 8 && !(first & mask)) { len++; mask >>= 1; }
+  if (len > 8 || p + len > b.length) throw new Error('EBML: tamaño inválido en ' + p);
+  let v = first & (mask - 1), allOnes = v === mask - 1;
+  for (let i = 1; i < len; i++) { v = v * 256 + b[p + i]; if (b[p + i] !== 0xFF) allOnes = false; }
+  return { size: allOnes ? MC_UNKNOWN : v, len };
+}
+const mcIdBytes = (id) => { const out = []; while (id > 0) { out.unshift(id & 0xFF); id = Math.floor(id / 256); } return out; };
+/** Tamaño EBML de 8 bytes: estable aunque cambie el valor (evita recalcular desplazamientos). */
+const mcSize8 = (n) => { const out = [0x01]; for (let i = 6; i >= 0; i--) out.push(Math.floor(n / 2 ** (8 * i)) & 0xFF); return out; };
+const mcUintBytes = (n, width) => { const out = []; for (let i = width - 1; i >= 0; i--) out.push(Math.floor(n / 2 ** (8 * i)) & 0xFF); return out; };
+const mcElement = (id, payload) => [...mcIdBytes(id), ...mcSize8(payload.length), ...payload];
+const mcUintElement = (id, n, width = 8) => mcElement(id, mcUintBytes(n, width));
+
+/** Lee el WebM de MediaRecorder: cabecera, Info, Tracks y los clusters (aunque tengan tamaño desconocido). */
+function parseWebm(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const head = mcReadId(b, 0); if (head.id !== MC_EB.EBML) throw new Error('No empieza como WebM (falta EBML).');
+  const headSize = mcReadSize(b, head.len), ebmlEnd = head.len + headSize.len + headSize.size;
+  const seg = mcReadId(b, ebmlEnd); if (seg.id !== MC_EB.Segment) throw new Error('WebM sin Segment.');
+  const segSize = mcReadSize(b, ebmlEnd + seg.len), dataStart = ebmlEnd + seg.len + segSize.len;
+  const segEnd = segSize.size === MC_UNKNOWN ? b.length : Math.min(b.length, dataStart + segSize.size);
+  const out = { ebml: b.subarray(0, ebmlEnd), info: null, tracks: null, extras: [], clusters: [], timecodeScale: 1e6, trackTypes: new Map(), codecs: new Map() };
+  let p = dataStart;
+  while (p < segEnd) {
+    const { id, len } = mcReadId(b, p); const sz = mcReadSize(b, p + len), bodyStart = p + len + sz.len;
+    if (id === MC_EB.Cluster) {
+      // Un cluster «en vivo» no dice su tamaño: termina donde empieza el siguiente elemento de nivel superior.
+      let q = bodyStart, end = sz.size === MC_UNKNOWN ? segEnd : Math.min(segEnd, bodyStart + sz.size);
+      const children = []; let truncated = false;
+      while (q < end) {
+        const c = mcReadId(b, q);
+        if (sz.size === MC_UNKNOWN && MC_TOP_LEVEL.has(c.id)) { end = q; break; }
+        const cs = mcReadSize(b, q + c.len); if (cs.size === MC_UNKNOWN) throw new Error('WebM: bloque de tamaño desconocido.');
+        const cEnd = q + c.len + cs.len + cs.size;
+        if (cEnd > b.length) { end = q; truncated = true; break; }   // último bloque cortado: se descarta, no se inventa
+        children.push({ id: c.id, start: q, bodyStart: q + c.len + cs.len, end: cEnd });
+        q = cEnd;
+      }
+      out.clusters.push({ start: p, end, children });
+      if (truncated) { out.truncated = true; break; }   // nada válido puede seguir a un bloque cortado
+      p = end; continue;
+    }
+    if (sz.size === MC_UNKNOWN) throw new Error('WebM: elemento de nivel superior sin tamaño.');
+    const end = bodyStart + sz.size; if (end > b.length) throw new Error('WebM truncado.');
+    if (id === MC_EB.Info) out.info = { start: p, bodyStart, end };
+    else if (id === MC_EB.Tracks) out.tracks = { start: p, bodyStart, end };
+    else if (id !== MC_EB.SeekHead && id !== MC_EB.Cues && id !== MC_EB.Void) out.extras.push({ start: p, end });
+    p = end;
+  }
+  if (!out.info || !out.tracks) throw new Error('WebM sin Info o Tracks.');
+  // TimecodeScale y tipo de cada pista.
+  for (let q = out.info.bodyStart; q < out.info.end;) {
+    const c = mcReadId(b, q), cs = mcReadSize(b, q + c.len), body = q + c.len + cs.len;
+    if (c.id === MC_EB.TimecodeScale) { let v = 0; for (let i = 0; i < cs.size; i++) v = v * 256 + b[body + i]; out.timecodeScale = v; }
+    q = body + cs.size;
+  }
+  for (let q = out.tracks.bodyStart; q < out.tracks.end;) {
+    const c = mcReadId(b, q), cs = mcReadSize(b, q + c.len), body = q + c.len + cs.len;
+    if (c.id === MC_EB.TrackEntry) {
+      let num = 0, type = 0, codec = '';
+      for (let r = body; r < body + cs.size;) {
+        const e = mcReadId(b, r), es = mcReadSize(b, r + e.len), eb = r + e.len + es.len;
+        let v = 0; if (e.id === MC_EB.TrackNumber || e.id === MC_EB.TrackType) for (let i = 0; i < es.size; i++) v = v * 256 + b[eb + i];
+        if (e.id === MC_EB.TrackNumber) num = v; else if (e.id === MC_EB.TrackType) type = v;
+        else if (e.id === MC_EB.CodecID) codec = String.fromCharCode(...b.subarray(eb, eb + es.size));
+        r = eb + es.size;
+      }
+      out.trackTypes.set(num, type === 1 ? 'video' : type === 2 ? 'audio' : 'other'); out.codecs.set(num, codec);
+    }
+    q = body + cs.size;
+  }
+  // Tiempo de cada cluster y de cada bloque (para la duración real y el índice).
+  const lastTimes = new Map(), deltas = new Map();
+  for (const cl of out.clusters) {
+    cl.time = null; cl.keyframeVideo = false; let firstVideoSeen = false;
+    for (const ch of cl.children) {
+      if (ch.id === MC_EB.Timecode) { let v = 0; for (let i = ch.bodyStart; i < ch.end; i++) v = v * 256 + b[i]; cl.time = v; }
+      else if ((ch.id === MC_EB.SimpleBlock || ch.id === MC_EB.BlockGroup) && cl.time != null) {
+        let blk = ch.bodyStart, blkEnd = ch.end, key = false;
+        if (ch.id === MC_EB.BlockGroup) {
+          blk = -1; key = true;
+          for (let r = ch.bodyStart; r < ch.end;) { const e = mcReadId(b, r), es = mcReadSize(b, r + e.len), eb = r + e.len + es.len; if (e.id === MC_EB.Block) { blk = eb; blkEnd = eb + es.size; } if (e.id === MC_EB.ReferenceBlock) key = false; r = eb + es.size; }
+          if (blk < 0) continue;
+        }
+        const tn = mcReadSize(b, blk), track = tn.size, rel = (b[blk + tn.len] << 24 >> 16) | b[blk + tn.len + 1];
+        if (ch.id === MC_EB.SimpleBlock) key = !!(b[blk + tn.len + 2] & 0x80);
+        const t = cl.time + rel, prev = lastTimes.get(track);
+        if (prev != null && t > prev) deltas.set(track, t - prev);
+        lastTimes.set(track, Math.max(prev ?? -Infinity, t));
+        if (out.trackTypes.get(track) === 'video' && !firstVideoSeen) { firstVideoSeen = true; cl.keyframeVideo = key; cl.videoTrack = track; }
+        void blkEnd;
+      }
+    }
+  }
+  let endTicks = 0;
+  for (const [track, t] of lastTimes) endTicks = Math.max(endTicks, t + (deltas.get(track) || 0));
+  out.durationTicks = endTicks;
+  out.durationMs = endTicks * out.timecodeScale / 1e6;
+  return out;
+}
+
+/**
+ * Devuelve un WebM con Duration, Cues (índice para avanzar/retroceder), SeekHead y tamaños
+ * conocidos. Los bloques de audio y video se copian byte a byte.
+ */
+function webmMakeSeekable(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const w = parseWebm(b);
+  if (!w.clusters.length) throw new Error('WebM sin clusters: no hay audio ni video.');
+  // Info sin Duration previa, más Duration (float64) calculada de los propios bloques.
+  const infoBody = [];
+  for (let q = w.info.bodyStart; q < w.info.end;) {
+    const c = mcReadId(b, q), cs = mcReadSize(b, q + c.len), end = q + c.len + cs.len + cs.size;
+    if (c.id !== MC_EB.Duration && c.id !== MC_EB.Void) infoBody.push(...b.subarray(q, end));
+    q = end;
+  }
+  const dur = new DataView(new ArrayBuffer(8)); dur.setFloat64(0, w.durationTicks);
+  infoBody.push(...mcElement(MC_EB.Duration, [...new Uint8Array(dur.buffer)]));
+  const info = mcElement(MC_EB.Info, infoBody);
+  const tracks = b.subarray(w.tracks.start, w.tracks.end);
+  const extrasLen = w.extras.reduce((n, e) => n + (e.end - e.start), 0);
+  // Clusters con tamaño conocido (cabecera de 8 bytes) y mismos hijos.
+  const clusterHeads = w.clusters.map((cl) => { const bodyLen = cl.children.reduce((n, c) => n + (c.end - c.start), 0); return { cl, bodyLen, head: [...mcIdBytes(MC_EB.Cluster), ...mcSize8(bodyLen)] }; });
+  const cueClusters = clusterHeads.filter((c) => c.cl.time != null && (c.cl.keyframeVideo || c.cl.videoTrack == null));
+  const cueTrack = [...w.trackTypes].find(([, t]) => t === 'video')?.[0] ?? [...w.trackTypes.keys()][0] ?? 1;
+  const cuePointLen = mcElement(MC_EB.CuePoint, [...mcUintElement(MC_EB.CueTime, 0), ...mcElement(MC_EB.CueTrackPositions, [...mcUintElement(MC_EB.CueTrack, 0), ...mcUintElement(MC_EB.CueClusterPosition, 0)])]).length;
+  const cuesLen = mcIdBytes(MC_EB.Cues).length + 8 + cuePointLen * cueClusters.length;
+  const seekEntry = (id, pos) => mcElement(MC_EB.Seek, [...mcElement(MC_EB.SeekID, mcIdBytes(id)), ...mcUintElement(MC_EB.SeekPosition, pos)]);
+  const seekHeadLen = mcElement(MC_EB.SeekHead, [...seekEntry(MC_EB.Info, 0), ...seekEntry(MC_EB.Tracks, 0), ...seekEntry(MC_EB.Cues, 0)]).length;
+  // Desplazamientos relativos al inicio de los datos del Segment.
+  const infoPos = seekHeadLen, tracksPos = infoPos + info.length, cuesPos = tracksPos + tracks.length + extrasLen;
+  let pos = cuesPos + cuesLen; const clusterPos = new Map();
+  for (const c of clusterHeads) { clusterPos.set(c.cl, pos); pos += c.head.length + c.bodyLen; }
+  const segBodyLen = pos;
+  const cues = mcElement(MC_EB.Cues, cueClusters.flatMap((c) => mcElement(MC_EB.CuePoint, [...mcUintElement(MC_EB.CueTime, c.cl.time), ...mcElement(MC_EB.CueTrackPositions, [...mcUintElement(MC_EB.CueTrack, c.cl.videoTrack ?? cueTrack), ...mcUintElement(MC_EB.CueClusterPosition, clusterPos.get(c.cl))])])));
+  const seekHead = mcElement(MC_EB.SeekHead, [...seekEntry(MC_EB.Info, infoPos), ...seekEntry(MC_EB.Tracks, tracksPos), ...seekEntry(MC_EB.Cues, cuesPos)]);
+  if (seekHead.length !== seekHeadLen || cues.length !== cuesLen) throw new Error('Índice WebM inconsistente.');
+  const segHead = [...mcIdBytes(MC_EB.Segment), ...mcSize8(segBodyLen)];
+  const out = new Uint8Array(w.ebml.length + segHead.length + segBodyLen);
+  let o = 0; const put = (arr) => { out.set(arr, o); o += arr.length; };
+  put(w.ebml); put(segHead); put(seekHead); put(info); put(tracks);
+  for (const e of w.extras) put(b.subarray(e.start, e.end));
+  put(cues);
+  for (const c of clusterHeads) { put(c.head); for (const ch of c.cl.children) put(b.subarray(ch.start, ch.end)); }
+  if (o !== out.length) throw new Error('Tamaño WebM inconsistente.');
+  return { bytes: out, durationMs: w.durationMs, cues: cueClusters.length, clusters: w.clusters.length };
+}
+
+// ---------- ISO BMFF (MP4 fragmentado) ----------
+const mcU32 = (b, p) => ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3];
+const mcU64 = (b, p) => mcU32(b, p) * 2 ** 32 + mcU32(b, p + 4);
+const mcType4 = (b, p) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+function* mcMp4Boxes(b, start, end) {
+  let p = start;
+  while (p + 8 <= end) {
+    let size = mcU32(b, p), hdr = 8; const type = mcType4(b, p + 4);
+    if (size === 1) { size = mcU64(b, p + 8); hdr = 16; } else if (size === 0) size = end - p;
+    if (size < hdr || p + size > end) throw new Error('MP4: caja ' + type + ' inválida o truncada.');
+    yield { type, start: p, body: p + hdr, end: p + size };
+    p += size;
+  }
+}
+const mcChild = (b, mcBox, type) => { for (const c of mcMp4Boxes(b, mcBox.body, mcBox.end)) if (c.type === type) return c; return null; };
+
+/** Lee un MP4 (normal o fragmentado): pistas, escala de tiempo y duración real de las muestras. */
+function parseMp4(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const top = [...mcMp4Boxes(b, 0, b.length)];
+  if (!top.length || top[0].type !== 'ftyp') throw new Error('No empieza como MP4 (falta ftyp).');
+  const moov = top.find((x) => x.type === 'moov'); if (!moov) throw new Error('MP4 sin moov.');
+  const mvhd = mcChild(b, moov, 'mvhd'), mvex = mcChild(b, moov, 'mvex');
+  const movieScale = mcU32(b, mvhd.body + (b[mvhd.body] === 1 ? 20 : 12));
+  const tracks = new Map();
+  for (const trak of mcMp4Boxes(b, moov.body, moov.end)) {
+    if (trak.type !== 'trak') continue;
+    const tkhd = mcChild(b, trak, 'tkhd'), mdia = mcChild(b, trak, 'mdia'), mdhd = mcChild(b, mdia, 'mdhd'), hdlr = mcChild(b, mdia, 'hdlr');
+    const id = mcU32(b, tkhd.body + (b[tkhd.body] === 1 ? 20 : 12));
+    const scale = mcU32(b, mdhd.body + (b[mdhd.body] === 1 ? 20 : 12));
+    const handler = mcType4(b, hdlr.body + 8);
+    let defaultDuration = 0, defaultFlags = 0;
+    if (mvex) for (const t of mcMp4Boxes(b, mvex.body, mvex.end)) if (t.type === 'trex' && mcU32(b, t.body + 4) === id) { defaultDuration = mcU32(b, t.body + 12); defaultFlags = mcU32(b, t.body + 20); }
+    tracks.set(id, { id, scale, kind: handler === 'vide' ? 'video' : handler === 'soun' ? 'audio' : handler, tkhd, mdhd, end: 0, defaultDuration, defaultFlags, fragments: [] });
+  }
+  const moofs = top.filter((x) => x.type === 'moof');
+  let absoluteOffsets = false;
+  moofs.forEach((moof, index) => {
+    for (const traf of mcMp4Boxes(b, moof.body, moof.end)) {
+      if (traf.type !== 'traf') continue;
+      const tfhd = mcChild(b, traf, 'tfhd'), flags = mcU32(b, tfhd.body) & 0xFFFFFF, id = mcU32(b, tfhd.body + 4);
+      const tr = tracks.get(id); if (!tr) continue;
+      let q = tfhd.body + 8; if (flags & 0x01) { absoluteOffsets = true; q += 8; } if (flags & 0x02) q += 4;
+      let defDur = tr.defaultDuration, defFlags = tr.defaultFlags;
+      if (flags & 0x08) { defDur = mcU32(b, q); q += 4; } if (flags & 0x10) q += 4; if (flags & 0x20) defFlags = mcU32(b, q);
+      const tfdt = mcChild(b, traf, 'tfdt'); let t = tfdt ? (b[tfdt.body] === 1 ? mcU64(b, tfdt.body + 4) : mcU32(b, tfdt.body + 4)) : tr.end;
+      const start = t; let firstSync = null;
+      for (const trun of mcMp4Boxes(b, traf.body, traf.end)) {
+        if (trun.type !== 'trun') continue;
+        const tf = mcU32(b, trun.body) & 0xFFFFFF, count = mcU32(b, trun.body + 4); let r = trun.body + 8;
+        if (tf & 0x01) r += 4; let firstFlags = null; if (tf & 0x04) { firstFlags = mcU32(b, r); r += 4; }
+        for (let i = 0; i < count; i++) {
+          let d = defDur, sf = i === 0 && firstFlags != null ? firstFlags : defFlags;
+          if (tf & 0x100) { d = mcU32(b, r); r += 4; } if (tf & 0x200) r += 4; if (tf & 0x400) { const v = mcU32(b, r); r += 4; if (!(i === 0 && firstFlags != null)) sf = v; } if (tf & 0x800) r += 4;
+          if (firstSync == null) firstSync = !(sf & 0x00010000);
+          t += d;
+        }
+      }
+      tr.fragments.push({ moof, index, time: start, sync: firstSync !== false });
+      tr.end = Math.max(tr.end, t);
+    }
+  });
+  let durationMs = 0;
+  if (moofs.length) for (const tr of tracks.values()) durationMs = Math.max(durationMs, tr.end / tr.scale * 1000);
+  else { const v = b[mvhd.body]; durationMs = (v === 1 ? mcU64(b, mvhd.body + 24) : mcU32(b, mvhd.body + 16)) / movieScale * 1000; }
+  return { top, moov, mvhd, mvex, movieScale, tracks, moofs, fragmented: moofs.length > 0, absoluteOffsets, durationMs,
+    hasIndex: top.some((x) => x.type === 'mfra' || x.type === 'sidx') };
+}
+
+const mcBox = (type, payload) => { const out = new Uint8Array(8 + payload.length); new DataView(out.buffer).setUint32(0, out.length); out.set([...type].map((c) => c.charCodeAt(0)), 4); out.set(payload, 8); return out; };
+const mcBe32 = (n) => [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255];
+
+/**
+ * MP4 fragmentado de MediaRecorder → misma media con su duración real en la caja mehd
+ * (la que la norma reserva para archivos fragmentados) y un índice mfra al final (avanzar/retroceder). Ningún byte de muestra se mueve
+ * respecto a su moof; si el archivo usa desplazamientos absolutos, no se toca.
+ */
+function fmp4AddDurationAndIndex(bytes) {
+  const src = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const m = parseMp4(src);
+  if (!m.fragmented) return { bytes: src, durationMs: m.durationMs, changed: false, reason: 'MP4 ya no fragmentado' };
+  if (m.absoluteOffsets) return { bytes: src, durationMs: m.durationMs, changed: false, reason: 'desplazamientos absolutos: no se reescribe' };
+  const b = src.slice();
+  const movieDur = Math.round(m.durationMs * m.movieScale / 1000);
+  if (movieDur >= 2 ** 32) return { bytes: src, durationMs: m.durationMs, changed: false, reason: 'duración demasiado larga para mvhd v0' };
+  // ISO/IEC 14496-12: in a fragmented file mvhd/tkhd/mdhd describe only the samples inside moov
+  // (none here); the whole duration belongs in mvex/mehd. Writing it into mvhd made AVFoundation
+  // count it twice (2.0 s file read as 4.0 s, macOS CI). So only mehd + mfra are added.
+  // mehd dentro de mvex: el moov crece 16 bytes; los moof usan desplazamientos relativos a sí mismos.
+  let out = b, shift = 0;
+  if (m.mvex && !mcChild(b, m.mvex, 'mehd')) {
+    const mehd = mcBox('mehd', [0, 0, 0, 0, ...mcBe32(movieDur)]);
+    out = new Uint8Array(b.length + mehd.length);
+    out.set(b.subarray(0, m.mvex.body), 0); out.set(mehd, m.mvex.body); out.set(b.subarray(m.mvex.body), m.mvex.body + mehd.length);
+    const dv = new DataView(out.buffer);
+    dv.setUint32(m.moov.start, mcU32(out, m.moov.start) + mehd.length);
+    dv.setUint32(m.mvex.start, mcU32(out, m.mvex.start) + mehd.length);
+    shift = mehd.length;
+  }
+  // mfra: una entrada por fragmento que empieza en cuadro clave, por pista.
+  const tfras = [];
+  for (const tr of m.tracks.values()) {
+    const entries = tr.fragments.filter((f) => f.sync);
+    const body = [1, 0, 0, 0, ...mcBe32(tr.id), 0, 0, 0, 0, ...mcBe32(entries.length)];
+    for (const f of entries) {
+      const off = f.moof.start + (f.moof.start > m.mvex?.body ? shift : 0);
+      body.push(...mcBe32(Math.floor(f.time / 2 ** 32)), ...mcBe32(f.time >>> 0), ...mcBe32(Math.floor(off / 2 ** 32)), ...mcBe32(off >>> 0), 1, 1, 1);
+    }
+    tfras.push(mcBox('tfra', body));
+  }
+  if (m.hasIndex) return { bytes: out, durationMs: m.durationMs, changed: true, indexAdded: false };
+  const mfroLen = 16, tfraLen = tfras.reduce((n, t) => n + t.length, 0);
+  const mfra = mcBox('mfra', [...tfras.flatMap((t) => [...t]), ...mcBox('mfro', [0, 0, 0, 0, ...mcBe32(8 + tfraLen + mfroLen)])]);
+  const final = new Uint8Array(out.length + mfra.length); final.set(out, 0); final.set(mfra, out.length);
+  return { bytes: final, durationMs: m.durationMs, changed: true, indexAdded: true };
+}
+
+/** Qué contiene un archivo exportado, para verificarlo antes de entregarlo. */
+function inspectExport(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (b.length >= 4 && mcU32(b, 0) === 0x1A45DFA3) {
+    const w = parseWebm(b);
+    const kinds = [...w.trackTypes.values()];
+    return { container: 'webm', durationMs: w.durationMs, video: kinds.includes('video'), audio: kinds.includes('audio'), codecs: [...w.codecs.values()],
+      declaresDuration: mcHasEbmlChild(b, w.info, MC_EB.Duration), seekIndex: w.clusters.length > 0 && mcHasTopLevel(b, MC_EB.Cues) };
+  }
+  if (b.length >= 8 && mcType4(b, 4) === 'ftyp') {
+    const m = parseMp4(b), kinds = [...m.tracks.values()].map((t) => t.kind);
+    const mehd = m.mvex && mcChild(b, m.mvex, 'mehd');
+    const declared = (b[m.mvhd.body] === 1 ? mcU64(b, m.mvhd.body + 24) : mcU32(b, m.mvhd.body + 16)) > 0 ||
+      (!!mehd && (b[mehd.body] === 1 ? mcU64(b, mehd.body + 4) : mcU32(b, mehd.body + 4)) > 0);
+    return { container: 'mp4', durationMs: m.durationMs, video: kinds.includes('video'), audio: kinds.includes('audio'), fragmented: m.fragmented,
+      declaresDuration: declared, seekIndex: !m.fragmented || m.hasIndex };
+  }
+  throw new Error('Formato de exportación desconocido.');
+}
+function mcHasEbmlChild(b, parent, id) { for (let q = parent.bodyStart; q < parent.end;) { const c = mcReadId(b, q), cs = mcReadSize(b, q + c.len); if (c.id === id) return true; q += c.len + cs.len + cs.size; } return false; }
+function mcHasTopLevel(b, id) { try { const w = mcReadId(b, 0), ws = mcReadSize(b, w.len); let p = w.len + ws.len + ws.size; const s = mcReadId(b, p), ss = mcReadSize(b, p + s.len); p += s.len + ss.len; const end = ss.size === MC_UNKNOWN ? b.length : p + ss.size; while (p < end) { const c = mcReadId(b, p), cs = mcReadSize(b, p + c.len); if (c.id === id) return true; if (cs.size === MC_UNKNOWN) return false; p += c.len + cs.len + cs.size; } } catch { /* sin índice */ } return false; }
+
+/**
+ * Repara la cabecera del video exportado en memoria (modo anterior / navegador). Nunca empeora:
+ * si no se puede, devuelve el original y el motivo.
+ */
+function finalizeExportBytes(bytes, { maxBytes = 512 * 1024 * 1024 } = {}) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (b.length > maxBytes) return { bytes: b, fixed: false, reason: 'archivo demasiado grande para repararlo en memoria' };
+  try {
+    if (mcU32(b, 0) === 0x1A45DFA3) { const r = webmMakeSeekable(b); return { bytes: r.bytes, fixed: true, durationMs: r.durationMs, container: 'webm' }; }
+    if (mcType4(b, 4) === 'ftyp') { const r = fmp4AddDurationAndIndex(b); return { bytes: r.bytes, fixed: r.changed, durationMs: r.durationMs, container: 'mp4', reason: r.reason }; }
+    return { bytes: b, fixed: false, reason: 'formato desconocido' };
+  } catch (e) { return { bytes: b, fixed: false, reason: e.message }; }
+}
+
 // Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
+
+
 
 
 
@@ -1861,17 +2405,42 @@ function fitRect(vw, vh, W, H, fit) {
 }
 
 // Elige el mejor formato que el navegador sepa grabar. Safari da MP4; Chrome/Android suele dar WebM.
-// Prefer explicit H.264 MP4. Chromium can accept a *bare* 'video/mp4'
-// then silently produce VP9/Opus inside MP4, which is poorly portable.
-// Prefer explicit WebM over an ambiguous MP4 container when AVC is absent.
-// Safari/iOS with only MP4 support retains the final generic MP4 fallback.
+// Prefer explicit H.264 + AAC MP4: it is the only combination every gallery, iPhone Photos and
+// social app accepts. Chromium can accept a *bare* 'video/mp4' then silently produce VP9/Opus
+// inside MP4, and 'video/mp4;codecs=avc1' gives H.264 + OPUS (measured 30-10-2026, Chromium
+// Linux), which QuickTime/iPhone Photos do not play. Outside iOS, WebM VP8/VP9 + Opus is then
+// more reliable (Android plays it natively and Wivra repairs its duration and seek index).
+// iOS keeps every MP4 option before WebM: Photos cannot import WebM.
 const MIME_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1',
-  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm',
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/mp4;codecs=avc1', 'video/webm',
   'video/mp4'];
-function pickMime(isSupported) {
-  for (const m of MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
+const MIME_CANDIDATES_IOS = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1',
+  'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+function pickMime(isSupported, { platform = '' } = {}) {
+  for (const m of platform === 'ios' ? MIME_CANDIDATES_IOS : MIME_CANDIDATES) { try { if (isSupported(m)) return m; } catch { /* sigue */ } }
   return '';
+}
+
+/**
+ * Comprueba el archivo terminado frente a lo planificado. errors = archivo inservible
+ * (no se entrega como «listo»); warnings = se entrega, pero se avisa con el dato medido.
+ */
+function verifyExportedMedia(info, { plannedSeconds = 0, expectAudio = false } = {}) {
+  const errors = [], warnings = [];
+  if (!info) return { ok: false, errors: ['No se pudo leer el archivo exportado.'], warnings };
+  if (!info.video) errors.push('El archivo exportado no tiene pista de video.');
+  if (expectAudio && !info.audio) warnings.push('El archivo exportado no tiene pista de audio.');
+  const got = (info.durationMs || 0) / 1000;
+  if (plannedSeconds > 0) {
+    if (got < plannedSeconds * 0.5) errors.push(`El archivo dura ${r2(got)} s y se esperaban ${r2(plannedSeconds)} s.`);
+    else if (Math.abs(got - plannedSeconds) > Math.max(0.5, plannedSeconds * 0.03))
+      warnings.push(`Duración exportada ${r2(got)} s frente a ${r2(plannedSeconds)} s planificados.`);
+  }
+  if (info.declaresDuration === false) warnings.push('El reproductor puede no mostrar la duración del video.');
+  if (info.seekIndex === false) warnings.push('Puede que no se pueda avanzar o retroceder dentro del video en algunos reproductores.');
+  return { ok: errors.length === 0, errors, warnings, durationSeconds: r2(got) };
 }
 const extFor = (mime) => (/mp4/.test(mime || '') ? 'mp4' : 'webm');
 
@@ -2051,16 +2620,21 @@ const frame = () => new Promise((res) => requestAnimationFrame(res));
 const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
 const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
 const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
-/** Advisory only: MediaRecorder chunks and final Blob remain buffered until export ends.
+/** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
+ * until export ends. In progressive mode (native sink) only a bounded queue stays in
+ * memory, so the risk is free storage, not RAM.
  * Estimated encoded MB is not a measurement of RAM or free storage.
  * The warning does not certify any duration or block the owner's export.
  */
-function exportMemoryRisk(seconds) {
+function exportMemoryRisk(seconds, { progressive = false } = {}) {
   const estimatedMB = exportSizeMB(seconds);
+  if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
+/** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
+const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -2171,7 +2745,9 @@ function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds
     unavailableAudio: !hasAudio && (active.length > 0 || hasAudibleVideo)
   };
 }
-async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false }) {
+// saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
+// 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
+async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
@@ -2227,6 +2803,22 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     try { if (ac) await ac.close(); } catch { /* context already released */ }
     return { audioBlocked: true, ...audioPreflight };
   }
+  // Escritura progresiva: se abre el archivo nativo ANTES de grabar. Si no hay espacio
+  // o el puente falla, no se graba nada (y se puede elegir el modo en memoria).
+  let sink = null;
+  const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
+  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
+  if (host) {
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    try { await sink.begin(); }
+    catch (error) {
+      await sink.abort('begin');
+      stream.getTracks().forEach(track => track.stop());
+      ev.remove();
+      try { if (ac) await ac.close(); } catch { /* context already released */ }
+      throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
+    }
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
@@ -2258,7 +2850,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -2266,11 +2858,10 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
-  const mime = pickMime((t) => MediaRecorder.isTypeSupported(t));
   let rec;
   try {
     rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
@@ -2282,12 +2873,14 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     oList.forEach((o) => { try { o.el.pause(); } catch { /* no media */ } try { o.el.remove(); } catch {} });
     ev.remove();
     try { if (ac) await ac.close(); } catch { /* context released */ }
+    if (sink) await sink.abort('recorder');
     throw new Error('Este teléfono no pudo iniciar el grabador con el formato anunciado (' + (error?.name || 'no admitido') + ').');
   }
-  // MediaRecorder chunks remain in memory until the final Blob is assembled.
-  // Track their size to diagnose long exports without changing the output format.
+  // Memory mode: MediaRecorder chunks remain in memory until the final Blob is assembled.
+  // Progressive mode: each chunk goes straight to the native file and is released once written.
+  // recordedBytes is checked against the final Blob or against the native file in both modes.
   const chunks = []; let recordedBytes = 0;
-  rec.ondataavailable = (e) => { if (e.data && e.data.size) { chunks.push(e.data); recordedBytes += e.data.size; } };
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) { recordedBytes += e.data.size; if (sink) sink.push(e.data); else chunks.push(e.data); } };
   const stopped = new Promise((res) => { rec.onstop = res; });
   // Fotos de la línea principal: un elemento por medio (se reutiliza si la misma foto sale varias veces). Un GIF se anima solo con su propio lector.
   const photos = new Map();
@@ -2303,9 +2896,29 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   };
   // Si la app pasa a segundo plano (cambio de app, pantalla apagada) el navegador congela el video y el dibujo: el archivo saldría con imagen congelada. Se detiene y se avisa.
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
-  const stopNow = () => isCancelled() || interrupted || !!recError;
+  const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
-  const t0 = performance.now(); let cancelled = false, recorderStarted = false;
+  // Loading/seeking the next cut takes tens of ms. Meanwhile MediaRecorder kept recording the
+  // last frame and WebAudio kept running: measured +0.63 % duration (~34 ms per cut, Chromium,
+  // tools/long-export-soak.cjs). Pause the recorder AND suspend the AudioContext together, so
+  // the gap is not recorded and independent audio stays aligned with the video timeline.
+  let holdPaused = false;
+  const holdRecording = async () => {
+    if (holdPaused || rec.state !== 'recording' || typeof rec.pause !== 'function') return;
+    try { rec.pause(); holdPaused = true; } catch { return; }
+    try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
+  };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
+  const releaseRecording = async () => {
+    if (!holdPaused) return;
+    holdPaused = false;
+    try { if (ac && ac.state === 'suspended') await ac.resume(); } catch { /* contexto cerrado */ }
+    try { if (rec.state === 'paused') rec.resume(); } catch { /* grabador detenido */ }
+  };
+  const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
   try {
@@ -2333,6 +2946,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
         }
         continue;
       }
+      if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
@@ -2341,8 +2960,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
-      const clipWallStart = performance.now();
+      // Keep the recorder paused through play() start-up as well, so that latency is not recorded;
+      // the clip's own clock (clipWallStart) then counts only recorded time.
+      if (ev.paused) await holdRecording();
       if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
+      await releaseRecording();
+      const clipWallStart = performance.now();
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {
@@ -2379,10 +3002,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       ev.pause();
     }
     await frame(); await frame();
+    completed = !cancelled;
   } finally {
     sources.forEach((x) => { try { x.stop(); } catch { /* ya terminó */ } });
     try {
       await finishMediaRecorder(rec, stopped, { started: recorderStarted });
+      recorderClosed = true;
     } finally {
       // This MUST execute even if MediaRecorder.start/stop throws or onstop
       // never fires. Otherwise a hidden video, microphone or AudioContext
@@ -2392,15 +3017,40 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       photos.forEach((el) => { try { el && el.remove && el.remove(); } catch { /* nada */ } });
       try { ev.pause(); } catch { /* nada */ } ev.remove(); try { ac && ac.close(); } catch { /* nada */ }
       document.removeEventListener('visibilitychange', onVis);
+      // Any path other than a complete, cleanly closed recording deletes the partial native file.
+      if (sink && (!completed || !recorderClosed || stopNow())) await sink.abort(interrupted ? 'interrupted' : 'stopped');
     }
   }
   if (interrupted) return { interrupted: true };
+  if (sink && sink.error) throw new Error('No se pudo guardar el video en el teléfono: ' + sink.error.message + ' No quedó ningún archivo a medias.');
   if (recError) throw new Error('La grabación falló (' + (recError.name || recError.message || 'error') + '). Puede que el teléfono no tenga memoria o espacio libre.');
   if (cancelled || isCancelled()) return { cancelled: true };
-  const type = rec.mimeType || mime || 'video/webm', blob = new Blob(chunks, { type });
-  if (blob.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
-  if (recordedBytes !== blob.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
-  return { blob, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  const type = rec.mimeType || mime || 'video/webm';
+  if (sink) {
+    if (recordedBytes < 1000) { await sink.abort('empty'); throw new Error('No se grabó nada. Prueba de nuevo.'); }
+    let saved;
+    // The native side repairs the container (duration + seek index) and reports what it measured.
+    try { saved = await sink.finish({ expectedDurationMs: Math.round(plan.total * 1000), expectAudio: hasAudio }); }
+    catch (error) { await sink.abort('finish'); throw new Error('No se pudo cerrar el video guardado: ' + (error?.message || 'error') + ' No quedó ningún archivo a medias.'); }
+    if (saved.recordedBytes !== undefined ? saved.recordedBytes !== recordedBytes : saved.bytes !== recordedBytes) throw new Error('La exportación no conserva todos los fragmentos grabados.');
+    const verification = saved.media ? verifyExportedMedia(saved.media, { plannedSeconds: plan.total, expectAudio: hasAudio }) : null;
+    return { saved, verification, progressive: true, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
+  }
+  const raw = new Blob(chunks, { type });
+  if (raw.size < 1000) throw new Error('No se grabó nada. Prueba de nuevo.');
+  if (recordedBytes !== raw.size) throw new Error('La exportación no conserva todos los fragmentos grabados.');
+  // Repair duration + seek index without re-encoding, then verify the result. If the repair is
+  // not possible the recorded original is delivered unchanged and the reason is reported.
+  let blob = raw, container = null, verification = null;
+  try {
+    const fixed = finalizeExportBytes(new Uint8Array(await raw.arrayBuffer()));
+    const info = inspectExport(fixed.bytes);
+    container = { fixed: fixed.fixed, reason: fixed.reason || '', ...info };
+    verification = verifyExportedMedia(info, { plannedSeconds: plan.total, expectAudio: hasAudio });
+    if (fixed.fixed) blob = new Blob([fixed.bytes], { type });
+  } catch (error) { container = { fixed: false, reason: error?.message || 'no se pudo inspeccionar' }; }
+  if (verification && !verification.ok) throw new Error('El video exportado no es válido: ' + verification.errors.join(' '));
+  return { blob, container, verification, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
 
 // Wivra · lector del manifiesto de captura (.wivra.json). Solo valida y normaliza: no abre archivos ni toca el timeline.
@@ -6206,18 +6856,23 @@ $('bExp').onclick = () => {
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
   $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
-  const exportRisk = exportMemoryRisk(plan.total);
+  const nativeSave = nativeExportAvailable();
+  $('expSaveRow').style.display = nativeSave ? 'block' : 'none';
+  const exportRisk = exportMemoryRisk(plan.total, { progressive: nativeSave && $('expSave').value !== 'memory' });
   $('expLong').textContent = exportRisk.level === 'critical'
     ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
     : exportRisk.level === 'elevated'
       ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
-      : 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.';
+      : exportRisk.bufferedUntilComplete ? 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.'
+        : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
 $('expCancel').onclick = () => { expCancel = true; };
+try { const v = localStorage.getItem('wivra.exportSave'); if (v === 'memory' || v === 'auto') $('expSave').value = v; } catch {}
+$('expSave').addEventListener('change', () => { try { localStorage.setItem('wivra.exportSave', $('expSave').value); } catch {} if (session) $('bExp').onclick(); });
 try { const v = localStorage.getItem('wivra.loud'); if (v && LOUD_LEVELS[v]) $('expLoud').value = v; } catch {}
 $('expLoud').addEventListener('change', () => { try { localStorage.setItem('wivra.loud', $('expLoud').value); } catch {} });
 /* Volumen parejo: se mide la mezcla (app/loudness.mjs) antes de grabar; devuelve la ganancia en dB o null (con el motivo en `why`). */
@@ -6247,7 +6902,7 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
       return;
     }
-    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0,
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.audioBlocked) {
@@ -6264,7 +6919,19 @@ $('expGo').onclick = async () => {
     }
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (r.interrupted) { $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez'; $('expMsg').className = 'bad'; $('expMsg').textContent = 'La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida.'; return; }
-    if (expUrl) URL.revokeObjectURL(expUrl);
+    if (expUrl) { URL.revokeObjectURL(expUrl); expUrl = null; }
+    if (r.saved) {   // guardado por partes: el archivo ya está en el teléfono y verificado; no hay Blob en memoria
+      const token = r.saved.token, host = detectExportHost();
+      $('expVid').removeAttribute('src'); $('expVid').style.display = 'none'; $('expDl').style.display = 'none';
+      $('expShare').textContent = 'Abrir o compartir';
+      $('expShare').onclick = async () => { try { await shareSavedExport(host, token); } catch (e) { $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; } };
+      $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
+      $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
+      $('expMsg').textContent = `Guardado y verificado: ${r.saved.displayName || 'video'} (${r.saved.location || 'en el teléfono'}), ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${(r.saved.bytes / 1e6).toFixed(1)} MB, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + ' Revísalo antes de publicar.';
+      $('expLoudDone').textContent = !loud ? '' : (loud.ok ? (Math.abs(loud.gainDb) < 0.05 ? 'Volumen: ya estaba cerca del objetivo, no se cambió.' : `Volumen ajustado ${loud.gainDb > 0 ? '+' : ''}${loud.gainDb} dB (de ${loud.before} a ${loud.after} LUFS).`) + (loud.limitedByPeak ? ' ' + loud.note : '') : loud.why);
+      return;
+    }
+    $('expVid').style.display = ''; $('expDl').style.display = ''; $('expShare').textContent = 'Guardar o compartir';
     expUrl = URL.createObjectURL(r.blob); const name = `wivra-${Date.now()}.${r.ext}`;
     $('expVid').src = expUrl; $('expDl').href = expUrl; $('expDl').download = name;
     $('expShare').onclick = async () => {
@@ -6274,7 +6941,7 @@ $('expGo').onclick = async () => {
     };
     $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
     $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
-    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + ' Revisa la vista previa antes de publicar.';
+    $('expMsg').textContent = `Listo: ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + (r.container && r.container.fixed ? ' Duración y saltos del video comprobados.' : '') + ' Revisa la vista previa antes de publicar.';
     $('expLoudDone').textContent = !loud ? '' : (loud.ok ? (Math.abs(loud.gainDb) < 0.05 ? 'Volumen: ya estaba cerca del objetivo, no se cambió.' : `Volumen ajustado ${loud.gainDb > 0 ? '+' : ''}${loud.gainDb} dB (de ${loud.before} a ${loud.after} LUFS).`) + (loud.limitedByPeak ? ' ' + loud.note : '') : loud.why);
   } catch (e) {
     $('expBar').style.display = 'none'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Intentar de nuevo';

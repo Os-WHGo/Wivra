@@ -74,7 +74,7 @@ test('long export estimator flags memory exposure without claiming mobile hardwa
 test('the existing export dialog discloses in-memory buffering risk on both source and built HTML',()=>{
   for(const file of ['../template.html','../dist/agentcut.html']){
     const html=readFileSync(new URL(file,import.meta.url),'utf8');
-    assert.match(html,/exportMemoryRisk\(plan\.total\)/);
+    assert.match(html,/exportMemoryRisk\(plan\.total, \{ progressive: nativeSave && \$\('expSave'\)\.value !== 'memory' \}\)/);
     assert.match(html,/Este motor acumula datos en memoria/);
     assert.match(html,/Los originales no se borran/);
   }

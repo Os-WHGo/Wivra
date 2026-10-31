@@ -192,8 +192,19 @@ private struct WivraEditorWebView: UIViewRepresentable {
         configuration.userContentController.addUserScript(script)
         configuration.userContentController.addScriptMessageHandler(
             WivraEditorNativeBridge(), contentWorld: .page, name: "wivraNative")
+        // Progressive export: editor chunks are written to a local file as they are
+        // recorded (bounded memory); the verified file is offered via the share sheet.
+        let exportBridge = WivraExportNativeBridge()
+        configuration.userContentController.addScriptMessageHandler(
+            exportBridge, contentWorld: .page, name: "wivraExport")
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // Export plays hidden <video> elements of the user's own clips programmatically, after
+        // async steps (no tap in progress). WKWebView on iPhone requires a gesture for media and
+        // plays fullscreen unless inline playback is allowed. Not yet measured on a device.
+        configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         let view = WKWebView(frame: .zero, configuration: configuration)
+        exportBridge.webView = view
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
         view.isOpaque = false

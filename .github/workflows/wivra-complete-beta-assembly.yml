@@ -248,7 +248,7 @@ jobs:
             adb install -r .ci/media-app/app-full-debug.apk
             adb install -r .ci/media-tests/app-full-debug-androidTest.apk
             mkdir -p .ci/results
-            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest,com.oswhgo.wivra.WivraEditorWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest,com.oswhgo.wivra.WivraEditorWebViewTest,com.oswhgo.wivra.WivraExportStoreTest,com.oswhgo.wivra.WivraExportBridgeWebViewTest,com.oswhgo.wivra.WivraRealExportWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
             grep -Eq '^OK \([0-9]+ tests?\)' .ci/results/media-handoff.txt
             ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' .ci/results/media-handoff.txt
       - name: Preserve emulator instrumentation evidence

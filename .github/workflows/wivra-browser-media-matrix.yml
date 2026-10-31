@@ -6,6 +6,12 @@ on:
       - tools/browser-export-roundtrip.cjs
       - tools/browser-long-multipart-export.cjs
       - app/export.mjs
+      - app/export-sink.mjs
+      - tools/browser-progressive-export.cjs
+      - tools/browser-container-playback.cjs
+      - tools/export-engine-benchmark.cjs
+      - app/media-container.mjs
+      - app/tests/fixtures/mediarecorder/**
       - .github/workflows/wivra-browser-media-matrix.yml
   workflow_dispatch:
 permissions:
@@ -13,7 +19,7 @@ permissions:
 jobs:
   browser-matrix:
     runs-on: ubuntu-24.04
-    timeout-minutes: 17
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,6 +42,12 @@ jobs:
         run: node tools/browser-export-roundtrip.cjs
       - name: Render 81 synthetic cuts and verify output with ffprobe (not Ray-Ban HEVC)
         run: node tools/browser-long-multipart-export.cjs
+      - name: Progressive export to disk through simulated native bridge (byte/CRC/ffmpeg, cancel, disk failure)
+        run: node tools/browser-progressive-export.cjs
+      - name: Repaired WebM/MP4 show duration and seek in Chromium and WebKit (Linux engines, not iPhone)
+        run: node tools/browser-container-playback.cjs
+      - name: Compare export engines (MediaRecorder vs WebCodecs+Mediabunny), 30 s montage, A/V markers
+        run: node tools/export-engine-benchmark.cjs 30 12
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,5 +57,8 @@ jobs:
             wivra-media-capabilities.json
             wivra-export-browser-roundtrip.json
             wivra-long-multipart-export.json
+            wivra-progressive-export.json
+            wivra-container-playback.json
+            wivra-export-engine-benchmark.json
           if-no-files-found: warn
           retention-days: 7

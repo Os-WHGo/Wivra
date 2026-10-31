@@ -319,3 +319,17 @@ Run `38979793764`, App Tests: **271 tests, 263 pasan, 8 fallan**. Seis errores (
 ## Ajuste de test Android WebView a hilo principal
 - Run [39066902427](https://github.com/Os-WHGo/Wivra/actions/runs/39066902427): desapareció el crash por padre duplicado; cuatro pruebas MediaStore continúan aprobadas. Quinto caso aún falla **por una llamada del propio test a `WebView.getSettings()` desde el hilo de instrumentación**, antes de ejercer el importador JS.
 - Se reubicaron ambas comprobaciones de seguridad WebView dentro de `instrumentation.runOnMainSync`, igual que `evaluateJavascript`. No se modifica código productivo adicional; la prueba real del JS sigue pendiente de ejecutar. No marcar WebView como aprobado antes de CI.
+
+## Checkpoint 30-10-2026 · Exportación prolongada por escritura progresiva (Claude, PR #132)
+- Rama independiente `claude/wivra-progressive-export-20261030`, creada sobre `dba8562` de la rama compartida, que no se modificó. Sin fusión a `main` y sin servicios de pago.
+- `recordProject` ya no acumula el video en RAM cuando hay puente nativo. Cada fragmento de 1 s va a Android (MediaStore `IS_PENDING`, AndroidX `WebMessageListener` con `ArrayBuffer`) o a iOS (un actor que escribe un `.partial`, con base64). Lleva CRC-32 de extremo a extremo y se relee del disco antes de publicar. Los parciales se borran ante cualquier fallo, cancelación, cierre o reinicio. El modo en memoria anterior sigue seleccionable y es el que se usa en navegadores.
+- Evidencia local: `app/tests` 437/437, `streaming/tests` 298/298, núcleo Kotlin JVM 9/9 y Chromium 12/12 (archivo idéntico byte a byte, ffmpeg lo decodifica completo, cancelación y fallo de disco sin restos). CI de `feed65b`: compilación iOS (Swift 6, simulador y arm64), prueba de humo Swift en macOS, APK Android, pruebas JVM y matriz de navegador **en verde**. Emulador API 35: 10/11; pasó el WebView real → puente → MediaStore. La prueba que falló se debía a su propia limpieza (`SecurityException` al borrar una fila que ya no existía); se corrigió y además se blindaron los borrados de las rutas de error en producción. Hay que revalidarlo en el CI. **No es QA física.**
+- Detalle, alternativas comparadas, riesgos y tareas pendientes: `docs/WIVRA_PROGRESSIVE_EXPORT_2026-10-30.md`. Entrada para la biblioteca MU: `docs/MU_BIBLIOTECA_EXPORTACION_PROGRESIVA_WEBVIEW_2026-10-30.md`.
+
+## Checkpoint 31-10-2026 · Megabloque de exportación (Claude, PR #132)
+- **Fallo real corregido:** en el emulador Android, la exportación del editor fallaba con la configuración por defecto del WebView («El navegador no dejó reproducir un video para exportar»). Con `setMediaPlaybackRequiresUserGesture(false)` exporta bien. En iOS se aplicó la configuración equivalente, sin medir en iPhone.
+- El WebView de Android (Chrome 124) solo graba WebM. El WebM y el MP4 fragmentado de MediaRecorder salían sin duración ni índice (Android leía 0 ms); ahora se reparan sin recodificar (JS, Kotlin idéntico byte a byte y Swift) y se remuxan a MP4 normal cuando el sistema lo permite. Siempre se publica una copia verificada o el original verificado.
+- La deriva por cortes se redujo pausando MediaRecorder y suspendiendo el AudioContext durante las búsquedas (2 min: 0,755 % → 0,222 %; audio independiente, máximo, 647 → 121 ms).
+- WebCodecs + Mediabunny: 8,5× tiempo real con 8 ms de A/V en Chromium. Queda como candidato, no integrado; decide el propietario.
+- CI de `237af75`: 13/13 en verde. Informe: `docs/WIVRA_EXPORT_ENGINE_MEGABLOCK_2026-10-30.md`. **No es QA física.**
+
