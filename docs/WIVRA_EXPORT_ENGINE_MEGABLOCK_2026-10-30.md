@@ -125,7 +125,14 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 
 ## 8. Resultados de CI de esta entrega
 
-(Se completan al terminar los workflows; ver el PR #132.)
+| Commit | Qué valida | Resultado |
+|---|---|---|
+| `6b014ca` | Reparación JS/Kotlin, emulador con muestras reales y exportación real del editor | 13/13 · emulador 15/15 ([run 41145372038](https://github.com/Os-WHGo/Wivra/actions/runs/41145372038)) |
+| `7d4c31b`, `ace8df0`, `efe3d1c` | Primeros intentos de la reparación iOS | `compile-ios` falló: alcance de variables y luego tiempo de comprobación de tipos de Swift 6. Corregido |
+| `23c00fe` | Rendimiento del puente en el emulador | 16/16 · **18,3 MB/s** ([run 41147207594](https://github.com/Os-WHGo/Wivra/actions/runs/41147207594)) · la prueba de humo macOS detectó la duración doble de AVFoundation |
+| `237af75` | Duración solo en `mehd`, prueba de humo iOS con MP4 reales, compilación iOS/Android, navegador | **13/13 en verde**. iOS (AVFoundation, macOS): H.264+AAC → `mp4-passthrough`, 2.023 ms, A+V; H.264+Opus de Chromium → `mp4-passthrough`, 2.220 ms, A+V |
+| `2bf8016` | Exportación larga de 10 min (código previo a la pausa durante las búsquedas) | OK: deriva +2,647 s (+0,441 %), A/V media 54 ms y máximo 74 ms, RSS 745 → 1.249 MB, 26,6 MB, 591 fragmentos ([run 41146650807](https://github.com/Os-WHGo/Wivra/actions/runs/41146650807)) |
+| `19162c7` | Exportaciones largas de 10/20/30/60 min con la pausa durante las búsquedas y la baliza de audio independiente | en curso al redactar (ver el PR) |
 
 ## 9. Riesgos de integración con el PR #131
 
