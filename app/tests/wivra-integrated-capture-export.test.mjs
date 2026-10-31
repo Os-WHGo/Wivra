@@ -50,6 +50,8 @@ test('iOS capture picker verifies real media before releasing an existing captur
   assert.match(ios, /Task\.detached\(priority: \.userInitiated\)/);
   assert.match(ios, /await WivraCaptureMediaVerifier\.verifyFile\(file, in: root\)/);
   assert.match(ios, /WivraCaptureMediaVerifier\.verifyAudioFile\(file, in: root\)/);
+  assert.match(ios, /let original = declared\["originalVideoFile"\] as\? String/);
+  assert.match(ios, /names\.count == urls\.count - 1, names\.contains\(original\)/);
   assert.match(ios, /let checked = await self\?\.verifiedCaptureURLs\(urls\)/);
   assert.match(ios, /self\?\.finishSelection\(checked\)/);
 });
