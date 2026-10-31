@@ -75,9 +75,15 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     private func verifiedCaptureURLs(_ urls: [URL]) async -> [URL]? {
         guard urls.count >= 2, let manifest = urls.first?.standardizedFileURL,
               manifest.lastPathComponent.hasSuffix(".wivra.json") else { return nil }
-        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("WivraRecordings", isDirectory: true).standardizedFileURL
-        guard manifest.deletingLastPathComponent() == root else { return nil }
+        // Both native capture directories are supported by the library scanner.
+        // Resolve symlinks before checking containment to prevent path escapes.
+        let allowedFolders = ["WivraRecordings", "WivraIPhoneMedia"].map {
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent($0, isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
+        }
+        let captureRoot = manifest.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
+        guard allowedFolders.contains(captureRoot),
+              manifest.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent() == captureRoot else { return nil }
         guard let manifestSize = try? manifest.resourceValues(forKeys: [.fileSizeKey]).fileSize,
               manifestSize > 0, manifestSize <= 128 * 1024 else { return nil }
         // Reject incomplete or foreign bundles before the expensive media walk.
@@ -91,6 +97,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
               urls.dropFirst().contains(where: {
                   $0.lastPathComponent == original && ["mov", "mp4"].contains($0.pathExtension.lowercased())
               }) else { return nil }
+        let root = captureRoot
         return await Task.detached(priority: .userInitiated) { () -> [URL]? in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                              .fileSizeKey, .contentModificationDateKey]
@@ -100,7 +107,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
             var videos = 0
             for url in urls.dropFirst() {
                 let file = url.standardizedFileURL
-                guard file.deletingLastPathComponent() == root else { return nil }
+                guard file.deletingLastPathComponent() == root,
+                      file.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent() == root else { return nil }
                 switch file.pathExtension.lowercased() {
                 case "mov", "mp4":
                     guard await WivraCaptureMediaVerifier.verifyFile(file, in: root) else { return nil }
