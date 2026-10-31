@@ -152,6 +152,30 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
       });
     },
+    // Non-destructive review of a recoverable journal. Names in a stored
+    // manifest are never proof that a playable file still exists. Only the
+    // native media verifier may classify a fragment as physically available.
+    async reviewPending(id) {
+      return locked(async () => {
+        const journal = await store.load(id);
+        if (!journal || journal.state === 'finalized') throw new Error('Capture not pending review');
+        const files = [...new Set(journal.segments.map(segment => segment.file))];
+        const verifiedFiles = [], unverifiedFiles = [];
+        const available = typeof host.verifyFile === 'function' || !!nativeVerifyFile;
+        for (const file of files) {
+          const verified = available && await verifyPhysicalFile({ id, file }) === true;
+          (verified ? verifiedFiles : unverifiedFiles).push(file);
+        }
+        // A native writer can update metadata while a slow disk check runs.
+        // Do not display a review based on a different journal snapshot.
+        const after = await store.load(id);
+        if (JSON.stringify(journal) !== JSON.stringify(after)) {
+          throw new Error('Capture journal changed during pending review');
+        }
+        return { id, state: journal.state, verifiedFiles, unverifiedFiles,
+          verificationAvailable: available, requiresReview: true };
+      });
+    },
     async snapshot(id) { return store.load(id); }
   };
 }
