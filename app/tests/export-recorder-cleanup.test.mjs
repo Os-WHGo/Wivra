@@ -76,3 +76,13 @@ test('recorded chunks are accounted for and final Blob byte size is verified',()
  assert.match(code,/recordedBytes \+= e\.data\.size/);
  assert.match(code,/if \(recordedBytes !== raw\.size\) throw new Error/);
 });
+
+test('seek and play start-up are not recorded: recorder paused and AudioContext suspended together', () => {
+  const code = readFileSync(new URL('../export.mjs', import.meta.url), 'utf8');
+  assert.match(code, /if \(ev\.dataset\.src !== m\.url \|\| Math\.abs\(ev\.currentTime - c\.in\) > 0\.02\) await holdRecording\(\);/);
+  assert.match(code, /rec\.pause\(\); holdPaused = true;[\s\S]*?await ac\.suspend\(\)/);
+  assert.match(code, /await ac\.resume\(\);[\s\S]*?rec\.resume\(\)/);
+  // Released only after play() has really started; the clip clock starts after the release.
+  const i = code.indexOf('if (!(await playVideoForExport(ev, { isCancelled: stopNow })))');
+  assert.ok(i > 0 && code.indexOf('await releaseRecording();', i) > i && code.indexOf('const clipWallStart = performance.now();', i) > code.indexOf('await releaseRecording();', i));
+});
