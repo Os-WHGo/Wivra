@@ -99,8 +99,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
               tracks.count <= 32 else { return nil }
         let trackNames = tracks.compactMap { $0["file"] as? String }
         guard trackNames.count == tracks.count,
-              trackNames.allSatisfy({ !$0.isEmpty && !$0.contains("/") && !$0.contains("\\\\") }),
-              !original.contains("/") && !original.contains("\\\\"),
+              trackNames.allSatisfy({ !$0.isEmpty && !$0.contains("/") && !$0.contains("\\") }),
+              !original.contains("/") && !original.contains("\\"),
               trackNames.allSatisfy({ names.contains($0) }),
               (declared["muxedVideoFile"] as? String).map({ names.contains($0) }) ?? true,
               names.count == urls.count - 1, names.contains(original),
