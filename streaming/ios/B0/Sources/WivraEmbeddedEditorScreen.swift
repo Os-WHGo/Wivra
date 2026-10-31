@@ -93,6 +93,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
               let original = declared["originalVideoFile"] as? String,
               !original.isEmpty else { return nil }
         let names = Set(urls.dropFirst().map { $0.lastPathComponent })
+        guard names.allSatisfy({ !$0.isEmpty && !$0.contains("/") && !$0.contains("\\") }),
+              !original.hasPrefix("."), original != ".." else { return nil }
         // Do not silently import a partial multitrack capture. All manifest
         // references must be present, including a declared combined video.
         guard let tracks = declared["tracks"] as? [[String: Any]],
@@ -107,6 +109,11 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
               urls.dropFirst().contains(where: {
                   $0.lastPathComponent == original && ["mov", "mp4"].contains($0.pathExtension.lowercased())
               }) else { return nil }
+        // Refuse unexpected attachments rather than importing unrelated local media.
+        var declaredNames = Set(trackNames)
+        declaredNames.insert(original)
+        if let muxed = declared["muxedVideoFile"] as? String { declaredNames.insert(muxed) }
+        guard names == declaredNames else { return nil }
         let root = captureRoot
         return await Task.detached(priority: .userInitiated) { () -> [URL]? in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
