@@ -130,7 +130,7 @@ test('finalization rechecks earlier interrupted fragments as well as new output'
   const checked = [];
   host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'earlier.mp4'; };
   await assert.rejects(session.stop('interrupted'), /verification required for finalization/);
-  assert.deepEqual(checked, ['full.mp4', 'earlier.mp4']);
+  assert.deepEqual(checked, ['earlier.mp4']);
   assert.equal((await session.snapshot('interrupted')).state, 'failed');
 });
 
@@ -168,4 +168,41 @@ test('pending recovery scan does not race native stop and journal finalization',
   release();
   await stopping;
   assert.deepEqual(await session.pending(), []);
+});
+
+test('native capture preserves verified prefix when a later fragment fails verification', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'part1.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'part2.mp4', startMs: 1000, endMs: 2000, confirmed: true },
+    { file: 'part3.mp4', startMs: 2000, endMs: 3000, confirmed: true }
+  ] });
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'part3.mp4'; };
+  await session.start({ id: 'partial-prefix', platform: 'android' });
+  await assert.rejects(session.stop('partial-prefix'), /verification required for finalization/);
+  const snapshot = await session.snapshot('partial-prefix');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(s => s.file), ['part1.mp4', 'part2.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['part1.mp4', 'part2.mp4', 'part3.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'partial-prefix', state: 'failed', files: ['part1.mp4', 'part2.mp4'] }
+  ]);
+});
+
+test('native capture preserves verified fragments when combined output is unreadable', async () => {
+  const { host, session } = fixture();
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'full.mp4'; };
+  await session.start({ id: 'bad-final', platform: 'ios' });
+  await assert.rejects(session.stop('bad-final'), /verification required for finalization/);
+  const snapshot = await session.snapshot('bad-final');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(s => s.file), ['a.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['a.mp4', 'full.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'bad-final', state: 'failed', files: ['a.mp4'] }
+  ]);
 });
