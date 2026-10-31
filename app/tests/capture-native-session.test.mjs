@@ -287,3 +287,52 @@ test('Director accepts an unchanged journal after asynchronous native verificati
   assert.deepEqual(receipt.segments.map(s => s.file), ['a.mp4']);
   assert.equal(verified, 2);
 });
+
+test('pending review distinguishes physically verified fragments without publishing or deleting them', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'segment1.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'segment2.mp4', startMs: 1000, endMs: 2000, confirmed: true }
+  ] });
+  host.verifyFile = async ({ file }) => file !== 'full.mp4';
+  await session.start({ id: 'review', platform: 'android' });
+  await assert.rejects(session.stop('review'), /verification required for finalization/);
+  host.verifyFile = async ({ file }) => file === 'segment1.mp4';
+  assert.deepEqual(await session.reviewPending('review'), {
+    id: 'review', state: 'failed',
+    verifiedFiles: ['segment1.mp4'], unverifiedFiles: ['segment2.mp4'],
+    verificationAvailable: true, requiresReview: true
+  });
+  assert.equal((await session.snapshot('review')).state, 'failed');
+  assert.deepEqual((await session.snapshot('review')).segments.map(s => s.file), ['segment1.mp4', 'segment2.mp4']);
+});
+
+test('pending review without native verifier labels files unverified rather than available', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'no-proof', platform: 'ios' });
+  await session.interrupted('no-proof', 'link lost', { file: 'part1.mov', startMs: 0, endMs: 500, confirmed: true });
+  host.verifyFile = undefined;
+  assert.deepEqual(await session.reviewPending('no-proof'), {
+    id: 'no-proof', state: 'interrupted',
+    verifiedFiles: [], unverifiedFiles: ['part1.mov'],
+    verificationAvailable: false, requiresReview: true
+  });
+  await assert.rejects(session.reviewPending('unknown'), /not pending review/);
+});
+
+test('pending review refuses outdated results after an independent native journal mutation', async () => {
+  const { host, storage, session } = fixture();
+  await session.start({ id: 'review-race', platform: 'android' });
+  await session.interrupted('review-race', 'link lost', { file: 'part1.mp4', startMs: 0, endMs: 500, confirmed: true });
+  const before = await session.snapshot('review-race');
+  host.verifyFile = async () => {
+    await storage.writeAtomic('wivra-capture-review-race.json', JSON.stringify({
+      ...before, updatedAt: before.updatedAt + 1, interruptions: [
+        ...before.interruptions, { at: before.updatedAt + 1, reason: 'native changed' }
+      ]
+    }));
+    return true;
+  };
+  await assert.rejects(session.reviewPending('review-race'),
+    /Capture journal changed during pending review/);
+});
