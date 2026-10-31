@@ -22,7 +22,10 @@ const makeSource = (name, color) => { const f = path.join(work, name);
     '-c:v', 'libvpx', '-b:v', '800k', '-g', '30', '-c:a', 'libopus', '-b:a', '64k', f]); return f; };
 const srcA = makeSource('a.webm', '0x202020'), srcB = makeSource('b.webm', '0x101040');
 // Música 120 s (tono grave suave, sin marcas) y voz 20 s (ruido de banda, sin marcas): pistas independientes.
-const music = path.join(work, 'music.wav'), voice = path.join(work, 'voice.wav');
+const music = path.join(work, 'music.wav'), voice = path.join(work, 'voice.wav'), beacon = path.join(work, 'beacon.wav');
+// Baliza independiente: pitido de 1500 Hz y 50 ms en t = 5, 15, 25… s de la LÍNEA DE TIEMPO.
+// Mide si el audio grabado aparte (voces, música) se mantiene alineado con el video exportado.
+execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', "aevalsrc='if(lt(mod(t-5\\,10)\\,0.05)*gte(t\\,5)\\,0.5*sin(2*PI*1500*t)\\,0)':s=48000:d=60", beacon]);
 execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=110:duration=120:sample_rate=48000', '-af', 'volume=0.05', music]);
 execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'anoisesrc=d=20:c=pink:r=48000:a=0.02', voice]);
 
@@ -37,10 +40,11 @@ while (t < total - 0.01) {
 }
 for (let m = 0; m < total; m += 120) audioClips.push({ id: 'm' + m, asset_id: 'music', start: m, in: 0, out: Math.min(120, total - m), role: 'music', volume: 0.6 });
 for (let v = 15; v + 20 <= total; v += 300) audioClips.push({ id: 'v' + v, asset_id: 'voice', start: v, in: 0, out: 20, role: 'voice_primary', volume: 0.8 });
+for (let b = 0; b < total; b += 60) audioClips.push({ id: 'b' + b, asset_id: 'beacon', start: b, in: 0, out: Math.min(60, total - b), role: 'voice_guest', volume: 1 });
 for (let s = 0; s < total; s += 30) texts.push({ id: 't' + s, text: 'Wivra soak ' + Math.round(s / 60) + ' min', start: s + 1, end: Math.min(s + 6, total), position: 'bottom' });
 const project = { clips, overlayClips: [], audioClips, texts, format: { aspect: 'original' } };
 
-const files = { '/a.webm': srcA, '/b.webm': srcB, '/music.wav': music, '/voice.wav': voice };
+const files = { '/a.webm': srcA, '/b.webm': srcB, '/music.wav': music, '/voice.wav': voice, '/beacon.wav': beacon };
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(new URL(req.url, 'http://x').pathname); let file = files[url];
   if (!file && /^\/(app|core)\//.test(url)) file = path.resolve(root, '.' + url);
@@ -95,7 +99,7 @@ function treeRssMB() {
     const t0 = Date.now();
     const result = await page.evaluate(async ({ project }) => {
       const { recordProject, exportPlan } = await import('/app/export.mjs');
-      const media = { a: { url: '/a.webm', kind: 'video', w: 640, h: 360 }, b: { url: '/b.webm', kind: 'video', w: 640, h: 360 }, music: { url: '/music.wav', kind: 'audio' }, voice: { url: '/voice.wav', kind: 'audio' } };
+      const media = { a: { url: '/a.webm', kind: 'video', w: 640, h: 360 }, b: { url: '/b.webm', kind: 'video', w: 640, h: 360 }, music: { url: '/music.wav', kind: 'audio' }, voice: { url: '/voice.wav', kind: 'audio' }, beacon: { url: '/beacon.wav', kind: 'audio' } };
       let lastPct = -1;
       const sampler = setInterval(() => window.__soakSample({ heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null, pct: lastPct }), 5000);
       try {
@@ -122,7 +126,7 @@ function treeRssMB() {
     const vlog = spawnSync('ffmpeg', ['-v', 'info', '-i', fixedFile, '-an', '-vf', 'signalstats,metadata=mode=print:key=lavfi.signalstats.YAVG', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 30 }).stderr;
     const frames = [...vlog.matchAll(/pts_time:([\d.]+)\s*\n.*?YAVG=([\d.]+)/g)].map((m) => ({ t: +m[1], y: +m[2] }));
     const flashes = []; let prev = false; for (const f of frames) { const on = f.y > 128; if (on && !prev) flashes.push(f.t); prev = on; }
-    const alog = spawnSync('ffmpeg', ['-v', 'info', '-i', fixedFile, '-vn', '-af', 'highpass=f=600,silencedetect=noise=-30dB:d=0.02', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 28 }).stderr;
+    const alog = spawnSync('ffmpeg', ['-v', 'info', '-i', fixedFile, '-vn', '-af', 'bandpass=f=1000:width_type=h:w=150,silencedetect=noise=-35dB:d=0.02', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 28 }).stderr;
     const beeps = [...alog.matchAll(/silence_end: ([\d.]+)/g)].map((m) => +m[1]);
     const offsets = []; let j = 0;
     for (const f of flashes) { while (j + 1 < beeps.length && beeps[j + 1] <= f) j++; const cand = [beeps[j], beeps[j + 1]].filter((b) => b != null); const best = cand.sort((a, b) => Math.abs(a - f) - Math.abs(b - f))[0]; if (best != null && Math.abs(best - f) < 0.5) offsets.push({ t: f, o: best - f }); }
@@ -130,6 +134,34 @@ function treeRssMB() {
     const mean = (a) => a.length ? Math.round(a.reduce((s, x) => s + x.o, 0) / a.length * 1000) : null;
     report.avSync = { markersVideo: flashes.length, markersAudio: beeps.length, matched: offsets.length, meanMs: mean(offsets), maxAbsMs: offsets.length ? Math.round(Math.max(...offsets.map((x) => Math.abs(x.o))) * 1000) : null,
       firstQuarterMeanMs: mean(firstQ), lastQuarterMeanMs: mean(lastQ) };
+    // Independent audio: beacon beeps must appear at their planned TIMELINE times.
+    const blog = spawnSync('ffmpeg', ['-v', 'info', '-i', fixedFile, '-vn', '-af', 'bandpass=f=1500:width_type=h:w=150,silencedetect=noise=-35dB:d=0.02', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 28 }).stderr;
+    const beaconFound = [...blog.matchAll(/silence_end: ([\d.]+)/g)].map((m) => +m[1]);
+    const planned = []; for (let x = 5; x < result.planned - 0.2; x += 10) planned.push(x);
+    const bOff = planned.map((p) => { const near = beaconFound.reduce((best, f) => (best == null || Math.abs(f - p) < Math.abs(best - p) ? f : best), null); return near != null && Math.abs(near - p) < 1 ? { t: p, o: near - p } : null; }).filter(Boolean);
+    const bq = Math.max(1, Math.floor(bOff.length / 4));
+    // Where does timeline time T land in the file? Every flash has a known planned timeline time
+    // (each cut starts 0.5 s before a source flash, then one every 2 s), so the measured flashes give
+    // the file's timeline drift d(T). Sync of independent audio = beacon - (T + d(T)), i.e. relative
+    // to the VIDEO at that point, which is what a viewer perceives; vs planned it also includes d(T).
+    const plannedFlashes = [];
+    for (const c of project.clips) { const len = c.out - c.in; for (let k = 0.5; k < len - 0.05; k += 2) plannedFlashes.push(c.start + k); }
+    plannedFlashes.sort((a, b) => a - b);
+    const drift = []; let fi = 0;
+    for (const p of plannedFlashes) {
+      const prevD = drift.length ? drift[drift.length - 1].d : 0;
+      while (fi < flashes.length && flashes[fi] < p + prevD - 0.6) fi++;
+      if (fi < flashes.length && Math.abs(flashes[fi] - (p + prevD)) < 0.6) { drift.push({ t: p, d: flashes[fi] - p }); fi++; }
+    }
+    const dAt = (t) => { if (!drift.length) return 0; let i = drift.findIndex((x) => x.t >= t); if (i <= 0) return drift[Math.max(0, i)].d; if (i < 0) return drift[drift.length - 1].d;
+      const a = drift[i - 1], b = drift[i]; return a.d + (b.d - a.d) * (t - a.t) / (b.t - a.t); };
+    const rel = planned.map((p) => { const want = p + dAt(p); const near = beaconFound.reduce((best, f) => (best == null || Math.abs(f - want) < Math.abs(best - want) ? f : best), null);
+      return near != null && Math.abs(near - want) < 1 ? { t: p, o: near - want } : null; }).filter(Boolean);
+    const rq = Math.max(1, Math.floor(rel.length / 4));
+    report.timelineDrift = { flashesMatched: drift.length, ofPlanned: plannedFlashes.length, endMs: drift.length ? Math.round(drift[drift.length - 1].d * 1000) : null };
+    report.independentAudio = { planned: planned.length, matched: rel.length,
+      vsVideo: { meanMs: mean(rel), maxAbsMs: rel.length ? Math.round(Math.max(...rel.map((x) => Math.abs(x.o))) * 1000) : null, firstQuarterMeanMs: mean(rel.slice(0, rq)), lastQuarterMeanMs: mean(rel.slice(-rq)) },
+      vsPlannedTimeline: { meanMs: mean(bOff), maxAbsMs: bOff.length ? Math.round(Math.max(...bOff.map((x) => Math.abs(x.o))) * 1000) : null, firstQuarterMeanMs: mean(bOff.slice(0, bq)), lastQuarterMeanMs: mean(bOff.slice(-bq)) } };
     report.memory = { samples: samples.length, heapPeakMB: Math.max(0, ...samples.map((s) => s.heapMB || 0)), chromiumRssPeakMB: Math.max(0, ...samples.map((s) => s.rssMB || 0)),
       chromiumRssFirstMB: samples[0]?.rssMB ?? null, chromiumRssLastMB: samples.at(-1)?.rssMB ?? null };
     report.checks = {
@@ -138,6 +170,7 @@ function treeRssMB() {
       repairedHasDurationAndCues: report.container.after.declaresDuration && report.container.after.seekIndex,
       avSyncWithin120ms: report.avSync.matched > 0 && report.avSync.maxAbsMs <= 120,
       noSkippedAudio: !(result.skippedAudio || []).length,
+      independentAudioVsVideoWithin150ms: report.independentAudio.matched >= Math.max(1, report.independentAudio.planned - 1) && report.independentAudio.vsVideo.maxAbsMs <= 150,
     };
     failed = Object.values(report.checks).some((v) => !v);
   } catch (e) { failed = true; report.fatal = String(e && e.stack || e); }

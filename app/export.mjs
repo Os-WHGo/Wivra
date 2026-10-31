@@ -530,7 +530,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -538,7 +538,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
@@ -578,6 +578,26 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
+  // Loading/seeking the next cut takes tens of ms. Meanwhile MediaRecorder kept recording the
+  // last frame and WebAudio kept running: measured +0.63 % duration (~34 ms per cut, Chromium,
+  // tools/long-export-soak.cjs). Pause the recorder AND suspend the AudioContext together, so
+  // the gap is not recorded and independent audio stays aligned with the video timeline.
+  let holdPaused = false;
+  const holdRecording = async () => {
+    if (holdPaused || rec.state !== 'recording' || typeof rec.pause !== 'function') return;
+    try { rec.pause(); holdPaused = true; } catch { return; }
+    try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
+  };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
+  const releaseRecording = async () => {
+    if (!holdPaused) return;
+    holdPaused = false;
+    try { if (ac && ac.state === 'suspended') await ac.resume(); } catch { /* contexto cerrado */ }
+    try { if (rec.state === 'paused') rec.resume(); } catch { /* grabador detenido */ }
+  };
   const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
@@ -606,6 +626,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         }
         continue;
       }
+      if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
@@ -614,8 +640,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
-      const clipWallStart = performance.now();
+      // Keep the recorder paused through play() start-up as well, so that latency is not recorded;
+      // the clip's own clock (clipWallStart) then counts only recorded time.
+      if (ev.paused) await holdRecording();
       if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
+      await releaseRecording();
+      const clipWallStart = performance.now();
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {
