@@ -5,6 +5,7 @@ import { createNativeCaptureSession } from '../capture-native-session.mjs';
 function fixture({ lockedScreen = true } = {}) {
   const files = new Map();
   let writeFailureState = null;
+  let writeFailureSegment = null;
   let t = 0;
   const host = {
     capabilities: async () => ({ rayban: true, lockedScreen, backgroundVerified: false }),
@@ -14,13 +15,19 @@ function fixture({ lockedScreen = true } = {}) {
   };
   const storage = {
     writeAtomic: async (n,v) => {
-      if (writeFailureState && JSON.parse(v).state === writeFailureState) throw new Error('storage unavailable');
+      const next = JSON.parse(v);
+      if (writeFailureState && next.state === writeFailureState) throw new Error('storage unavailable');
+      if (writeFailureSegment && next.segments.some(segment => segment.file === writeFailureSegment)) {
+        throw new Error('fragment journal unavailable');
+      }
       files.set(n,v);
     },
     read: async n => files.get(n) ?? null,
     list: async prefix => [...files.keys()].filter(n => n.startsWith(prefix))
   };
-  return { host, storage, failWritesForState: state => { writeFailureState = state; }, session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
+  return { host, storage, failWritesForState: state => { writeFailureState = state; },
+    failWritesForSegment: file => { writeFailureSegment = file; },
+    session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
 }
 test('native session rejects unavailable locked-screen capability', async () => {
   const { session } = fixture({ lockedScreen: false });
@@ -204,5 +211,22 @@ test('native capture preserves verified fragments when combined output is unread
   assert.deepEqual(checked, ['a.mp4', 'full.mp4']);
   assert.deepEqual(await session.pending(), [
     { id: 'bad-final', state: 'failed', files: ['a.mp4'] }
+  ]);
+});
+
+test('native capture retains last durable prefix when journal storage fails mid-finalization', async () => {
+  const { host, failWritesForSegment, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'saved.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'unwritten.mp4', startMs: 1000, endMs: 2000, confirmed: true }
+  ] });
+  await session.start({ id: 'disk-interruption', platform: 'android' });
+  failWritesForSegment('unwritten.mp4');
+  await assert.rejects(session.stop('disk-interruption'), /fragment journal unavailable/);
+  const snapshot = await session.snapshot('disk-interruption');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(segment => segment.file), ['saved.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'disk-interruption', state: 'failed', files: ['saved.mp4'] }
   ]);
 });
