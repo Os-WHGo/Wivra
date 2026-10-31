@@ -63,9 +63,18 @@ test('iOS file is renamed from .partial only after sync and a full re-read', () 
   assert.match(iosStore, /volumeAvailableCapacityForImportantUsage/);
   assert.match(iosBridge, /approved\?\.standardizedFileURL == message\.frameInfo\.request\.url\?\.standardizedFileURL/);
   assert.match(iosBridge, /message\.frameInfo\.isMainFrame/);
-  assert.match(iosBridge, /deinit \{[\s\S]*abortAll\(\)/);
+  assert.match(iosBridge, /deinit \{[\s\S]*abortOwned\(owner: owner\)/);
   assert.match(iosScreen, /name: "wivraExport"\)/);
   assert.match(iosScreen, /exportBridge\.webView = view/);
+});
+
+test('closing one editor only aborts its own exports on either platform', () => {
+  assert.match(bridge, /WivraExportStore\.abortOwned\(appContext, owner\)/);
+  assert.doesNotMatch(bridge + iosBridge, /abortAll\(/);
+  assert.match(bridge, /Executors\.newSingleThreadExecutor\(/);
+  assert.doesNotMatch(bridge, /io\.shutdown\(/);
+  assert.match(store, /fun abortOwned\(context: Context, owner: String\)/);
+  assert.match(iosStore, /func abortOwned\(owner: String\)/);
 });
 
 test('both platforms keep free-space margins and the same 200 MB reserve', () => {

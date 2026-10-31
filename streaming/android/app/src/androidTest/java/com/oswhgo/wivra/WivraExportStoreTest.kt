@@ -19,6 +19,32 @@ import java.util.zip.CRC32
  */
 @RunWith(AndroidJUnit4::class)
 class WivraExportStoreTest {
+    @Test fun editorCleanupDoesNotCancelAnotherOwnersExport() {
+        val (old, oldName) = WivraExportStore.begin(context, "video/webm", 0, "old-editor")
+        val (current, currentName) = WivraExportStore.begin(context, "video/webm", 0, "new-editor")
+        var published: Uri? = null
+        try {
+            WivraExportStore.append(context, old, 0, webmHead, 0, webmHead.size)
+            WivraExportStore.append(context, current, 0, webmHead, 0, webmHead.size)
+            WivraExportStore.abortOwned(context, "old-editor")
+            WivraExportStore.abortOwned(context, "old-editor")
+            assertEquals(0, rowsNamed(rec(oldName), pending = true).size)
+            assertEquals(1, rowsNamed(rec(currentName), pending = true).size)
+            assertEquals(0, WivraExportStore.cleanupOrphans(context))
+            val crc = CRC32().apply { update(webmHead) }.value
+            val done = WivraExportStore.finish(context, current, webmHead.size.toLong(), crc, 1, repair = false)
+            published = done.uri
+            assertEquals(1, rowsNamed(currentName, pending = false).size)
+            // A late cleanup after publication cannot remove the finished video.
+            WivraExportStore.abortOwned(context, "new-editor")
+            assertEquals(1, rowsNamed(currentName, pending = false).size)
+        } finally {
+            WivraExportStore.abort(context, old)
+            WivraExportStore.abort(context, current)
+            published?.let { context.contentResolver.delete(it, null, null) }
+        }
+    }
+
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val webmHead = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
     private fun chunk(size: Int, seed: Int) = ByteArray(size) { ((it * 13 + seed) and 0xFF).toByte() }

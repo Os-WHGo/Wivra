@@ -63,6 +63,7 @@ actor WivraExportStore {
     static let maximumChunkBytes = 32 * 1024 * 1024
 
     private struct Session {
+        let owner: String?
         let handle: FileHandle
         let partialURL: URL
         let finalURL: URL
@@ -104,7 +105,7 @@ actor WivraExportStore {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    func begin(mime rawMime: String, estimatedBytes: Int64) throws -> WivraExportReply {
+    func begin(mime rawMime: String, estimatedBytes: Int64, owner: String? = nil) throws -> WivraExportReply {
         try prepareDirectory()
         let free = freeBytes(directory)
         let needed = max(0, estimatedBytes) + Self.minimumFreeBytes
@@ -123,7 +124,7 @@ actor WivraExportStore {
         noBackup.isExcludedFromBackup = true
         try? partialURL.setResourceValues(noBackup)
         let handle = try FileHandle(forWritingTo: partialURL)
-        sessions[token] = Session(handle: handle, partialURL: partialURL, finalURL: finalURL, mime: mime)
+        sessions[token] = Session(owner: owner, handle: handle, partialURL: partialURL, finalURL: finalURL, mime: mime)
         return WivraExportReply(token: token, displayName: name)
     }
 
@@ -184,14 +185,21 @@ actor WivraExportStore {
         var method = "none", note = ""
         if repair && session.mime == "video/mp4" {
             do {
-                let patched = try WivraMp4Repair.patchFragmented(at: session.finalURL)
-                if patched.changed { method = "mp4-patched" } else { note = patched.reason }
-                let original = await WivraMp4Repair.inspect(session.finalURL)
+                // AVFoundation already understands some fragmented MP4s (e.g. ffmpeg's
+                // indexed H.264/AAC). Patching their media duration first makes Apple
+                // count it twice. Prefer passthrough of the verified recording itself.
+                var original = await WivraMp4Repair.inspect(session.finalURL)
+                if original?.video != true || (original?.durationMs ?? 0) <= 0 {
+                    let patched = try WivraMp4Repair.patchFragmented(at: session.finalURL)
+                    if patched.changed { method = "mp4-patched" } else { note = patched.reason }
+                    original = await WivraMp4Repair.inspect(session.finalURL)
+                }
                 let temp = directory.appendingPathComponent(session.finalURL.lastPathComponent + ".remux.mp4")
                 do {
                     try await WivraMp4Repair.passthrough(from: session.finalURL, to: temp)
                     let copy = await WivraMp4Repair.inspect(temp)
-                    if let copy, copy.video, copy.durationMs > 0, !(original?.audio == true && !copy.audio) {
+                    let durationMatches = original.map { $0.durationMs <= 0 || abs((copy?.durationMs ?? 0) - $0.durationMs) <= max(250, $0.durationMs / 100) } ?? true
+                    if let copy, copy.video, copy.durationMs > 0, durationMatches, !(original?.audio == true && !copy.audio) {
                         _ = try FileManager.default.replaceItemAt(session.finalURL, withItemAt: temp)
                         method = "mp4-passthrough"
                     } else {
@@ -221,6 +229,10 @@ actor WivraExportStore {
         guard let session = sessions.removeValue(forKey: token) else { return }
         try? session.handle.close()
         try? FileManager.default.removeItem(at: session.partialURL)
+    }
+
+    func abortOwned(owner: String) {
+        for (token, session) in sessions where session.owner == owner { abort(token: token) }
     }
 
     func abortAll() {

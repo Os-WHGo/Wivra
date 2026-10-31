@@ -42,6 +42,7 @@ object WivraExportStore {
     )
 
     private class Active(
+        val owner: String?,
         val session: WivraProgressiveExportSession,
         val uri: Uri,
         val descriptor: ParcelFileDescriptor,
@@ -61,7 +62,8 @@ object WivraExportStore {
     }
 
     @JvmStatic
-    fun begin(context: Context, mime: String?, estimatedBytes: Long): Pair<Int, String> {
+    @JvmOverloads
+    fun begin(context: Context, mime: String?, estimatedBytes: Long, owner: String? = null): Pair<Int, String> {
         val free = freeBytes(context)
         val needed = maxOf(0L, estimatedBytes) + MIN_FREE_BYTES
         if (free < needed) throw InsufficientStorageException(
@@ -90,7 +92,7 @@ object WivraExportStore {
             // Closing this stream also closes the descriptor, which lets MediaStore finalize the item.
             val stream = ParcelFileDescriptor.AutoCloseOutputStream(descriptor)
             val session = WivraProgressiveExportSession(token, cleanMime, stream, sync = { stream.fd.sync() })
-            active[token] = Active(session, uri, descriptor, displayName, finalName, SPACE_CHECK_BYTES)
+            active[token] = Active(owner, session, uri, descriptor, displayName, finalName, SPACE_CHECK_BYTES)
             return token to finalName
         } catch (error: Exception) {
             try { resolver.delete(uri, null, null) } catch (_: Exception) { }
@@ -231,6 +233,13 @@ object WivraExportStore {
         item.session.abort()
         try { item.descriptor.close() } catch (_: IOException) { }
         try { context.contentResolver.delete(item.uri, null, null) } catch (_: Exception) { }
+    }
+
+    @JvmStatic
+    fun abortOwned(context: Context, owner: String) {
+        for ((token, item) in active.entries.toList()) {
+            if (item.owner == owner) abort(context, token)
+        }
     }
 
     @JvmStatic

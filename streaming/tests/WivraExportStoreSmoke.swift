@@ -86,12 +86,29 @@ struct WivraExportStoreSmoke {
         let after = try FileManager.default.contentsOfDirectory(atPath: folder.path).count
         precondition(after == before)
 
-        // 8) Real fragmented MP4 recordings (duration 0, no index) become playable with real duration.
+        // 8) Releasing one editor must not cancel another editor's partial or final file.
+        let old = try await store.begin(mime: "video/webm", estimatedBytes: 0, owner: "old-editor")
+        let current = try await store.begin(mime: "video/webm", estimatedBytes: 0, owner: "new-editor")
+        _ = try await store.append(token: old.token!, seq: 0, data: webm)
+        _ = try await store.append(token: current.token!, seq: 0, data: webm)
+        await store.abortOwned(owner: "old-editor")
+        await store.abortOwned(owner: "old-editor")
+        precondition(!FileManager.default.fileExists(atPath: folder.appendingPathComponent(old.displayName! + ".partial").path))
+        precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName! + ".partial").path))
+        let orphanCount = await store.cleanupOrphans()
+        precondition(orphanCount == 0)
+        _ = try await store.finish(token: current.token!, bytes: Int64(webm.count), crc32: WivraCRC32.update(0, webm), chunks: 1, repair: false)
+        await store.abortOwned(owner: "new-editor")
+        precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName!).path))
+
+        // 9) Real fragmented MP4 recordings (duration 0, no index) become playable with real duration.
         let fixtures = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("app/tests/fixtures/mediarecorder", isDirectory: true)
         for (name, mime, expectedMs) in [("ffmpeg-h264-aac-fragmented.mp4", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", 2023.0),
                                          ("chromium-avc1-opus-fragmented.mp4", "video/mp4;codecs=avc1,opus", 2214.0)] {
             let data = try Data(contentsOf: fixtures.appendingPathComponent(name))
+            let unmodified = await WivraMp4Repair.inspect(fixtures.appendingPathComponent(name))
+            print("iOS original \(name): \(String(describing: unmodified))")
             // In-place patch alone, on a copy: measured duration must match the JS implementation.
             let copy = folder.appendingPathComponent("patch-" + name)
             try data.write(to: copy)
@@ -119,6 +136,6 @@ struct WivraExportStoreSmoke {
             precondition(delivered.map { FileManager.default.fileExists(atPath: $0.path) } == true, "delivered file must exist")
         }
 
-        print("Wivra iOS progressive export store smoke: OK (8 scenarios, synthetic + real MediaRecorder MP4, macOS)")
+        print("Wivra iOS progressive export store smoke: OK (9 scenarios, synthetic + real MediaRecorder MP4, macOS)")
     }
 }

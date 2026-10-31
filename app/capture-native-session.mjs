@@ -30,13 +30,19 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
         const caps = await this.capabilities();
         if (!caps.rayban) throw new Error('Ray-Ban native capture unavailable');
         if (!caps.lockedScreen) throw new Error('Locked-screen capture not supported by this host');
+        // A capability probe is not permission to overwrite an existing
+        // durable session, including one left after a previous crash.
         await store.start({ id, platform, startedAt: timestamp() });
         active = { id, platform };
         try {
           await host.start({ id, profile });
           return await store.transition(id, { state: 'recording', at: timestamp() });
         } catch (error) {
-          try { await store.transition(id, { state: 'failed', at: timestamp() }); } finally { active = null; }
+          // The native start may fail at the same time as journal storage.
+          // Preserve its original error and release the coordinator lock.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Keep the last durable snapshot for recovery. */ }
+          finally { active = null; }
           throw error;
         }
       });
@@ -80,6 +86,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
             names.add(segment.file);
             cursor = segment.endMs;
           }
+          // Existing fragments can disappear during an interrupted recording.
+          // Recheck the entire assembled take before publishing final state.
+          if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for finalization');
+          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
+            if (await host.verifyFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
           // Persist fragments with intermediate stopping snapshots, never
           // publish finalized state before every segment is durable.
           let j = await store.load(id);
@@ -90,13 +102,19 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           active = null;
           return { ok: true, journal: j };
         } catch (error) {
-          await store.transition(id, { state: 'failed', at: timestamp() });
-          active = null;
+          // A storage failure must not leave this coordinator permanently
+          // occupied. Preserve the original error and the last durable
+          // journal snapshot if marking failure also fails.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Native recovery will inspect the last durable snapshot. */ }
+          finally { active = null; }
           throw error;
         }
       });
     },
-    async pending() { return store.recoverPending(); },
+    async pending() {
+      return locked(async () => store.recoverPending());
+    },
     // A pending journal is metadata, not proof that an MP4 exists on disk.
     // Only a finalized session with an explicitly confirmed native file may
     // be handed to Director; the host must verify the physical media itself.
