@@ -230,3 +230,24 @@ test('native capture retains last durable prefix when journal storage fails mid-
     { id: 'disk-interruption', state: 'failed', files: ['saved.mp4'] }
   ]);
 });
+
+test('late invalid segment metadata cannot erase earlier verified checkpoints', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'good.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: '../unsafe.mp4', startMs: 1000, endMs: 2000, confirmed: true },
+    { file: 'never.mp4', startMs: 2000, endMs: 3000, confirmed: true }
+  ] });
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return true; };
+  await session.start({ id: 'malformed-tail', platform: 'android' });
+  await assert.rejects(session.stop('malformed-tail'), /Invalid confirmed native fragment/);
+  const snapshot = await session.snapshot('malformed-tail');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(segment => segment.file), ['good.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['good.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'malformed-tail', state: 'failed', files: ['good.mp4'] }
+  ]);
+});
