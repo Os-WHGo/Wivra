@@ -54,7 +54,7 @@ test('Phone MP4 private until user chooses Keep, Later, Delete',()=>{
   assert.match(store,/file\.canonicalFile\.parentFile == folder/);
   assert.match(store,/put\(MediaStore.Video.Media.IS_PENDING, 1\)/);
   assert.match(store,/put\(MediaStore.Video.Media.IS_PENDING, 0\)/);
-  assert.match(store,/privateVideo\.inputStream\(\)\.use/);
+  assert.match(store,/WivraMediaCopy\.copyAndVerify\(resolver, privateVideo, uri\)/);
   assert.match(store,/resolver\.delete\(uri, null, null\)/);
   assert.match(store,/privateVideo\.delete\(\)/);
   assert.doesNotMatch(store,/^import (?:java\.net\.|okhttp|retrofit|android\.webkit\.)/m);

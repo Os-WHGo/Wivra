@@ -38,8 +38,13 @@ enum WivraCaptureMediaVerifier {
                 var count = 0
                 while let valid = autoreleasepool(invoking: { () -> Bool? in
                     guard let sample = output.copyNextSampleBuffer() else { return nil }
-                    return CMSampleBufferDataIsReady(sample) && CMSampleBufferGetTotalSampleSize(sample) > 0 &&
-                        CMSampleBufferGetPresentationTimeStamp(sample).isNumeric
+                    let ready = CMSampleBufferDataIsReady(sample)
+                    let size = CMSampleBufferGetTotalSampleSize(sample)
+                    let time = CMSampleBufferGetPresentationTimeStamp(sample)
+                    if !ready || size == 0 || !time.isNumeric {
+                        diagnostic("sample ready=\(ready) bytes=\(size) count=\(CMSampleBufferGetNumSamples(sample)) numeric=\(time.isNumeric)")
+                    }
+                    return ready && size > 0 && time.isNumeric
                 }) {
                     phase = "invalid sample data or time"
                     guard valid else { return false }
