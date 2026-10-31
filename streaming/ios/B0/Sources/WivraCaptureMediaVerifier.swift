@@ -36,21 +36,26 @@ enum WivraCaptureMediaVerifier {
             var samples = 0
             for output in outputs {
                 var count = 0
-                while let valid = autoreleasepool(invoking: { () -> Bool? in
+                while let result = autoreleasepool(invoking: { () -> Int? in
                     guard let sample = output.copyNextSampleBuffer() else { return nil }
                     let ready = CMSampleBufferDataIsReady(sample)
                     let size = CMSampleBufferGetTotalSampleSize(sample)
                     let time = CMSampleBufferGetPresentationTimeStamp(sample)
+                    // AVAssetReader emits zero-sample timing markers in valid
+                    // fragmented MP4. They are not media and cannot satisfy the
+                    // non-empty track check. Do not mistake them for truncation.
+                    if ready && size == 0 && CMSampleBufferGetNumSamples(sample) == 0 { return 0 }
                     if !ready || size == 0 || !time.isNumeric {
                         diagnostic("sample ready=\(ready) bytes=\(size) count=\(CMSampleBufferGetNumSamples(sample)) numeric=\(time.isNumeric)")
                     }
-                    return ready && size > 0 && time.isNumeric
+                    return ready && size > 0 && time.isNumeric ? 1 : -1
                 }) {
-                    phase = "invalid sample data or time"
-                    guard valid else { return false }
-                    count += 1
                     samples += 1
                     if samples > 2_000_000 || Task.isCancelled { return false }
+                    if result == 0 { continue }
+                    phase = "invalid sample data or time"
+                    guard result > 0 else { return false }
+                    count += 1
                 }
                 phase = "empty track; reader status \(reader.status.rawValue)"
                 guard count > 0 else { return false }
