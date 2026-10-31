@@ -86,3 +86,10 @@ test('seek and play start-up are not recorded: recorder paused and AudioContext 
   const i = code.indexOf('if (!(await playVideoForExport(ev, { isCancelled: stopNow })))');
   assert.ok(i > 0 && code.indexOf('await releaseRecording();', i) > i && code.indexOf('const clipWallStart = performance.now();', i) > code.indexOf('await releaseRecording();', i));
 });
+
+test('independent audio is re-anchored to the video timeline at each cut, only while nothing is recorded', () => {
+  const code = readFileSync(new URL('../export.mjs', import.meta.url), 'utf8');
+  assert.match(code, /if \(holdPaused\) reanchorIndependentAudio\(\);/);
+  assert.match(code, /for \(const \[id, src\] of sourceByClip\) \{ try \{ src\.stop\(\); \} catch \{[^}]*\} started\.delete\(id\); \}/);
+  assert.ok(code.indexOf('await holdRecording();') < code.indexOf('if (holdPaused) reanchorIndependentAudio();'));
+});

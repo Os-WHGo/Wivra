@@ -140,8 +140,28 @@ function treeRssMB() {
     const planned = []; for (let x = 5; x < result.planned - 0.2; x += 10) planned.push(x);
     const bOff = planned.map((p) => { const near = beaconFound.reduce((best, f) => (best == null || Math.abs(f - p) < Math.abs(best - p) ? f : best), null); return near != null && Math.abs(near - p) < 1 ? { t: p, o: near - p } : null; }).filter(Boolean);
     const bq = Math.max(1, Math.floor(bOff.length / 4));
-    report.independentAudio = { planned: planned.length, matched: bOff.length, meanMs: mean(bOff), maxAbsMs: bOff.length ? Math.round(Math.max(...bOff.map((x) => Math.abs(x.o))) * 1000) : null,
-      firstQuarterMeanMs: mean(bOff.slice(0, bq)), lastQuarterMeanMs: mean(bOff.slice(-bq)) };
+    // Where does timeline time T land in the file? Every flash has a known planned timeline time
+    // (each cut starts 0.5 s before a source flash, then one every 2 s), so the measured flashes give
+    // the file's timeline drift d(T). Sync of independent audio = beacon - (T + d(T)), i.e. relative
+    // to the VIDEO at that point, which is what a viewer perceives; vs planned it also includes d(T).
+    const plannedFlashes = [];
+    for (const c of project.clips) { const len = c.out - c.in; for (let k = 0.5; k < len - 0.05; k += 2) plannedFlashes.push(c.start + k); }
+    plannedFlashes.sort((a, b) => a - b);
+    const drift = []; let fi = 0;
+    for (const p of plannedFlashes) {
+      const prevD = drift.length ? drift[drift.length - 1].d : 0;
+      while (fi < flashes.length && flashes[fi] < p + prevD - 0.6) fi++;
+      if (fi < flashes.length && Math.abs(flashes[fi] - (p + prevD)) < 0.6) { drift.push({ t: p, d: flashes[fi] - p }); fi++; }
+    }
+    const dAt = (t) => { if (!drift.length) return 0; let i = drift.findIndex((x) => x.t >= t); if (i <= 0) return drift[Math.max(0, i)].d; if (i < 0) return drift[drift.length - 1].d;
+      const a = drift[i - 1], b = drift[i]; return a.d + (b.d - a.d) * (t - a.t) / (b.t - a.t); };
+    const rel = planned.map((p) => { const want = p + dAt(p); const near = beaconFound.reduce((best, f) => (best == null || Math.abs(f - want) < Math.abs(best - want) ? f : best), null);
+      return near != null && Math.abs(near - want) < 1 ? { t: p, o: near - want } : null; }).filter(Boolean);
+    const rq = Math.max(1, Math.floor(rel.length / 4));
+    report.timelineDrift = { flashesMatched: drift.length, ofPlanned: plannedFlashes.length, endMs: drift.length ? Math.round(drift[drift.length - 1].d * 1000) : null };
+    report.independentAudio = { planned: planned.length, matched: rel.length,
+      vsVideo: { meanMs: mean(rel), maxAbsMs: rel.length ? Math.round(Math.max(...rel.map((x) => Math.abs(x.o))) * 1000) : null, firstQuarterMeanMs: mean(rel.slice(0, rq)), lastQuarterMeanMs: mean(rel.slice(-rq)) },
+      vsPlannedTimeline: { meanMs: mean(bOff), maxAbsMs: bOff.length ? Math.round(Math.max(...bOff.map((x) => Math.abs(x.o))) * 1000) : null, firstQuarterMeanMs: mean(bOff.slice(0, bq)), lastQuarterMeanMs: mean(bOff.slice(-bq)) } };
     report.memory = { samples: samples.length, heapPeakMB: Math.max(0, ...samples.map((s) => s.heapMB || 0)), chromiumRssPeakMB: Math.max(0, ...samples.map((s) => s.rssMB || 0)),
       chromiumRssFirstMB: samples[0]?.rssMB ?? null, chromiumRssLastMB: samples.at(-1)?.rssMB ?? null };
     report.checks = {
@@ -150,7 +170,7 @@ function treeRssMB() {
       repairedHasDurationAndCues: report.container.after.declaresDuration && report.container.after.seekIndex,
       avSyncWithin120ms: report.avSync.matched > 0 && report.avSync.maxAbsMs <= 120,
       noSkippedAudio: !(result.skippedAudio || []).length,
-      independentAudioWithin150ms: report.independentAudio.matched >= Math.max(1, report.independentAudio.planned - 1) && report.independentAudio.maxAbsMs <= 150,
+      independentAudioVsVideoWithin150ms: report.independentAudio.matched >= Math.max(1, report.independentAudio.planned - 1) && report.independentAudio.vsVideo.maxAbsMs <= 150,
     };
     failed = Object.values(report.checks).some((v) => !v);
   } catch (e) { failed = true; report.fatal = String(e && e.stack || e); }

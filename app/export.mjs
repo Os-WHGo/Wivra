@@ -530,7 +530,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -538,7 +538,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
@@ -588,6 +588,10 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     try { rec.pause(); holdPaused = true; } catch { return; }
     try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
   };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
   const releaseRecording = async () => {
     if (!holdPaused) return;
     holdPaused = false;
@@ -623,6 +627,11 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         continue;
       }
       if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
