@@ -492,7 +492,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: Math.round((exportBitrate(plan.total, { progressive: true }) + 128_000) * plan.total / 8) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
@@ -547,7 +547,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
 
   let rec;
   try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) });
   } catch (error) {
     // Some WebViews advertise a container through isTypeSupported(), then
     // throw from the constructor. This is before the main recording try/finally.
