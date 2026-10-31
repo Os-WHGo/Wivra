@@ -50,3 +50,16 @@ test('Director persists a multipart save attempt before the first gallery public
   assert.match(ledger, /if \(sessionId in pending\) return@synchronized false/);
   assert.match(ledger, /\.commit\(\)/);
 });
+
+test('Ray-Ban publication stages a durable reusable copy receipt before visibility and source cleanup', () => {
+  const source = read(android + 'WivraHevcMp4Recorder.kt').split('fun publishPending(')[1];
+  assert.ok(source.indexOf('WivraCapturePublicationReceipt.recover(') < source.indexOf('resolver.insert('));
+  const stage = source.indexOf('WivraCapturePublicationReceipt.stage(');
+  const visible = source.indexOf('put(MediaStore.Video.Media.IS_PENDING, 0)', stage);
+  assert.ok(stage > 0 && visible > stage && source.indexOf('local.delete()', stage) > visible);
+  const receipt = read(android + 'WivraCapturePublicationReceipt.kt');
+  assert.match(receipt, /OWNER_PACKAGE_NAME/);
+  assert.match(receipt, /StandardCopyOption\.ATOMIC_MOVE/);
+  assert.match(receipt, /source\.inputStream\(\)\.use \{ WivraVerifiedCopy\.verify/);
+  assert.match(receipt, /resolver\.openInputStream\(uri\)\?\.use \{ WivraVerifiedCopy\.verify/);
+});

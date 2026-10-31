@@ -182,6 +182,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
             } catch (_: IOException) { emptyList() }
 
         /** Publish to Movies/Wivra ONLY after a user selects Save. */
+        @Synchronized
         fun publishPending(context: Context, local: File): Uri? {
             if (!isPending(context, local) || local.length() <= 0L) return null
             // A filename and MediaMuxer.stop() are not proof of readable media.
@@ -189,6 +190,14 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
             if (!WivraCaptureMediaVerifier.verifyFile(local, pendingDir(context), requireHevc = true).valid) return null
             try {
                 val resolver = context.contentResolver
+                val previous = WivraCapturePublicationReceipt.recover(context, local)
+                if (previous != null) {
+                    if (resolver.update(previous, ContentValues().apply {
+                        put(MediaStore.Video.Media.IS_PENDING, 0)
+                    }, null, null) != 1) return null
+                    if (local.delete()) WivraCapturePublicationReceipt.clear(local)
+                    return previous
+                }
                 val values = ContentValues().apply {
                     // Several MP4 checkpoint parts can be saved in the same
                     // millisecond. Include the verified private source ID and
@@ -205,13 +214,14 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                 val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
                     ?: throw IOException("Video collection refused new file")
                 return try {
-                    WivraMediaCopy.copyAndVerify(resolver, local, uri)
+                    val digest = WivraMediaCopy.copyAndVerify(resolver, local, uri)
+                    WivraCapturePublicationReceipt.stage(local, uri, digest)
                     if (resolver.update(uri, ContentValues().apply {
                         put(MediaStore.Video.Media.IS_PENDING, 0)
                     }, null, null) != 1) throw IOException("Video could not be published")
                     // If the private copy cannot be deleted, avoid claiming the
                     // pending folder is empty: recovery UI can resolve it later.
-                    local.delete()
+                    if (local.delete()) WivraCapturePublicationReceipt.clear(local)
                     uri
                 } catch (_: Exception) {
                     resolver.delete(uri, null, null)
