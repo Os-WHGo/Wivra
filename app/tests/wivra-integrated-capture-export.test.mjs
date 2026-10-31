@@ -43,3 +43,13 @@ test('container repair is shared by bundled editor and current JS module', () =>
   const swift = read('../../streaming/ios/B0/Sources/WivraMp4Repair.swift');
   assert.match(swift, /mvhd\/tkhd\/mdhd stay as the spec requires/);
 });
+
+test('iOS capture picker verifies real media before releasing an existing capture to Director', () => {
+  const ios = read('../../streaming/ios/B0/Sources/WivraEmbeddedEditorScreen.swift');
+  assert.match(ios, /private func verifiedCaptureURLs\(_ urls: \[URL\]\) async -> \[URL\]\?/);
+  assert.match(ios, /Task\.detached\(priority: \.userInitiated\)/);
+  assert.match(ios, /await WivraCaptureMediaVerifier\.verifyFile\(file, in: root\)/);
+  assert.match(ios, /WivraCaptureMediaVerifier\.verifyAudioFile\(file, in: root\)/);
+  assert.match(ios, /let checked = await self\?\.verifiedCaptureURLs\(urls\)/);
+  assert.match(ios, /self\?\.finishSelection\(checked\)/);
+});
