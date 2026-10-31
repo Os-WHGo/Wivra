@@ -95,9 +95,12 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let names = Set(urls.dropFirst().map { $0.lastPathComponent })
         // Do not silently import a partial multitrack capture. All manifest
         // references must be present, including a declared combined video.
-        let tracks = (declared["tracks"] as? [[String: Any]]) ?? []
+        guard let tracks = declared["tracks"] as? [[String: Any]],
+              tracks.count <= 32 else { return nil }
         let trackNames = tracks.compactMap { $0["file"] as? String }
         guard trackNames.count == tracks.count,
+              trackNames.allSatisfy({ !$0.isEmpty && !$0.contains("/") && !$0.contains("\\\\") }),
+              !original.contains("/") && !original.contains("\\\\"),
               trackNames.allSatisfy({ names.contains($0) }),
               (declared["muxedVideoFile"] as? String).map({ names.contains($0) }) ?? true,
               names.count == urls.count - 1, names.contains(original),
