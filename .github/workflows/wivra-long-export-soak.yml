@@ -1,0 +1,48 @@
+# Long export soak (10/20/30/60 min) with the REAL editor export engine in Chromium Linux and a
+# simulated native progressive bridge. Measures duration drift, A/V sync at markers, size, speed,
+# memory and container repair. Synthetic media only; Chromium on a runner is NOT a phone.
+# Runs when the soak tool or this workflow changes on the export branch, or manually.
+# Public repository + standard GitHub-hosted runner: no paid service. — Claude
+name: Wivra Long Export Soak
+on:
+  push:
+    branches:
+      - claude/wivra-progressive-export-20261030
+    paths:
+      - tools/long-export-soak.cjs
+      - .github/workflows/wivra-long-export-soak.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wivra-long-export-soak-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  soak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        minutes: [10, 20, 30, 60]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser tester, never app runtime
+        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1
+      - name: Install Chromium and ffmpeg
+        run: |
+          node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium
+          if ! command -v ffmpeg >/dev/null 2>&1; then sudo apt-get update -qq && sudo apt-get install -y ffmpeg; fi
+      - name: Export ${{ matrix.minutes }} minutes through the progressive path and measure
+        run: node tools/long-export-soak.cjs ${{ matrix.minutes }}
+      - name: Archive measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wivra-long-export-soak-${{ matrix.minutes }}min
+          path: wivra-long-export-soak-${{ matrix.minutes }}min.json
+          if-no-files-found: warn
+          retention-days: 21
