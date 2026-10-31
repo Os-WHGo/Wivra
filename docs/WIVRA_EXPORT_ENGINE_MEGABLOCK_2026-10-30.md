@@ -17,7 +17,7 @@ Leyenda: **[V]** verificado con prueba o fuente (se indica dónde) · **[NV]** n
 | Función | Archivos | Estado |
 |---|---|---|
 | Reparación WebM: Duration, Cues, SeekHead y tamaños conocidos; bloques intactos | `app/media-container.mjs` (JS) · `WivraWebmSeekable.kt` (Kotlin en flujo, **idéntico byte a byte** al JS) | IMPLEMENTADO · PROBADO (JVM, EMU, Chromium) |
-| Reparación MP4 fragmentado: duración real (mvhd/tkhd/mdhd, mehd) + índice `mfra`, sin mover muestras | `media-container.mjs` · `WivraMp4Repair.swift` (en el sitio, sin `mehd`) | IMPLEMENTADO · PROBADO (JS; Swift en macOS CI) |
+| Reparación MP4 fragmentado: duración real **solo en `mehd`** (como pide ISO/IEC 14496-12) + índice `mfra`, sin mover muestras | `media-container.mjs` · `WivraMp4Repair.swift` (solo `mfra` en el sitio; la duración la escribe el remux de AVFoundation) | IMPLEMENTADO · PROBADO (JS + ffprobe; Swift en macOS CI) |
 | MP4 fragmentado → MP4 normal (`moov` completo) | Android `WivraExportFinalizer.remuxMp4` (MediaExtractor→MediaMuxer) · iOS AVFoundation passthrough | IMPLEMENTADO · Android PROBADO EMU con H.264+AAC; con H.264+Opus MediaMuxer lo rechaza y se conserva el original |
 | Verificación del archivo final: pista de video, audio esperado, duración planificada frente a medida, si declara duración y tiene índice | `verifyExportedMedia` (JS) · `WivraExportFinalizer.inspect` (MediaMetadataRetriever) · `WivraMp4Repair.inspect` (AVFoundation) | IMPLEMENTADO · los avisos se muestran en el diálogo de exportación |
 | Publicación segura: la copia reparada solo sustituye a la grabación verificada si la copia también se verifica; si no, se entrega el original con el motivo | `WivraExportStore.finish/repairCopy` · `WivraExportStore.swift finish` | IMPLEMENTADO · PROBADO EMU |
@@ -101,6 +101,8 @@ El montaje usa cortes de 3 a 8 s de dos fuentes, fundidos, un texto cada 30 s, m
 5. Elección de formato: H.264+Opus en MP4 ya no se prefiere fuera de iOS.
 6. Puente Android: una copia de memoria menos por fragmento.
 7. Errores de compilación Swift 6 detectados por el CI y corregidos.
+8. **Duración doble en AVFoundation** (macOS CI): la primera versión escribía la duración en `mvhd`/`tkhd`/`mdhd` de un MP4 fragmentado y AVFoundation leía 4.046 ms en un video de 2.023 ms. Ahora la duración va solo en `mehd`, como pide la norma; ffprobe lee 2,023 s y 2,214 s y el salto funciona.
+9. **Deriva por cortes** (banco largo): mientras se busca el siguiente corte, MediaRecorder seguía grabando (unos 34 ms por corte). Ahora se pausa el grabador y se suspende el AudioContext durante la carga, la búsqueda y el arranque de `play()`. Montaje de 2 min con 23 cortes: deriva de 0,755 % a **0,222 %**; audio independiente, media/máximo, de 140/647 ms a **24/121 ms**; A/V del clip, máximo, de 165 ms a 97 ms.
 
 ## 6. Limitaciones y pruebas físicas pendientes
 

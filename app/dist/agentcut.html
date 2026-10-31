@@ -2238,8 +2238,8 @@ const mcBox = (type, payload) => { const out = new Uint8Array(8 + payload.length
 const mcBe32 = (n) => [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255];
 
 /**
- * MP4 fragmentado de MediaRecorder → misma media con duración real en mvhd/tkhd/mdhd,
- * caja mehd y un índice mfra al final (avanzar/retroceder). Ningún byte de muestra se mueve
+ * MP4 fragmentado de MediaRecorder → misma media con su duración real en la caja mehd
+ * (la que la norma reserva para archivos fragmentados) y un índice mfra al final (avanzar/retroceder). Ningún byte de muestra se mueve
  * respecto a su moof; si el archivo usa desplazamientos absolutos, no se toca.
  */
 function fmp4AddDurationAndIndex(bytes) {
@@ -2250,9 +2250,9 @@ function fmp4AddDurationAndIndex(bytes) {
   const b = src.slice();
   const movieDur = Math.round(m.durationMs * m.movieScale / 1000);
   if (movieDur >= 2 ** 32) return { bytes: src, durationMs: m.durationMs, changed: false, reason: 'duración demasiado larga para mvhd v0' };
-  const setDur = (boxRef, offV0, offV1, value) => { const v = b[boxRef.body]; const dv = new DataView(b.buffer); if (v === 1) dv.setBigUint64(boxRef.body + offV1, BigInt(value)); else dv.setUint32(boxRef.body + offV0, value); };
-  setDur(m.mvhd, 16, 24, movieDur);
-  for (const tr of m.tracks.values()) { setDur(tr.tkhd, 20, 28, movieDur); setDur(tr.mdhd, 16, 24, Math.min(2 ** 32 - 1, tr.end)); }
+  // ISO/IEC 14496-12: in a fragmented file mvhd/tkhd/mdhd describe only the samples inside moov
+  // (none here); the whole duration belongs in mvex/mehd. Writing it into mvhd made AVFoundation
+  // count it twice (2.0 s file read as 4.0 s, macOS CI). So only mehd + mfra are added.
   // mehd dentro de mvex: el moov crece 16 bytes; los moof usan desplazamientos relativos a sí mismos.
   let out = b, shift = 0;
   if (m.mvex && !mcChild(b, m.mvex, 'mehd')) {
@@ -2261,7 +2261,7 @@ function fmp4AddDurationAndIndex(bytes) {
     out.set(b.subarray(0, m.mvex.body), 0); out.set(mehd, m.mvex.body); out.set(b.subarray(m.mvex.body), m.mvex.body + mehd.length);
     const dv = new DataView(out.buffer);
     dv.setUint32(m.moov.start, mcU32(out, m.moov.start) + mehd.length);
-    dv.setUint32(m.mvex.start + (m.mvex.start > m.moov.start ? 0 : 0), mcU32(out, m.mvex.start) + mehd.length);
+    dv.setUint32(m.mvex.start, mcU32(out, m.mvex.start) + mehd.length);
     shift = mehd.length;
   }
   // mfra: una entrada por fragmento que empieza en cuadro clave, por pista.
@@ -2293,7 +2293,9 @@ function inspectExport(bytes) {
   }
   if (b.length >= 8 && mcType4(b, 4) === 'ftyp') {
     const m = parseMp4(b), kinds = [...m.tracks.values()].map((t) => t.kind);
-    const declared = (b[m.mvhd.body] === 1 ? mcU64(b, m.mvhd.body + 24) : mcU32(b, m.mvhd.body + 16)) > 0;
+    const mehd = m.mvex && mcChild(b, m.mvex, 'mehd');
+    const declared = (b[m.mvhd.body] === 1 ? mcU64(b, m.mvhd.body + 24) : mcU32(b, m.mvhd.body + 16)) > 0 ||
+      (!!mehd && (b[mehd.body] === 1 ? mcU64(b, mehd.body + 4) : mcU32(b, mehd.body + 4)) > 0);
     return { container: 'mp4', durationMs: m.durationMs, video: kinds.includes('video'), audio: kinds.includes('audio'), fragmented: m.fragmented,
       declaresDuration: declared, seekIndex: !m.fragmented || m.hasIndex };
   }
