@@ -141,6 +141,13 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           throw new Error('Native media verification required for Director');
         }
       }
+      // A native writer outside this JS coordinator can change a journal
+      // while slow media verification is running. Never return a stale
+      // Director receipt if the on-disk snapshot has changed meanwhile.
+      const afterVerification = await store.load(id);
+      if (JSON.stringify(afterVerification) !== JSON.stringify(journal)) {
+        throw new Error('Capture journal changed during Director verification');
+      }
       return { sessionId: id, platform: journal.platform, file: journal.finalFile,
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
       });
