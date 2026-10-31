@@ -45,7 +45,7 @@ object WivraPhoneMediaStore {
         return file
     }
 
-    private fun isWivraPrivate(context: Context, file: File): Boolean {
+    internal fun isWivraPrivate(context: Context, file: File): Boolean {
         val folder = directory(context).canonicalFile
         return file.canonicalFile.parentFile == folder &&
             file.name.startsWith(PRIVATE_PREFIX) && file.name.endsWith(".mp4")

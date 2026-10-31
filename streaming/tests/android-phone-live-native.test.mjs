@@ -42,9 +42,11 @@ test('the local MP4 is armed before public transmission and remains private on f
   assert.ok(live.indexOf('publisher.startRecord(') < live.indexOf('publisher.startStream(address)'));
   assert.match(live, /WivraPhoneMediaStore\.createPrivateVideo\(applicationContext\)/);
   assert.match(live, /publisher\.stopRecord\(\)/);
-  assert.match(live, /MediaMetadataRetriever\.METADATA_KEY_HAS_VIDEO/);
-  assert.match(live, /MediaMetadataRetriever\.METADATA_KEY_DURATION/);
-  assert.match(live, /WivraPhoneMediaStore\.publish\(this, file\)/);
+  assert.match(live, /WivraCaptureMediaVerifier\.verifyFile\(file, file\.parentFile!!\)/);
+  assert.match(live, /WivraPhoneMediaStore\.publish\(this@WivraPhoneLiveActivity, file\)/);
+  assert.match(live, /withContext\(Dispatchers\.IO\) \{ verifiedMp4\(file\) \}/);
+  assert.match(live, /if \(mediaBusy\) return/);
+  assert.match(live, /mediaScope\.cancel\(\)/);
   assert.match(live, /WivraPhoneMediaStore\.discard\(this, file\)/);
   assert.match(live, /if \(pending\.length\(\) == 0L\) pending\.delete\(\)/);
   assert.match(live, /El servidor rechazó la clave LIVE\. MP4 local continúa/);
