@@ -78,6 +78,16 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           // The manifest remains recoverable if any fragment or final output fails.
           if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
           const previous = (await store.load(id)).segments;
+          // Verify older checkpoints before accepting a new fragment. Their
+          // identity and chronological order are already durable in the
+          // journal, and must not be silently replaced after an interruption.
+          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
+          for (const file of new Set(previous.map(segment => segment.file))) {
+            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
+          // Validate, verify and persist each new fragment in sequence. A bad
+          // later manifest entry cannot erase the earlier verified prefix.
+          let j = await store.load(id);
           let cursor = previous.length ? previous.at(-1).endMs : 0;
           const names = new Set(previous.map(s => s.file));
           for (const segment of segments) {
@@ -86,24 +96,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
                 segment.startMs < cursor || segment.endMs <= segment.startMs) {
               throw new Error('Invalid confirmed native fragment');
             }
-            names.add(segment.file);
-            cursor = segment.endMs;
-          }
-          // Verify old checkpoints before accepting any new media. A missing
-          // older fragment means this take is incomplete and must stay failed.
-          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
-          for (const file of new Set(previous.map(segment => segment.file))) {
-            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
-          }
-          // Store each verified new fragment immediately. If a later fragment
-          // or the assembled output is unreadable, recovery still has the
-          // complete durable prefix instead of losing all new checkpoints.
-          let j = await store.load(id);
-          for (const segment of segments) {
             if (await verifyPhysicalFile({ id, file: segment.file }) !== true) {
               throw new Error('Native media verification required for finalization');
             }
             j = await store.appendConfirmedSegment(id, segment, timestamp());
+            names.add(segment.file);
+            cursor = segment.endMs;
           }
           if (await verifyPhysicalFile({ id, file: output.finalFile }) !== true) {
             throw new Error('Native media verification required for finalization');
