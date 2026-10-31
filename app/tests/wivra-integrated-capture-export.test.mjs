@@ -52,6 +52,8 @@ test('iOS capture picker verifies real media before releasing an existing captur
   assert.match(ios, /WivraCaptureMediaVerifier\.verifyAudioFile\(file, in: root\)/);
   assert.match(ios, /"WivraRecordings", "WivraIPhoneMedia"/);
   assert.match(ios, /allowedFolders\.contains\(captureRoot\)/);
+  assert.match(ios, /trackNames\.allSatisfy\(\{ names\.contains\(\$0\) \}\)/);
+  assert.match(ios, /declared\["muxedVideoFile"\]/);
   assert.match(ios, /manifestSize > 0, manifestSize <= 128 \* 1024/);
   assert.match(ios, /\["mov", "mp4"\]\.contains\(\$0\.pathExtension\.lowercased\(\)\)/);
   assert.match(ios, /let original = declared\["originalVideoFile"\] as\? String/);
