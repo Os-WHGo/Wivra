@@ -89,17 +89,24 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
             names.add(segment.file);
             cursor = segment.endMs;
           }
-          // Existing fragments can disappear during an interrupted recording.
-          // Recheck the entire assembled take before publishing final state.
+          // Verify old checkpoints before accepting any new media. A missing
+          // older fragment means this take is incomplete and must stay failed.
           if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
-          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
+          for (const file of new Set(previous.map(segment => segment.file))) {
             if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
           }
-          // Persist fragments with intermediate stopping snapshots, never
-          // publish finalized state before every segment is durable.
+          // Store each verified new fragment immediately. If a later fragment
+          // or the assembled output is unreadable, recovery still has the
+          // complete durable prefix instead of losing all new checkpoints.
           let j = await store.load(id);
           for (const segment of segments) {
+            if (await verifyPhysicalFile({ id, file: segment.file }) !== true) {
+              throw new Error('Native media verification required for finalization');
+            }
             j = await store.appendConfirmedSegment(id, segment, timestamp());
+          }
+          if (await verifyPhysicalFile({ id, file: output.finalFile }) !== true) {
+            throw new Error('Native media verification required for finalization');
           }
           j = await store.transition(id, { state: 'finalized', at: timestamp(), finalFile: output.finalFile });
           active = null;
