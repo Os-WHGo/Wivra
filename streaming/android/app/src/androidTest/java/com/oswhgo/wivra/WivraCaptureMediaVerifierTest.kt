@@ -19,7 +19,7 @@ class WivraCaptureMediaVerifierTest {
                 .open("ffmpeg-h264-aac-fragmented.mp4").use { input -> file.outputStream().use { input.copyTo(it) } }
             val original = file.readBytes()
             val report = WivraCaptureMediaVerifier.verifyFile(file, context.cacheDir)
-            assertTrue(report.valid)
+            assertTrue(report.toString(), report.valid)
             assertTrue(report.samples > 10)
             assertTrue(report.durationUs > 1_000_000)
             assertFalse(WivraCaptureMediaVerifier.verifyFile(file, context.cacheDir, requireHevc = true).valid)

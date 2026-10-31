@@ -1,10 +1,14 @@
-# Wivra · Política de producto 100 % gratuita
+# Wivra · Herramientas gratuitas y beta sin gastos
 
-**Instrucción del propietario · 2026-10-16 · Registrada por ChatGPT**
+**Actualización del propietario · 2026-10-31 · Registrada por ChatGPT**
+
+Esta actualización sustituye las restricciones comerciales incompatibles del 16 de octubre. Todas las herramientas siguen gratuitas. El propietario contempla publicidad discreta y una posible compra única de CAD 7.99 de por vida para retirar anuncios y marca de agua. Es una dirección para una fase posterior: **no autoriza integrar ahora publicidad, compras, marca de agua, cuentas comerciales ni servicios nuevos**. No se implementa monetización en este bloque.
+
+Hasta disponer de una beta funcional para pruebas: **cero gastos**. No contratar Apple Developer Program, Play Console, servicios de compilación, APIs obligatorias ni suscripciones. Preparar APK de prueba e IPA sin firma, emuladores y simuladores; cualquier pago o distribución oficial requiere nueva autorización. La firma personal gratuita de iOS puede requerir un Mac, Apple Account y aprovisionamiento limitado; una IPA unsigned no se instala directamente.
 
 ## Experiencia para usuarios
 - Wivra debe ser **100 % gratuita para todos los usuarios**. No separar funciones en plan free/pro/premium, no cobrar por cámara, grabación, edición, subtítulos, efectos, voz sintética, exportación o Reel automático.
-- **Sin créditos/tokens de pago internos**, saldos de generación, suscripciones, publicidad obligatoria, marcas de agua artificiales removibles mediante pago, límites de uso artificiales que se desbloquean pagando, ni compras integradas.
+- **Sin créditos/tokens de pago internos**, saldos de generación, suscripciones ni límites de funciones desbloqueables pagando. Publicidad y compra opcional para retirarla se mantienen aplazadas según la actualización anterior.
 - El diseño y la funcionalidad básica deben seguir funcionando **sin conexión a servicios pagados**, con procesamiento local donde sea viable y sin subir contenido de manera silenciosa.
 - Investigar software y modelos abiertos con licencias compatibles para las funciones nuevas, sin descargar automáticamente componentes grandes, activar servicios externos, recopilar biometría de voz o introducir paywalls.
 - Una función futura que **solo** pueda ejecutarse pagando un tercero **no cumple automáticamente esta política**: investigarla y reportar el bloqueo. No pasar el gasto al usuario sin una nueva decisión explícita del propietario.

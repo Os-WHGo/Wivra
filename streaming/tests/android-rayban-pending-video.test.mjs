@@ -14,7 +14,7 @@ test('video must finish privately before user opts into gallery storage', () => 
   assert.match(recorder, /fun finishToPending\(\): File\?/);
   assert.match(activity, /val finishingRecorder = recorder[\s\S]*?recorder = null[\s\S]*?val pending = withContext\(Dispatchers\.IO\) \{\s*finishingRecorder\?\.finishToPending\(\)\s*\}/);
   assert.match(activity, /WivraHevcMp4Recorder\.publishPending\(applicationContext, part\)/);
-  assert.match(recorder, /local\.delete\(\)\s*\n\s*uri/);
+  assert.match(recorder, /if \(local\.delete\(\)\) WivraCapturePublicationReceipt\.clear\(local\)\s*\n\s*uri/);
 });
 
 test('multiple checkpoint parts publish under distinct names without overwriting local originals', () => {
