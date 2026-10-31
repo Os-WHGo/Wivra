@@ -142,10 +142,8 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         while let presented = top?.presentedViewController { top = presented }
         guard let presenter = top else { return false }
         let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        // "Save Video" (Photos) requires NSPhotoLibraryAddUsageDescription; without that key iOS
-        // terminates the app when tapped. Adding a privacy permission is the owner's decision,
-        // so it is hidden; Files and other apps remain available.
-        sheet.excludedActivityTypes = [.saveToCameraRoll]
+        // The owner approved add-only Photos access. The share sheet now offers
+        // Save Video alongside Files and other destinations when iOS supports it.
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = webView
             popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.maxY - 40, width: 1, height: 1)
