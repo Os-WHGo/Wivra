@@ -39,3 +39,14 @@ test('iOS grouped keep verifies every MOV and CAF, preserves ticket on rejection
   assert.match(verifier, /generator\.image\(at:/);
   assert.doesNotMatch(verifier, /removeItem|moveItem|write\(to:/);
 });
+
+test('Director persists a multipart save attempt before the first gallery publication', () => {
+  const activity = read(android + 'WivraMetaPreviewActivity.kt');
+  const begin = activity.indexOf('freshPublication = WivraDirectorSaveJournal.begin(');
+  const publish = activity.indexOf('WivraHevcMp4Recorder.publishPending(', begin);
+  assert.ok(begin > 0 && publish > begin);
+  assert.match(activity, /else if \(freshPublication && pending\.id !in directorPartialSaves\)/);
+  const ledger = read(android + 'WivraDirectorSaveJournal.kt');
+  assert.match(ledger, /if \(sessionId in pending\) return@synchronized false/);
+  assert.match(ledger, /\.commit\(\)/);
+});
