@@ -68,6 +68,45 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         }
     }
 
+    // The catalog checks naming and existence, but that is not proof that a
+    // recording is readable. Verify the actual local samples before returning
+    // the files to the editor's existing one-batch capture import. No copying,
+    // deletion or file paths exposed to JavaScript by this gate.
+    private func verifiedCaptureURLs(_ urls: [URL]) async -> [URL]? {
+        guard urls.count >= 2, let manifest = urls.first?.standardizedFileURL,
+              manifest.lastPathComponent.hasSuffix(".wivra.json") else { return nil }
+        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WivraRecordings", isDirectory: true).standardizedFileURL
+        guard manifest.deletingLastPathComponent() == root else { return nil }
+        return await Task.detached(priority: .userInitiated) { () -> [URL]? in
+            let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
+                                             .fileSizeKey, .contentModificationDateKey]
+            guard let before = try? manifest.resourceValues(forKeys: keys),
+                  before.isRegularFile == true, before.isSymbolicLink == false,
+                  (before.fileSize ?? 0) > 0 else { return nil }
+            var videos = 0
+            for url in urls.dropFirst() {
+                let file = url.standardizedFileURL
+                guard file.deletingLastPathComponent() == root else { return nil }
+                switch file.pathExtension.lowercased() {
+                case "mov", "mp4":
+                    guard await WivraCaptureMediaVerifier.verifyFile(file, in: root) else { return nil }
+                    videos += 1
+                case "caf", "wav", "m4a":
+                    guard WivraCaptureMediaVerifier.verifyAudioFile(file, in: root) else { return nil }
+                default:
+                    return nil
+                }
+            }
+            guard videos > 0,
+                  let after = try? manifest.resourceValues(forKeys: keys),
+                  after.isRegularFile == true, after.isSymbolicLink == false,
+                  after.fileSize == before.fileSize,
+                  after.contentModificationDate == before.contentModificationDate else { return nil }
+            return urls
+        }.value
+    }
+
     private func presentFileSelection(
         in webView: WKWebView, from presenter: UIViewController,
         allowsMultiple: Bool, offerCaptureBundles: Bool
@@ -96,7 +135,10 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                     }
                     let urls = [selected.manifestURL, video] +
                         (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs
-                    self?.finishSelection(urls)
+                    Task { @MainActor [weak self] in
+                        let checked = await self?.verifiedCaptureURLs(urls)
+                        self?.finishSelection(checked)
+                    }
                 }
                 presenter.present(UIHostingController(rootView: browser), animated: true)
             })
