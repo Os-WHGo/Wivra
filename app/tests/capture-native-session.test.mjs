@@ -251,3 +251,39 @@ test('late invalid segment metadata cannot erase earlier verified checkpoints', 
     { id: 'malformed-tail', state: 'failed', files: ['good.mp4'] }
   ]);
 });
+
+test('Director rejects handoff when a separate native writer changes the journal during verification', async () => {
+  const { host, storage, session } = fixture();
+  await session.start({ id: 'raced-handoff', platform: 'android' });
+  await session.stop('raced-handoff');
+  const original = await session.snapshot('raced-handoff');
+  let verified = 0;
+  host.verifyFile = async () => {
+    if (++verified === 1) {
+      const name = 'wivra-capture-raced-handoff.json';
+      // Simulate a native process replacing the on-disk journal between
+      // coordinator reads. This bypasses JS-only writer locks deliberately.
+      await storage.writeAtomic(name, JSON.stringify({
+        ...original,
+        updatedAt: original.updatedAt + 1,
+        finalFile: 'other.mp4'
+      }));
+    }
+    return true;
+  };
+  await assert.rejects(session.directorHandoff('raced-handoff'),
+    /Capture journal changed during Director verification/);
+  assert.equal(verified, 2);
+});
+
+test('Director accepts an unchanged journal after asynchronous native verification', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'stable-handoff', platform: 'ios' });
+  await session.stop('stable-handoff');
+  let verified = 0;
+  host.verifyFile = async () => { verified++; await Promise.resolve(); return true; };
+  const receipt = await session.directorHandoff('stable-handoff');
+  assert.equal(receipt.sessionId, 'stable-handoff');
+  assert.deepEqual(receipt.segments.map(s => s.file), ['a.mp4']);
+  assert.equal(verified, 2);
+});
