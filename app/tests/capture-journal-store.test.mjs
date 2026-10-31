@@ -153,3 +153,22 @@ test('direct save cannot reopen or replace a terminal capture snapshot', async (
   }
   assert.deepEqual(await store.save(saved), saved);
 });
+
+test('recoverable capture cannot advertise a final output before finalization', async () => {
+  const { store, files } = storage();
+  await store.start({ id: 'premature', platform: 'android', startedAt: 1 });
+  await store.transition('premature', { state: 'recording', at: 2 });
+  const key = 'wivra-capture-premature.json';
+  const original = files.get(key);
+  const current = await store.load('premature');
+  await assert.rejects(store.save({ ...current, updatedAt: 3, finalFile: 'fake.mp4' }),
+    /Invalid capture journal envelope/);
+  assert.equal(files.get(key), original);
+  const corrupted = JSON.stringify({ ...current, finalFile: 'fake.mp4' });
+  files.set(key, corrupted);
+  await assert.rejects(store.load('premature'), /Invalid capture journal envelope/);
+  assert.deepEqual(await store.recoverPending(), [
+    { id: 'premature', state: 'corrupted', files: [] }
+  ]);
+  assert.equal(files.get(key), corrupted);
+});
