@@ -5,6 +5,7 @@ import { createNativeCaptureSession } from '../capture-native-session.mjs';
 function fixture({ lockedScreen = true } = {}) {
   const files = new Map();
   let writeFailureState = null;
+  let writeFailureSegment = null;
   let t = 0;
   const host = {
     capabilities: async () => ({ rayban: true, lockedScreen, backgroundVerified: false }),
@@ -14,13 +15,19 @@ function fixture({ lockedScreen = true } = {}) {
   };
   const storage = {
     writeAtomic: async (n,v) => {
-      if (writeFailureState && JSON.parse(v).state === writeFailureState) throw new Error('storage unavailable');
+      const next = JSON.parse(v);
+      if (writeFailureState && next.state === writeFailureState) throw new Error('storage unavailable');
+      if (writeFailureSegment && next.segments.some(segment => segment.file === writeFailureSegment)) {
+        throw new Error('fragment journal unavailable');
+      }
       files.set(n,v);
     },
     read: async n => files.get(n) ?? null,
     list: async prefix => [...files.keys()].filter(n => n.startsWith(prefix))
   };
-  return { host, storage, failWritesForState: state => { writeFailureState = state; }, session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
+  return { host, storage, failWritesForState: state => { writeFailureState = state; },
+    failWritesForSegment: file => { writeFailureSegment = file; },
+    session: createNativeCaptureSession({ host, storage, now: () => ++t }) };
 }
 test('native session rejects unavailable locked-screen capability', async () => {
   const { session } = fixture({ lockedScreen: false });
@@ -130,7 +137,7 @@ test('finalization rechecks earlier interrupted fragments as well as new output'
   const checked = [];
   host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'earlier.mp4'; };
   await assert.rejects(session.stop('interrupted'), /verification required for finalization/);
-  assert.deepEqual(checked, ['full.mp4', 'earlier.mp4']);
+  assert.deepEqual(checked, ['earlier.mp4']);
   assert.equal((await session.snapshot('interrupted')).state, 'failed');
 });
 
@@ -168,4 +175,164 @@ test('pending recovery scan does not race native stop and journal finalization',
   release();
   await stopping;
   assert.deepEqual(await session.pending(), []);
+});
+
+test('native capture preserves verified prefix when a later fragment fails verification', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'part1.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'part2.mp4', startMs: 1000, endMs: 2000, confirmed: true },
+    { file: 'part3.mp4', startMs: 2000, endMs: 3000, confirmed: true }
+  ] });
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'part3.mp4'; };
+  await session.start({ id: 'partial-prefix', platform: 'android' });
+  await assert.rejects(session.stop('partial-prefix'), /verification required for finalization/);
+  const snapshot = await session.snapshot('partial-prefix');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(s => s.file), ['part1.mp4', 'part2.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['part1.mp4', 'part2.mp4', 'part3.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'partial-prefix', state: 'failed', files: ['part1.mp4', 'part2.mp4'] }
+  ]);
+});
+
+test('native capture preserves verified fragments when combined output is unreadable', async () => {
+  const { host, session } = fixture();
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return file !== 'full.mp4'; };
+  await session.start({ id: 'bad-final', platform: 'ios' });
+  await assert.rejects(session.stop('bad-final'), /verification required for finalization/);
+  const snapshot = await session.snapshot('bad-final');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(s => s.file), ['a.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['a.mp4', 'full.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'bad-final', state: 'failed', files: ['a.mp4'] }
+  ]);
+});
+
+test('native capture retains last durable prefix when journal storage fails mid-finalization', async () => {
+  const { host, failWritesForSegment, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'saved.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'unwritten.mp4', startMs: 1000, endMs: 2000, confirmed: true }
+  ] });
+  await session.start({ id: 'disk-interruption', platform: 'android' });
+  failWritesForSegment('unwritten.mp4');
+  await assert.rejects(session.stop('disk-interruption'), /fragment journal unavailable/);
+  const snapshot = await session.snapshot('disk-interruption');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(segment => segment.file), ['saved.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'disk-interruption', state: 'failed', files: ['saved.mp4'] }
+  ]);
+});
+
+test('late invalid segment metadata cannot erase earlier verified checkpoints', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'good.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: '../unsafe.mp4', startMs: 1000, endMs: 2000, confirmed: true },
+    { file: 'never.mp4', startMs: 2000, endMs: 3000, confirmed: true }
+  ] });
+  const checked = [];
+  host.verifyFile = async ({ file }) => { checked.push(file); return true; };
+  await session.start({ id: 'malformed-tail', platform: 'android' });
+  await assert.rejects(session.stop('malformed-tail'), /Invalid confirmed native fragment/);
+  const snapshot = await session.snapshot('malformed-tail');
+  assert.equal(snapshot.state, 'failed');
+  assert.deepEqual(snapshot.segments.map(segment => segment.file), ['good.mp4']);
+  assert.equal(snapshot.finalFile, null);
+  assert.deepEqual(checked, ['good.mp4']);
+  assert.deepEqual(await session.pending(), [
+    { id: 'malformed-tail', state: 'failed', files: ['good.mp4'] }
+  ]);
+});
+
+test('Director rejects handoff when a separate native writer changes the journal during verification', async () => {
+  const { host, storage, session } = fixture();
+  await session.start({ id: 'raced-handoff', platform: 'android' });
+  await session.stop('raced-handoff');
+  const original = await session.snapshot('raced-handoff');
+  let verified = 0;
+  host.verifyFile = async () => {
+    if (++verified === 1) {
+      const name = 'wivra-capture-raced-handoff.json';
+      // Simulate a native process replacing the on-disk journal between
+      // coordinator reads. This bypasses JS-only writer locks deliberately.
+      await storage.writeAtomic(name, JSON.stringify({
+        ...original,
+        updatedAt: original.updatedAt + 1,
+        finalFile: 'other.mp4'
+      }));
+    }
+    return true;
+  };
+  await assert.rejects(session.directorHandoff('raced-handoff'),
+    /Capture journal changed during Director verification/);
+  assert.equal(verified, 2);
+});
+
+test('Director accepts an unchanged journal after asynchronous native verification', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'stable-handoff', platform: 'ios' });
+  await session.stop('stable-handoff');
+  let verified = 0;
+  host.verifyFile = async () => { verified++; await Promise.resolve(); return true; };
+  const receipt = await session.directorHandoff('stable-handoff');
+  assert.equal(receipt.sessionId, 'stable-handoff');
+  assert.deepEqual(receipt.segments.map(s => s.file), ['a.mp4']);
+  assert.equal(verified, 2);
+});
+
+test('pending review distinguishes physically verified fragments without publishing or deleting them', async () => {
+  const { host, session } = fixture();
+  host.stop = async () => ({ finalFile: 'full.mp4', segments: [
+    { file: 'segment1.mp4', startMs: 0, endMs: 1000, confirmed: true },
+    { file: 'segment2.mp4', startMs: 1000, endMs: 2000, confirmed: true }
+  ] });
+  host.verifyFile = async ({ file }) => file !== 'full.mp4';
+  await session.start({ id: 'review', platform: 'android' });
+  await assert.rejects(session.stop('review'), /verification required for finalization/);
+  host.verifyFile = async ({ file }) => file === 'segment1.mp4';
+  assert.deepEqual(await session.reviewPending('review'), {
+    id: 'review', state: 'failed',
+    verifiedFiles: ['segment1.mp4'], unverifiedFiles: ['segment2.mp4'],
+    verificationAvailable: true, requiresReview: true
+  });
+  assert.equal((await session.snapshot('review')).state, 'failed');
+  assert.deepEqual((await session.snapshot('review')).segments.map(s => s.file), ['segment1.mp4', 'segment2.mp4']);
+});
+
+test('pending review without native verifier labels files unverified rather than available', async () => {
+  const { host, session } = fixture();
+  await session.start({ id: 'no-proof', platform: 'ios' });
+  await session.interrupted('no-proof', 'link lost', { file: 'part1.mov', startMs: 0, endMs: 500, confirmed: true });
+  host.verifyFile = undefined;
+  assert.deepEqual(await session.reviewPending('no-proof'), {
+    id: 'no-proof', state: 'interrupted',
+    verifiedFiles: [], unverifiedFiles: ['part1.mov'],
+    verificationAvailable: false, requiresReview: true
+  });
+  await assert.rejects(session.reviewPending('unknown'), /not pending review/);
+});
+
+test('pending review refuses outdated results after an independent native journal mutation', async () => {
+  const { host, storage, session } = fixture();
+  await session.start({ id: 'review-race', platform: 'android' });
+  await session.interrupted('review-race', 'link lost', { file: 'part1.mp4', startMs: 0, endMs: 500, confirmed: true });
+  const before = await session.snapshot('review-race');
+  host.verifyFile = async () => {
+    await storage.writeAtomic('wivra-capture-review-race.json', JSON.stringify({
+      ...before, updatedAt: before.updatedAt + 1, interruptions: [
+        ...before.interruptions, { at: before.updatedAt + 1, reason: 'native changed' }
+      ]
+    }));
+    return true;
+  };
+  await assert.rejects(session.reviewPending('review-race'),
+    /Capture journal changed during pending review/);
 });

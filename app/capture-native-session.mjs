@@ -78,6 +78,16 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           // The manifest remains recoverable if any fragment or final output fails.
           if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
           const previous = (await store.load(id)).segments;
+          // Verify older checkpoints before accepting a new fragment. Their
+          // identity and chronological order are already durable in the
+          // journal, and must not be silently replaced after an interruption.
+          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
+          for (const file of new Set(previous.map(segment => segment.file))) {
+            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
+          // Validate, verify and persist each new fragment in sequence. A bad
+          // later manifest entry cannot erase the earlier verified prefix.
+          let j = await store.load(id);
           let cursor = previous.length ? previous.at(-1).endMs : 0;
           const names = new Set(previous.map(s => s.file));
           for (const segment of segments) {
@@ -86,20 +96,15 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
                 segment.startMs < cursor || segment.endMs <= segment.startMs) {
               throw new Error('Invalid confirmed native fragment');
             }
+            if (await verifyPhysicalFile({ id, file: segment.file }) !== true) {
+              throw new Error('Native media verification required for finalization');
+            }
+            j = await store.appendConfirmedSegment(id, segment, timestamp());
             names.add(segment.file);
             cursor = segment.endMs;
           }
-          // Existing fragments can disappear during an interrupted recording.
-          // Recheck the entire assembled take before publishing final state.
-          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
-          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
-            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
-          }
-          // Persist fragments with intermediate stopping snapshots, never
-          // publish finalized state before every segment is durable.
-          let j = await store.load(id);
-          for (const segment of segments) {
-            j = await store.appendConfirmedSegment(id, segment, timestamp());
+          if (await verifyPhysicalFile({ id, file: output.finalFile }) !== true) {
+            throw new Error('Native media verification required for finalization');
           }
           j = await store.transition(id, { state: 'finalized', at: timestamp(), finalFile: output.finalFile });
           active = null;
@@ -136,8 +141,39 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           throw new Error('Native media verification required for Director');
         }
       }
+      // A native writer outside this JS coordinator can change a journal
+      // while slow media verification is running. Never return a stale
+      // Director receipt if the on-disk snapshot has changed meanwhile.
+      const afterVerification = await store.load(id);
+      if (JSON.stringify(afterVerification) !== JSON.stringify(journal)) {
+        throw new Error('Capture journal changed during Director verification');
+      }
       return { sessionId: id, platform: journal.platform, file: journal.finalFile,
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
+      });
+    },
+    // Non-destructive review of a recoverable journal. Names in a stored
+    // manifest are never proof that a playable file still exists. Only the
+    // native media verifier may classify a fragment as physically available.
+    async reviewPending(id) {
+      return locked(async () => {
+        const journal = await store.load(id);
+        if (!journal || journal.state === 'finalized') throw new Error('Capture not pending review');
+        const files = [...new Set(journal.segments.map(segment => segment.file))];
+        const verifiedFiles = [], unverifiedFiles = [];
+        const available = typeof host.verifyFile === 'function' || !!nativeVerifyFile;
+        for (const file of files) {
+          const verified = available && await verifyPhysicalFile({ id, file }) === true;
+          (verified ? verifiedFiles : unverifiedFiles).push(file);
+        }
+        // A native writer can update metadata while a slow disk check runs.
+        // Do not display a review based on a different journal snapshot.
+        const after = await store.load(id);
+        if (JSON.stringify(journal) !== JSON.stringify(after)) {
+          throw new Error('Capture journal changed during pending review');
+        }
+        return { id, state: journal.state, verifiedFiles, unverifiedFiles,
+          verificationAvailable: available, requiresReview: true };
       });
     },
     async snapshot(id) { return store.load(id); }

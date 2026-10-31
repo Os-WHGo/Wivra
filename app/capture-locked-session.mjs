@@ -43,7 +43,12 @@ export function recoverCaptureJournal(journal) {
       !Array.isArray(journal.interruptions) || journal.interruptions.some((event, index, events) =>
         !event || !validTime(event.at) || event.at < journal.startedAt || event.at > journal.updatedAt ||
         (index > 0 && event.at < events[index - 1].at) || typeof event.reason !== 'string' || event.reason.length > 160) ||
-      (journal.state === 'finalized' && (!safeName(journal.finalFile) || journal.segments.length === 0))) {
+      (journal.state === 'finalized'
+        ? (!safeName(journal.finalFile) || journal.segments.length === 0)
+        : journal.finalFile != null)) {
+    // A final output can only be published by the finalized transition.
+    // Recovery cannot trust a failed or in-progress snapshot that advertises
+    // a completed video without a corresponding finalization.
     throw new TypeError('Invalid capture journal envelope');
   }
   // Recovery must not trust a corrupt persisted snapshot or expose unsafe names.

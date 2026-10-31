@@ -49,8 +49,36 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
         const recovery = recoverCaptureJournal(journal);
         if (recovery.recoverableFiles.length !== journal.segments.length) throw new Error('Corrupted capture segments cannot be saved');
         const current = await load(journal.id);
-        if (current && journal.updatedAt <= current.updatedAt && JSON.stringify(journal) !== JSON.stringify(current)) {
-          throw new Error('Stale capture snapshot');
+        if (current) {
+          if (JSON.stringify(journal) === JSON.stringify(current)) return current;
+          if (journal.updatedAt <= current.updatedAt) throw new Error('Stale capture snapshot');
+          // A newer timestamp cannot authorize removing previously verified
+          // clips or changing their identity. The store is append-only for
+          // media and interruptions, including after process restarts.
+          const prefixMatches = (before, after) => Array.isArray(after) &&
+            before.length <= after.length &&
+            before.every((item, index) => JSON.stringify(item) === JSON.stringify(after[index]));
+          const nextStates = {
+            connecting: ['recording', 'failed'],
+            recording: ['interrupted', 'stopping', 'failed'],
+            interrupted: ['recording', 'stopping', 'failed'],
+            stopping: ['finalized', 'failed'],
+            finalized: [],
+            failed: []
+          };
+          const legalState = journal.state === current.state ||
+            (nextStates[current.state] || []).includes(journal.state);
+          if (!legalState ||
+              journal.startedAt !== current.startedAt ||
+              journal.platform !== current.platform ||
+              journal.source !== current.source ||
+              journal.schema !== current.schema ||
+              !prefixMatches(current.segments, journal.segments) ||
+              !prefixMatches(current.interruptions, journal.interruptions) ||
+              ['failed', 'finalized'].includes(current.state) ||
+              (current.finalFile && journal.finalFile !== current.finalFile)) {
+            throw new Error('Capture snapshot would discard confirmed history');
+          }
         }
         return persist(journal);
       });
