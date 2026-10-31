@@ -78,6 +78,14 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraRecordings", isDirectory: true).standardizedFileURL
         guard manifest.deletingLastPathComponent() == root else { return nil }
+        // Reject incomplete or foreign bundles before the expensive media walk.
+        // The editor must receive only the exact files declared by this capture.
+        guard let data = try? Data(contentsOf: manifest),
+              let declared = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let original = declared["originalVideoFile"] as? String,
+              !original.isEmpty else { return nil }
+        let names = Set(urls.dropFirst().map { $0.lastPathComponent })
+        guard names.count == urls.count - 1, names.contains(original) else { return nil }
         return await Task.detached(priority: .userInitiated) { () -> [URL]? in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                              .fileSizeKey, .contentModificationDateKey]
