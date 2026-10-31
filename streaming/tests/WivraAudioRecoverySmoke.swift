@@ -19,7 +19,7 @@ struct WivraAudioRecoverySmoke {
         return url
     }
 
-    static func main() throws {
+    static func main() async throws {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraRecordings", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -41,7 +41,7 @@ struct WivraAudioRecoverySmoke {
         let previewed = try WivraPendingRecordingStore.previewAudioURLs(pending)
         precondition(previewed == [saved])
         precondition(!WivraPendingRecordingStore.savedAudioOnlyURLs().contains(saved))
-        try WivraPendingRecordingStore.keep(pending)
+        try await WivraPendingRecordingStore.keep(pending)
         precondition(FileManager.default.fileExists(atPath: saved.path))
         precondition(WivraPendingRecordingStore.savedAudioOnlyURLs().contains(saved))
 

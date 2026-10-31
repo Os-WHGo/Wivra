@@ -35,9 +35,20 @@ jobs:
           xcrun swiftc -swift-version 6 \
             streaming/ios/B0/Sources/WivraCaptureManifest.swift \
             streaming/ios/B0/Sources/WivraPendingRecordingStore.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
             streaming/tests/WivraAudioRecoverySmoke.swift \
             -o /tmp/wivra-audio-recovery-smoke
           /tmp/wivra-audio-recovery-smoke
+      - name: Verify capture samples, decoded boundaries and grouped keep recovery (macOS)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraPendingRecordingStore.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraCaptureVerificationSmoke.swift \
+            -o /tmp/wivra-capture-verification-smoke
+          /tmp/wivra-capture-verification-smoke
       - name: Run macOS synthetic progressive export store lifecycle (order, CRC, re-read, cleanup)
         run: |
           set -eu

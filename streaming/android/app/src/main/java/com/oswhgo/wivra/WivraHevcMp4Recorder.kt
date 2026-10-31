@@ -184,6 +184,9 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
         /** Publish to Movies/Wivra ONLY after a user selects Save. */
         fun publishPending(context: Context, local: File): Uri? {
             if (!isPending(context, local) || local.length() <= 0L) return null
+            // A filename and MediaMuxer.stop() are not proof of readable media.
+            // Rejected originals remain private for recovery; never delete them.
+            if (!WivraCaptureMediaVerifier.verifyFile(local, pendingDir(context), requireHevc = true).valid) return null
             try {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {

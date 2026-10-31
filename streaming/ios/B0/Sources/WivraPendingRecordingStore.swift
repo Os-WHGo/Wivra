@@ -4,7 +4,7 @@
 import Foundation
 import AVFoundation
 
-struct WivraPendingRecording: Codable, Identifiable {
+struct WivraPendingRecording: Codable, Identifiable, Sendable {
     let id: String              // original .mov or audio-only .caf filename
     let createdAt: Date
     let files: [String]         // exact app-generated filenames, never arbitrary paths
@@ -296,12 +296,29 @@ enum WivraPendingRecordingStore {
     }
 
     /** Save means keep existing files in Wivra; it does NOT upload to iCloud/Photos. */
-    static func keep(_ entry: WivraPendingRecording) throws {
+    static func keep(_ entry: WivraPendingRecording) async throws {
         let (marker, stored) = try verifiedTicket(entry)
         let folder = marker.deletingLastPathComponent()
         guard FileManager.default.fileExists(
             atPath: folder.appendingPathComponent(stored.id).path
         ) else { throw WivraPendingRecordingError.missingVideo }
+        // Verify every referenced MOV/CAF before releasing the grouped ticket.
+        // Any missing/corrupt segment leaves the decision and ALL originals intact.
+        for name in stored.files {
+            let url = try checkedURL(folder.appendingPathComponent(name), in: folder)
+            if name.hasSuffix(".mov") {
+                guard !name.hasSuffix(".writing.mov"),
+                      await WivraCaptureMediaVerifier.verifyFile(url, in: folder) else {
+                    throw WivraPendingRecordingError.missingVideo
+                }
+            } else if name.hasSuffix(".caf") {
+                guard let caf = try? AVAudioFile(forReading: url), caf.length > 0 else {
+                    throw WivraPendingRecordingError.missingAudio
+                }
+            }
+        }
+        // Validation suspends: ensure the decision ticket did not change meanwhile.
+        _ = try verifiedTicket(entry)
         if stored.id.hasSuffix(".caf") {
             // Publish explicit user consent before removing the pending ticket.
             // An orphaned CAF without this marker must never appear as "kept".

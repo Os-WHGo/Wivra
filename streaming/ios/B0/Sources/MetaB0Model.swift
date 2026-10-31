@@ -384,8 +384,13 @@ final class MetaB0Model {
         showPendingRecordingChoice = pendingRecording != nil
     }
 
-    func keepPendingRecording() {
+    private var pendingDecisionInFlight = false
+
+    func keepPendingRecording() async {
+        guard !pendingDecisionInFlight else { return }
         guard let entry = pendingRecording else { return }
+        pendingDecisionInFlight = true
+        defer { pendingDecisionInFlight = false }
         do {
             // Grouped video-only checkpoints receive a standard v2 manifest
             // for EACH independent MOV. Do not misrepresent them as one clip.
@@ -409,7 +414,7 @@ final class MetaB0Model {
                     )
                 }
             }
-            try WivraPendingRecordingStore.keep(entry)
+            try await WivraPendingRecordingStore.keep(entry)
             recordingStatus = entry.id.hasSuffix(".caf")
                 ? "Audio CAF recuperado y conservado en Wivra. Puedes compartirlo desde Mis capturas."
                 : "Grabación guardada en Wivra. Puedes compartirla desde la biblioteca."
@@ -422,12 +427,14 @@ final class MetaB0Model {
     }
 
     func requestPendingDiscard() {
+        guard !pendingDecisionInFlight else { return }
         guard pendingRecording != nil else { return }
         showPendingRecordingChoice = false
         showPendingRecordingDeletionConfirmation = true
     }
 
     func discardPendingRecordingConfirmed() {
+        guard !pendingDecisionInFlight else { return }
         guard let entry = pendingRecording else { return }
         do {
             try WivraPendingRecordingStore.discardConfirmed(entry)
