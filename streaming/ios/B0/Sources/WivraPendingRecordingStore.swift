@@ -312,7 +312,7 @@ enum WivraPendingRecordingStore {
                     throw WivraPendingRecordingError.missingVideo
                 }
             } else if name.hasSuffix(".caf") {
-                guard let caf = try? AVAudioFile(forReading: url), caf.length > 0 else {
+                guard WivraCaptureMediaVerifier.verifyAudioFile(url, in: folder) else {
                     throw WivraPendingRecordingError.missingAudio
                 }
             }

@@ -35,6 +35,21 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 "gps": "not_requested",
                 "paidServices": false
             ], nil)
+        case "capture.verifyFile":
+            guard let id = body["sessionId"] as? String,
+                  id.range(of: #"^[0-9a-f]{32}$"#, options: .regularExpression) != nil,
+                  let name = body["file"] as? String,
+                  name.range(of: "^Wivra_Meta_\(id)_part[0-9]{4}\\.mov$", options: .regularExpression) != nil else {
+                replyHandler(["verified": false], nil)
+                return
+            }
+            let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("WivraRecordings", isDirectory: true)
+            let file = root.appendingPathComponent(name)
+            Task { @MainActor in
+                let valid = await WivraCaptureMediaVerifier.verifyFile(file, in: root)
+                replyHandler(["verified": valid], nil)
+            }
         case "library.importSelection":
             // A native file picker is the only authorized media handoff. The
             // editor must receive File objects through WebKit's open panel;

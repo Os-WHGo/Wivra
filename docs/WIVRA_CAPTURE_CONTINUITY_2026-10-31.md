@@ -26,7 +26,7 @@ Base validada `3b49f1e`; commits Claude hasta `23c00fe` preservados mediante mer
 | Área | Estado y siguiente trabajo |
 | --- | --- |
 | Verificación de captura | Nativa en ambas plataformas; falta hardware HEVC real, recorridos largos y deriva A/V |
-| Coordinador JS `createNativeCaptureSession` | Contrato probado con host simulado. Las UI nativas siguen sus propios flujos; falta conectar un host completo start/stop/journal/verifyFile al coordinador. No afirmar puente finalizado |
+| Coordinador JS `createNativeCaptureSession` | `verifyFile` conectado al puente nativo Android/iOS, restringido a nombres de checkpoint de la sesión 32-hex. El editor empaqueta el coordinador y su adaptador. Start/stop y journal nativo completos siguen pendientes; las UI nativas conservan sus propios flujos. Instrumentación con HEVC sintético distingue las llamadas de cámara simuladas de la verificación nativa real |
 | Director Android | Captura y recibo tras Guardar; asociación real de assets ocurre mediante el importador existente. Persistencia del recibo parcial protegida; QA física pendiente |
 | Director iOS | Biblioteca/selector de capturas existentes; selección de toma y lanzamiento de cámara desde el editor aún pendientes |
 | Pantalla bloqueada | Android tiene servicio DAT y lease CPU; iOS ruta experimental y límites del SO. Sin verificación física en esta ejecución |

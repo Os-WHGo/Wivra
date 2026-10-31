@@ -29,6 +29,21 @@ struct WivraCaptureVerificationSmoke {
         let linked = await WivraCaptureMediaVerifier.verifyFile(link, in: root)
         precondition(!linked)
 
+        let audioURL = root.appendingPathComponent("capture.caf")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+        do {
+            let output = try AVAudioFile(forWriting: audioURL, settings: format.settings)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 8192)!
+            buffer.frameLength = 8192
+            for i in 0..<8192 { buffer.floatChannelData![0][i] = Float(sin(Double(i) * 0.02)) * 0.1 }
+            try output.write(from: buffer)
+        }
+        precondition(WivraCaptureMediaVerifier.verifyAudioFile(audioURL, in: root))
+        let audioBytes = try Data(contentsOf: audioURL)
+        let damagedAudio = root.appendingPathComponent("truncated.caf")
+        try audioBytes.prefix(32).write(to: damagedAudio)
+        precondition(!WivraCaptureMediaVerifier.verifyAudioFile(damagedAudio, in: root))
+
         let pendingRoot = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraRecordings")
         try FileManager.default.createDirectory(at: pendingRoot, withIntermediateDirectories: true)
@@ -53,6 +68,6 @@ struct WivraCaptureVerificationSmoke {
         try await WivraPendingRecordingStore.keep(ticket)
         precondition(!WivraPendingRecordingStore.pending().contains { $0.id == ticket.id })
         precondition(FileManager.default.fileExists(atPath: goodPart.path))
-        print("Capture verification smoke OK (samples, decode, truncation, scope, symlink, grouped keep/retry; no physical device)")
+        print("Capture verification smoke OK (video samples/decode, CAF full read, truncation, scope, symlink, grouped keep/retry; no physical device)")
     }
 }

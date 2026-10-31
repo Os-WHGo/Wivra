@@ -32,7 +32,7 @@ test('iOS grouped keep verifies every MOV and CAF, preserves ticket on rejection
   assert.match(keep, /async throws/);
   assert.match(keep, /for name in stored\.files/);
   assert.match(keep, /await WivraCaptureMediaVerifier\.verifyFile/);
-  assert.match(keep, /AVAudioFile\(forReading: url\)/);
+  assert.match(keep, /WivraCaptureMediaVerifier\.verifyAudioFile\(url, in: folder\)/);
   assert.ok(keep.indexOf('await WivraCaptureMediaVerifier') < keep.indexOf('removeItem(at: marker)'));
   const verifier = read('ios/B0/Sources/WivraCaptureMediaVerifier.swift');
   assert.match(verifier, /copyNextSampleBuffer/);
@@ -62,4 +62,17 @@ test('Ray-Ban publication stages a durable reusable copy receipt before visibili
   assert.match(receipt, /StandardCopyOption\.ATOMIC_MOVE/);
   assert.match(receipt, /source\.inputStream\(\)\.use \{ WivraVerifiedCopy\.verify/);
   assert.match(receipt, /resolver\.openInputStream\(uri\)\?\.use \{ WivraVerifiedCopy\.verify/);
+});
+
+test('native verifyFile bridges are scoped to the bundled main frame and matching session', () => {
+  const bridge = read(android + 'WivraCaptureVerificationBridge.kt');
+  assert.match(bridge, /!isMainFrame/);
+  assert.match(bridge, /view\.url != WivraExportBridge\.EDITOR_URL/);
+  assert.match(bridge, /wivra_rayban_\$\{id\}_part/);
+  assert.match(bridge, /WivraCaptureMediaVerifier\.verifyFile/);
+  assert.match(bridge, /io\.shutdownNow\(\)/);
+  const ios = read('ios/B0/Sources/WivraEditorNativeBridge.swift');
+  assert.match(ios, /case "capture\.verifyFile":/);
+  assert.match(ios, /message\.frameInfo\.isMainFrame/);
+  assert.match(ios, /Wivra_Meta_\\\(id\)_part/);
 });

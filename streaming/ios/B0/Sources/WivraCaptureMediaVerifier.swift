@@ -5,6 +5,29 @@ import AVFoundation
 import Foundation
 
 enum WivraCaptureMediaVerifier {
+    static func verifyAudioFile(_ url: URL, in root: URL) -> Bool {
+        let file = url.standardizedFileURL
+        guard file.isFileURL, file.deletingLastPathComponent() == root.standardizedFileURL,
+              let before = try? file.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey, .contentModificationDateKey]),
+              before.isSymbolicLink == false, before.isRegularFile == true, (before.fileSize ?? 0) > 0 else { return false }
+        do {
+            let audio = try AVAudioFile(forReading: file)
+            guard audio.length > 0, audio.processingFormat.channelCount <= 32,
+                  let buffer = AVAudioPCMBuffer(pcmFormat: audio.processingFormat, frameCapacity: 4096) else { return false }
+            var frames: AVAudioFramePosition = 0
+            while frames < audio.length {
+                if Task.isCancelled { return false }
+                let count = AVAudioFrameCount(min(4096, audio.length - frames))
+                try audio.read(into: buffer, frameCount: count)
+                guard buffer.frameLength > 0 else { return false }
+                frames += AVAudioFramePosition(buffer.frameLength)
+            }
+            let after = try file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isSymbolicLinkKey])
+            return frames == audio.length && after.isSymbolicLink == false && after.fileSize == before.fileSize &&
+                after.contentModificationDate == before.contentModificationDate
+        } catch { return false }
+    }
+
     static func verifyFile(_ url: URL, in root: URL, diagnostic: @Sendable (String) -> Void = { _ in }) async -> Bool {
         var phase = "file scope or properties"
         var verified = false

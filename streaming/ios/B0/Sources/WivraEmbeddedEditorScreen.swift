@@ -185,6 +185,7 @@ private struct WivraEditorWebView: UIViewRepresentable {
             }, true);
             window.WivraHost = Object.freeze({
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
+              verifyFile: ({id, file}) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'capture.verifyFile', sessionId: id, file}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
               checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId})
             });
