@@ -205,9 +205,7 @@ internal class WivraHevcMp4Recorder(private val context: Context) {
                 val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
                     ?: throw IOException("Video collection refused new file")
                 return try {
-                    resolver.openOutputStream(uri, "w")?.use { output ->
-                        local.inputStream().use { it.copyTo(output) }
-                    } ?: throw IOException("Video collection refused write")
+                    WivraMediaCopy.copyAndVerify(resolver, local, uri)
                     if (resolver.update(uri, ContentValues().apply {
                         put(MediaStore.Video.Media.IS_PENDING, 0)
                     }, null, null) != 1) throw IOException("Video could not be published")

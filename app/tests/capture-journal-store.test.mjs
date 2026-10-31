@@ -88,3 +88,20 @@ test('save refuses corrupt segment suffix without replacing durable journal', as
   await assert.rejects(store.save(corrupted), /Corrupted capture segments cannot be saved/);
   assert.equal(files.get(key), original);
 });
+
+test('two stores sharing the native atomic writer cannot race the same session', async () => {
+  const files = new Map();
+  const backend = { writeAtomic: async (n,v) => files.set(n,v), read: async n => files.get(n) ?? null, list: async () => [...files.keys()] };
+  const first = createCaptureJournalStore(backend), second = createCaptureJournalStore(backend);
+  await first.start({ id: 'shared', platform: 'android', startedAt: 1 });
+  await first.transition('shared', { state: 'recording', at: 2 });
+  const stale = await first.load('shared');
+  const outcomes = await Promise.allSettled([
+    first.appendConfirmedSegment('shared', { file: 'one.mp4', startMs: 0, endMs: 1000, confirmed: true }, 3),
+    second.appendConfirmedSegment('shared', { file: 'two.mp4', startMs: 0, endMs: 1000, confirmed: true }, 3)
+  ]);
+  assert.equal(outcomes.filter(r => r.status === 'fulfilled').length, 1);
+  const saved = files.get('wivra-capture-shared.json');
+  await assert.rejects(second.save(stale), /Stale capture snapshot/);
+  assert.equal(files.get('wivra-capture-shared.json'), saved);
+});

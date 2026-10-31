@@ -38,3 +38,18 @@ test('recovery excludes corrupted persisted suffix and requires review', () => {
   assert.equal(recoverCaptureJournal(broken).requiresReview, true);
   assert.deepEqual(recoverCaptureJournal({ ...j, segments: [...j.segments, { file: 'bad.mp4', startMs: 1000, endMs: 1500, confirmed: false }] }).recoverableFiles, ['safe.mp4']);
 });
+
+test('capture journal rejects external paths and malformed finalized envelopes', () => {
+  let journal = createCaptureJournal({ id: 'boundaries', platform: 'ios', startedAt: 1 });
+  journal = advanceCaptureJournal(journal, { state: 'recording', at: 2 });
+  for (const file of ['../private.mov', '/tmp/a.mov', 'file:///tmp/a.mov', 'content://media/1', 'a\\b.mov', '..', 'a\u007f.mov']) {
+    assert.throws(() => advanceCaptureJournal(journal, { state: 'interrupted', at: 3,
+      segment: { file, startMs: 0, endMs: 1000, confirmed: true } }));
+    assert.deepEqual(recoverCaptureJournal({ ...journal, segments: [{ file, startMs: 0, endMs: 1000, confirmed: true }] }).recoverableFiles, []);
+  }
+  for (const change of [
+    { platform: 'other' }, { source: 'unknown' }, { updatedAt: 0 }, { interruptions: null },
+    { state: 'finalized', finalFile: null }, { state: 'finalized', finalFile: 'empty.mov' },
+    { interruptions: [{ at: 3, reason: 'future' }] }
+  ]) assert.throws(() => recoverCaptureJournal({ ...journal, ...change }), /envelope/);
+});

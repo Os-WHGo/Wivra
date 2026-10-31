@@ -12,7 +12,9 @@ struct WivraCaptureVerificationSmoke {
         let original = try Data(contentsOf: fixture)
         let video = root.appendingPathComponent("capture.mov")
         try original.write(to: video)
-        let valid = await WivraCaptureMediaVerifier.verifyFile(video, in: root)
+        let valid = await WivraCaptureMediaVerifier.verifyFile(video, in: root, diagnostic: { message in
+            FileHandle.standardError.write(Data(("Capture verifier: " + message + "\n").utf8))
+        })
         precondition(valid, "real samples and boundary decode must pass")
         let after = try Data(contentsOf: video)
         precondition(after == original)

@@ -2,6 +2,7 @@
 // capture, background handling, fragment finalization and atomic storage.
 // This coordinator never claims that background recording is supported.
 import { createCaptureJournalStore } from './capture-journal-store.mjs';
+import { isCaptureFileName } from './capture-locked-session.mjs';
 
 export function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
   for (const method of ['capabilities', 'start', 'stop']) {
@@ -72,13 +73,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           if (!Array.isArray(segments) || !segments.length) throw new Error('No confirmed media fragments');
           // Native host must close and verify all fragments before reporting success.
           // The manifest remains recoverable if any fragment or final output fails.
-          if (typeof output.finalFile !== 'string' || !output.finalFile) throw new Error('Missing finalized output');
+          if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
           const previous = (await store.load(id)).segments;
           let cursor = previous.length ? previous.at(-1).endMs : 0;
           const names = new Set(previous.map(s => s.file));
           for (const segment of segments) {
-            if (segment.confirmed !== true || typeof segment.file !== 'string' ||
-                !segment.file || names.has(segment.file) ||
+            if (!segment || segment.confirmed !== true || !isCaptureFileName(segment.file) || names.has(segment.file) ||
                 !Number.isFinite(segment.startMs) || !Number.isFinite(segment.endMs) ||
                 segment.startMs < cursor || segment.endMs <= segment.startMs) {
               throw new Error('Invalid confirmed native fragment');
