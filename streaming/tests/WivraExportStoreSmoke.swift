@@ -71,8 +71,11 @@ struct WivraExportStoreSmoke {
         // 6) Orphan cleanup removes stale partials only, never finished videos.
         let orphan = folder.appendingPathComponent("Wivra_Export_1.webm.partial")
         FileManager.default.createFile(atPath: orphan.path, contents: Data([1, 2, 3]))
+        let remuxOrphan = folder.appendingPathComponent("Wivra_Export_2.mp4.remux.mp4")
+        FileManager.default.createFile(atPath: remuxOrphan.path, contents: Data([4, 5, 6]))
         let removed = await store.cleanupOrphans()
-        precondition(removed == 1)
+        precondition(removed == 2)
+        precondition(!FileManager.default.fileExists(atPath: remuxOrphan.path))
         precondition(!FileManager.default.fileExists(atPath: orphan.path))
         precondition(FileManager.default.fileExists(atPath: finalURL.path))
 

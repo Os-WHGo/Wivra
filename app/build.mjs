@@ -8,5 +8,7 @@ mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
 // Append Director helpers without replacing the Editor's core module list.
 // This keeps additions such as capture and project persistence merge-friendly.
 const directorIntake = strip(readFileSync(new URL('../core/director-intake.mjs', import.meta.url), 'utf8'));
-writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => core + '\n' + directorIntake + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
+const captureNative = ['./capture-locked-session.mjs', './capture-journal-store.mjs', './capture-native-verifier.mjs', './capture-native-session.mjs']
+  .map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
+writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => core + '\n' + directorIntake + '\n' + captureNative + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
 console.log('listo: app/dist/agentcut.html');

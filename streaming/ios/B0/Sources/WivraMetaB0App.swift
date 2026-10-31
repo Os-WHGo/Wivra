@@ -539,7 +539,7 @@ private struct WivraPendingDecisionPrompts: View {
                     titleVisibility: .visible
                 ) {
                     Button("ios.record.keep") {
-                        model.keepPendingRecording()
+                        Task { await model.keepPendingRecording() }
                     }
                     Button("ios.record.review_video") {
                         showingReview = true

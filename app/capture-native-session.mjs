@@ -2,12 +2,16 @@
 // capture, background handling, fragment finalization and atomic storage.
 // This coordinator never claims that background recording is supported.
 import { createCaptureJournalStore } from './capture-journal-store.mjs';
+import { isCaptureFileName } from './capture-locked-session.mjs';
+import { detectNativeCaptureFileVerifier } from './capture-native-verifier.mjs';
 
 export function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
   for (const method of ['capabilities', 'start', 'stop']) {
     if (typeof host?.[method] !== 'function') throw new TypeError('Native capture host missing ' + method);
   }
   const store = createCaptureJournalStore(storage);
+  const nativeVerifyFile = detectNativeCaptureFileVerifier();
+  const verifyPhysicalFile = args => typeof host.verifyFile === 'function' ? host.verifyFile(args) : nativeVerifyFile(args);
   let active = null;
   let busy = false;
   const timestamp = () => now();
@@ -72,13 +76,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           if (!Array.isArray(segments) || !segments.length) throw new Error('No confirmed media fragments');
           // Native host must close and verify all fragments before reporting success.
           // The manifest remains recoverable if any fragment or final output fails.
-          if (typeof output.finalFile !== 'string' || !output.finalFile) throw new Error('Missing finalized output');
+          if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
           const previous = (await store.load(id)).segments;
           let cursor = previous.length ? previous.at(-1).endMs : 0;
           const names = new Set(previous.map(s => s.file));
           for (const segment of segments) {
-            if (segment.confirmed !== true || typeof segment.file !== 'string' ||
-                !segment.file || names.has(segment.file) ||
+            if (!segment || segment.confirmed !== true || !isCaptureFileName(segment.file) || names.has(segment.file) ||
                 !Number.isFinite(segment.startMs) || !Number.isFinite(segment.endMs) ||
                 segment.startMs < cursor || segment.endMs <= segment.startMs) {
               throw new Error('Invalid confirmed native fragment');
@@ -88,9 +91,9 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
           }
           // Existing fragments can disappear during an interrupted recording.
           // Recheck the entire assembled take before publishing final state.
-          if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for finalization');
+          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
           for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
-            if (await host.verifyFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
           }
           // Persist fragments with intermediate stopping snapshots, never
           // publish finalized state before every segment is durable.
@@ -124,12 +127,12 @@ export function createNativeCaptureSession({ host, storage, now = Date.now } = {
       if (!journal || journal.state !== 'finalized' || !journal.finalFile || !journal.segments.length) {
         throw new Error('Capture not finalized for Director');
       }
-      if (typeof host.verifyFile !== 'function') throw new Error('Native media verification required for Director');
+      if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for Director');
       // A verified final output does not prove its referenced source fragments
       // still exist. Verify every file before advertising the complete take.
       const files = [journal.finalFile, ...journal.segments.map(segment => segment.file)];
       for (const file of new Set(files)) {
-        if (await host.verifyFile({ id, file }) !== true) {
+        if (await verifyPhysicalFile({ id, file }) !== true) {
           throw new Error('Native media verification required for Director');
         }
       }

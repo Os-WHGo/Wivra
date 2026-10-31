@@ -45,6 +45,23 @@ test('native session keeps failed recording recoverable', async () => {
   assert.equal((await session.pending()).length, 1);
 });
 
+test('unsafe native media references never reach the file verifier or Director', async () => {
+  for (const output of [
+    { finalFile: '../secret.mp4', segments: [{ file: 'safe.mp4', startMs: 0, endMs: 2, confirmed: true }] },
+    { finalFile: 'safe.mp4', segments: [{ file: 'content://media/1', startMs: 0, endMs: 2, confirmed: true }] },
+    { finalFile: 'safe.mp4', segments: [null] }
+  ]) {
+    const { host, session } = fixture();
+    let verified = 0;
+    host.verifyFile = async () => { verified++; return true; };
+    host.stop = async () => output;
+    await session.start({ id: 'unsafe', platform: 'android' });
+    await assert.rejects(session.stop('unsafe'));
+    assert.equal(verified, 0);
+    assert.equal((await session.snapshot('unsafe')).state, 'failed');
+  }
+});
+
 test('Director handoff requires finalized journal and native file verification', async () => {
   const { host, session } = fixture();
   await session.start({ id: 'handoff', platform: 'android' });

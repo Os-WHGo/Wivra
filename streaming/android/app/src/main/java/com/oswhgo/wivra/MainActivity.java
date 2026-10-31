@@ -46,6 +46,7 @@ public final class MainActivity extends Activity {
     private WebView editor;
     // Progressive export: editor chunks go straight to Movies/Wivra (AndroidX WebMessageListener).
     private WivraExportBridge exportBridge;
+    private WivraCaptureVerificationBridge captureVerificationBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -229,6 +230,8 @@ public final class MainActivity extends Activity {
         // Without it (old WebView) the editor keeps its previous in-memory export.
         exportBridge = new WivraExportBridge(this, editor);
         if (!exportBridge.install()) exportBridge = null;
+        captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
+        captureVerificationBridge.install();
         editor.loadUrl("file:///android_asset/agentcut.html");
     }
 
@@ -638,6 +641,10 @@ public final class MainActivity extends Activity {
             // Leaving the editor mid-export deletes the partial gallery item.
             exportBridge.dispose();
             exportBridge = null;
+        }
+        if (captureVerificationBridge != null) {
+            captureVerificationBridge.dispose();
+            captureVerificationBridge = null;
         }
         if (editor != null) {
             editor.destroy();

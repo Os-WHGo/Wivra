@@ -27,14 +27,18 @@ enum WivraMp4Repair {
     private struct Box { let type: String; let start: Int; let body: Int; let end: Int }
 
     private static func u32(_ d: Data, _ p: Int) -> UInt32 {
-        d.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> UInt32 in
-            let high = UInt32(raw[p]) << 24
-            let middle = UInt32(raw[p + 1]) << 16
-            let low = UInt32(raw[p + 2]) << 8
-            return high | middle | low | UInt32(raw[p + 3])
-        }
+        let i = d.startIndex + p
+        let b0: UInt32 = UInt32(d[i]) << 24
+        let b1: UInt32 = UInt32(d[i + 1]) << 16
+        let b2: UInt32 = UInt32(d[i + 2]) << 8
+        let b3: UInt32 = UInt32(d[i + 3])
+        return b0 | b1 | b2 | b3
     }
-    private static func u64(_ d: Data, _ p: Int) -> UInt64 { (UInt64(u32(d, p)) << 32) | UInt64(u32(d, p + 4)) }
+    private static func u64(_ d: Data, _ p: Int) -> UInt64 {
+        let high: UInt64 = UInt64(u32(d, p)) << 32
+        let low: UInt64 = UInt64(u32(d, p + 4))
+        return high | low
+    }
     private static func type4(_ d: Data, _ p: Int) -> String { String(decoding: d[(d.startIndex + p)..<(d.startIndex + p + 4)], as: UTF8.self) }
 
     /// Boxes of `d` between relative offsets [start, end). `d` must be zero-based (Data(...)).
@@ -56,8 +60,22 @@ enum WivraMp4Repair {
         return Data(d)
     }
 
-    private static func be32(_ v: UInt32) -> [UInt8] { [UInt8(v >> 24 & 255), UInt8(v >> 16 & 255), UInt8(v >> 8 & 255), UInt8(v & 255)] }
-    private static func box(_ type: String, _ payload: [UInt8]) -> [UInt8] { be32(UInt32(8 + payload.count)) + Array(type.utf8) + payload }
+    private static func be32(_ v: UInt32) -> [UInt8] {
+        let a = UInt8(truncatingIfNeeded: v >> 24), b = UInt8(truncatingIfNeeded: v >> 16)
+        let c = UInt8(truncatingIfNeeded: v >> 8), d = UInt8(truncatingIfNeeded: v)
+        return [a, b, c, d]
+    }
+    private static func be64(_ v: UInt64) -> [UInt8] {
+        var out = be32(UInt32(truncatingIfNeeded: v >> 32))
+        out.append(contentsOf: be32(UInt32(truncatingIfNeeded: v)))
+        return out
+    }
+    private static func box(_ type: String, _ payload: [UInt8]) -> [UInt8] {
+        var out = be32(UInt32(8 + payload.count))
+        out.append(contentsOf: Array(type.utf8))
+        out.append(contentsOf: payload)
+        return out
+    }
 
     /// Step 1, in place: durations + mfra. Never moves sample data; refuses absolute offsets.
     static func patchFragmented(at url: URL) throws -> PatchResult {
@@ -138,30 +156,41 @@ enum WivraMp4Repair {
         let movieDur = UInt64((durationMs * Double(movieScale) / 1000).rounded())
         guard movieDur < UInt64(UInt32.max) else { return PatchResult(durationMs: durationMs, changed: false, indexAdded: false, reason: "duración demasiado larga") }
         func writeDuration(_ bodyInMoov: Int, _ v1: Bool, _ value: UInt64) throws {
-            try h.seek(toOffset: moovRef.start + UInt64(bodyInMoov + (v1 ? 24 : 16)))
-            if v1 { try h.write(contentsOf: Data(be32(UInt32(value >> 32)) + be32(UInt32(value & 0xFFFF_FFFF)))) }
-            else { try h.write(contentsOf: Data(be32(UInt32(min(value, UInt64(UInt32.max)))))) }
+            let offset: Int = bodyInMoov + (v1 ? 24 : 16)
+            try h.seek(toOffset: moovRef.start + UInt64(offset))
+            let bytes: [UInt8] = v1 ? be64(value) : be32(UInt32(min(value, UInt64(UInt32.max))))
+            try h.write(contentsOf: Data(bytes))
         }
         try writeDuration(mvhd.body, mvhdV1, movieDur)
         for tr in tracks.values {
             // tkhd duration sits 4 bytes later than mvhd/mdhd (track_ID + reserved before it).
-            try h.seek(toOffset: moovRef.start + UInt64(tr.tkhd + (tr.tkhdV1 ? 28 : 20)))
-            if tr.tkhdV1 { try h.write(contentsOf: Data(be32(UInt32(movieDur >> 32)) + be32(UInt32(movieDur & 0xFFFF_FFFF)))) }
-            else { try h.write(contentsOf: Data(be32(UInt32(movieDur)))) }
+            let tkhdOffset: Int = tr.tkhd + (tr.tkhdV1 ? 28 : 20)
+            try h.seek(toOffset: moovRef.start + UInt64(tkhdOffset))
+            let tkhdBytes: [UInt8] = tr.tkhdV1 ? be64(movieDur) : be32(UInt32(movieDur))
+            try h.write(contentsOf: Data(tkhdBytes))
             try writeDuration(tr.mdhd, tr.mdhdV1, tr.end)
         }
         var indexAdded = false
         if !top.contains(where: { $0.type == "mfra" || $0.type == "sidx" }) {
             var tfras: [UInt8] = []
             for tr in tracks.values.sorted(by: { $0.id < $1.id }) {
-                var body: [UInt8] = [1, 0, 0, 0] + be32(tr.id) + [0, 0, 0, 0] + be32(UInt32(tr.entries.count))
+                // tfra v1: 64-bit time and moof offset; 1-byte traf/trun/sample numbers.
+                var body: [UInt8] = [1, 0, 0, 0]
+                body.append(contentsOf: be32(tr.id))
+                body.append(contentsOf: [0, 0, 0, 0])
+                body.append(contentsOf: be32(UInt32(tr.entries.count)))
                 for e in tr.entries {
-                    body += be32(UInt32(e.time >> 32)) + be32(UInt32(e.time & 0xFFFF_FFFF)) + be32(UInt32(e.moof >> 32)) + be32(UInt32(e.moof & 0xFFFF_FFFF)) + [1, 1, 1]
+                    body.append(contentsOf: be64(e.time))
+                    body.append(contentsOf: be64(e.moof))
+                    body.append(contentsOf: [1, 1, 1])
                 }
-                tfras += box("tfra", body)
+                tfras.append(contentsOf: box("tfra", body))
             }
-            let mfro = box("mfro", [0, 0, 0, 0] + be32(UInt32(8 + tfras.count + 16)))
-            try h.seekToEnd(); try h.write(contentsOf: Data(box("mfra", tfras + mfro)))
+            var mfroBody: [UInt8] = [0, 0, 0, 0]
+            mfroBody.append(contentsOf: be32(UInt32(8 + tfras.count + 16)))
+            var mfraBody = tfras
+            mfraBody.append(contentsOf: box("mfro", mfroBody))
+            try h.seekToEnd(); try h.write(contentsOf: Data(box("mfra", mfraBody)))
             indexAdded = true
         }
         try h.synchronize()

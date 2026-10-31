@@ -45,7 +45,7 @@ object WivraPhoneMediaStore {
         return file
     }
 
-    private fun isWivraPrivate(context: Context, file: File): Boolean {
+    internal fun isWivraPrivate(context: Context, file: File): Boolean {
         val folder = directory(context).canonicalFile
         return file.canonicalFile.parentFile == folder &&
             file.name.startsWith(PRIVATE_PREFIX) && file.name.endsWith(".mp4")
@@ -73,9 +73,7 @@ object WivraPhoneMediaStore {
         val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
             ?: throw IOException("Cannot prepare media collection")
         try {
-            resolver.openOutputStream(uri, "w")?.use { output ->
-                privateVideo.inputStream().use { input -> input.copyTo(output, 128 * 1024) }
-            } ?: throw IOException("Cannot write media collection")
+            WivraMediaCopy.copyAndVerify(resolver, privateVideo, uri)
             val complete = ContentValues().apply {
                 put(MediaStore.Video.Media.IS_PENDING, 0)
             }
@@ -167,9 +165,7 @@ object WivraPhoneMediaStore {
         val uri = resolver.insert(collection, values)
             ?: throw IOException("Could not stage capture media")
         try {
-            resolver.openOutputStream(uri, "w")?.use { output ->
-                file.inputStream().use { input -> input.copyTo(output, 128 * 1024) }
-            } ?: throw IOException("Could not write capture media")
+            WivraMediaCopy.copyAndVerify(resolver, file, uri)
             return uri
         } catch (error: Exception) {
             resolver.delete(uri, null, null)

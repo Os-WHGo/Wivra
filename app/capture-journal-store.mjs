@@ -3,9 +3,14 @@
 // module cannot grant background execution or access the camera.
 import { createCaptureJournal, advanceCaptureJournal, recoverCaptureJournal, appendConfirmedCaptureSegment } from './capture-locked-session.mjs';
 
+// Multiple coordinators can wrap the same native writer in one JS realm.
+// This is not a substitute for native atomic writes or cross-process CAS.
+const writerLocks = new WeakMap();
+
 export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
   if (typeof writeAtomic !== 'function' || typeof read !== 'function' || typeof list !== 'function') throw new TypeError('Native storage callbacks required');
-  const locks = new Set();
+  if (!writerLocks.has(writeAtomic)) writerLocks.set(writeAtomic, new Set());
+  const locks = writerLocks.get(writeAtomic);
   const withLock = async (id, fn) => {
     if (locks.has(id)) throw new Error('Concurrent session mutation');
     locks.add(id);
@@ -26,7 +31,7 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
     if (recovery.recoverableFiles.length !== j.segments.length) throw new Error('Corrupted stored capture segments');
     return j;
   }
-  async function save(journal) {
+  async function persist(journal) {
     const recovery = recoverCaptureJournal(journal);
     // Atomic storage must never persist an invalid or partially corrupted
     // segment sequence, even if the caller bypasses the transition helpers.
@@ -37,25 +42,37 @@ export function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
     return journal;
   }
   return {
-    load, save,
+    load,
+    async save(journal) {
+      return withLock(journal?.id, async () => {
+        // Validate before comparing so corrupt snapshots never hide as retries.
+        const recovery = recoverCaptureJournal(journal);
+        if (recovery.recoverableFiles.length !== journal.segments.length) throw new Error('Corrupted capture segments cannot be saved');
+        const current = await load(journal.id);
+        if (current && journal.updatedAt <= current.updatedAt && JSON.stringify(journal) !== JSON.stringify(current)) {
+          throw new Error('Stale capture snapshot');
+        }
+        return persist(journal);
+      });
+    },
     async start(args) {
       return withLock(args.id, async () => {
         if (await load(args.id)) throw new Error('Session already exists');
-        return save(createCaptureJournal(args));
+        return persist(createCaptureJournal(args));
       });
     },
     async transition(id, event) {
       return withLock(id, async () => {
         const journal = await load(id);
         if (!journal) throw new Error('Session not found');
-        return save(advanceCaptureJournal(journal, event));
+        return persist(advanceCaptureJournal(journal, event));
       });
     },
     async appendConfirmedSegment(id, segment, at) {
       return withLock(id, async () => {
         const journal = await load(id);
         if (!journal) throw new Error('Session not found');
-        return save(appendConfirmedCaptureSegment(journal, segment, at));
+        return persist(appendConfirmedCaptureSegment(journal, segment, at));
       });
     },
     async recoverPending() {

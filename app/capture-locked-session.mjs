@@ -10,10 +10,12 @@ const ALLOWED = {
   finalized: [], failed: []
 };
 const validTime = n => Number.isFinite(n) && n >= 0;
-const safeName = s => typeof s === 'string' && s.length > 0 && s.length <= 240 && !/[\x00-\x1f]/.test(s);
+const safeName = s => typeof s === 'string' && s.length > 0 && s.length <= 240 &&
+  s !== '.' && s !== '..' && !/[\x00-\x1f\x7f/\\:]/.test(s);
+export const isCaptureFileName = safeName;
 
 export function createCaptureJournal({ id, platform, startedAt = Date.now() } = {}) {
-  if (!safeName(id) || !['ios', 'android'].includes(platform) || !validTime(startedAt)) throw new TypeError('Invalid capture session');
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id) || !['ios', 'android'].includes(platform) || !validTime(startedAt)) throw new TypeError('Invalid capture session');
   return { schema: 1, id, platform, source: 'rayban-meta', state: 'connecting', startedAt, updatedAt: startedAt, segments: [], interruptions: [], finalFile: null };
 }
 export function advanceCaptureJournal(journal, { state, at = Date.now(), segment, reason, finalFile } = {}) {
@@ -35,6 +37,15 @@ export function advanceCaptureJournal(journal, { state, at = Date.now(), segment
 }
 export function recoverCaptureJournal(journal) {
   if (!journal || journal.schema !== 1 || !STATES.has(journal.state) || !Array.isArray(journal.segments)) throw new TypeError('Invalid capture journal');
+  if (typeof journal.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(journal.id) ||
+      !['ios', 'android'].includes(journal.platform) || journal.source !== 'rayban-meta' ||
+      !validTime(journal.startedAt) || !validTime(journal.updatedAt) || journal.updatedAt < journal.startedAt ||
+      !Array.isArray(journal.interruptions) || journal.interruptions.some((event, index, events) =>
+        !event || !validTime(event.at) || event.at < journal.startedAt || event.at > journal.updatedAt ||
+        (index > 0 && event.at < events[index - 1].at) || typeof event.reason !== 'string' || event.reason.length > 160) ||
+      (journal.state === 'finalized' && (!safeName(journal.finalFile) || journal.segments.length === 0))) {
+    throw new TypeError('Invalid capture journal envelope');
+  }
   // Recovery must not trust a corrupt persisted snapshot or expose unsafe names.
   const verified = [];
   for (const segment of journal.segments) {

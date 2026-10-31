@@ -3,7 +3,6 @@ package com.oswhgo.wivra
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
-import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +25,12 @@ import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.rtmp.RtmpStream
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A first native, user-triggered RTMP/RTMPS publisher in the FULL Wivra app.
@@ -43,6 +48,8 @@ import java.io.File
  * deliberate. Background publishing needs its own separately authorized FGS.
  */
 class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
+    private val mediaScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var mediaBusy = false
     private lateinit var preview: SurfaceView
     private lateinit var endpointInput: EditText
     private lateinit var micOption: CheckBox
@@ -219,6 +226,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     private fun requestLive() {
+        if (mediaBusy) return
         if (!prepared || stopping || initiatedByUser ||
             stream?.isStreaming == true || stream?.isRecording == true) return
         if (!validEndpoint(endpointInput.text.toString())) {
@@ -236,6 +244,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     private fun confirmLive() {
+        if (mediaBusy) return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         val address = endpointInput.text.toString()
         if (!validEndpoint(address)) return
@@ -253,6 +262,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     private fun startLive(address: String, withAudio: Boolean) {
+        if (mediaBusy) return
         val publisher = stream ?: return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         if (applicationContext.filesDir.usableSpace < minFreeBytes) {
@@ -324,7 +334,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun controlsIdle() {
         runOnUiThread {
-            startButton.isEnabled = prepared && !isFinishing
+            startButton.isEnabled = prepared && !isFinishing && !mediaBusy
             stopButton.isEnabled = false
             micOption.isEnabled = true
             endpointInput.isEnabled = true
@@ -354,9 +364,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         initiatedByUser = false
         stopping = false
         controlsIdle()
-        if (file != null && muxerClosed && verifiedMp4(file)) {
-            setStatus("LIVE detenido. MP4 local disponible para revisar.")
-            if (!isFinishing && !isDestroyed && window.decorView.hasWindowFocus()) askKeep(file)
+        if (file != null && muxerClosed) {
+            reviewFile(file)
         } else {
             // Never silently discard a potentially salvageable video.
             setStatus("LIVE detenido. El último archivo no se pudo certificar. " +
@@ -365,34 +374,52 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     private fun verifiedMp4(file: File): Boolean {
-        // Do not trust a nonempty .mp4 suffix. Only offer a local recording
-        // when the decoder can read a completed duration and video track.
-        if (!file.isFile || file.length() <= 4096L) return false
-        val reader = MediaMetadataRetriever()
-        return try {
-            reader.setDataSource(file.absolutePath)
-            reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes" &&
-                (reader.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull() ?: 0L) > 0L
-        } catch (_: Exception) { false }
-        finally { runCatching { reader.release() } }
+        // The private phone folder is checked by the existing storage authority.
+        if (!WivraPhoneMediaStore.isWivraPrivate(this, file)) return false
+        return WivraCaptureMediaVerifier.verifyFile(file, file.parentFile!!).valid
+    }
+
+    private fun reviewFile(file: File) {
+        if (mediaBusy || isFinishing || isDestroyed) return
+        mediaBusy = true
+        controlsIdle()
+        setStatus("Verificando MP4 local. El original permanece privado…")
+        mediaScope.launch {
+            try {
+                val valid = withContext(Dispatchers.IO) { verifiedMp4(file) }
+                if (isFinishing || isDestroyed || initiatedByUser) return@launch
+                if (valid && window.decorView.hasWindowFocus()) askKeep(file)
+                else setStatus("MP4 sin certificar o revisión aplazada. Se conserva privado.")
+            } finally {
+                mediaBusy = false
+                if (!isDestroyed) controlsIdle()
+            }
+        }
     }
 
     private fun askKeep(file: File) {
-        if (!verifiedMp4(file)) {
-            setStatus("MP4 aún incompleto. Se conserva privado.")
-            return
-        }
         AlertDialog.Builder(this)
             .setTitle("Video LIVE guardado localmente")
             .setMessage("¿Quieres añadir este MP4 a Fotos/Galería? " +
                 "Si eliges Después, permanece privado en Wivra.")
             .setPositiveButton("Guardar video") { _, _ ->
-                try {
-                    WivraPhoneMediaStore.publish(this, file)
-                    setStatus("MP4 guardado. Puedes importarlo desde el editor.")
-                } catch (_: Exception) {
-                    setStatus("No se pudo publicar. El MP4 sigue privado.")
+                if (!mediaBusy && !initiatedByUser) {
+                    mediaBusy = true
+                    controlsIdle()
+                    mediaScope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                check(verifiedMp4(file)) { "MP4 changed before save" }
+                                WivraPhoneMediaStore.publish(this@WivraPhoneLiveActivity, file)
+                            }
+                            setStatus("MP4 guardado. Puedes importarlo desde el editor.")
+                        } catch (_: Exception) {
+                            setStatus("No se pudo publicar. El MP4 sigue privado o disponible en la galería si el guardado terminó.")
+                        } finally {
+                            mediaBusy = false
+                            if (!isDestroyed) controlsIdle()
+                        }
+                    }
                 }
             }
             .setNeutralButton("Después", null)
@@ -408,7 +435,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     private fun reviewPendingVideo() {
-        if (initiatedByUser || stopping) return
+        if (initiatedByUser || stopping || mediaBusy) return
         val files = WivraPhoneMediaStore.pendingVideos(this)
         if (files.isEmpty()) {
             setStatus("No hay videos pendientes de revisar.")
@@ -419,8 +446,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             .setTitle("Videos locales pendientes")
             .setItems(titles.toTypedArray()) { _, i ->
                 // A stale or invalid file is never claimed as verified.
-                if (verifiedMp4(files[i])) askKeep(files[i])
-                else setStatus("Archivo incompleto. Se conserva privado.")
+                reviewFile(files[i])
             }
             .setNegativeButton("Cerrar", null).show()
     }
@@ -488,6 +514,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         stream = null
         prepared = false
         endpointInput.text?.clear()
+        mediaScope.cancel()
         super.onDestroy()
     }
 }

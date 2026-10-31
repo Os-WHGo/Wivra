@@ -1875,6 +1875,15 @@ function androidExportHost(obj, { requestMs = EXPORT_SINK_REQUEST_MS } = {}) {
       ? send((id) => encodeExportFrame(id, token, seq, bytes))
       : send((id) => JSON.stringify({ v: EXPORT_SINK_PROTOCOL, rid: id, op: 'chunk', token, seq, size: bytes.length, b64: bytesToBase64(bytes) })),
     async hello() { const r = await host.request({ op: 'hello' }); binary = r.arrayBuffer === true; return r; },
+    /** Binary path: header + chunk built in ONE allocation straight from the Blob (no extra copy);
+     * `bytes` is a view of the payload inside the frame, used for the CRC. rid is set at send time. */
+    async readChunk(blob, token, seq) {
+      if (!binary) { const bytes = new Uint8Array(await blob.arrayBuffer()); return { bytes, send: () => host.sendChunk({ token, seq, bytes }) }; }
+      const head = new ArrayBuffer(EXPORT_FRAME_HEADER), view = new DataView(head);
+      view.setUint32(0, EXPORT_FRAME_MAGIC, true); view.setUint32(8, token >>> 0, true); view.setUint32(12, seq >>> 0, true);
+      const frame = await new Blob([head, blob]).arrayBuffer();
+      return { bytes: new Uint8Array(frame, EXPORT_FRAME_HEADER), send: () => send((id) => { new DataView(frame).setUint32(4, id >>> 0, true); return frame; }) };
+    },
   };
   return host;
 }
@@ -1935,10 +1944,11 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
       if (queuedBytes > maxQueuedBytes) return fail(new Error('El almacenamiento del teléfono no sigue el ritmo de la grabación. Libera espacio o cierra otras apps.'));
       chain = chain.then(async () => {
         if (error) return;
-        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const prepared = typeof host.readChunk === 'function' ? await host.readChunk(blob, token, seq) : null;
+        const bytes = prepared ? prepared.bytes : new Uint8Array(await blob.arrayBuffer());
         if (bytes.length !== size) throw new Error('Un fragmento cambió de tamaño al leerlo.');
         const next = crc32Update(crc, bytes);
-        const r = await host.sendChunk({ token, seq, bytes });
+        const r = prepared ? await prepared.send() : await host.sendChunk({ token, seq, bytes });
         if (r.seq !== seq || r.written !== sentBytes + size) throw new Error('El teléfono confirmó otros datos de los enviados.');
         crc = next; seq++; sentBytes += size; queuedBytes -= size;
       }).catch(fail);
@@ -5174,6 +5184,369 @@ function directorAITaskContext(brief, project) {
     instructions: (brief.utterances || []).slice(-8).map(u => ({ kind: u.kind, text: String(u.text || '').slice(0, 1000) })),
     descriptions,
     limits: 'El brief es intención del usuario, NO pruebas de escenas. No inventar timecodes, contenido visual, voces ni audio. Proponer operaciones editables con aprobación.'
+  };
+}
+
+// Ray-Ban capture journal: platform-neutral state and recoverable segment metadata.
+// Native iOS/Android must persist snapshots after each transition; this does NOT
+// keep an OS background task alive or record video by itself.
+const STATES = new Set(['connecting', 'recording', 'interrupted', 'stopping', 'finalized', 'failed']);
+const ALLOWED = {
+  connecting: ['recording', 'failed'],
+  recording: ['interrupted', 'stopping', 'failed'],
+  interrupted: ['recording', 'stopping', 'failed'],
+  stopping: ['finalized', 'failed'],
+  finalized: [], failed: []
+};
+const validTime = n => Number.isFinite(n) && n >= 0;
+const safeName = s => typeof s === 'string' && s.length > 0 && s.length <= 240 &&
+  s !== '.' && s !== '..' && !/[\x00-\x1f\x7f/\\:]/.test(s);
+const isCaptureFileName = safeName;
+
+function createCaptureJournal({ id, platform, startedAt = Date.now() } = {}) {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id) || !['ios', 'android'].includes(platform) || !validTime(startedAt)) throw new TypeError('Invalid capture session');
+  return { schema: 1, id, platform, source: 'rayban-meta', state: 'connecting', startedAt, updatedAt: startedAt, segments: [], interruptions: [], finalFile: null };
+}
+function advanceCaptureJournal(journal, { state, at = Date.now(), segment, reason, finalFile } = {}) {
+  if (!journal || !STATES.has(journal.state) || !ALLOWED[journal.state].includes(state) || !validTime(at) || at < journal.updatedAt) throw new TypeError('Invalid capture transition');
+  const next = { ...journal, state, updatedAt: at, segments: journal.segments.slice(), interruptions: journal.interruptions.slice() };
+  if (segment !== undefined) {
+    if (!['recording', 'interrupted', 'stopping'].includes(journal.state) || !safeName(segment.file) || !validTime(segment.startMs) || !validTime(segment.endMs) || segment.endMs <= segment.startMs || segment.confirmed !== true) throw new TypeError('Invalid confirmed segment');
+    const last = next.segments.at(-1);
+    if (last && segment.startMs < last.endMs) throw new TypeError('Overlapping capture segments');
+    if (next.segments.some(s => s.file === segment.file)) throw new TypeError('Duplicate capture file');
+    next.segments.push({ file: segment.file, startMs: segment.startMs, endMs: segment.endMs, confirmed: true });
+  }
+  if (state === 'interrupted') next.interruptions.push({ at, reason: typeof reason === 'string' ? reason.slice(0, 160) : 'unknown' });
+  if (state === 'finalized') {
+    if (!safeName(finalFile) || next.segments.length === 0) throw new TypeError('Cannot finalize without verified output');
+    next.finalFile = finalFile;
+  }
+  return next;
+}
+function recoverCaptureJournal(journal) {
+  if (!journal || journal.schema !== 1 || !STATES.has(journal.state) || !Array.isArray(journal.segments)) throw new TypeError('Invalid capture journal');
+  if (typeof journal.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(journal.id) ||
+      !['ios', 'android'].includes(journal.platform) || journal.source !== 'rayban-meta' ||
+      !validTime(journal.startedAt) || !validTime(journal.updatedAt) || journal.updatedAt < journal.startedAt ||
+      !Array.isArray(journal.interruptions) || journal.interruptions.some((event, index, events) =>
+        !event || !validTime(event.at) || event.at < journal.startedAt || event.at > journal.updatedAt ||
+        (index > 0 && event.at < events[index - 1].at) || typeof event.reason !== 'string' || event.reason.length > 160) ||
+      (journal.state === 'finalized' && (!safeName(journal.finalFile) || journal.segments.length === 0))) {
+    throw new TypeError('Invalid capture journal envelope');
+  }
+  // Recovery must not trust a corrupt persisted snapshot or expose unsafe names.
+  const verified = [];
+  for (const segment of journal.segments) {
+    if (!segment || segment.confirmed !== true || !safeName(segment.file) ||
+        !validTime(segment.startMs) || !validTime(segment.endMs) ||
+        segment.endMs <= segment.startMs ||
+        verified.some(previous => previous.file === segment.file || segment.startMs < previous.endMs)) break;
+    verified.push(segment);
+  }
+  return { ...journal, recoverableFiles: verified.map(s => s.file),
+    requiresReview: journal.state !== 'finalized' || verified.length !== journal.segments.length };
+}
+
+function appendConfirmedCaptureSegment(journal, segment, at = Date.now()) {
+  if (!journal || !['recording', 'interrupted', 'stopping'].includes(journal.state) ||
+      !validTime(at) || at < journal.updatedAt || !safeName(segment?.file) ||
+      segment.confirmed !== true || !validTime(segment.startMs) ||
+      !validTime(segment.endMs) || segment.endMs <= segment.startMs) throw new TypeError('Invalid confirmed segment');
+  const last = journal.segments.at(-1);
+  if ((last && segment.startMs < last.endMs) || journal.segments.some(s => s.file === segment.file)) throw new TypeError('Overlapping or duplicate segment');
+  return { ...journal, updatedAt: at, segments: [...journal.segments, { file: segment.file, startMs: segment.startMs, endMs: segment.endMs, confirmed: true }] };
+}
+
+// Durable storage contract for native Ray-Ban capture journals.
+// The host supplies atomic write/read/list primitives (Android/iOS). This
+// module cannot grant background execution or access the camera.
+
+
+// Multiple coordinators can wrap the same native writer in one JS realm.
+// This is not a substitute for native atomic writes or cross-process CAS.
+const writerLocks = new WeakMap();
+
+function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
+  if (typeof writeAtomic !== 'function' || typeof read !== 'function' || typeof list !== 'function') throw new TypeError('Native storage callbacks required');
+  if (!writerLocks.has(writeAtomic)) writerLocks.set(writeAtomic, new Set());
+  const locks = writerLocks.get(writeAtomic);
+  const withLock = async (id, fn) => {
+    if (locks.has(id)) throw new Error('Concurrent session mutation');
+    locks.add(id);
+    try { return await fn(); } finally { locks.delete(id); }
+  };
+  const key = id => {
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new TypeError('Unsafe session id');
+    return 'wivra-capture-' + id + '.json';
+  };
+  async function load(id) {
+    const data = await read(key(id));
+    if (data == null) return null;
+    const j = JSON.parse(data);
+    if (j.id !== id || j.schema !== 1 || !Array.isArray(j.segments)) throw new Error('Invalid stored capture');
+    const recovery = recoverCaptureJournal(j);
+    // Never mutate a partially corrupted persisted journal. Keep its raw
+    // snapshot untouched so native recovery can inspect the original bytes.
+    if (recovery.recoverableFiles.length !== j.segments.length) throw new Error('Corrupted stored capture segments');
+    return j;
+  }
+  async function persist(journal) {
+    const recovery = recoverCaptureJournal(journal);
+    // Atomic storage must never persist an invalid or partially corrupted
+    // segment sequence, even if the caller bypasses the transition helpers.
+    if (recovery.recoverableFiles.length !== journal.segments.length) {
+      throw new Error('Corrupted capture segments cannot be saved');
+    }
+    await writeAtomic(key(journal.id), JSON.stringify(journal));
+    return journal;
+  }
+  return {
+    load,
+    async save(journal) {
+      return withLock(journal?.id, async () => {
+        // Validate before comparing so corrupt snapshots never hide as retries.
+        const recovery = recoverCaptureJournal(journal);
+        if (recovery.recoverableFiles.length !== journal.segments.length) throw new Error('Corrupted capture segments cannot be saved');
+        const current = await load(journal.id);
+        if (current && journal.updatedAt <= current.updatedAt && JSON.stringify(journal) !== JSON.stringify(current)) {
+          throw new Error('Stale capture snapshot');
+        }
+        return persist(journal);
+      });
+    },
+    async start(args) {
+      return withLock(args.id, async () => {
+        if (await load(args.id)) throw new Error('Session already exists');
+        return persist(createCaptureJournal(args));
+      });
+    },
+    async transition(id, event) {
+      return withLock(id, async () => {
+        const journal = await load(id);
+        if (!journal) throw new Error('Session not found');
+        return persist(advanceCaptureJournal(journal, event));
+      });
+    },
+    async appendConfirmedSegment(id, segment, at) {
+      return withLock(id, async () => {
+        const journal = await load(id);
+        if (!journal) throw new Error('Session not found');
+        return persist(appendConfirmedCaptureSegment(journal, segment, at));
+      });
+    },
+    async recoverPending() {
+      const names = await list('wivra-capture-');
+      const pending = [];
+      for (const name of names) {
+        if (typeof name !== 'string' || !/^wivra-capture-[a-zA-Z0-9_-]{1,100}\.json$/.test(name)) continue;
+        const id = name.slice('wivra-capture-'.length, -'.json'.length);
+        try {
+          const journal = await load(id);
+          const recovery = recoverCaptureJournal(journal);
+          if (recovery.requiresReview) pending.push({ id, state: journal.state, files: recovery.recoverableFiles });
+        } catch {
+          // Keep the raw journal untouched, but expose the session to review.
+          // Never expose file names from a malformed manifest as verified media.
+          pending.push({ id, state: 'corrupted', files: [] });
+        }
+      }
+      return pending;
+    }
+  };
+}
+
+// Read-only native host.verifyFile adapter. Does not start cameras or grant
+// background capability. A session ID is the native 32-hex checkpoint session.
+// No URIs, media bytes or sandbox paths cross this channel. — ChatGPT
+const captureVerificationHosts = new WeakMap();
+const captureVerificationScope = ({ id, file } = {}) =>
+  typeof id === 'string' && /^[0-9a-f]{32}$/.test(id) && typeof file === 'string' &&
+  new RegExp(`^(?:wivra_rayban_${id}_part[0-9]{4}\\.mp4|Wivra_Meta_${id}_part[0-9]{4}\\.mov)$`).test(file);
+
+function detectNativeCaptureFileVerifier(g = globalThis, { timeoutMs = 30000 } = {}) {
+  const ios = g?.WivraHost;
+  if (typeof ios?.verifyFile === 'function') {
+    return async args => {
+      if (!captureVerificationScope(args)) return false;
+      let timer;
+      try {
+        const reply = await Promise.race([ios.verifyFile(args), new Promise(resolve => { timer = setTimeout(() => resolve(null), timeoutMs); })]);
+        return reply?.verified === true;
+      } catch { return false; } finally { clearTimeout(timer); }
+    };
+  }
+  const native = g?.WivraCaptureNative;
+  if (typeof native?.postMessage !== 'function') return null;
+  if (captureVerificationHosts.has(native)) return captureVerificationHosts.get(native);
+  let rid = 0;
+  const waiting = new Map();
+  const onMessage = event => {
+    let reply; try { reply = JSON.parse(event.data); } catch { return; }
+    const pending = waiting.get(reply?.rid);
+    if (!pending) return;
+    waiting.delete(reply.rid); clearTimeout(pending.timer);
+    pending.resolve(reply.verified === true);
+  };
+  if (typeof native.addEventListener === 'function') native.addEventListener('message', onMessage);
+  else native.onmessage = onMessage;
+  const verify = args => {
+    if (!captureVerificationScope(args)) return Promise.resolve(false);
+    return new Promise(resolve => {
+      const request = ++rid;
+      const timer = setTimeout(() => { waiting.delete(request); resolve(false); }, timeoutMs);
+      waiting.set(request, { resolve, timer });
+      try { native.postMessage(JSON.stringify({ v: 1, rid: request, op: 'verifyFile', id: args.id, file: args.file })); }
+      catch { clearTimeout(timer); waiting.delete(request); resolve(false); }
+    });
+  };
+  captureVerificationHosts.set(native, verify);
+  return verify;
+}
+
+// Wivra Ray-Ban session coordinator. The host must implement actual Meta DAT
+// capture, background handling, fragment finalization and atomic storage.
+// This coordinator never claims that background recording is supported.
+
+
+
+
+function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
+  for (const method of ['capabilities', 'start', 'stop']) {
+    if (typeof host?.[method] !== 'function') throw new TypeError('Native capture host missing ' + method);
+  }
+  const store = createCaptureJournalStore(storage);
+  const nativeVerifyFile = detectNativeCaptureFileVerifier();
+  const verifyPhysicalFile = args => typeof host.verifyFile === 'function' ? host.verifyFile(args) : nativeVerifyFile(args);
+  let active = null;
+  let busy = false;
+  const timestamp = () => now();
+  const assertActive = id => {
+    if (!active || active.id !== id) throw new Error('No matching active capture');
+  };
+  async function locked(action) {
+    if (busy) throw new Error('Capture operation in progress');
+    busy = true;
+    try { return await action(); } finally { busy = false; }
+  }
+  return {
+    async capabilities() {
+      const caps = await host.capabilities();
+      return { rayban: caps?.rayban === true, lockedScreen: caps?.lockedScreen === true, backgroundVerified: caps?.backgroundVerified === true };
+    },
+    async start({ id, platform, profile } = {}) {
+      return locked(async () => {
+        if (active) throw new Error('Capture already active');
+        const caps = await this.capabilities();
+        if (!caps.rayban) throw new Error('Ray-Ban native capture unavailable');
+        if (!caps.lockedScreen) throw new Error('Locked-screen capture not supported by this host');
+        // A capability probe is not permission to overwrite an existing
+        // durable session, including one left after a previous crash.
+        await store.start({ id, platform, startedAt: timestamp() });
+        active = { id, platform };
+        try {
+          await host.start({ id, profile });
+          return await store.transition(id, { state: 'recording', at: timestamp() });
+        } catch (error) {
+          // The native start may fail at the same time as journal storage.
+          // Preserve its original error and release the coordinator lock.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Keep the last durable snapshot for recovery. */ }
+          finally { active = null; }
+          throw error;
+        }
+      });
+    },
+    async interrupted(id, reason, confirmedSegment) {
+      return locked(async () => {
+        assertActive(id);
+        return store.transition(id, { state: 'interrupted', at: timestamp(), reason, ...(confirmedSegment ? { segment: confirmedSegment } : {}) });
+      });
+    },
+    async resumed(id) {
+      return locked(async () => {
+        assertActive(id);
+        return store.transition(id, { state: 'recording', at: timestamp() });
+      });
+    },
+    async stop(id) {
+      return locked(async () => {
+        assertActive(id);
+        const current = await store.load(id);
+        if (current.state !== 'recording' && current.state !== 'interrupted') throw new Error('Capture cannot stop in this state');
+        await store.transition(id, { state: 'stopping', at: timestamp() });
+        try {
+          // Host returns only verified closed media fragments and final output.
+          const output = await host.stop({ id });
+          const segments = output?.segments;
+          if (!Array.isArray(segments) || !segments.length) throw new Error('No confirmed media fragments');
+          // Native host must close and verify all fragments before reporting success.
+          // The manifest remains recoverable if any fragment or final output fails.
+          if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
+          const previous = (await store.load(id)).segments;
+          let cursor = previous.length ? previous.at(-1).endMs : 0;
+          const names = new Set(previous.map(s => s.file));
+          for (const segment of segments) {
+            if (!segment || segment.confirmed !== true || !isCaptureFileName(segment.file) || names.has(segment.file) ||
+                !Number.isFinite(segment.startMs) || !Number.isFinite(segment.endMs) ||
+                segment.startMs < cursor || segment.endMs <= segment.startMs) {
+              throw new Error('Invalid confirmed native fragment');
+            }
+            names.add(segment.file);
+            cursor = segment.endMs;
+          }
+          // Existing fragments can disappear during an interrupted recording.
+          // Recheck the entire assembled take before publishing final state.
+          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
+          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
+            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
+          // Persist fragments with intermediate stopping snapshots, never
+          // publish finalized state before every segment is durable.
+          let j = await store.load(id);
+          for (const segment of segments) {
+            j = await store.appendConfirmedSegment(id, segment, timestamp());
+          }
+          j = await store.transition(id, { state: 'finalized', at: timestamp(), finalFile: output.finalFile });
+          active = null;
+          return { ok: true, journal: j };
+        } catch (error) {
+          // A storage failure must not leave this coordinator permanently
+          // occupied. Preserve the original error and the last durable
+          // journal snapshot if marking failure also fails.
+          try { await store.transition(id, { state: 'failed', at: timestamp() }); }
+          catch { /* Native recovery will inspect the last durable snapshot. */ }
+          finally { active = null; }
+          throw error;
+        }
+      });
+    },
+    async pending() {
+      return locked(async () => store.recoverPending());
+    },
+    // A pending journal is metadata, not proof that an MP4 exists on disk.
+    // Only a finalized session with an explicitly confirmed native file may
+    // be handed to Director; the host must verify the physical media itself.
+    async directorHandoff(id) {
+      return locked(async () => {
+      const journal = await store.load(id);
+      if (!journal || journal.state !== 'finalized' || !journal.finalFile || !journal.segments.length) {
+        throw new Error('Capture not finalized for Director');
+      }
+      if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for Director');
+      // A verified final output does not prove its referenced source fragments
+      // still exist. Verify every file before advertising the complete take.
+      const files = [journal.finalFile, ...journal.segments.map(segment => segment.file)];
+      for (const file of new Set(files)) {
+        if (await verifyPhysicalFile({ id, file }) !== true) {
+          throw new Error('Native media verification required for Director');
+        }
+      }
+      return { sessionId: id, platform: journal.platform, file: journal.finalFile,
+        segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
+      });
+    },
+    async snapshot(id) { return store.load(id); }
   };
 }
 

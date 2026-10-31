@@ -750,7 +750,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .setView(reviewButton)
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 scope.launch {
+                    var freshPublication = false
                     val savedCount = withContext(Dispatchers.IO) {
+                        // Persist BEFORE the first part can become visible or
+                        // disappear from pending storage. A process-death retry
+                        // must never acknowledge the remaining subset as a take.
+                        freshPublication = WivraDirectorSaveJournal.begin(applicationContext, pending.id)
                         pending.parts.count { part ->
                             WivraHevcMp4Recorder.publishPending(applicationContext, part) != null
                         }
@@ -767,7 +772,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     // own import flow, never to this native camera.
                     if (savedCount != pending.parts.size) {
                         directorPartialSaves.add(pending.id)
-                    } else if (pending.id !in directorPartialSaves) {
+                    } else if (freshPublication && pending.id !in directorPartialSaves) {
                         val shotId = intent.getStringExtra(
                             WivraPhoneCameraActivity.EXTRA_SHOT_ID)
                         if (WivraDirectorTakeReceipt.mayAcknowledge(
@@ -776,6 +781,11 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             setResult(RESULT_OK, Intent().putExtra(
                                 WivraPhoneCameraActivity.EXTRA_SHOT_ID, shotId))
                             directorPendingBeforeCapture = null
+                        }
+                    }
+                    if (savedCount == pending.parts.size) {
+                        withContext(Dispatchers.IO) {
+                            WivraDirectorSaveJournal.completed(applicationContext, pending.id)
                         }
                     }
                     if (savedCount > 0) {
