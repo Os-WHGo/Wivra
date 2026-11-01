@@ -260,13 +260,16 @@ struct MetaB0Screen: View {
 
                 Picker("Perfil de cámara", selection: $model.chosenProfile) {
                     Text("Equilibrado").tag("balanced")
+                    Text("Movimiento").tag("motion")
+                    Text("Detalle").tag("detail")
                     Text("Ahorro").tag("economy")
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 .disabled(model.hasPreview)
-                Text(model.chosenProfile == "economy"
-                     ? "DAT · 360 × 640, 15 FPS solicitados"
-                     : "DAT · 504 × 896, 24 FPS solicitados")
+                Text("DAT solicitado: " + model.requestedDatProfileDescription)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text("La calidad recibida depende del enlace Meta; más resolución o FPS pueden aumentar la compresión.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
