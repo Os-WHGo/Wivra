@@ -99,7 +99,7 @@ class WivraScreenLiveActivity : ComponentActivity() {
                 InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             isSaveEnabled = false
             setSingleLine(true)
-            importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
+            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
             contentDescription = "URL RTMP/RTMPS privada para pantalla LIVE"
         }
         root.addView(endpoint)
