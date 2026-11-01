@@ -175,4 +175,18 @@
     <string name="source_limits_title">入力の機能</string>
     <string name="source_limits_camera">カメラ画面を開いただけでは接続の確認になりません。Wivraは権限を要求し、完成したファイルを検証します。PiPと2台同時撮影はまだ有効ではありません。</string>
     <string name="source_limits_live">画面やアプリの共有にはAndroidの許可が必要です。この機能は映像のみ配信し、ほかのアプリの内部音声は収録しません。PiPと複数カメラの同時使用はまだ有効ではありません。</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">音声入力: %1$s</string>
+    <string name="live_audio_auto">自動 (Android)</string>
+    <string name="live_audio_phone">内蔵マイク</string>
+    <string name="live_audio_wired">有線ヘッドセット</string>
+    <string name="live_audio_usb">USBマイク</string>
+    <string name="live_audio_bluetooth">Bluetoothマイク</string>
+    <string name="live_audio_other">その他の音声入力</string>
+    <string name="live_audio_select_title">LIVEの音声入力を選択</string>
+    <string name="live_audio_disconnected">選択した音声入力が切断されました。無断のマイク切替を防ぐためLIVEを停止しました。ローカル録画を確認してください。</string>
+    <string name="live_audio_unavailable">選択した入力が利用できません。配信前に選び直してください。</string>
+    <string name="live_audio_limits_button">制限</string>
+    <string name="live_audio_preference_only">Androidに入力の希望を伝えます。実際の音声経路と品質は録音テストが必要です。メガネのマイク対応を保証しません。</string>
 </resources>
