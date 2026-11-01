@@ -71,3 +71,8 @@
 "ios.exports.save_photos" = "In Fotos sichern";
 "ios.exports.saved_photos" = "In Fotos gesichert";
 "ios.exports.photos_error" = "Speichern in Fotos fehlgeschlagen";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban bei gesperrtem Bildschirm (experimentell)";
+"ios.app.background_capture_off_warning" = "Wenn du das iPhone jetzt sperrst, beendet Wivra die Ray-Ban-Sitzung. Aktiviere zuvor den experimentellen Hintergrundmodus.";
+"ios.app.background_capture_experimental_warning" = "Experimentell: iOS oder Meta können den Stream beim Sperren unterbrechen. Abgeschlossene Segmente bleiben erhalten; prüfe sie danach.";
