@@ -91,3 +91,11 @@
 "ios.capture.storage_minutes_estimate" = "About %d min at the observed HEVC rate. Excludes audio, quality changes, and copies.";
 "ios.capture.storage_export_reserve" = "Merging, exporting, or saving to Photos requires extra space; this estimate does not guarantee export.";
 "ios.capture.storage_stopped" = "Local recording stopped because storage is low. Keep recoverable parts and free up space.";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "Joining segments into one complete video. Originals are kept.";
+"ios.capture.join_success" = "Complete video merged, verified and saved locally.";
+"ios.capture.join_failed" = "Could not join the take; original segments remain available.";
+"ios.capture.joined_share" = "Share complete video";
+"ios.capture.joined_photos" = "Save complete video to Photos";
+"ios.capture.joined_saved" = "Complete video saved to Photos";
