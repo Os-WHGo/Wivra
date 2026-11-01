@@ -60,6 +60,17 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
         "Wivra_Meta_\(sessionID)_part\(String(format: "%04d", part)).mov"
     }
 
+    /// Called when an active DAT camera unexpectedly stops delivering video.
+    /// Future stop() may still save all readable original MOV parts, but the
+    /// completion receipt must never claim an uninterrupted, finished take.
+    /// A normal user-requested Stop must NOT call this method.
+    func markTransportInterrupted() {
+        queue.sync {
+            guard active || current != nil || !finalizations.isEmpty else { return }
+            rotationFailed = true
+        }
+    }
+
     func append(_ buffer: CMSampleBuffer) {
         queue.sync {
             guard active, let writer = current,
