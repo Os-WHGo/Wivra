@@ -80,3 +80,17 @@ Procedimiento Windows que **puede intentarse**, una vez que CI del commit exacto
 Referencias oficiales de terceros: https://faq.altstore.io/altstore-classic/altserver ; https://faq.altstore.io/altstore-classic/app-ids ; https://docs.sidestore.io/docs/installation/install ; https://sideloadly.io/faq . Referencia Apple Personal Team: https://developer.apple.com/help/account/basics/about-your-developer-account .
 
 **Estado de prueba:** solo investigación documental comparativa, sin instalación de AltStore ni firma de Wivra. Ninguna de estas herramientas se añade como dependencia del producto; no implica gastos ni publicación.
+
+
+## P0-I · Protección de almacenamiento y privacidad iOS (PR #140)
+
+**Código implementado, ensayo físico NO realizado.** La protección usa espacio para uso importante del volumen local de Documentos, no capacidad total anunciada ni volumen USB. Márgenes iniciales: 512 MiB para empezar, 256 MiB para cerrar; estos valores no garantizan exportación, Fotos, audio adicional ni grabación con pantalla bloqueada.
+
+1. **Preflight sin destruir toma anterior**: ante menos de 512 MiB disponibles, pulsar REC; debe mostrar aviso, NO abrir otro escritor CAF/MOV y dejar visible la última toma ya finalizada. Nunca probar llevando el iPhone real a 0 bytes; preferir instrumento/volumen de prueba controlado.
+2. **Duración orientativa**: con DAT .hvc1 en movimiento, observar `measuredCompressedMbps` junto al diagnóstico local. Al inicio o si no se conocen bytes/bitrate, mostrar que no hay estimación. Cambiar ritmo de movimiento y comprobar que los minutos cambian; no confundir con bitrate RTMP.
+3. **Cierre por reserva crítica**: tras una grabación iniciada normalmente, simular espacio inferior a 256 MiB o disponer de entorno de prueba acotado; comprobar aviso y cierre por el finalizador nativo, partes reproducibles, protección `Keep/Later/Discard`, jamás borrado silencioso. El watchdog se consulta cada 10 s cuando iOS ejecuta la app; no garantiza que continúe tras suspensión por pantalla bloqueada.
+4. **Exportación y Fotos**: comprobar que mostrar minutos estimados no permite afirmar que quepa la unión, MP4 final, copia en Fotos o backup USB. Si falla el espacio, preservar partes y reintentar solo tras liberar o elegir destino compatible.
+5. **Privacidad**: verificar que el bundle firmado contiene `PrivacyInfo.xcprivacy` con razones de espacio `85F4.1` (mostrar) y `E174.1` (bloqueo seguro), y que ninguna métrica del volumen se envía a servidores externos. Probar con los ocho idiomas y el aviso de cierre automático.
+6. **Regresión con hardware**: repetir con Ray-Ban Gen 2, micrófono seleccionado y sin audio; pérdida de conexión DAT mientras el watchdog consulta espacio, terminación voluntaria y cambio de cámara; no atribuir PASS físico a compilación CI.
+
+Referencias: https://developer.apple.com/documentation/foundation/checking-volume-storage-capacity ; https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype .
