@@ -66,3 +66,8 @@
 "ios.exports.empty_description" = "Exported and verified videos appear here, even after closing Wivra.";
 "ios.exports.share" = "Share or save";
 "ios.exports.close" = "Close";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "Save to Photos";
+"ios.exports.saved_photos" = "Saved to Photos";
+"ios.exports.photos_error" = "Could not save to Photos";
