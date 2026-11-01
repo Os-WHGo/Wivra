@@ -156,6 +156,9 @@ struct WivraNativeCaptureLibraryScreen: View {
     @State private var days: [WivraStoredCaptureDay] = []
     @State private var rejected = 0
     @State private var recoveredAudio: [URL] = []
+    @State private var photosSavingCaptureID: String?
+    @State private var photosSavedCaptureIDs = Set<String>()
+    @State private var photosError: String?
 
     private func refresh() {
         let result = WivraLocalCaptureScanner.read()
@@ -204,6 +207,30 @@ struct WivraNativeCaptureLibraryScreen: View {
                                     .font(.caption).foregroundStyle(.secondary)
                                 if let video = item.videoURL {
                                     ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
+                                    // The catalog survives relaunch. Offer the same add-only
+                                    // Photos action as the live capture screen for kept files.
+                                    // Prefer a finished muxed MOV when available; Photos
+                                    // validates readability and never removes Wivra originals.
+                                    let preferredPhotosURL = item.alternateVideoURL ?? video
+                                    Button {
+                                        photosSavingCaptureID = item.id
+                                        Task { @MainActor in
+                                            defer { photosSavingCaptureID = nil }
+                                            do {
+                                                try await WivraPhotosLibrary.saveVideo(preferredPhotosURL)
+                                                photosSavedCaptureIDs.insert(item.id)
+                                            } catch {
+                                                photosError = error.localizedDescription
+                                            }
+                                        }
+                                    } label: {
+                                        Label(photosSavedCaptureIDs.contains(item.id)
+                                              ? "ios.exports.saved_photos" : "ios.exports.save_photos",
+                                              systemImage: "square.and.arrow.down")
+                                    }
+                                    .disabled(photosSavingCaptureID != nil ||
+                                              photosSavedCaptureIDs.contains(item.id))
+                                    .accessibilityIdentifier("wivra_capture_library_save_photos")
                                 } else {
                                     Text("ios.library.video_missing")
                                         .font(.caption).foregroundStyle(.orange)
@@ -234,6 +261,14 @@ struct WivraNativeCaptureLibraryScreen: View {
                 }
             }
             .onAppear { refresh() }
+            .alert("ios.exports.photos_error", isPresented: Binding(
+                get: { photosError != nil },
+                set: { if !$0 { photosError = nil } }
+            )) {
+                Button("OK", role: .cancel) { photosError = nil }
+            } message: {
+                Text(photosError ?? "")
+            }
         }
     }
 }
