@@ -99,3 +99,4 @@
 "ios.capture.joined_share" = "Share complete video";
 "ios.capture.joined_photos" = "Save complete video to Photos";
 "ios.capture.joined_saved" = "Complete video saved to Photos";
+"ios.capture.retry_join" = "Join this complete take";
