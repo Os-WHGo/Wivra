@@ -76,3 +76,4 @@
 "ios.app.background_capture_toggle" = "Ray-Ban com tela bloqueada (experimental)";
 "ios.app.background_capture_off_warning" = "Bloquear o iPhone agora encerrará a sessão Ray-Ban. Ative a captura experimental em segundo plano antes de bloquear.";
 "ios.app.background_capture_experimental_warning" = "Modo experimental: iOS ou Meta ainda podem interromper a transmissão. Os segmentos finalizados são preservados; revise-os ao voltar.";
+"ios.library.photos_original_only" = "Vídeo original salvo porque a versão com áudio não era válida.";
