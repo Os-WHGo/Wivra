@@ -158,6 +158,7 @@ struct WivraNativeCaptureLibraryScreen: View {
     @State private var recoveredAudio: [URL] = []
     @State private var photosSavingCaptureID: String?
     @State private var photosSavedCaptureIDs = Set<String>()
+    @State private var photosSavedOriginalOnly = Set<String>()
     @State private var photosError: String?
 
     private func refresh() {
@@ -217,8 +218,12 @@ struct WivraNativeCaptureLibraryScreen: View {
                                         Task { @MainActor in
                                             defer { photosSavingCaptureID = nil }
                                             do {
-                                                try await WivraPhotosLibrary.saveVideo(preferredPhotosURL)
+                                                let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
+                                                    preferredPhotosURL,
+                                                    fallback: item.alternateVideoURL == nil ? nil : video
+                                                )
                                                 photosSavedCaptureIDs.insert(item.id)
+                                                if originalOnly { photosSavedOriginalOnly.insert(item.id) }
                                             } catch {
                                                 photosError = error.localizedDescription
                                             }
@@ -231,6 +236,11 @@ struct WivraNativeCaptureLibraryScreen: View {
                                     .disabled(photosSavingCaptureID != nil ||
                                               photosSavedCaptureIDs.contains(item.id))
                                     .accessibilityIdentifier("wivra_capture_library_save_photos")
+                                    if photosSavedOriginalOnly.contains(item.id) {
+                                        Text("ios.library.photos_original_only")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
+                                    }
                                 } else {
                                     Text("ios.library.video_missing")
                                         .font(.caption).foregroundStyle(.orange)
