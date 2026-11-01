@@ -93,6 +93,9 @@ final class MetaB0Model {
     var captureSelectedAudio = false
     var lastSeparateAudioURL: URL?
     var lastCombinedVideoURL: URL?
+    var lastJoinedVideoURL: URL?
+    var joiningSegments = false
+    var lastJoinError: String?
     var lastAudioSyncOffsetSeconds: Double?
     var lastCaptureManifestURL: URL?
     // A finished recording remains private until Save or confirmed Discard.
@@ -247,6 +250,8 @@ final class MetaB0Model {
         lastRecordedSegmentCount = 0
         lastSeparateAudioURL = nil
         lastCombinedVideoURL = nil
+        lastJoinedVideoURL = nil
+        lastJoinError = nil
         lastAudioSyncOffsetSeconds = nil
         lastCaptureManifestURL = nil
         selectedAudioDeviceName = nil
@@ -499,6 +504,43 @@ final class MetaB0Model {
             pendingRecording = nil
             showPendingRecordingChoice = false
             refreshPendingRecordingChoice()
+
+            // After the user's explicit Keep, combine independent video-only
+            // checkpoints in the background. Never remove originals, and
+            // never publish a partial or unverified output in Photos.
+            let partNames = entry.files
+                .filter { $0.range(of: #"_part[0-9]{4}\\.mov$"#,
+                                  options: .regularExpression) != nil }
+                .sorted()
+            if partNames.count > 1 && !joiningSegments {
+                let folder = FileManager.default.urls(
+                    for: .documentDirectory, in: .userDomainMask
+                )[0].appendingPathComponent("WivraRecordings", isDirectory: true)
+                let partURLs = partNames.map { folder.appendingPathComponent($0) }
+                let expectedFirst = partURLs.first
+                joiningSegments = true
+                recordingStatus = NSLocalizedString("ios.capture.joining", comment: "")
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    do {
+                        let joined = try await WivraSegmentedCaptureJoiner.joinConfirmed(partURLs)
+                        if self.lastRecordedURL == expectedFirst {
+                            self.lastJoinedVideoURL = joined
+                            self.lastJoinError = nil
+                            self.recordingStatus = NSLocalizedString("ios.capture.join_success",
+                                                                      comment: "")
+                        }
+                    } catch {
+                        if self.lastRecordedURL == expectedFirst {
+                            self.lastJoinError = error.localizedDescription
+                            self.recordingStatus = NSLocalizedString("ios.capture.join_failed",
+                                                                      comment: "") + " " +
+                                error.localizedDescription
+                        }
+                    }
+                    self.joiningSegments = false
+                }
+            }
         } catch {
             recordingStatus = "No se pudo conservar la grabación: " + error.localizedDescription
         }
@@ -522,6 +564,8 @@ final class MetaB0Model {
                 lastRecordedSegmentCount = 0
                 lastSeparateAudioURL = nil
                 lastCombinedVideoURL = nil
+                lastJoinedVideoURL = nil
+                lastJoinError = nil
                 lastCaptureManifestURL = nil
                 lastAudioSyncOffsetSeconds = nil
             }
