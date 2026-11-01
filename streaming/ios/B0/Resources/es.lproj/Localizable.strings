@@ -76,3 +76,4 @@
 "ios.app.background_capture_toggle" = "Ray-Ban con pantalla bloqueada (experimental)";
 "ios.app.background_capture_off_warning" = "Si bloqueas el iPhone ahora, Wivra cerrará la sesión Ray-Ban. Activa la opción experimental antes de bloquearlo.";
 "ios.app.background_capture_experimental_warning" = "Modo experimental: iOS o Meta pueden detener la transmisión al bloquear. Los segmentos cerrados se conservan; revisa el resultado al volver.";
+"ios.library.photos_original_only" = "Se guardó el video original porque la versión con audio no era válida.";
