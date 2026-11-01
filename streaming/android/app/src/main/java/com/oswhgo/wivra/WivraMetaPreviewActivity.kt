@@ -352,7 +352,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun show(message: String) { status.text = message }
     private fun refreshButtons() {
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
-        registerButton.isEnabled = sdkReady && !serviceRecording
+        registerButton.isEnabled = sdkReady && !serviceRecording &&
+            Wearables.registrationState.value != RegistrationState.REGISTERING &&
+            Wearables.registrationState.value != RegistrationState.REGISTERED
         connectButton.isEnabled = sdkReady && session == null && !serviceRecording
         previewButton.isEnabled = !serviceRecording &&
             session?.state?.value == DeviceSessionState.STARTED && camera == null
@@ -413,6 +415,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             show(getString(R.string.meta_registration_complete))
             return
         }
+        if (Wearables.registrationState.value == RegistrationState.REGISTERING) {
+            show(getString(R.string.meta_registration_in_progress))
+            return
+        }
         Wearables.startRegistration(this)
         show(getString(R.string.authorize_meta))
         // Developer Mode can stall in the Meta AI companion app without
@@ -420,7 +426,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         // startRegistration returned; only the SDK's REGISTERED state proves it.
         metaRegistrationWarningJob?.cancel()
         metaRegistrationWarningJob = scope.launch {
-            delay(20_000L)
+            // DAT's own registration timeout may exceed 20 s while the user
+            // reads the companion app consent sheet. Diagnose, never abort it.
+            delay(45_000L)
             if (Wearables.registrationState.value != RegistrationState.REGISTERED &&
                 session == null && !recordingMode &&
                 !WivraCaptureForegroundService.isCaptureActive()) {
@@ -432,6 +440,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun beginSession() {
         if (!sdkReady || session != null ||
             WivraCaptureForegroundService.isCaptureActive()) return
+        // Meta SDK can report REGISTERED even if the glasses have vanished
+        // after re-pairing. Never claim the camera is ready in that state;
+        // avoid reset/unregistration which can destroy local user captures.
+        if (Wearables.registrationState.value != RegistrationState.REGISTERED) {
+            show(getString(R.string.meta_registration_required))
+            return
+        }
+        if (Wearables.devices.value.isEmpty()) {
+            show(getString(R.string.meta_registered_no_devices))
+            return
+        }
         Wearables.createSession(AutoDeviceSelector())
             .onSuccess { created ->
                 session = created
