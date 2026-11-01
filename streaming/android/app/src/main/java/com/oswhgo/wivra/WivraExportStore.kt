@@ -53,7 +53,8 @@ object WivraExportStore {
 
     private val random = SecureRandom()
     private val active = ConcurrentHashMap<Int, Active>()
-    private val saved = ConcurrentHashMap<Int, Saved>()
+    private data class Finished(val result: Saved, val owner: String?)
+    private val saved = ConcurrentHashMap<Int, Finished>()
 
     @JvmStatic
     fun freeBytes(context: Context): Long {
@@ -101,8 +102,10 @@ object WivraExportStore {
     }
 
     @JvmStatic
-    fun append(context: Context, token: Int, seq: Int, data: ByteArray, offset: Int, length: Int): Long {
+    @JvmOverloads
+    fun append(context: Context, token: Int, seq: Int, data: ByteArray, offset: Int, length: Int, owner: String? = null): Long {
         val item = active[token] ?: throw IOException("Sesión de exportación desconocida.")
+        if (owner != null && item.owner != owner) throw IOException("Sesión de exportación desconocida.")
         try {
             if (item.session.bytes >= item.nextSpaceCheck) {
                 item.nextSpaceCheck = item.session.bytes + SPACE_CHECK_BYTES
@@ -118,7 +121,10 @@ object WivraExportStore {
     }
 
     @JvmStatic
-    fun finish(context: Context, token: Int, bytes: Long, crc32: Long, chunks: Int, repair: Boolean = true): Saved {
+    @JvmOverloads
+    fun finish(context: Context, token: Int, bytes: Long, crc32: Long, chunks: Int, repair: Boolean = true, owner: String? = null): Saved {
+        val existing = active[token] ?: throw IOException("Sesión de exportación desconocida.")
+        if (owner != null && existing.owner != owner) throw IOException("Sesión de exportación desconocida.")
         val item = active.remove(token) ?: throw IOException("Sesión de exportación desconocida.")
         val resolver = context.contentResolver
         val diskBytes: Long; val diskCrc: Long
@@ -172,7 +178,7 @@ object WivraExportStore {
             Saved(item.uri, item.finalName, diskBytes, diskCrc, item.session.mime, diskBytes, diskCrc,
                 runCatching { WivraExportFinalizer.inspect(context, item.uri, item.session.mime) }.getOrNull(), "none", note)
         }
-        saved[token] = result
+        saved[token] = Finished(result, item.owner)
         return result
     }
 
@@ -228,7 +234,10 @@ object WivraExportStore {
 
     /** Idempotent: closes and deletes the pending row. */
     @JvmStatic
-    fun abort(context: Context, token: Int) {
+    @JvmOverloads
+    fun abort(context: Context, token: Int, owner: String? = null) {
+        val existing = active[token] ?: return
+        if (owner != null && existing.owner != owner) return
         val item = active.remove(token) ?: return
         item.session.abort()
         try { item.descriptor.close() } catch (_: IOException) { }
@@ -248,7 +257,10 @@ object WivraExportStore {
     }
 
     @JvmStatic
-    fun savedExport(token: Int): Saved? = saved[token]
+    @JvmOverloads
+    fun savedExport(token: Int, owner: String? = null): Saved? = saved[token]?.takeIf {
+        owner == null || it.owner == owner
+    }?.result
 
     @JvmStatic
     fun isActive(uri: Uri): Boolean = active.values.any { it.uri == uri }
