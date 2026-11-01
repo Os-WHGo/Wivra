@@ -22,7 +22,7 @@ test('camera selector routes to existing Ray-Ban DAT and CameraX, not simulated 
   assert.match(main, /launchPhoneCameraFromDirector\(\)/);
   assert.match(main, /hasSystemFeature\(PackageManager\.FEATURE_CAMERA_ANY\)/);
   assert.match(main, /showPhoneCameraUnsupported\(\)/);
-  assert.match(main, /PiP o dos cámaras simultáneas aún no están habilitados/);
+  assert.match(main, /Dos cámaras simultáneas y PiP todavía no están habilitados/);
   assert.match(phoneCamera, /ProcessCameraProvider\.getInstance\(this\)/);
   assert.match(phoneCamera, /CameraSelector\.DEFAULT_BACK_CAMERA/);
   assert.match(phoneCamera, /CameraSelector\.DEFAULT_FRONT_CAMERA/);
@@ -42,7 +42,8 @@ test('full LIVE selector opens only compiled camera RTMP or consented MediaProje
   assert.match(screen, /createScreenCaptureIntent\(\)/);
   assert.match(screen, /setTitle\("Confirmar LIVE público de pantalla"\)/);
   assert.match(phoneLive, /publisher\.startStream\(address\)/);
-  assert.match(main, /No hay mezcla PiP ni audio interno de aplicaciones en esta versión/);
+  assert.match(main, /PiP, multicámara y fuentes simultáneas/);
+  assert.match(main, /Esta primera ruta transmite solo video, sin audio interno/);
   assert.ok(SOURCE_KINDS.includes('screen'));
   assert.ok(SOURCE_KINDS.includes('app-window'));
 });
@@ -78,4 +79,20 @@ test('source chooser never captures or persists any RTMP key', () => {
   assert.doesNotMatch(body, /SharedPreferences|RTMP_KEY|http:|https:|putExtra\(/);
   assert.doesNotMatch(body, /startStream\(|startRecord\(/);
   assert.match(body, /setNegativeButton\("Cancelar", null\)/);
+});
+
+
+test('Android source option dialogs never combine setMessage with setItems', () => {
+  const camera = main.split('private void showCameraSourceChooser() {')[1]
+    ?.split('private void showSourceLimitations(')[0];
+  const live = main.split('private void showLiveSourceChooser() {')[1]
+    ?.split('private void launchRayBanCameraFromDirector()')[0];
+  for (const [label, body] of [['camera',camera],['live',live]]) {
+    assert.ok(body, label + ' chooser must exist');
+    assert.match(body, /\.setItems\(options,/);
+    assert.doesNotMatch(body, /\.setMessage\(/,
+      label + ' should show tappable options, not replace list with text');
+    assert.match(body, /\.setNeutralButton\("Limitaciones"/);
+    assert.match(body, /\.setNegativeButton\("Cancelar", null\)/);
+  }
 });
