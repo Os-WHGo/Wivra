@@ -49,8 +49,8 @@ test('eight Android translations describe registration and no-glasses diagnostic
       const value = xml.match(new RegExp('<string name="' + key + '">([^<]+)</string>'))?.[1];
       assert.ok(value, folder + ' missing literal ' + key);
       // AAPT2 treats an unescaped straight apostrophe as invalid inside values XML.
-      // French/Italian localizations may use typographic ’ or escaped \\' instead.
-      assert.ok(!/(?<!\\\\)'/.test(value), folder + ' contains unescaped Android apostrophe: ' + key);
+      // Use U+2019 for localized apostrophes to avoid AAPT2 parser errors.
+      assert.ok(!value.includes("'"), folder + ' requires typographic apostrophes in DAT diagnostics: ' + key);
     }
   }
 });
