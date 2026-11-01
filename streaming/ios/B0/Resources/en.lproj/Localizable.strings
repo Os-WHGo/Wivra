@@ -58,3 +58,11 @@
 "ios.network.constrained" = "Low Data Mode; upload speed has not been measured.";
 "ios.network.expensive" = "Network route may incur data charges.";
 "ios.network.disclaimer" = "Phone diagnostic only, not the Ray-Ban link or verified LIVE access.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exports";
+"ios.exports.title" = "Wivra exports";
+"ios.exports.empty" = "No saved exports";
+"ios.exports.empty_description" = "Exported and verified videos appear here, even after closing Wivra.";
+"ios.exports.share" = "Share or save";
+"ios.exports.close" = "Close";
