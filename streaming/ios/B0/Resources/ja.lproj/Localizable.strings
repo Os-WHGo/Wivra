@@ -91,3 +91,11 @@
 "ios.capture.storage_minutes_estimate" = "観測HEVCレートで約%d分。音声、画質変化、コピーは含みません。";
 "ios.capture.storage_export_reserve" = "結合、書き出し、写真への保存には追加容量が必要です。この推定は書き出し成功を保証しません。";
 "ios.capture.storage_stopped" = "空き容量不足のため端末内の録画を停止しました。復旧可能なパートを残し、空きを増やしてください。";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "元のセグメントを保持したまま、動画全体を1つに結合しています。";
+"ios.capture.join_success" = "動画全体を結合、検証して端末に保存しました。";
+"ios.capture.join_failed" = "動画を結合できませんでした。元のセグメントは残されています。";
+"ios.capture.joined_share" = "動画全体を共有";
+"ios.capture.joined_photos" = "動画全体を写真に保存";
+"ios.capture.joined_saved" = "動画全体を写真に保存しました";
