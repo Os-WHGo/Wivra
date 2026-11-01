@@ -597,10 +597,12 @@ final class MetaB0Model {
         // B0 preview uses SDK decoded frames (.raw). B1A uses compressed
         // .hvc1 for direct file writing. B1A has no image preview yet.
         let economy = chosenProfile == "economy"
+        let detail = chosenProfile == "detail"
+        let motion = chosenProfile == "motion"
         let config = StreamConfiguration(
             videoCodec: receiveCompressedHEVC ? .hvc1 : .raw,
-            resolution: economy ? .low : .medium,
-            frameRate: economy ? 15 : 24
+            resolution: economy ? .low : detail ? .high : .medium,
+            frameRate: (economy || detail) ? 15 : motion ? 30 : 24
         )
         do {
             guard let newCamera = try session.addCamera(config: config) else {
