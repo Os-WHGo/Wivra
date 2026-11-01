@@ -158,4 +158,6 @@
     <string name="meta_registration_in_progress">Meta AI：Wivraをメガネに接続中…</string>
     <string name="meta_registration_complete">Meta AIがWivraの登録を確認しました。メガネを接続できます。</string>
     <string name="meta_registration_stalled">20秒経過してもMeta AIで登録が確認されません。Meta AIの開発者モードと権限を確認して再試行してください。</string>
+    <string name="meta_registration_required">先にMeta AIでWivraを登録してください。まだ登録が確認されていません。</string>
+    <string name="meta_registered_no_devices">Meta AIへのWivra登録は完了しましたが、接続済みのメガネが見つかりません。Bluetooth、距離、電源、開発者モードを確認して再接続してください。</string>
 </resources>
