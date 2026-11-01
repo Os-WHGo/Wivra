@@ -38,9 +38,10 @@ test('broadcast has no covert or paid backend, and live keys are not stored or l
   assert.match(endpoint, /URI\(input\)\.host\?\.take\(120\)/);
 });
 
-test('the local MP4 is armed before public transmission and remains private on failure', () => {
+test('the optional MP4 is armed before LIVE when selected and kept private until verified', () => {
   assert.ok(live.indexOf('publisher.startRecord(') < live.indexOf('publisher.startStream(address)'));
-  assert.match(live, /WivraPhoneMediaStore\.createPrivateVideo\(applicationContext\)/);
+  assert.match(live, /if \(saveCopy && pending != null\) \{/);
+  assert.match(live, /if \(saveCopy\) WivraPhoneMediaStore\.createPrivateVideo\(applicationContext\)/);
   assert.match(live, /publisher\.stopRecord\(\)/);
   assert.match(live, /WivraCaptureMediaVerifier\.verifyFile\(file, file\.parentFile!!\)/);
   assert.match(live, /WivraPhoneMediaStore\.publish\(this@WivraPhoneLiveActivity, file\)/);
@@ -48,17 +49,29 @@ test('the local MP4 is armed before public transmission and remains private on f
   assert.match(live, /if \(mediaBusy\) return/);
   assert.match(live, /mediaScope\.cancel\(\)/);
   assert.match(live, /WivraPhoneMediaStore\.discard\(this, file\)/);
-  assert.match(live, /if \(pending\.length\(\) == 0L\) pending\.delete\(\)/);
-  assert.match(live, /El servidor rechazó la clave LIVE\. MP4 local continúa/);
-  assert.match(live, /La conexión LIVE falló\. La grabación local continúa/);
+  assert.match(live, /if \(pending\?\.length\(\) == 0L\) pending\.delete\(\)/);
+  assert.match(live, /Clave LIVE rechazada\. La copia MP4 local continúa/);
+  assert.match(live, /LIVE falló, pero la copia MP4 local continúa/);
+  assert.match(live, /No había copia local/);
 });
 
-test('public LIVE aborts safely if local storage falls below muxer reserve', () => {
+test('critically low storage closes the local MP4 without unnecessarily ending LIVE', () => {
   assert.match(live, /private val minFreeBytes = 128L \* 1024L \* 1024L/);
-  assert.match(live, /if \(applicationContext\.filesDir\.usableSpace < minFreeBytes\)/);
+  assert.match(live, /if \(saveCopy && applicationContext\.filesDir\.usableSpace < minFreeBytes\)/);
   assert.match(live, /storageHandler\.postDelayed\(storageCheck, 10_000L\)/);
   assert.match(live, /storageHandler\.removeCallbacks\(storageCheck\)/);
-  assert.match(live, /Espacio bajo\. Deteniendo LIVE para conservar el MP4 local/);
+  const watchdog = live.split('private val storageCheck = object : Runnable {')[1]
+    ?.split('private val cameraPermission')[0];
+  assert.ok(watchdog);
+  assert.match(watchdog, /if \(saveLocalCopy && stream\?\.isRecording == true/);
+  assert.match(watchdog, /finishLocalCopyForLowStorage\(\)/);
+  assert.doesNotMatch(watchdog, /stopAndReview\(|stopStream\(/);
+  const close = live.split('private fun finishLocalCopyForLowStorage() {')[1]
+    ?.split('private fun preparePreview()')[0];
+  assert.ok(close);
+  assert.match(close, /publisher\.stopRecord\(\)/);
+  assert.match(close, /if \(publisher\.isRecording\) \{[\s\S]*stopAndReview\(\)/);
+  assert.doesNotMatch(close, /publisher\.stopStream\(\)/);
   assert.doesNotMatch(live, /deleteRecursively\(\)/);
 });
 
