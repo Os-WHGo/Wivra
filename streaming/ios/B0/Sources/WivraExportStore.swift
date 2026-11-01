@@ -77,7 +77,11 @@ actor WivraExportStore {
     private let directory: URL
     private let freeBytes: @Sendable (URL) -> Int64
     private var sessions: [Int: Session] = [:]
-    private var finished: [Int: URL] = [:]
+    private struct FinishedExport {
+        let url: URL
+        let owner: String?
+    }
+    private var finished: [Int: FinishedExport] = [:]
 
     init(directory: URL? = nil, freeBytes: (@Sendable (URL) -> Int64)? = nil) {
         self.directory = directory ?? FileManager.default
@@ -181,7 +185,7 @@ actor WivraExportStore {
         }
         // The recording is verified and in place. Repairs below never delete it unless a
         // verified replacement exists; any failure keeps the verified recording.
-        finished[token] = session.finalURL
+        finished[token] = FinishedExport(url: session.finalURL, owner: session.owner)
         var method = "none", note = ""
         if repair && session.mime == "video/mp4" {
             do {
@@ -239,7 +243,14 @@ actor WivraExportStore {
         for token in Array(sessions.keys) { abort(token: token) }
     }
 
-    func savedURL(token: Int) -> URL? { finished[token] }
+    /// Finished files remain on disk even if the owning editor closes; only its
+    /// native bridge may subsequently share or add a saved file to Photos.
+    /// Passing nil is reserved for native internal verification and test callers.
+    func savedURL(token: Int, owner: String? = nil) -> URL? {
+        guard let entry = finished[token] else { return nil }
+        if let owner, entry.owner != owner { return nil }
+        return entry.url
+    }
 
     /// Deletes `.partial` files left by a killed process. Never touches finished videos.
     @discardableResult
