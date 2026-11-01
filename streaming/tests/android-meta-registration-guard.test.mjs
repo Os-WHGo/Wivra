@@ -46,7 +46,11 @@ test('eight Android translations describe registration and no-glasses diagnostic
     for (const key of keys) {
       const occurrences = xml.split('name="' + key + '"').length - 1;
       assert.equal(occurrences, 1, folder + ' must have exactly one ' + key);
-      assert.match(xml, new RegExp('<string name="' + key + '">[^<]+</string>'));
+      const value = xml.match(new RegExp('<string name="' + key + '">([^<]+)</string>'))?.[1];
+      assert.ok(value, folder + ' missing literal ' + key);
+      // AAPT2 treats an unescaped straight apostrophe as invalid inside values XML.
+      // French/Italian localizations may use typographic ’ or escaped \\' instead.
+      assert.ok(!/(?<!\\\\)'/.test(value), folder + ' contains unescaped Android apostrophe: ' + key);
     }
   }
 });
