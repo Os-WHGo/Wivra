@@ -2,6 +2,7 @@
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 import { clipLength, speedOf, srcTime } from '../core/project.mjs';
+import { selectExportEngine } from './export-engine-policy.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 import { detectExportHost, createProgressiveExportSink } from './export-sink.mjs';
 import { finalizeExportBytes, inspectExport } from './media-container.mjs';
@@ -430,7 +431,11 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
 }
 // saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
 // 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost, exportEngine = 'auto' }) {
+  // The accelerated prototype has not yet been ported to the full timeline renderer.
+  // Keep the proven recorder until a device-validated implementation exists.
+  const engineSelection = selectExportEngine({ requested: exportEngine });
+  if (engineSelection.engine !== 'mediarecorder') throw new Error('Motor acelerado no disponible en esta compilación.');
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
