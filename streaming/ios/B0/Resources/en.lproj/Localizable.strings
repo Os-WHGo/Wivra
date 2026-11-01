@@ -83,3 +83,11 @@
 "ios.capture.segments_in_library_instruction" = "End the session and open My Captures to save clips individually to Photos, or join them in Director and export a complete video.";
 "ios.capture.share_first_segment" = "Share first segment only";
 "ios.capture.individual_segment" = "Part %d of this take (MOV); check for other parts.";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "Available storage: %@.";
+"ios.capture.storage_unknown" = "Available storage could not be verified. Check space before recording.";
+"ios.capture.storage_insufficient_start" = "Not enough space for safe recording: free at least 512 MB.";
+"ios.capture.storage_minutes_estimate" = "About %d min at the observed HEVC rate. Excludes audio, quality changes, and copies.";
+"ios.capture.storage_export_reserve" = "Merging, exporting, or saving to Photos requires extra space; this estimate does not guarantee export.";
+"ios.capture.storage_stopped" = "Local recording stopped because storage is low. Keep recoverable parts and free up space.";
