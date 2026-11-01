@@ -110,10 +110,26 @@ test('native iOS export library restores shareable files after app relaunch', ()
 });
 
 
+test('recovered native exports can save MP4 directly to add-only Photos while preserving local files', () => {
+  const app = read('../../streaming/ios/B0/Sources/WivraMetaB0App.swift');
+  const bridge = read('../../streaming/ios/B0/Sources/WivraExportNativeBridge.swift');
+  const store = read('../../streaming/ios/B0/Sources/WivraExportStore.swift');
+  assert.match(bridge, /enum WivraPhotosLibrary/);
+  assert.match(bridge, /requestAuthorization\\(for: \\.addOnly\\)/);
+  assert.match(bridge, /creationRequestForAssetFromVideo\\(atFileURL: url\\)/);
+  assert.match(bridge, /try await WivraPhotosLibrary\\.saveVideo\\(url\\)/);
+  assert.match(app, /video\\.url\\.pathExtension\\.lowercased\\(\\) == "mp4"/);
+  assert.match(app, /try await WivraPhotosLibrary\\.saveVideo\\(video\\.url\\)/);
+  assert.match(app, /wivra_export_library_save_photos/);
+  assert.match(store, /func listSavedExports\\(\\) -> \\[WivraSavedExport\\]/);
+  assert.doesNotMatch(app, /FileManager\\.default\\.removeItem\\(at: video\\.url\\)/);
+});
+
 test('saved exports native controls are translated in every supported iOS language', () => {
   const app = read('../../streaming/ios/B0/Sources/WivraMetaB0App.swift');
   const keys = ['ios.app.exports', 'ios.exports.title', 'ios.exports.empty',
-    'ios.exports.empty_description', 'ios.exports.share', 'ios.exports.close'];
+    'ios.exports.empty_description', 'ios.exports.share', 'ios.exports.close',
+    'ios.exports.save_photos', 'ios.exports.saved_photos', 'ios.exports.photos_error'];
   for (const key of keys) assert.ok(app.includes('"' + key + '"'), 'UI must reference '+key);
   for (const language of ['es', 'en', 'pt', 'fr', 'de', 'ja', 'zh', 'it']) {
     const strings = read('../../streaming/ios/B0/Resources/' + language + '.lproj/Localizable.strings');
