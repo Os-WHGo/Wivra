@@ -77,3 +77,8 @@
 "ios.app.background_capture_off_warning" = "今iPhoneをロックするとRay-Banのセッションが終了します。先に実験的なバックグラウンド録画を有効にしてください。";
 "ios.app.background_capture_experimental_warning" = "実験的な機能です。ロック中にiOSやMetaが配信を停止する場合があります。保存済みの動画断片は残ります。戻ったら確認してください。";
 "ios.library.photos_original_only" = "音声付きの動画が無効だったため、元の動画を保存しました。";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "この撮影には %d 個の別々のMOVセグメントがあります。最初のファイルだけでは動画全体になりません。";
+"ios.capture.segments_in_library_instruction" = "セッションを終了して「マイキャプチャ」を開き、各クリップを個別に写真へ保存するか、Directorで結合して動画全体を書き出してください。";
+"ios.capture.share_first_segment" = "最初のセグメントのみ共有";
