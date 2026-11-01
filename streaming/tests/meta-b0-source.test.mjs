@@ -38,8 +38,8 @@ test('session and stream lifecycles request real raw preview frames',()=>{
  assert.match(source,/videoFramePublisher/);
  assert.match(source,/framesReceived \+= 1/);
  assert.match(source,/measuredFPS/);
- assert.match(source,/resolution: economy \? \.low : \.medium/);
- assert.match(source,/frameRate: economy \? 15 : 24/);
+ assert.match(source,/resolution: economy \? \.low : detail \? \.high : \.medium/);
+ assert.match(source,/frameRate: \(economy \|\| detail\) \? 15 : motion \? 30 : 24/);
 });
 test('B0 explicitly stops on thermal emergencies and when app backgrounds',()=>{
  const app=read('Sources/WivraMetaB0App.swift'),model=read('Sources/MetaB0Model.swift');

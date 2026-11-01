@@ -47,11 +47,21 @@ final class MetaB0Model {
             "fotogramas interrumpidos o sin confirmar"
     }
     var measuredFPS: Double = 0
+    var measuredCompressedMbps: Double = 0
+    private var compressedBytesThisSecond = 0
     var activeVideoSeconds: Double = 0
     var frameWidth = 0
     var frameHeight = 0
     var lastErrorWasThermal = false
     var chosenProfile = "balanced" // chosen before a new camera session
+    var requestedDatProfileDescription: String {
+        switch chosenProfile {
+        case "economy": return "360 × 640, 15 FPS (ahorro)"
+        case "detail": return "720 × 1280, 15 FPS (detalle)"
+        case "motion": return "504 × 896, 30 FPS (movimiento)"
+        default: return "504 × 896, 24 FPS (equilibrado)"
+        }
+    }
     var receiveCompressedHEVC = false
     var recordingArmed = false
     var recordingFinishing = false
@@ -589,10 +599,12 @@ final class MetaB0Model {
         // B0 preview uses SDK decoded frames (.raw). B1A uses compressed
         // .hvc1 for direct file writing. B1A has no image preview yet.
         let economy = chosenProfile == "economy"
+        let detail = chosenProfile == "detail"
+        let motion = chosenProfile == "motion"
         let config = StreamConfiguration(
             videoCodec: receiveCompressedHEVC ? .hvc1 : .raw,
-            resolution: economy ? .low : .medium,
-            frameRate: economy ? 15 : 24
+            resolution: economy ? .low : detail ? .high : .medium,
+            frameRate: (economy || detail) ? 15 : motion ? 30 : 24
         )
         do {
             guard let newCamera = try session.addCamera(config: config) else {
@@ -669,8 +681,10 @@ final class MetaB0Model {
                         .map { CMVideoFormatDescriptionGetDimensions($0) }
                     let width = Int(dimensions?.width ?? 0)
                     let height = Int(dimensions?.height ?? 0)
+                    let payloadBytes = CMSampleBufferGetTotalSampleSize(frame.sampleBuffer)
                     Task { @MainActor [weak self] in
-                        self?.onFrame(nil, compressedWidth: width, compressedHeight: height)
+                        self?.onFrame(nil, compressedWidth: width, compressedHeight: height,
+                            compressedBytes: payloadBytes)
                     }
                 } else {
                     let image = frame.makeUIImage()
@@ -684,6 +698,8 @@ final class MetaB0Model {
             framesReceived = 0
             lastFrameUptime = nil
             measuredFPS = 0
+            measuredCompressedMbps = 0
+            compressedBytesThisSecond = 0
             activeVideoSeconds = 0
             lastErrorWasThermal = false
             newCamera.stream.start()
@@ -693,7 +709,8 @@ final class MetaB0Model {
         }
     }
 
-    private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0) {
+    private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0,
+                         compressedBytes: Int = 0) {
         guard camera != nil, streamState != .stopped else { return }
         if !receiveCompressedHEVC && image == nil { return }
         // A compressed header without image dimensions is not an observed
@@ -709,6 +726,7 @@ final class MetaB0Model {
         }
         framesReceived += 1
         framesThisSecond += 1
+        compressedBytesThisSecond += max(0, compressedBytes)
 
         let now = CACurrentMediaTime()
         lastFrameUptime = now
@@ -721,6 +739,9 @@ final class MetaB0Model {
         }
         if let lastCountTime, now - lastCountTime >= 1 {
             measuredFPS = Double(framesThisSecond) / (now - lastCountTime)
+            measuredCompressedMbps = Double(compressedBytesThisSecond) * 8 /
+                ((now - lastCountTime) * 1_000_000)
+            compressedBytesThisSecond = 0
             framesThisSecond = 0
             self.lastCountTime = now
         }
@@ -774,6 +795,8 @@ final class MetaB0Model {
         lastFrameUptime = nil
         lastCountTime = nil
         framesThisSecond = 0
+        compressedBytesThisSecond = 0
+        measuredCompressedMbps = 0
         streamState = .stopped
     }
 }
