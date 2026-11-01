@@ -509,7 +509,7 @@ final class MetaB0Model {
             // checkpoints in the background. Never remove originals, and
             // never publish a partial or unverified output in Photos.
             let partNames = entry.files
-                .filter { $0.range(of: #"_part[0-9]{4}\\.mov$"#,
+                .filter { $0.range(of: #"_part[0-9]{4}\.mov$"#,
                                   options: .regularExpression) != nil }
                 .sorted()
             if partNames.count > 1 && !joiningSegments {
