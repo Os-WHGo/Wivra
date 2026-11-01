@@ -58,3 +58,21 @@
 "ios.network.constrained" = "Low Data Mode; upload speed has not been measured.";
 "ios.network.expensive" = "Network route may incur data charges.";
 "ios.network.disclaimer" = "Phone diagnostic only, not the Ray-Ban link or verified LIVE access.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exports";
+"ios.exports.title" = "Wivra exports";
+"ios.exports.empty" = "No saved exports";
+"ios.exports.empty_description" = "Exported and verified videos appear here, even after closing Wivra.";
+"ios.exports.share" = "Share or save";
+"ios.exports.close" = "Close";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "Save to Photos";
+"ios.exports.saved_photos" = "Saved to Photos";
+"ios.exports.photos_error" = "Could not save to Photos";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban with screen locked (experimental)";
+"ios.app.background_capture_off_warning" = "Locking the iPhone now will end the Ray-Ban session. Enable experimental background capture before locking.";
+"ios.app.background_capture_experimental_warning" = "Experimental mode: iOS or Meta may still interrupt streaming while locked. Completed segments are kept; review them when you return.";

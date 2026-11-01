@@ -7,6 +7,7 @@
 import Foundation
 import UIKit
 import WebKit
+import Photos
 
 final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     weak var webView: WKWebView?
@@ -67,11 +68,28 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             bytes: number("bytes"), crc32: UInt32(truncatingIfNeeded: number("crc32")),
             chunks: Int(number("chunks")), data: data)
 
+        if op == "savePhotos" {
+            let owner = owner
+            Task { @MainActor in
+                guard let url = await WivraExportStore.shared.savedURL(token: request.token, owner: owner) else {
+                    replyHandler(nil, "Este video ya no está disponible para guardar en Fotos.")
+                    return
+                }
+                do {
+                    try await WivraPhotosLibrary.saveVideo(url)
+                    replyHandler(["ok": true, "savedToPhotos": true], nil)
+                } catch {
+                    replyHandler(nil, error.localizedDescription)
+                }
+            }
+            return
+        }
         if op == "share" {
             // Capture only the (main-actor, Sendable) web view, never this handler object.
             let view = webView
+            let owner = owner
             Task { @MainActor in
-                guard let url = await WivraExportStore.shared.savedURL(token: request.token) else {
+                guard let url = await WivraExportStore.shared.savedURL(token: request.token, owner: owner) else {
                     replyHandler(nil, "Este video ya no está disponible para compartir.")
                     return
                 }
@@ -102,12 +120,12 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "begin":
             return try await store.begin(mime: request.mime, estimatedBytes: request.estimatedBytes, owner: owner)
         case "chunk":
-            return try await store.append(token: request.token, seq: request.seq, data: request.data ?? Data())
+            return try await store.append(token: request.token, seq: request.seq, data: request.data ?? Data(), owner: owner)
         case "finish":
             return try await store.finish(token: request.token, bytes: request.bytes,
-                                          crc32: request.crc32, chunks: request.chunks)
+                                          crc32: request.crc32, chunks: request.chunks, owner: owner)
         case "abort":
-            await store.abort(token: request.token)
+            await store.abort(token: request.token, owner: owner)
             return WivraExportReply()
         default:
             throw WivraExportError.io("Método no permitido.")
@@ -142,10 +160,8 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         while let presented = top?.presentedViewController { top = presented }
         guard let presenter = top else { return false }
         let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        // "Save Video" (Photos) requires NSPhotoLibraryAddUsageDescription; without that key iOS
-        // terminates the app when tapped. Adding a privacy permission is the owner's decision,
-        // so it is hidden; Files and other apps remain available.
-        sheet.excludedActivityTypes = [.saveToCameraRoll]
+        // The owner approved add-only Photos access. The share sheet now offers
+        // Save Video alongside Files and other destinations when iOS supports it.
         if let popover = sheet.popoverPresentationController {
             popover.sourceView = webView
             popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.maxY - 40, width: 1, height: 1)
@@ -153,4 +169,33 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         presenter.present(sheet, animated: true)
         return true
     }
+}
+
+/// Shared add-only Photos action for both the live editor and recovered exports.
+/// It preserves the Wivra copy and never reads the user's photo library.
+@MainActor
+enum WivraPhotosLibrary {
+    static func saveVideo(_ url: URL) async throws {
+        guard url.isFileURL, ["mp4", "mov"].contains(url.pathExtension.lowercased()) else {
+            throw WivraExportError.io("Fotos solo admite videos MP4 o MOV compatibles.")
+        }
+        // A verified byte stream can still contain a video that Photos cannot decode.
+        // Reject before prompting for permission; leave the original local file intact.
+        guard let media = await WivraMp4Repair.inspect(url), media.video, media.durationMs > 0 else {
+            throw WivraExportError.io("El MP4 no contiene un video reproducible para Fotos.")
+        }
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            throw WivraExportError.io("Permiso para añadir videos a Fotos denegado.")
+        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }, completionHandler: { success, error in
+                if success { continuation.resume() }
+                else { continuation.resume(throwing: error ?? WivraExportError.io("Fotos no pudo guardar el video.")) }
+            })
+        }
+    }
+
 }

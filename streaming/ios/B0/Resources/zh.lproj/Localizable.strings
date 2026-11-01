@@ -58,3 +58,21 @@
 "ios.network.constrained" = "低数据模式；尚未测量上传速度。";
 "ios.network.expensive" = "网络连接可能产生流量费用。";
 "ios.network.disclaimer" = "仅为手机网络诊断，不代表 Ray-Ban 连接或已验证的 LIVE 访问。";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "导出内容";
+"ios.exports.title" = "Wivra 导出内容";
+"ios.exports.empty" = "没有已保存的导出视频";
+"ios.exports.empty_description" = "已导出并验证的视频会显示在这里，即使关闭 Wivra 也不会消失。";
+"ios.exports.share" = "分享或保存";
+"ios.exports.close" = "关闭";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "保存到照片";
+"ios.exports.saved_photos" = "已保存到照片";
+"ios.exports.photos_error" = "无法保存到照片";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "锁屏时使用 Ray-Ban（实验性）";
+"ios.app.background_capture_off_warning" = "现在锁定 iPhone 将结束 Ray-Ban 会话。请在锁屏前启用实验性后台录制。";
+"ios.app.background_capture_experimental_warning" = "实验模式：锁屏后 iOS 或 Meta 仍可能中断视频流。已完成的片段会保留，返回后请检查。";

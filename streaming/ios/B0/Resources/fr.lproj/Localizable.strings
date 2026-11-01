@@ -58,3 +58,21 @@
 "ios.network.constrained" = "Mode données réduites ; débit non mesuré.";
 "ios.network.expensive" = "Le réseau peut entraîner des frais de données.";
 "ios.network.disclaimer" = "Diagnostic du téléphone, pas de la liaison Ray-Ban ni du LIVE vérifié.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exportations";
+"ios.exports.title" = "Exportations Wivra";
+"ios.exports.empty" = "Aucune exportation enregistrée";
+"ios.exports.empty_description" = "Les vidéos exportées et vérifiées apparaîtront ici, même après avoir fermé Wivra.";
+"ios.exports.share" = "Partager ou enregistrer";
+"ios.exports.close" = "Fermer";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "Enregistrer dans Photos";
+"ios.exports.saved_photos" = "Enregistré dans Photos";
+"ios.exports.photos_error" = "Impossible d’enregistrer dans Photos";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban écran verrouillé (expérimental)";
+"ios.app.background_capture_off_warning" = "Verrouiller l’iPhone maintenant mettra fin à la session Ray-Ban. Activez le mode expérimental avant de verrouiller.";
+"ios.app.background_capture_experimental_warning" = "Mode expérimental : iOS ou Meta peut interrompre la transmission. Les segments terminés sont conservés ; vérifiez-les au retour.";

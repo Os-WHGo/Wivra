@@ -79,7 +79,7 @@ test('screen-off HEVC processing uses a short renewable CPU lease only for confi
   assert.match(service, /fun isCaptureActive\(\)[\s\S]*?CaptureState.PAUSED/);
   assert.match(service, /val captureProgress: StateFlow<CaptureProgress>/);
   assert.match(activity, /WivraCaptureForegroundService\.captureProgress\.collect/);
-  assert.match(service, /StreamState\.PAUSED -> \{\s*if \(!finishing\) setCaptureState\(CaptureState\.PAUSED\)/);
+  assert.match(service, /StreamState\.PAUSED -> \{\s*if \(!finishing && captureState != CaptureState\.PAUSED\) \{\s*setCaptureState\(CaptureState\.PAUSED\)\s*refreshCaptureNotification\(\)/);
   assert.match(service, /setCaptureState\(CaptureState.FINALIZING\)[\s\S]*?abandoned.finishToPending\(\)[\s\S]*?setCaptureState\(CaptureState.IDLE\)/);
 });
 
@@ -105,7 +105,8 @@ test('DAT no-video timeout never masquerades as a confirmed local recording', ()
   assert.match(activity, /WivraCaptureForegroundService\.captureIssue\.value/);
   assert.match(service, /CaptureState\.RECORDING -> "Grabando MP4/);
   assert.match(service, /mutableCaptureProgress\.value = progress/);
-  assert.match(service, /runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
+  assert.match(service, /private fun refreshCaptureNotification\(\) \{\s*runCatching \{\s*getSystemService\(NotificationManager::class\.java\)\.notify/);
+  assert.match(service, /lastNotifiedCheckpoint = progress\.savedCheckpoints\s*\/\/ POST_NOTIFICATIONS[\s\S]*?refreshCaptureNotification\(\)/);
 });
 
 test('active pocket recording prevents registration, duplicate DAT sessions and repeat stop', () => {

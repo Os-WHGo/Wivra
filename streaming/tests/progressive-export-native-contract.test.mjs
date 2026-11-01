@@ -102,3 +102,18 @@ test('shells allow programmatic playback of local clips for export, and iOS hide
   const plist = read('ios/B0/Info.plist');
   if (!/NSPhotoLibraryAddUsageDescription/.test(plist)) assert.match(iosBridge, /excludedActivityTypes = \[\.saveToCameraRoll\]/);
 });
+
+
+test('Android export bridge enforces WebView ownership on chunks, finish, cancel, and share', () => {
+  assert.match(store, /if \(owner != null && item\.owner != owner\) throw IOException/);
+  assert.match(store, /if \(owner != null && existing\.owner != owner\) throw IOException/);
+  assert.match(store, /if \(owner != null && existing\.owner != owner\) return/);
+  assert.match(store, /private data class Finished\(val result: Saved, val owner: String\?\)/);
+  for (const snippet of [
+    'frame.data, frame.offset, frame.length, owner)',
+    'seq, data, 0, data.size, owner)',
+    'request.getInt("chunks"), owner = owner)',
+    'WivraExportStore.abort(appContext, request.getInt("token"), owner)',
+    'WivraExportStore.savedExport(request.optInt("token", 0), owner)',
+  ]) assert.ok(bridge.includes(snippet), 'Android bridge missing owner enforcement: ' + snippet);
+});

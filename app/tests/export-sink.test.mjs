@@ -7,7 +7,7 @@ import { crc32 as zlibCrc } from 'node:zlib';
 import {
   crc32Update, bytesToBase64, encodeExportFrame, EXPORT_FRAME_MAGIC, EXPORT_FRAME_HEADER,
   createProgressiveExportSink, androidExportHost, iosExportHost, detectExportHost, nativeExportAvailable,
-  EXPORT_SINK_MAX_QUEUED_BYTES,
+  EXPORT_SINK_MAX_QUEUED_BYTES, saveExportToPhotos,
 } from '../export-sink.mjs';
 import { exportMemoryRisk, exportEstimatedBytes } from '../export.mjs';
 
@@ -124,6 +124,112 @@ test('begin failure (no storage) exposes the reason and creates no session', asy
   assert.equal(native.files.size, 0);
 });
 
+test('cancel during native hello never starts an export after the cancellation', async () => {
+  const native = fakeNative();
+  let finishHello;
+  native.hello = () => new Promise(resolve => { finishHello = resolve; });
+  const sink = createProgressiveExportSink(native);
+  const pending = sink.begin();
+  assert.equal(sink.state, 'starting');
+  await assert.rejects(sink.begin(), /ya empezó/);
+  await sink.abort('user');
+  finishHello({ ok: true, arrayBuffer: false });
+  await assert.rejects(pending, /cancelada durante el inicio/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.size, 0);
+});
+
+test('cancel after native begin creates a file closes it and never reopens the sink', async () => {
+  const native = fakeNative();
+  const originalRequest = native.request.bind(native);
+  let releaseBegin;
+  native.request = async (msg) => {
+    const r = await originalRequest(msg);
+    if (msg.op === 'begin') await new Promise(resolve => { releaseBegin = resolve; });
+    return r;
+  };
+  const sink = createProgressiveExportSink(native);
+  const pending = sink.begin();
+  await tick();
+  assert.equal(typeof releaseBegin, 'function');
+  await sink.abort('user');
+  releaseBegin();
+  await assert.rejects(pending, /cancelada durante el inicio/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.log.filter(x => x === 'abort').length, 1);
+  assert.equal(native.log.includes('finish'), false);
+});
+
+test('cancel during an asynchronous Blob read never sends a late fragment', async () => {
+  const native = fakeNative();
+  let finishRead;
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  const bytes = rand(32, 91);
+  sink.push({
+    size: bytes.byteLength,
+    arrayBuffer() { return new Promise(resolve => { finishRead = () => resolve(bytes.buffer); }); },
+  });
+  await tick();
+  assert.equal(typeof finishRead, 'function');
+  const cleaning = sink.abort('user');
+  finishRead();
+  await cleaning;
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).parts.length, 0);
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+});
+
+test('cancel waits for an in-flight native write before deleting pending file', async () => {
+  const native = fakeNative({ delayMs: 20 });
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(300, 9)));
+  await tick();
+  await sink.abort('user');
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.files.get(sink.token).parts.length, 0);
+});
+
+test('cancel while finish waits for chunks never publishes a discarded video', async () => {
+  const native = fakeNative({ delayMs: 35 });
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(1024, 71)));
+  const finishing = sink.finish();
+  await tick();
+  await sink.abort('user');
+  await assert.rejects(finishing, /cancelada antes de finalizar/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.log.includes('finish'), false);
+});
+
+test('cancel after native finalization starts cannot delete verified recording', async () => {
+  const native = fakeNative();
+  const original = native.request.bind(native);
+  let releaseFinish;
+  native.request = async msg => {
+    if (msg.op === 'finish') await new Promise(resolve => { releaseFinish = resolve; });
+    return original(msg);
+  };
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(1024, 75)));
+  const finishing = sink.finish();
+  await tick();
+  assert.equal(sink.state, 'finishing');
+  assert.equal(typeof releaseFinish, 'function');
+  await sink.abort('user');
+  releaseFinish();
+  await finishing;
+  assert.equal(sink.state, 'done');
+  assert.equal(native.files.get(sink.token).state, 'published');
+  assert.equal(native.log.includes('abort'), false);
+});
+
 test('android adapter: JSON control, binary frames, matched replies and base64 fallback', async () => {
   for (const binary of [true, false]) {
     const sent = []; const obj = { postMessage(m) { sent.push(m); queueMicrotask(() => reply(m)); } };
@@ -170,10 +276,10 @@ test('host detection prefers iOS handler, caches one adapter per channel, and is
   assert.equal(detectExportHost(ios).platform, 'ios');
 });
 
-test('progressive mode reports storage instead of RAM risk and keeps the old estimator unchanged', () => {
+test('progressive mode reports storage instead of RAM risk and preserves the legacy memory estimator', () => {
   assert.deepEqual(exportMemoryRisk(3600), { estimatedMB: 1350, level: 'critical', bufferedUntilComplete: true });
   const p = exportMemoryRisk(3600, { progressive: true });
-  assert.equal(p.bufferedUntilComplete, false); assert.equal(p.level, 'normal'); assert.equal(p.storageMB, 1350);
+  assert.equal(p.bufferedUntilComplete, false); assert.equal(p.level, 'normal'); assert.equal(p.storageMB, 3600);
   assert.equal(exportEstimatedBytes(10), Math.round((8_000_000 + 128_000) * 10 / 8));
 });
 
@@ -218,3 +324,37 @@ test('duplicated, lost or reordered acknowledgements stop the export and keep no
   }
 });
 
+
+test('iOS direct Photos save uses native versioned request for the verified token', async () => {
+  const messages = [];
+  const host = iosExportHost({ postMessage: async (m) => {
+    messages.push(m);
+    return { ok: true, savedToPhotos: true };
+  } });
+  assert.deepEqual(await saveExportToPhotos(host, 42), { ok: true, savedToPhotos: true });
+  assert.deepEqual(messages, [{ version: 1, op: 'savePhotos', token: 42 }]);
+});
+
+test('Photos permission dialog permits five minutes without changing other native export timeouts', async () => {
+  const calls = [];
+  const host = { platform: 'ios', request: async (payload, timeout) => {
+    calls.push({ payload, timeout }); return { ok: true };
+  } };
+  await saveExportToPhotos(host, 17);
+  assert.deepEqual(calls, [{ payload: { op: 'savePhotos', token: 17 }, timeout: 300000 }]);
+});
+
+test('Photos save rejects invalid tokens, other platforms and native permission errors', async () => {
+  const messages = [];
+  const host = iosExportHost({ postMessage: async (m) => {
+    messages.push(m);
+    return Promise.reject(new Error('Permiso para añadir videos a Fotos denegado.'));
+  } });
+  await assert.rejects(saveExportToPhotos(host, 0), /sesión válida/);
+  await assert.rejects(saveExportToPhotos(host, -1), /sesión válida/);
+  await assert.rejects(saveExportToPhotos(host, 1.2), /sesión válida/);
+  await assert.rejects(saveExportToPhotos({ platform: 'android', request() { throw new Error('must not call'); } }, 42), /solo está disponible en iPhone/);
+  assert.equal(messages.length, 0);
+  await assert.rejects(saveExportToPhotos(host, 42), /Permiso para añadir videos/);
+  assert.equal(messages.length, 1);
+});

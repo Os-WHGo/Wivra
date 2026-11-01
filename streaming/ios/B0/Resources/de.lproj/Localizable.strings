@@ -58,3 +58,21 @@
 "ios.network.constrained" = "Datensparmodus; Uploadrate nicht gemessen.";
 "ios.network.expensive" = "Netzwerk kann Datenkosten verursachen.";
 "ios.network.disclaimer" = "Nur Telefondiagnose, nicht Ray-Ban-Verbindung oder bestätigtes LIVE.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exporte";
+"ios.exports.title" = "Wivra-Exporte";
+"ios.exports.empty" = "Keine gespeicherten Exporte";
+"ios.exports.empty_description" = "Exportierte und überprüfte Videos erscheinen hier auch nach dem Schließen von Wivra.";
+"ios.exports.share" = "Teilen oder speichern";
+"ios.exports.close" = "Schließen";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "In Fotos sichern";
+"ios.exports.saved_photos" = "In Fotos gesichert";
+"ios.exports.photos_error" = "Speichern in Fotos fehlgeschlagen";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban bei gesperrtem Bildschirm (experimentell)";
+"ios.app.background_capture_off_warning" = "Wenn du das iPhone jetzt sperrst, beendet Wivra die Ray-Ban-Sitzung. Aktiviere zuvor den experimentellen Hintergrundmodus.";
+"ios.app.background_capture_experimental_warning" = "Experimentell: iOS oder Meta können den Stream beim Sperren unterbrechen. Abgeschlossene Segmente bleiben erhalten; prüfe sie danach.";

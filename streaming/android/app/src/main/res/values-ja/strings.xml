@@ -155,4 +155,9 @@
     <string name="picker_phone_capture_bundle">WAV付き撮影を読み込む：%1$s</string>
     <string name="picker_capture_title">Wivraの撮影を選択</string>
     <string name="connect_glasses_accessibility">Ray-Ban Metaグラスを接続</string>
+    <string name="meta_registration_in_progress">Meta AI：Wivraをメガネに接続中…</string>
+    <string name="meta_registration_complete">Meta AIがWivraの登録を確認しました。メガネを接続できます。</string>
+    <string name="meta_registration_stalled">45秒経過してもMeta AIで登録が確認されません。Meta AIの開発者モードと権限を確認して再試行してください。</string>
+    <string name="meta_registration_required">先にMeta AIでWivraを登録してください。まだ登録が確認されていません。</string>
+    <string name="meta_registered_no_devices">Meta AIへのWivra登録は完了しましたが、接続済みのメガネが見つかりません。Bluetooth、距離、電源、開発者モードを確認して再接続してください。</string>
 </resources>

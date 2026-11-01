@@ -56,7 +56,7 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
         if (message.type == WebMessageCompat.TYPE_ARRAY_BUFFER) {
             val frame = WivraProgressiveExportSession.parseFrame(message.arrayBuffer) ?: return
             run(reply, frame.rid) {
-                val written = WivraExportStore.append(appContext, frame.token, frame.seq, frame.data, frame.offset, frame.length)
+                val written = WivraExportStore.append(appContext, frame.token, frame.seq, frame.data, frame.offset, frame.length, owner)
                 JSONObject().put("seq", frame.seq).put("written", written)
             }
             return
@@ -78,13 +78,13 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
                 val data = Base64.decode(request.getString("b64"), Base64.DEFAULT)
                 if (data.size != request.optInt("size", -1)) throw java.io.IOException("Fragmento base64 incompleto.")
                 val seq = request.getInt("seq")
-                val written = WivraExportStore.append(appContext, request.getInt("token"), seq, data, 0, data.size)
+                val written = WivraExportStore.append(appContext, request.getInt("token"), seq, data, 0, data.size, owner)
                 JSONObject().put("seq", seq).put("written", written)
             }
             "finish" -> run(reply, rid) {
                 val token = request.getInt("token")
                 val saved = WivraExportStore.finish(appContext, token, request.getLong("bytes"),
-                    request.getLong("crc32"), request.getInt("chunks"))
+                    request.getLong("crc32"), request.getInt("chunks"), owner = owner)
                 val reply = JSONObject().put("token", token).put("bytes", saved.bytes).put("crc32", saved.crc32)
                     .put("recordedBytes", saved.recordedBytes).put("recordedCrc32", saved.recordedCrc32)
                     .put("displayName", saved.displayName).put("location", "Galería › Movies/Wivra")
@@ -94,11 +94,11 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
                 reply
             }
             "abort" -> run(reply, rid) {
-                WivraExportStore.abort(appContext, request.getInt("token"))
+                WivraExportStore.abort(appContext, request.getInt("token"), owner)
                 JSONObject()
             }
             "share" -> {
-                val saved = WivraExportStore.savedExport(request.optInt("token", 0))
+                val saved = WivraExportStore.savedExport(request.optInt("token", 0), owner)
                 if (saved == null) { send(reply, failure(rid, "Este video ya no está disponible para compartir.")); return }
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = saved.mime

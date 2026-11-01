@@ -57,6 +57,16 @@ enum WivraCRC32 {
     }
 }
 
+/// A verified, completed local export that the user can reopen from Wivra's library.
+/// This value never exposes unfinished or arbitrary files from Application Support.
+struct WivraSavedExport: Identifiable, Sendable {
+    let name: String
+    let url: URL
+    let bytes: Int64
+    let modifiedAt: Date
+    var id: String { name }
+}
+
 actor WivraExportStore {
     static let shared = WivraExportStore()
     static let minimumFreeBytes: Int64 = 200 * 1024 * 1024
@@ -77,7 +87,11 @@ actor WivraExportStore {
     private let directory: URL
     private let freeBytes: @Sendable (URL) -> Int64
     private var sessions: [Int: Session] = [:]
-    private var finished: [Int: URL] = [:]
+    private struct FinishedExport {
+        let url: URL
+        let owner: String?
+    }
+    private var finished: [Int: FinishedExport] = [:]
 
     init(directory: URL? = nil, freeBytes: (@Sendable (URL) -> Int64)? = nil) {
         self.directory = directory ?? FileManager.default
@@ -128,8 +142,9 @@ actor WivraExportStore {
         return WivraExportReply(token: token, displayName: name)
     }
 
-    func append(token: Int, seq: Int, data: Data) throws -> WivraExportReply {
+    func append(token: Int, seq: Int, data: Data, owner: String? = nil) throws -> WivraExportReply {
         guard var session = sessions[token] else { throw WivraExportError.unknownSession }
+        if let owner, session.owner != owner { throw WivraExportError.unknownSession }
         do {
             guard seq == session.seq else {
                 throw WivraExportError.integrity("Fragmento fuera de orden: llegó \(seq), se esperaba \(session.seq).")
@@ -154,7 +169,9 @@ actor WivraExportStore {
         }
     }
 
-    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true) async throws -> WivraExportReply {
+    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true, owner: String? = nil) async throws -> WivraExportReply {
+        guard let existing = sessions[token] else { throw WivraExportError.unknownSession }
+        if let owner, existing.owner != owner { throw WivraExportError.unknownSession }
         guard let session = sessions.removeValue(forKey: token) else { throw WivraExportError.unknownSession }
         let diskBytes: Int64, diskCrc: UInt32
         do {
@@ -181,7 +198,7 @@ actor WivraExportStore {
         }
         // The recording is verified and in place. Repairs below never delete it unless a
         // verified replacement exists; any failure keeps the verified recording.
-        finished[token] = session.finalURL
+        finished[token] = FinishedExport(url: session.finalURL, owner: session.owner)
         var method = "none", note = ""
         if repair && session.mime == "video/mp4" {
             do {
@@ -225,7 +242,9 @@ actor WivraExportStore {
     }
 
     /// Idempotent: closes and deletes the partial file.
-    func abort(token: Int) {
+    func abort(token: Int, owner: String? = nil) {
+        guard let existing = sessions[token] else { return }
+        if let owner, existing.owner != owner { return }
         guard let session = sessions.removeValue(forKey: token) else { return }
         try? session.handle.close()
         try? FileManager.default.removeItem(at: session.partialURL)
@@ -239,7 +258,48 @@ actor WivraExportStore {
         for token in Array(sessions.keys) { abort(token: token) }
     }
 
-    func savedURL(token: Int) -> URL? { finished[token] }
+    /// Finished files remain on disk even if the owning editor closes; only its
+    /// native bridge may subsequently share or add a saved file to Photos.
+    /// Passing nil is reserved for native internal verification and test callers.
+    /// Read-only local library: survives process restarts without relying on volatile
+    /// session tokens. Only regular, finished Wivra_Export_ MP4/WebM files are listed.
+    /// No file contents are read into memory and no files are copied or deleted.
+    func listSavedExports() -> [WivraSavedExport] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey,
+                                         .fileSizeKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles])) ?? []
+        var results: [WivraSavedExport] = []
+        for url in urls {
+            let name = url.lastPathComponent
+            guard name.hasPrefix("Wivra_Export_"),
+                  ["mp4", "webm"].contains(url.pathExtension.lowercased()),
+                  // contentsOfDirectory returns direct children; avoid comparing
+                  // macOS /var vs /private/var URL spellings, which differ across APIs.
+                  let values = try? url.resourceValues(forKeys: [
+                    .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]),
+                  values.isRegularFile == true, values.isSymbolicLink != true,
+                  let size = values.fileSize, size > 0 else { continue }
+            // Minimal container validation prevents empty or wrongly renamed files
+            // from appearing as playable exports. Reads only the first 16 bytes.
+            guard let reader = try? FileHandle(forReadingFrom: url) else { continue }
+            let header = (try? reader.read(upToCount: 16)) ?? Data()
+            try? reader.close()
+            guard Self.looksLikeContainer(
+                mime: url.pathExtension.lowercased() == "mp4" ? "video/mp4" : "video/webm",
+                head: header) else { continue }
+            results.append(WivraSavedExport(name: name, url: url, bytes: Int64(size),
+                                             modifiedAt: values.contentModificationDate ?? .distantPast))
+        }
+        return results.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    func savedURL(token: Int, owner: String? = nil) -> URL? {
+        guard let entry = finished[token] else { return nil }
+        if let owner, entry.owner != owner { return nil }
+        return entry.url
+    }
 
     /// Deletes `.partial` files left by a killed process. Never touches finished videos.
     @discardableResult

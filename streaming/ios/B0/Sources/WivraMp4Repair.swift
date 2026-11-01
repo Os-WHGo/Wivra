@@ -1,8 +1,8 @@
 // Makes a MediaRecorder MP4 (fragmented, duration 0, no index) behave like a normal video in
-// Photos/Files/players, WITHOUT re-encoding. Step 1 patches the real duration into mvhd/tkhd/mdhd
-// in place and appends an mfra index (no sample moves). Step 2 (AVFoundation passthrough) writes
-// a regular MP4 with a full moov; the caller keeps the step-1 file if step 2 fails or does not
-// verify. Same box arithmetic as app/media-container.mjs. Compiled and exercised on macOS CI by
+// Photos/Files/players, WITHOUT re-encoding. Step 1 appends an mfra index in place (no sample
+// moves; mvhd/tkhd/mdhd stay as the spec requires for fragmented files). Step 2 (AVFoundation
+// passthrough) writes a regular MP4 with a full moov and real duration; the caller keeps the
+// step-1 file if step 2 fails or does not verify. Same box arithmetic as app/media-container.mjs. Compiled and exercised on macOS CI by
 // streaming/tests/WivraExportStoreSmoke.swift. — Claude
 import AVFoundation
 import Foundation
@@ -155,21 +155,10 @@ enum WivraMp4Repair {
         for tr in tracks.values where tr.scale > 0 { durationMs = max(durationMs, Double(tr.end) / Double(tr.scale) * 1000) }
         let movieDur = UInt64((durationMs * Double(movieScale) / 1000).rounded())
         guard movieDur < UInt64(UInt32.max) else { return PatchResult(durationMs: durationMs, changed: false, indexAdded: false, reason: "duración demasiado larga") }
-        func writeDuration(_ bodyInMoov: Int, _ v1: Bool, _ value: UInt64) throws {
-            let offset: Int = bodyInMoov + (v1 ? 24 : 16)
-            try h.seek(toOffset: moovRef.start + UInt64(offset))
-            let bytes: [UInt8] = v1 ? be64(value) : be32(UInt32(min(value, UInt64(UInt32.max))))
-            try h.write(contentsOf: Data(bytes))
-        }
-        try writeDuration(mvhd.body, mvhdV1, movieDur)
-        for tr in tracks.values {
-            // tkhd duration sits 4 bytes later than mvhd/mdhd (track_ID + reserved before it).
-            let tkhdOffset: Int = tr.tkhd + (tr.tkhdV1 ? 28 : 20)
-            try h.seek(toOffset: moovRef.start + UInt64(tkhdOffset))
-            let tkhdBytes: [UInt8] = tr.tkhdV1 ? be64(movieDur) : be32(UInt32(movieDur))
-            try h.write(contentsOf: Data(tkhdBytes))
-            try writeDuration(tr.mdhd, tr.mdhdV1, tr.end)
-        }
+        // ISO/IEC 14496-12: mvhd/tkhd/mdhd of a fragmented file describe only the samples in moov.
+        // Writing the full duration there made AVFoundation count it twice (2.0 s read as 4.0 s on
+        // macOS CI). The duration is left to the passthrough copy (full moov); here only an index.
+        _ = mvhdV1
         var indexAdded = false
         if !top.contains(where: { $0.type == "mfra" || $0.type == "sidx" }) {
             var tfras: [UInt8] = []
@@ -194,7 +183,8 @@ enum WivraMp4Repair {
             indexAdded = true
         }
         try h.synchronize()
-        return PatchResult(durationMs: durationMs, changed: true, indexAdded: indexAdded, reason: "")
+        return PatchResult(durationMs: durationMs, changed: indexAdded, indexAdded: indexAdded,
+                           reason: indexAdded ? "" : "ya tenía índice")
     }
 
     /// Step 2: regular MP4 (full moov, fast start) via AVFoundation passthrough. No re-encoding.

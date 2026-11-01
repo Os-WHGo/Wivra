@@ -45,7 +45,7 @@ test('WebM repair drops only an incomplete trailing block and never invents data
   assert.ok(after.length < before.length && before.subarray(0, after.length).equals(after));
 });
 
-test('fragmented MP4 from Chromium declares duration 0; repair writes the measured duration and an mfra index', () => {
+test('fragmented MP4 from Chromium declares duration 0; repair writes the measured duration (mehd only) and an mfra index', () => {
   const src = fx(MP4_CHROMIUM), before = inspectExport(src);
   assert.equal(before.fragmented, true);
   assert.equal(before.declaresDuration, false);
@@ -59,6 +59,8 @@ test('fragmented MP4 from Chromium declares duration 0; repair writes the measur
   assert.equal(b.moofs.length, a.moofs.length);
   a.moofs.forEach((m, i) => assert.ok(Buffer.from(src.subarray(m.start, m.end)).equals(Buffer.from(r.bytes.subarray(b.moofs[i].start, b.moofs[i].end)))));
   assert.equal(b.moofs[0].start - a.moofs[0].start, 16);
+  // mvhd stays 0 (spec): AVFoundation otherwise counted the duration twice.
+  assert.equal(new DataView(r.bytes.buffer).getUint32(b.mvhd.body + (r.bytes[b.mvhd.body] === 1 ? 24 : 16)), 0);
 });
 
 test('an MP4 that already has an index is not given a second one', () => {

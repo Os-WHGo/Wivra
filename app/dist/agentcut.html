@@ -2238,8 +2238,8 @@ const mcBox = (type, payload) => { const out = new Uint8Array(8 + payload.length
 const mcBe32 = (n) => [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255];
 
 /**
- * MP4 fragmentado de MediaRecorder → misma media con duración real en mvhd/tkhd/mdhd,
- * caja mehd y un índice mfra al final (avanzar/retroceder). Ningún byte de muestra se mueve
+ * MP4 fragmentado de MediaRecorder → misma media con su duración real en la caja mehd
+ * (la que la norma reserva para archivos fragmentados) y un índice mfra al final (avanzar/retroceder). Ningún byte de muestra se mueve
  * respecto a su moof; si el archivo usa desplazamientos absolutos, no se toca.
  */
 function fmp4AddDurationAndIndex(bytes) {
@@ -2250,9 +2250,9 @@ function fmp4AddDurationAndIndex(bytes) {
   const b = src.slice();
   const movieDur = Math.round(m.durationMs * m.movieScale / 1000);
   if (movieDur >= 2 ** 32) return { bytes: src, durationMs: m.durationMs, changed: false, reason: 'duración demasiado larga para mvhd v0' };
-  const setDur = (boxRef, offV0, offV1, value) => { const v = b[boxRef.body]; const dv = new DataView(b.buffer); if (v === 1) dv.setBigUint64(boxRef.body + offV1, BigInt(value)); else dv.setUint32(boxRef.body + offV0, value); };
-  setDur(m.mvhd, 16, 24, movieDur);
-  for (const tr of m.tracks.values()) { setDur(tr.tkhd, 20, 28, movieDur); setDur(tr.mdhd, 16, 24, Math.min(2 ** 32 - 1, tr.end)); }
+  // ISO/IEC 14496-12: in a fragmented file mvhd/tkhd/mdhd describe only the samples inside moov
+  // (none here); the whole duration belongs in mvex/mehd. Writing it into mvhd made AVFoundation
+  // count it twice (2.0 s file read as 4.0 s, macOS CI). So only mehd + mfra are added.
   // mehd dentro de mvex: el moov crece 16 bytes; los moof usan desplazamientos relativos a sí mismos.
   let out = b, shift = 0;
   if (m.mvex && !mcChild(b, m.mvex, 'mehd')) {
@@ -2261,7 +2261,7 @@ function fmp4AddDurationAndIndex(bytes) {
     out.set(b.subarray(0, m.mvex.body), 0); out.set(mehd, m.mvex.body); out.set(b.subarray(m.mvex.body), m.mvex.body + mehd.length);
     const dv = new DataView(out.buffer);
     dv.setUint32(m.moov.start, mcU32(out, m.moov.start) + mehd.length);
-    dv.setUint32(m.mvex.start + (m.mvex.start > m.moov.start ? 0 : 0), mcU32(out, m.mvex.start) + mehd.length);
+    dv.setUint32(m.mvex.start, mcU32(out, m.mvex.start) + mehd.length);
     shift = mehd.length;
   }
   // mfra: una entrada por fragmento que empieza en cuadro clave, por pista.
@@ -2293,7 +2293,9 @@ function inspectExport(bytes) {
   }
   if (b.length >= 8 && mcType4(b, 4) === 'ftyp') {
     const m = parseMp4(b), kinds = [...m.tracks.values()].map((t) => t.kind);
-    const declared = (b[m.mvhd.body] === 1 ? mcU64(b, m.mvhd.body + 24) : mcU32(b, m.mvhd.body + 16)) > 0;
+    const mehd = m.mvex && mcChild(b, m.mvex, 'mehd');
+    const declared = (b[m.mvhd.body] === 1 ? mcU64(b, m.mvhd.body + 24) : mcU32(b, m.mvhd.body + 16)) > 0 ||
+      (!!mehd && (b[mehd.body] === 1 ? mcU64(b, mehd.body + 4) : mcU32(b, mehd.body + 4)) > 0);
     return { container: 'mp4', durationMs: m.durationMs, video: kinds.includes('video'), audio: kinds.includes('audio'), fragmented: m.fragmented,
       declaresDuration: declared, seekIndex: !m.fragmented || m.hasIndex };
   }
@@ -2848,7 +2850,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -2856,7 +2858,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
@@ -2896,6 +2898,26 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
+  // Loading/seeking the next cut takes tens of ms. Meanwhile MediaRecorder kept recording the
+  // last frame and WebAudio kept running: measured +0.63 % duration (~34 ms per cut, Chromium,
+  // tools/long-export-soak.cjs). Pause the recorder AND suspend the AudioContext together, so
+  // the gap is not recorded and independent audio stays aligned with the video timeline.
+  let holdPaused = false;
+  const holdRecording = async () => {
+    if (holdPaused || rec.state !== 'recording' || typeof rec.pause !== 'function') return;
+    try { rec.pause(); holdPaused = true; } catch { return; }
+    try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
+  };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
+  const releaseRecording = async () => {
+    if (!holdPaused) return;
+    holdPaused = false;
+    try { if (ac && ac.state === 'suspended') await ac.resume(); } catch { /* contexto cerrado */ }
+    try { if (rec.state === 'paused') rec.resume(); } catch { /* grabador detenido */ }
+  };
   const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
@@ -2924,6 +2946,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
         }
         continue;
       }
+      if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
@@ -2932,8 +2960,12 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
-      const clipWallStart = performance.now();
+      // Keep the recorder paused through play() start-up as well, so that latency is not recorded;
+      // the clip's own clock (clipWallStart) then counts only recorded time.
+      if (ev.paused) await holdRecording();
       if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
+      await releaseRecording();
+      const clipWallStart = performance.now();
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {
@@ -5232,7 +5264,12 @@ function recoverCaptureJournal(journal) {
       !Array.isArray(journal.interruptions) || journal.interruptions.some((event, index, events) =>
         !event || !validTime(event.at) || event.at < journal.startedAt || event.at > journal.updatedAt ||
         (index > 0 && event.at < events[index - 1].at) || typeof event.reason !== 'string' || event.reason.length > 160) ||
-      (journal.state === 'finalized' && (!safeName(journal.finalFile) || journal.segments.length === 0))) {
+      (journal.state === 'finalized'
+        ? (!safeName(journal.finalFile) || journal.segments.length === 0)
+        : journal.finalFile != null)) {
+    // A final output can only be published by the finalized transition.
+    // Recovery cannot trust a failed or in-progress snapshot that advertises
+    // a completed video without a corresponding finalization.
     throw new TypeError('Invalid capture journal envelope');
   }
   // Recovery must not trust a corrupt persisted snapshot or expose unsafe names.
@@ -5309,8 +5346,36 @@ function createCaptureJournalStore({ writeAtomic, read, list } = {}) {
         const recovery = recoverCaptureJournal(journal);
         if (recovery.recoverableFiles.length !== journal.segments.length) throw new Error('Corrupted capture segments cannot be saved');
         const current = await load(journal.id);
-        if (current && journal.updatedAt <= current.updatedAt && JSON.stringify(journal) !== JSON.stringify(current)) {
-          throw new Error('Stale capture snapshot');
+        if (current) {
+          if (JSON.stringify(journal) === JSON.stringify(current)) return current;
+          if (journal.updatedAt <= current.updatedAt) throw new Error('Stale capture snapshot');
+          // A newer timestamp cannot authorize removing previously verified
+          // clips or changing their identity. The store is append-only for
+          // media and interruptions, including after process restarts.
+          const prefixMatches = (before, after) => Array.isArray(after) &&
+            before.length <= after.length &&
+            before.every((item, index) => JSON.stringify(item) === JSON.stringify(after[index]));
+          const nextStates = {
+            connecting: ['recording', 'failed'],
+            recording: ['interrupted', 'stopping', 'failed'],
+            interrupted: ['recording', 'stopping', 'failed'],
+            stopping: ['finalized', 'failed'],
+            finalized: [],
+            failed: []
+          };
+          const legalState = journal.state === current.state ||
+            (nextStates[current.state] || []).includes(journal.state);
+          if (!legalState ||
+              journal.startedAt !== current.startedAt ||
+              journal.platform !== current.platform ||
+              journal.source !== current.source ||
+              journal.schema !== current.schema ||
+              !prefixMatches(current.segments, journal.segments) ||
+              !prefixMatches(current.interruptions, journal.interruptions) ||
+              ['failed', 'finalized'].includes(current.state) ||
+              (current.finalFile && journal.finalFile !== current.finalFile)) {
+            throw new Error('Capture snapshot would discard confirmed history');
+          }
         }
         return persist(journal);
       });
@@ -5484,6 +5549,16 @@ function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
           // The manifest remains recoverable if any fragment or final output fails.
           if (!isCaptureFileName(output.finalFile)) throw new Error('Missing or unsafe finalized output');
           const previous = (await store.load(id)).segments;
+          // Verify older checkpoints before accepting a new fragment. Their
+          // identity and chronological order are already durable in the
+          // journal, and must not be silently replaced after an interruption.
+          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
+          for (const file of new Set(previous.map(segment => segment.file))) {
+            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
+          }
+          // Validate, verify and persist each new fragment in sequence. A bad
+          // later manifest entry cannot erase the earlier verified prefix.
+          let j = await store.load(id);
           let cursor = previous.length ? previous.at(-1).endMs : 0;
           const names = new Set(previous.map(s => s.file));
           for (const segment of segments) {
@@ -5492,20 +5567,15 @@ function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
                 segment.startMs < cursor || segment.endMs <= segment.startMs) {
               throw new Error('Invalid confirmed native fragment');
             }
+            if (await verifyPhysicalFile({ id, file: segment.file }) !== true) {
+              throw new Error('Native media verification required for finalization');
+            }
+            j = await store.appendConfirmedSegment(id, segment, timestamp());
             names.add(segment.file);
             cursor = segment.endMs;
           }
-          // Existing fragments can disappear during an interrupted recording.
-          // Recheck the entire assembled take before publishing final state.
-          if (typeof host.verifyFile !== 'function' && !nativeVerifyFile) throw new Error('Native media verification required for finalization');
-          for (const file of new Set([output.finalFile, ...previous.map(segment => segment.file), ...segments.map(segment => segment.file)])) {
-            if (await verifyPhysicalFile({ id, file }) !== true) throw new Error('Native media verification required for finalization');
-          }
-          // Persist fragments with intermediate stopping snapshots, never
-          // publish finalized state before every segment is durable.
-          let j = await store.load(id);
-          for (const segment of segments) {
-            j = await store.appendConfirmedSegment(id, segment, timestamp());
+          if (await verifyPhysicalFile({ id, file: output.finalFile }) !== true) {
+            throw new Error('Native media verification required for finalization');
           }
           j = await store.transition(id, { state: 'finalized', at: timestamp(), finalFile: output.finalFile });
           active = null;
@@ -5542,8 +5612,39 @@ function createNativeCaptureSession({ host, storage, now = Date.now } = {}) {
           throw new Error('Native media verification required for Director');
         }
       }
+      // A native writer outside this JS coordinator can change a journal
+      // while slow media verification is running. Never return a stale
+      // Director receipt if the on-disk snapshot has changed meanwhile.
+      const afterVerification = await store.load(id);
+      if (JSON.stringify(afterVerification) !== JSON.stringify(journal)) {
+        throw new Error('Capture journal changed during Director verification');
+      }
       return { sessionId: id, platform: journal.platform, file: journal.finalFile,
         segments: journal.segments.map(({ file, startMs, endMs }) => ({ file, startMs, endMs })) };
+      });
+    },
+    // Non-destructive review of a recoverable journal. Names in a stored
+    // manifest are never proof that a playable file still exists. Only the
+    // native media verifier may classify a fragment as physically available.
+    async reviewPending(id) {
+      return locked(async () => {
+        const journal = await store.load(id);
+        if (!journal || journal.state === 'finalized') throw new Error('Capture not pending review');
+        const files = [...new Set(journal.segments.map(segment => segment.file))];
+        const verifiedFiles = [], unverifiedFiles = [];
+        const available = typeof host.verifyFile === 'function' || !!nativeVerifyFile;
+        for (const file of files) {
+          const verified = available && await verifyPhysicalFile({ id, file }) === true;
+          (verified ? verifiedFiles : unverifiedFiles).push(file);
+        }
+        // A native writer can update metadata while a slow disk check runs.
+        // Do not display a review based on a different journal snapshot.
+        const after = await store.load(id);
+        if (JSON.stringify(journal) !== JSON.stringify(after)) {
+          throw new Error('Capture journal changed during pending review');
+        }
+        return { id, state: journal.state, verifiedFiles, unverifiedFiles,
+          verificationAvailable: available, requiresReview: true };
       });
     },
     async snapshot(id) { return store.load(id); }

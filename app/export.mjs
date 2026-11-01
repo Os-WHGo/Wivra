@@ -2,6 +2,7 @@
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 import { clipLength, speedOf, srcTime } from '../core/project.mjs';
+import { selectExportEngine } from './export-engine-policy.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 import { detectExportHost, createProgressiveExportSink } from './export-sink.mjs';
 import { finalizeExportBytes, inspectExport } from './media-container.mjs';
@@ -296,10 +297,24 @@ export function drawTexts(g, list, W, H, zone = TEXT_ZONES.normal) {
 
 const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
 const frame = () => new Promise((res) => requestAnimationFrame(res));
-/** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
+/** Bitrate requested from MediaRecorder; it may choose a different actual value.
+ * In-memory fallback still caps long videos to avoid filling JS heap. */
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
-export const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
-export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+// For native progressive storage, use resolution and FPS, NOT duration, to set
+// the requested bitrate: an hour-long 1080p montage should not become blurrier
+// merely because it is long. Reference: 1080p/30 SDR at ~8 Mbps. Constrain
+// unexpected source dimensions before passing them to MediaRecorder.
+export function exportBitrate(seconds, { progressive = false, width = 0, height = 0, fps = 30 } = {}) {
+  if (!progressive) return Math.round(Math.max(EXPORT_MIN_BPS,
+    Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    return EXPORT_BPS; // preserve compatibility with existing project callers
+  const pixels = Math.min(7680 * 4320, Math.max(320 * 240, width * height));
+  const frameFactor = Number.isFinite(fps) && fps > 45 ? 1.5 : 1;
+  const target = EXPORT_BPS * Math.sqrt(pixels / (1920 * 1080)) * frameFactor;
+  return Math.round(Math.max(2_500_000, Math.min(24_000_000, target)) / 250_000) * 250_000;
+}
+export const exportSizeMB = (seconds, options = {}) => Math.max(1, Math.round(exportBitrate(seconds, options) * Math.max(0, seconds || 0) / 8 / 1e6));
 /** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
  * until export ends. In progressive mode (native sink) only a bounded queue stays in
  * memory, so the risk is free storage, not RAM.
@@ -307,14 +322,14 @@ export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(se
  * The warning does not certify any duration or block the owner's export.
  */
 export function exportMemoryRisk(seconds, { progressive = false } = {}) {
-  const estimatedMB = exportSizeMB(seconds);
+  const estimatedMB = exportSizeMB(seconds, { progressive });
   if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
 /** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
-export const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
+export const exportEstimatedBytes = (seconds, options = {}) => Math.round((exportBitrate(seconds, options) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -427,7 +442,20 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
 }
 // saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
 // 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
+/** Missing overlay media must not silently disappear from a final video.
+ * The UI may request an explicit, one-export opt-in to an incomplete result. */
+export function exportOverlayPreflight(project, loadedOverlayIds = []) {
+  const loaded = new Set(loadedOverlayIds);
+  const missingOverlay = [...new Set((project.overlayClips || [])
+    .filter(c => !loaded.has(c.id)).map(c => c.id))];
+  return { overlayBlocked: missingOverlay.length > 0, missingOverlay };
+}
+
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto' }) {
+  // The accelerated prototype has not yet been ported to the full timeline renderer.
+  // Keep the proven recorder until a device-validated implementation exists.
+  const engineSelection = selectExportEngine({ requested: exportEngine });
+  if (engineSelection.engine !== 'mediarecorder') throw new Error('Motor acelerado no disponible en esta compilación.');
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
@@ -489,7 +517,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total, { progressive: true, width: W, height: H, fps }) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
@@ -499,12 +527,25 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
     }
   }
+  // Cancellation requested from the UI while native begin() was pending must
+  // not go on to decode overlays or start MediaRecorder after that request.
+  if (isCancelled()) {
+    if (sink) await sink.abort('cancelled-before-recorder');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return { cancelled: true };
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
     const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
     if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
-      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      if (m.gif) {
+        try { const el = m.makeEl(); if (!el) throw new Error('GIF sin fotogramas'); oList.push({ el, c }); }
+        catch { skippedOverlay.push(c.id); }
+        continue;
+      }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
       const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
       try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
       continue;
@@ -518,6 +559,18 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     } catch { el.remove(); skippedOverlay.push(c.id); }
   }
   oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayPreflight = exportOverlayPreflight(project, oList.map(o => o.c.id));
+  if (isCancelled() || (overlayPreflight.overlayBlocked && !allowIncompleteOverlay)) {
+    // Return BEFORE constructing MediaRecorder. If native export already opened
+    // a pending row, abort it; never publish a canceled or visually incomplete file.
+    const cancelledBeforeRecorder = isCancelled();
+    if (sink) await sink.abort(cancelledBeforeRecorder ? 'cancelled-before-recorder' : 'missing-overlay');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    oList.forEach(o => { try { o.el.pause?.(); } catch {} try { o.el.remove?.(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return cancelledBeforeRecorder ? { cancelled: true } : overlayPreflight;
+  }
   const overlayTick = (t) => {
     const draw = [];
     for (const o of oList) {
@@ -530,7 +583,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     }
     return draw;
   };
-  const started = new Set(), sources = [];
+  const started = new Set(), sources = [], sourceByClip = new Map();
   const audioTick = (t) => {
     if (!ac || !dest) return;
     for (const c of aClips) {
@@ -538,13 +591,13 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       const a = audioStartAt(c, t); if (!a) continue;
       started.add(c.id);
       const src = ac.createBufferSource(), gn = ac.createGain(); src.buffer = buffers.get(c.asset_id); src.playbackRate.value = a.rate; gn.gain.value = clipGain(c);
-      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); } catch { /* clip fuera del buffer */ }
+      src.connect(gn); gn.connect(bus); try { src.start(0, a.offset, a.dur); sources.push(src); sourceByClip.set(c.id, src); } catch { /* clip fuera del buffer */ }
     }
   };
 
   let rec;
   try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) });
   } catch (error) {
     // Some WebViews advertise a container through isTypeSupported(), then
     // throw from the constructor. This is before the main recording try/finally.
@@ -578,6 +631,26 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   let interrupted = false, recError = null; const onVis = () => { if (document.hidden) interrupted = true; }; document.addEventListener('visibilitychange', onVis);
   const stopNow = () => isCancelled() || interrupted || !!recError || !!(sink && sink.error);
   rec.onerror = (e) => { recError = (e && e.error) || new Error('error de grabación'); };
+  // Loading/seeking the next cut takes tens of ms. Meanwhile MediaRecorder kept recording the
+  // last frame and WebAudio kept running: measured +0.63 % duration (~34 ms per cut, Chromium,
+  // tools/long-export-soak.cjs). Pause the recorder AND suspend the AudioContext together, so
+  // the gap is not recorded and independent audio stays aligned with the video timeline.
+  let holdPaused = false;
+  const holdRecording = async () => {
+    if (holdPaused || rec.state !== 'recording' || typeof rec.pause !== 'function') return;
+    try { rec.pause(); holdPaused = true; } catch { return; }
+    try { if (ac && ac.state === 'running') await ac.suspend(); } catch { /* sigue grabando sin suspender */ }
+  };
+  const reanchorIndependentAudio = () => {
+    for (const [id, src] of sourceByClip) { try { src.stop(); } catch { /* ya terminó */ } started.delete(id); }
+    sourceByClip.clear();
+  };
+  const releaseRecording = async () => {
+    if (!holdPaused) return;
+    holdPaused = false;
+    try { if (ac && ac.state === 'suspended') await ac.resume(); } catch { /* contexto cerrado */ }
+    try { if (rec.state === 'paused') rec.resume(); } catch { /* grabador detenido */ }
+  };
   const t0 = performance.now(); let cancelled = false, recorderStarted = false, completed = false, recorderClosed = false;
   const report = (t) => onProgress({ t: Math.min(t, plan.total), total: plan.total, pct: plan.total ? Math.min(1, t / plan.total) : 1 });
 
@@ -606,6 +679,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
         }
         continue;
       }
+      if (ev.dataset.src !== m.url || Math.abs(ev.currentTime - c.in) > 0.02) await holdRecording();
+      // Independent tracks (separately recorded voices, music) play on the AudioContext clock, while
+      // each cut still adds a few ms to the video timeline. While nothing is being recorded, restart
+      // them at the exact offset of this cut's timeline position (audioTick does it on the next tick).
+      // Measured on a 2-min montage: drift vs the video stopped accumulating from cut to cut.
+      if (holdPaused) reanchorIndependentAudio();
       if (ev.dataset.src !== m.url) { ev.dataset.src = m.url; ev.src = m.url; await waitEvent(ev, 'loadedmetadata', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       const missingVideoSeconds = videoSourceShortfall(c, ev.duration);
       if (missingVideoSeconds > 0) throw new Error(
@@ -614,8 +693,12 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       if (Math.abs(ev.currentTime - c.in) > 0.02) { ev.currentTime = c.in; await waitEvent(ev, 'seeked', { isCancelled: stopNow, what: 'Un video' }); if (stopNow()) { cancelled = true; break; } }
       if (gainNode) gainNode.gain.value = clipGain(c);
       const spd = speedOf(c); try { ev.playbackRate = spd; } catch { /* velocidad no admitida */ }
-      const clipWallStart = performance.now();
+      // Keep the recorder paused through play() start-up as well, so that latency is not recorded;
+      // the clip's own clock (clipWallStart) then counts only recorded time.
+      if (ev.paused) await holdRecording();
       if (!(await playVideoForExport(ev, { isCancelled: stopNow }))) { cancelled = true; break; }
+      await releaseRecording();
+      const clipWallStart = performance.now();
       await new Promise((res, rej) => {
         let last = -1, since = performance.now();
         const tick = () => {

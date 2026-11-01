@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt } from '../export.mjs';
+import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt, exportBitrate, exportEstimatedBytes, exportMemoryRisk, exportOverlayPreflight } from '../export.mjs';
 
 const P = (clips, texts = []) => ({ clips, texts });
 test('plan: clips en orden y hueco negro entre clips', () => {
@@ -158,4 +158,44 @@ test('hundreds of accepted sub-5ms overlaps must not accumulate audible A/V drif
  assert.equal(verdict.reason,'overlap');
  assert.ok(verdict.seconds >= 0.05,'cumulative lost time must be reported');
  await assert.rejects(recordProject({project:p,media:{}}),/se superponen/);
+});
+
+
+test('quality auto: progressive disk estimate matches bitrate and memory mode retains cap', () => {
+  const seconds = 3600;
+  assert.equal(exportBitrate(seconds, { progressive: true }), 8_000_000);
+  assert.equal(exportBitrate(seconds), 3_000_000);
+  assert.equal(exportEstimatedBytes(seconds, { progressive: true }), 3_657_600_000);
+  const disk = exportMemoryRisk(seconds, { progressive: true });
+  assert.equal(disk.bufferedUntilComplete, false);
+  assert.equal(disk.storageMB, 3600);
+  assert.equal(exportMemoryRisk(seconds).bufferedUntilComplete, true);
+});
+
+
+test('native auto quality follows output pixels and frame rate, never video duration', () => {
+  const hd = { progressive: true, width: 1280, height: 720, fps: 30 };
+  const fullHd = { progressive: true, width: 1920, height: 1080, fps: 30 };
+  const highFps = { ...fullHd, fps: 60 };
+  assert.equal(exportBitrate(60, fullHd), 8_000_000);
+  assert.equal(exportBitrate(3600, fullHd), 8_000_000);
+  assert.ok(exportBitrate(3600, hd) < exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, highFps) > exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, { progressive: true, width: 0, height: 0 }) === 8_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: 4096, height: 4096, fps: 120 }) <= 24_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: Infinity, height: 1080 }) === 8_000_000);
+  // Legacy in-memory path must retain its duration-based memory protection.
+  assert.equal(exportBitrate(3600, { progressive: false, width: 1920, height: 1080, fps: 60 }), 3_000_000);
+  const bytes = exportEstimatedBytes(3600, fullHd);
+  assert.equal(bytes, Math.round((exportBitrate(3600, fullHd) + 128_000) * 3600 / 8));
+});
+
+
+test('overlay preflight refuses a montage with missing videos, images, or GIF layers', () => {
+  const project = { overlayClips: [{ id: 'v', asset_id: 'a' }, { id: 'gif', asset_id: 'b' }, { id: 'logo', asset_id: 'c' }] };
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'logo']), { overlayBlocked: true, missingOverlay: ['gif'] });
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'gif', 'logo']), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [] }, []), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [{ id: 'v' }, { id: 'v' }] }, []),
+    { overlayBlocked: true, missingOverlay: ['v'] });
 });

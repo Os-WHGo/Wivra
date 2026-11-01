@@ -38,6 +38,32 @@ struct WivraExportStoreSmoke {
         precondition(written == webm)
         let remembered = await store.savedURL(token: token)
         precondition(remembered == finalURL)
+        // The recovery library must find completed videos after a process restart,
+        // without needing the old bridge owner or in-memory export session token.
+        let reopened = WivraExportStore(directory: folder, freeBytes: { _ in 10_000_000_000 })
+        let retained = await reopened.listSavedExports()
+        let diskNames = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        let retainedSummary = retained.map { $0.name + ":" + String($0.bytes) }
+        print("iOS recovered export diagnostic: count=\(retained.count), names=\(diskNames), retained=\(retainedSummary), expected=\(finalURL.lastPathComponent):\(webm.count)")
+        precondition(retained.count == 1,
+                     "completed video must be discoverable after reopening Wivra")
+        precondition(retained[0].url.standardizedFileURL == finalURL.standardizedFileURL,
+                     "recovered export URL must match saved native file")
+        precondition(retained[0].bytes == Int64(webm.count),
+                     "recovered export size must match original export")
+        // Never enumerate partial files or symlinks, even if their names resemble exports.
+        let fakePartial = folder.appendingPathComponent("Wivra_Export_999.mp4.partial")
+        _ = FileManager.default.createFile(atPath: fakePartial.path, contents: Data([1, 2]))
+        let fakeLink = folder.appendingPathComponent("Wivra_Export_999.mp4")
+        try FileManager.default.createSymbolicLink(at: fakeLink, withDestinationURL: finalURL)
+        let fakeCorrupted = folder.appendingPathComponent("Wivra_Export_1000.mp4")
+        _ = FileManager.default.createFile(atPath: fakeCorrupted.path, contents: Data("NOT_MP4".utf8))
+        let visibleAfterInjection = await reopened.listSavedExports()
+        precondition(visibleAfterInjection.count == 1,
+                     "partial files, symlinks and invalid headers must remain invisible")
+        try FileManager.default.removeItem(at: fakeLink)
+        try FileManager.default.removeItem(at: fakePartial)
+        try FileManager.default.removeItem(at: fakeCorrupted)
 
         // 2) Out-of-order chunk aborts and deletes the partial file.
         let second = try await store.begin(mime: "video/mp4", estimatedBytes: 0)
@@ -95,9 +121,25 @@ struct WivraExportStoreSmoke {
         await store.abortOwned(owner: "old-editor")
         precondition(!FileManager.default.fileExists(atPath: folder.appendingPathComponent(old.displayName! + ".partial").path))
         precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName! + ".partial").path))
+        // A foreign editor must neither append, finish nor abort this live export.
+        await expectThrows("foreign append") {
+            _ = try await store.append(token: current.token!, seq: 1, data: webm.prefix(64), owner: "old-editor")
+        }
+        await expectThrows("foreign finish") {
+            _ = try await store.finish(token: current.token!, bytes: Int64(webm.count),
+                                       crc32: WivraCRC32.update(0, webm), chunks: 1,
+                                       repair: false, owner: "old-editor")
+        }
+        await store.abort(token: current.token!, owner: "old-editor")
+        precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName! + ".partial").path),
+                     "foreign abort must preserve the owner's live file")
         let orphanCount = await store.cleanupOrphans()
         precondition(orphanCount == 0)
         _ = try await store.finish(token: current.token!, bytes: Int64(webm.count), crc32: WivraCRC32.update(0, webm), chunks: 1, repair: false)
+        // A second editor cannot share a finished export by guessing its token.
+        let ownFile = await store.savedURL(token: current.token!, owner: "new-editor")
+        let foreignFile = await store.savedURL(token: current.token!, owner: "old-editor")
+        precondition(ownFile != nil && foreignFile == nil, "finished export must be bound to its editor owner")
         await store.abortOwned(owner: "new-editor")
         precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName!).path))
 

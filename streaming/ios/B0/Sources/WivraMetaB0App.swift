@@ -15,6 +15,7 @@ struct WivraMetaB0App: App {
     @State private var phoneNetwork = WivraPhoneNetworkStatus()
     @State private var experimentalBackgroundMetaCapture = false
     @State private var showingCaptureLibrary = false
+    @State private var showingExportLibrary = false
     @State private var showingUnifiedEditor = false
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
@@ -89,12 +90,34 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
+                    Button {
+                        showingExportLibrary = true
+                    } label: {
+                        Label("ios.app.exports", systemImage: "square.and.arrow.up.on.square")
+                    }
+                    .disabled(!model.isReleasedForCameraHandoff ||
+                              !iPhoneCamera.isReleasedForCameraHandoff ||
+                              pendingCaptureTab != nil)
                         .padding(.horizontal)
                     }
-                    Toggle("Ray-Ban en segundo plano (experimental)", isOn: $experimentalBackgroundMetaCapture)
+                    Toggle("ios.app.background_capture_toggle", isOn: $experimentalBackgroundMetaCapture)
                         .font(.footnote)
                         .padding(.horizontal)
                         .accessibilityIdentifier("meta_background_capture_opt_in")
+                    if model.recordingArmed && !experimentalBackgroundMetaCapture {
+                        Text("ios.app.background_capture_off_warning")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("meta_background_capture_off_warning")
+                    }
+                    if experimentalBackgroundMetaCapture {
+                        Text("ios.app.background_capture_experimental_warning")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("meta_background_capture_limit_warning")
+                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(phoneNetwork.summary)
                             .font(.footnote.bold())
@@ -113,6 +136,9 @@ struct WivraMetaB0App: App {
             .onAppear { phoneNetwork.start() }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
+            }
+            .sheet(isPresented: $showingExportLibrary) {
+                WivraNativeExportLibraryScreen()
             }
             .fullScreenCover(isPresented: $showingUnifiedEditor) {
                 WivraEmbeddedEditorScreen()
@@ -676,6 +702,87 @@ private struct WivraPendingRecordingReviewScreen: View {
                 audioPlayer?.stop()
                 audioPlayer = nil
                 audioIsPlaying = false
+            }
+        }
+    }
+}
+
+
+/// Visible native recovery path for videos exported before this app launch.
+/// The sheet enumerates verified completed files only; it never deletes or copies
+/// originals. ShareLink streams the existing file to the system share sheet.
+@MainActor
+private struct WivraNativeExportLibraryScreen: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var exports: [WivraSavedExport] = []
+    @State private var savingPhoto: String?
+    @State private var savedToPhotos = Set<String>()
+    @State private var photosError: String?
+
+    private func reload() async {
+        exports = await WivraExportStore.shared.listSavedExports()
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if exports.isEmpty {
+                    ContentUnavailableView("ios.exports.empty",
+                                           systemImage: "square.stack",
+                                           description: Text("ios.exports.empty_description"))
+                } else {
+                    List(exports) { video in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(video.name).font(.subheadline).lineLimit(2)
+                            HStack(spacing: 10) {
+                                Text(ByteCountFormatter.string(fromByteCount: video.bytes, countStyle: .file))
+                                Text(video.modifiedAt, style: .date)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            ShareLink(item: video.url) {
+                                Label("ios.exports.share", systemImage: "square.and.arrow.up")
+                            }
+                            .accessibilityIdentifier("wivra_export_library_share")
+                            if video.url.pathExtension.lowercased() == "mp4" {
+                                Button {
+                                    savingPhoto = video.id
+                                    Task { @MainActor in
+                                        do {
+                                            try await WivraPhotosLibrary.saveVideo(video.url)
+                                            savedToPhotos.insert(video.id)
+                                        } catch {
+                                            photosError = error.localizedDescription
+                                        }
+                                        savingPhoto = nil
+                                    }
+                                } label: {
+                                    Label(savedToPhotos.contains(video.id) ? "ios.exports.saved_photos" : "ios.exports.save_photos",
+                                          systemImage: "square.and.arrow.down")
+                                }
+                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id))
+                                .accessibilityIdentifier("wivra_export_library_save_photos")
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .refreshable { await reload() }
+                }
+            }
+            .navigationTitle("ios.exports.title")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("ios.exports.close") { dismiss() }
+                }
+            }
+            .task { await reload() }
+            .alert("ios.exports.photos_error", isPresented: Binding(
+                get: { photosError != nil },
+                set: { if !$0 { photosError = nil } }
+            )) {
+                Button("OK", role: .cancel) { photosError = nil }
+            } message: {
+                Text(photosError ?? "")
             }
         }
     }

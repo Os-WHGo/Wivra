@@ -155,4 +155,9 @@
     <string name="picker_phone_capture_bundle">Importer capture et WAV : %1$s</string>
     <string name="picker_capture_title">Choisir une capture Wivra</string>
     <string name="connect_glasses_accessibility">Connecter les lunettes Ray-Ban Meta</string>
+    <string name="meta_registration_in_progress">Meta AI : connexion de Wivra aux lunettes en cours…</string>
+    <string name="meta_registration_complete">Meta AI a confirmé la connexion de Wivra. Vous pouvez connecter les lunettes.</string>
+    <string name="meta_registration_stalled">Meta AI ne confirme pas la connexion après 45 secondes. Activez le mode développeur, vérifiez les autorisations Meta AI, puis réessayez.</string>
+    <string name="meta_registration_required">Associez d’abord Wivra dans Meta AI. L’inscription n’a pas encore été confirmée.</string>
+    <string name="meta_registered_no_devices">Meta AI a enregistré Wivra, mais aucune lunette n’a été détectée. Vérifiez le Bluetooth, la portée, l’alimentation et le mode développeur, puis réessayez.</string>
 </resources>

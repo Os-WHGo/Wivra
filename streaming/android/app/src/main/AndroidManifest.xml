@@ -37,7 +37,11 @@
             android:exported="false" android:foregroundServiceType="connectedDevice" />
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
-        <activity android:name=".WivraMetaPreviewActivity" android:exported="false" />
+        <!-- Keep the registration-callback Activity alive across orientation/size changes;
+             Meta AI returns an Activity result, not a transferable foreground token.
+             Process death still requires explicit DAT re-registration if needed. -->
+        <activity android:name=".WivraMetaPreviewActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>

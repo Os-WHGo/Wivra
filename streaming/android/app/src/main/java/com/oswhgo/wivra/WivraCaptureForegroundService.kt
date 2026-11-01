@@ -199,6 +199,17 @@ class WivraCaptureForegroundService : Service() {
         return START_NOT_STICKY
     }
 
+    // Surface PAUSED and FINALIZING immediately on the lock-screen notification.
+    // Notification permission may be denied; UI refresh must never stop DAT or
+    // prevent the original video from being finalized.
+    private fun refreshCaptureNotification() {
+        runCatching {
+            getSystemService(NotificationManager::class.java).notify(
+                NOTIFICATION_ID, captureNotification()
+            )
+        }
+    }
+
     private fun captureNotification(): Notification {
         val open = PendingIntent.getActivity(
             this, 0,
@@ -238,7 +249,10 @@ class WivraCaptureForegroundService : Service() {
                 when (state) {
                     DeviceSessionState.STARTED -> attachCamera(active)
                     DeviceSessionState.PAUSED -> {
-                        if (!finishing) setCaptureState(CaptureState.PAUSED)
+                        if (!finishing && captureState != CaptureState.PAUSED) {
+                            setCaptureState(CaptureState.PAUSED)
+                            refreshCaptureNotification()
+                        }
                     }
                     DeviceSessionState.STOPPED -> finalizeCapture()
                     else -> Unit
@@ -382,11 +396,7 @@ class WivraCaptureForegroundService : Service() {
                                     lastNotifiedCheckpoint = progress.savedCheckpoints
                                     // POST_NOTIFICATIONS can be denied: never
                                     // sacrifice the MP4 stream for a UI update.
-                                    runCatching {
-                                        getSystemService(NotificationManager::class.java).notify(
-                                            NOTIFICATION_ID, captureNotification()
-                                        )
-                                    }
+                                    refreshCaptureNotification()
                                 }
                             }
                         }
@@ -405,7 +415,10 @@ class WivraCaptureForegroundService : Service() {
                     when (state) {
                         StreamState.STREAMING -> streamEverActive = true
                         StreamState.PAUSED -> {
-                            if (!finishing) setCaptureState(CaptureState.PAUSED)
+                            if (!finishing && captureState != CaptureState.PAUSED) {
+                            setCaptureState(CaptureState.PAUSED)
+                            refreshCaptureNotification()
+                        }
                         }
                         StreamState.STOPPED -> {
                             // The initial STOPPED state is normal before start().
@@ -459,6 +472,7 @@ class WivraCaptureForegroundService : Service() {
         storageWatchdog?.cancel()
         storageWatchdog = null
         setCaptureState(CaptureState.FINALIZING)
+        refreshCaptureNotification()
         val lastRecorder = recorder
         recorder = null
         val lastPacketsJob = packetsJob

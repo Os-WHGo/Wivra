@@ -16,7 +16,8 @@ permissions:
   contents: read
 concurrency:
   group: wivra-long-export-soak-${{ github.ref }}
-  cancel-in-progress: true
+  # A new commit waits for running soaks instead of discarding up to an hour of measurements.
+  cancel-in-progress: false
 jobs:
   soak:
     runs-on: ubuntu-24.04

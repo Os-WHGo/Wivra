@@ -155,4 +155,9 @@
     <string name="picker_phone_capture_bundle">导入包含 WAV 的拍摄内容：%1$s</string>
     <string name="picker_capture_title">选择 Wivra 拍摄内容</string>
     <string name="connect_glasses_accessibility">连接 Ray-Ban Meta 眼镜</string>
+    <string name="meta_registration_in_progress">Meta AI：正在将 Wivra 连接到眼镜…</string>
+    <string name="meta_registration_complete">Meta AI 已确认 Wivra 注册。现在可以连接眼镜。</string>
+    <string name="meta_registration_stalled">45 秒后 Meta AI 仍未确认注册。请检查 Meta AI 的开发者模式与权限，然后重试。</string>
+    <string name="meta_registration_required">请先在 Meta AI 中连接 Wivra。注册尚未确认。</string>
+    <string name="meta_registered_no_devices">Meta AI 已注册 Wivra，但找不到已关联的眼镜。请检查蓝牙、距离、眼镜电源和开发者模式，然后重试连接。</string>
 </resources>
