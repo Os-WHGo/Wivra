@@ -43,7 +43,7 @@ test('low-storage watchdog stops the LOCAL recorder without deleting recordings'
   assert.match(watcher, /Task\.sleep\(for: \.seconds\(10\)\)/);
   assert.match(watcher, /WivraCaptureStorageGuard\.shouldStopToProtectFiles/);
   assert.match(watcher, /storageStoppedCapture = true/);
-  assert.match(watcher, /await self\.finishRecording\(\)/);
+  assert.match(watcher, /Task \{ @MainActor \[weak self\] in\s+await self\?\.finishRecording\(\)/);
   assert.doesNotMatch(watcher, /removeItem|delete|discardConfirmed/);
   const finalizer = model.split('func finishRecording() async {')[1];
   assert.match(finalizer, /storageWatchdog\?\.cancel\(\)/);
