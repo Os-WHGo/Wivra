@@ -371,7 +371,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         }
         val registered = Wearables.registrationState.value == RegistrationState.REGISTERED
         val detected = Wearables.devices.value.isNotEmpty()
-        val freshFrame = lastFrameReceivedMs > 0L &&
+        val freshFrame = stream?.state?.value == StreamState.STREAMING &&
+            lastFrameReceivedMs > 0L &&
             SystemClock.elapsedRealtime() - lastFrameReceivedMs <= 4_000L
         val capture = WivraCaptureForegroundService.captureState
         val signal = when {
@@ -424,8 +425,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             (serviceRecording && WivraCaptureForegroundService.captureState !=
                 WivraCaptureForegroundService.CaptureState.FINALIZING) ||
             (recordingMode && !recordingFinalizing)
-        photoButton.isEnabled = stream != null && !photoInProgress &&
-            lastFrameReceivedMs > 0L &&
+        photoButton.isEnabled = stream?.state?.value == StreamState.STREAMING &&
+            !photoInProgress && lastFrameReceivedMs > 0L &&
             SystemClock.elapsedRealtime() - lastFrameReceivedMs < 4_000L
         updateDatCapabilityStatus()
     }
