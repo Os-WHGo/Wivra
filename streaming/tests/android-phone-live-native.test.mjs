@@ -79,7 +79,9 @@ test('microphone and public transmission are opt-in, background publishing canno
   assert.match(live, /micOption = CheckBox\(this\)\.apply \{[\s\S]*?isChecked = false/);
   assert.match(live, /val source = Camera2Source\(applicationContext\)/);
   assert.match(live, /RtmpStream\(\s*applicationContext, this,\s*source, NoAudioSource\(\)/);
-  assert.match(live, /publisher\.changeAudioSource\(\s*if \(withAudio\) MicrophoneSource\(\) else NoAudioSource\(\)/);
+  assert.match(live, /val microphone = MicrophoneSource\(\)/);
+  assert.match(live, /publisher\.changeAudioSource\(\s*if \(withAudio\) microphone else NoAudioSource\(\)/);
+  assert.match(live, /if \(input != null && !microphone\.setPreferredDevice\(input\)\) \{/);
   assert.match(live, /micPermission\.launch\(Manifest\.permission\.RECORD_AUDIO\)/);
   assert.match(live, /publisher\.prepareAudio\(44_100, false, 64_000\)/);
   assert.match(live, /RecordController\.RecordTracks\.VIDEO/);

@@ -3,6 +3,10 @@ package com.oswhgo.wivra
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
+import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -54,6 +58,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var preview: SurfaceView
     private lateinit var endpointInput: EditText
     private lateinit var micOption: CheckBox
+    private lateinit var audioSourceButton: Button
     private lateinit var localCopyOption: CheckBox
     private lateinit var storageHint: TextView
     private lateinit var status: TextView
@@ -70,7 +75,83 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private var liveRequested = false
     private var connected = false
     private var initiatedByUser = false
+
     private var awaitingMicPermission = false
+
+    // AudioDeviceInfo ids are only valid for this running app. No persistence.
+    private data class ChosenInput(val id: Int, val type: Int, val label: String)
+    private var selectedInput: ChosenInput? = null
+    private var liveInput: ChosenInput? = null
+    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    private var audioCallbackRegistered = false
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+            val expected = liveInput ?: return
+            if (removedDevices.none { it.id == expected.id && it.type == expected.type }) return
+            // Never silently fall back to phone mic after USB/BT was selected.
+            runOnUiThread {
+                if (initiatedByUser && !stopping && liveInput == expected) {
+                    stopAndReview()
+                    setStatus(getString(R.string.live_audio_disconnected))
+                }
+            }
+        }
+    }
+
+    private fun discoverInputs(): List<AudioDeviceInfo> = try {
+        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+            .filter { it.isSource }.sortedWith(compareBy({ it.type }, { it.id }))
+    } catch (_: SecurityException) { emptyList() }
+
+    private fun inputLabel(device: AudioDeviceInfo): String = when (device.type) {
+        AudioDeviceInfo.TYPE_BUILTIN_MIC -> getString(R.string.live_audio_phone)
+        AudioDeviceInfo.TYPE_WIRED_HEADSET -> getString(R.string.live_audio_wired)
+        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET ->
+            getString(R.string.live_audio_usb)
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET ->
+            getString(R.string.live_audio_bluetooth)
+        else -> getString(R.string.live_audio_other)
+    }
+
+    private fun selectedDevice(choice: ChosenInput): AudioDeviceInfo? =
+        discoverInputs().firstOrNull { it.id == choice.id && it.type == choice.type }
+
+    private fun updateAudioChoice() {
+        if (!::audioSourceButton.isInitialized) return
+        val value = selectedInput?.label ?: getString(R.string.live_audio_auto)
+        audioSourceButton.text = getString(R.string.live_audio_select_button, value)
+        audioSourceButton.isEnabled = micOption.isChecked && !initiatedByUser && !stopping
+    }
+
+    private fun showAudioChooser() {
+        if (!micOption.isChecked || initiatedByUser || stopping) return
+        val devices = discoverInputs()
+        val options = arrayOf(getString(R.string.live_audio_auto)) +
+            devices.mapIndexed { index, info -> inputLabel(info) + " " + (index + 1) }.toTypedArray()
+        val selectedIndex = devices.indexOfFirst {
+            it.id == selectedInput?.id && it.type == selectedInput?.type
+        }.let { if (it == -1) 0 else it + 1 }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.live_audio_select_title)
+            .setSingleChoiceItems(options, selectedIndex) { dialog, index ->
+                selectedInput = if (index == 0) null else {
+                    val choice = devices[index - 1]
+                    ChosenInput(choice.id, choice.type, options[index])
+                }
+                if (selectedInput != null && selectedInput?.let { selectedDevice(it) } == null) {
+                    selectedInput = null
+                    setStatus(getString(R.string.live_audio_unavailable))
+                }
+                updateAudioChoice()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.live_audio_limits_button) { _, _ ->
+                AlertDialog.Builder(this).setMessage(R.string.live_audio_preference_only)
+                    .setPositiveButton(android.R.string.ok, null).show()
+            }
+            .show()
+    }
     private val storageHandler = Handler(Looper.getMainLooper())
     private val minFreeBytes = 128L * 1024L * 1024L
     private val storageCheck = object : Runnable {
@@ -142,6 +223,15 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             isChecked = false
         }
         root.addView(micOption)
+        audioSourceButton = Button(this).apply {
+            setOnClickListener { showAudioChooser() }
+        }
+        root.addView(audioSourceButton)
+        root.addView(TextView(this).apply {
+            text = getString(R.string.live_audio_preference_only)
+            textSize = 12f
+        })
+        updateAudioChoice()
         localCopyOption = CheckBox(this).apply {
             text = "Guardar también una copia MP4 local (opcional)"
             isChecked = true // Keep the previous safe default until user opts out.
@@ -156,7 +246,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 "Mantén batería suficiente y vigila la temperatura."
         })
         localCopyOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
-        micOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
+        micOption.setOnCheckedChangeListener { _, checked ->
+            if (!checked) selectedInput = null
+            updateAudioChoice()
+            updateStorageHint()
+        }
         status = TextView(this).apply {
             text = "LIVE desconectado. No se ha emitido ningún video."
             textSize = 15f
@@ -378,6 +472,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val address = endpointInput.text.toString()
         if (!validEndpoint(address)) return
         val withAudio = micOption.isChecked
+        if (withAudio && selectedInput != null &&
+            selectedInput?.let { selectedDevice(it) } == null) {
+            setStatus(getString(R.string.live_audio_unavailable))
+            return
+        }
         val saveCopy = localCopyOption.isChecked
         updateStorageHint()
         // A stream-only session does NOT require 128 MiB to reserve a video.
@@ -419,13 +518,25 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setStatus("Espacio insuficiente para el MP4. Solo LIVE puede continuar sin copia.")
             return
         }
+        val chosen = if (withAudio) selectedInput else null
+        val input = chosen?.let { selectedDevice(it) }
+        if (chosen != null && input == null) {
+            setStatus(getString(R.string.live_audio_unavailable))
+            return
+        }
         val pending: File? = try {
-            // The mic is opt-in and no PCM is captured in video-only mode.
+            // Apply preference to the SAME RootEncoder AudioRecord, never
+            // to a diagnostic recorder unrelated to published audio.
+            val microphone = MicrophoneSource()
             publisher.changeAudioSource(
-                if (withAudio) MicrophoneSource() else NoAudioSource()
+                if (withAudio) microphone else NoAudioSource()
             )
             if (!publisher.prepareAudio(44_100, false, 64_000)) {
                 setStatus("No se pudo preparar el audio seleccionado.")
+                return
+            }
+            if (input != null && !microphone.setPreferredDevice(input)) {
+                setStatus(getString(R.string.live_audio_unavailable))
                 return
             }
             if (saveCopy) WivraPhoneMediaStore.createPrivateVideo(applicationContext)
@@ -450,11 +561,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             localCopyFinalized = false
             pendingFile = pending
             initiatedByUser = true
+            liveInput = chosen
             liveRequested = true
             connected = false
             startButton.isEnabled = false
             stopButton.isEnabled = true
             micOption.isEnabled = false
+            updateAudioChoice()
             localCopyOption.isEnabled = false
             endpointInput.isEnabled = false
             publisher.startStream(address)
@@ -470,6 +583,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setStatus("No se pudo iniciar LIVE. Revisa el estado de la copia local.")
             liveRequested = false
             connected = false
+            liveInput = null
             runCatching { if (publisher.isStreaming) publisher.stopStream() }
             if (publisher.isRecording) {
                 initiatedByUser = true
@@ -493,6 +607,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 !isDestroyed && !mediaBusy && !stopping
             stopButton.isEnabled = false
             micOption.isEnabled = true
+            updateAudioChoice()
             localCopyOption.isEnabled = true
             endpointInput.isEnabled = true
             updateStorageHint()
@@ -505,6 +620,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         stopping = true
         liveRequested = false
         connected = false
+        liveInput = null
         val publisher = stream
         val file = pendingFile
         pendingFile = null
@@ -660,6 +776,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onAuthSuccess() { /* Never expose credentials. */ }
 
     override fun onStop() {
+        if (audioCallbackRegistered) {
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+            audioCallbackRegistered = false
+        }
         // The background UI does not secretly keep broadcasting. Recording
         // finishes privately, and appears in pending review on return.
         if (initiatedByUser || stream?.isStreaming == true ||
@@ -674,6 +794,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     override fun onStart() {
         super.onStart()
+        if (!audioCallbackRegistered) {
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))
+            audioCallbackRegistered = true
+        }
         if (prepared && !isFinishing && preview.holder.surface.isValid &&
             stream?.isOnPreview != true) {
             runCatching { stream?.startPreview(preview) }
@@ -684,6 +808,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     override fun onDestroy() {
+        if (audioCallbackRegistered) {
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+            audioCallbackRegistered = false
+        }
         storageHandler.removeCallbacks(storageCheck)
         if (initiatedByUser || stream?.isStreaming == true ||
             stream?.isRecording == true) stopAndReview()

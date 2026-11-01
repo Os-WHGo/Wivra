@@ -175,4 +175,18 @@
     <string name="source_limits_title">Capacités des sources</string>
     <string name="source_limits_camera">Ouvrir une caméra ne confirme pas la connexion. Wivra demande les autorisations et vérifie les fichiers finalisés. PiP et deux caméras simultanées ne sont pas encore disponibles.</string>
     <string name="source_limits_live">Le partage de l’écran ou des applications exige un accord Android. Cette fonction diffuse uniquement la vidéo, sans audio interne des autres applications. PiP et multicaméra ne sont pas encore disponibles.</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">Entrée audio : %1$s</string>
+    <string name="live_audio_auto">Automatique (Android)</string>
+    <string name="live_audio_phone">Microphone intégré</string>
+    <string name="live_audio_wired">Casque filaire</string>
+    <string name="live_audio_usb">Microphone USB</string>
+    <string name="live_audio_bluetooth">Microphone Bluetooth</string>
+    <string name="live_audio_other">Autre entrée audio</string>
+    <string name="live_audio_select_title">Choisir une entrée LIVE</string>
+    <string name="live_audio_disconnected">Entrée audio déconnectée. LIVE est arrêté pour éviter un changement de micro non autorisé. Vérifiez le fichier local.</string>
+    <string name="live_audio_unavailable">Entrée choisie indisponible. Sélectionnez une autre entrée avant LIVE.</string>
+    <string name="live_audio_limits_button">Limites</string>
+    <string name="live_audio_preference_only">Android reçoit une préférence de micro. Le routage réel et la qualité exigent un essai audio. La disponibilité du micro des lunettes reste non vérifiée.</string>
 </resources>

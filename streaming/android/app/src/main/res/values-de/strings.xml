@@ -175,4 +175,18 @@
     <string name="source_limits_title">Quellenfunktionen</string>
     <string name="source_limits_camera">Das Öffnen einer Kamera bestätigt keine Verbindung. Wivra fordert Berechtigungen an und prüft abgeschlossene Dateien. PiP und zwei gleichzeitige Kameras sind noch nicht aktiviert.</string>
     <string name="source_limits_live">Bildschirm- oder App-Freigabe benötigt die Zustimmung von Android. Diese Funktion sendet nur Video, keinen internen Ton anderer Apps. PiP und mehrere Kameras gleichzeitig sind noch nicht aktiviert.</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">Audioeingang: %1$s</string>
+    <string name="live_audio_auto">Automatisch (Android)</string>
+    <string name="live_audio_phone">Eingebautes Mikrofon</string>
+    <string name="live_audio_wired">Kabel-Headset</string>
+    <string name="live_audio_usb">USB-Mikrofon</string>
+    <string name="live_audio_bluetooth">Bluetooth-Mikrofon</string>
+    <string name="live_audio_other">Anderer Audioeingang</string>
+    <string name="live_audio_select_title">LIVE-Audioeingang wählen</string>
+    <string name="live_audio_disconnected">Gewählter Audioeingang getrennt. LIVE gestoppt, um einen ungewollten Mikrofonwechsel zu verhindern. Lokale Aufnahme prüfen.</string>
+    <string name="live_audio_unavailable">Gewählter Eingang nicht mehr verfügbar. Vor LIVE anderen auswählen.</string>
+    <string name="live_audio_limits_button">Einschränkungen</string>
+    <string name="live_audio_preference_only">Android erhält eine bevorzugte Audioquelle. Tatsächlicher Eingang und Qualität erfordern einen Audiotest. Brillenmikrofon nicht bestätigt.</string>
 </resources>
