@@ -59,6 +59,30 @@ enum WivraPendingRecordingStore {
         folder.appendingPathComponent(videoName + suffix)
     }
 
+    // Keep the receipt filename rule inside the consent store so existing
+    // standalone Swift 6 recovery-smoke builds need no new SDK dependency.
+    // The receipt itself is decoded and validated by the separate join guard.
+    static func completionReceiptURL(for video: URL) -> URL? {
+        guard video.isFileURL,
+              video.deletingLastPathComponent().lastPathComponent == "WivraRecordings"
+        else { return nil }
+        let name = video.lastPathComponent
+        let prefix: String
+        if name.range(
+            of: #"^Wivra_Meta_[0-9a-f]{32}_part[0-9]{4}\.mov$"#,
+            options: .regularExpression
+        ) != nil {
+            prefix = String(name.dropLast("_part0001.mov".count))
+        } else if name.range(
+            of: #"^Wivra_Meta_[0-9a-f]{32}_complete\.mov$"#,
+            options: .regularExpression
+        ) != nil {
+            prefix = String(name.dropLast("_complete.mov".count))
+        } else { return nil }
+        return video.deletingLastPathComponent()
+            .appendingPathComponent(prefix + "_take.wivra.take.json")
+    }
+
     /** Stage already finalized source video plus any actual CAF/MOV/manifest outputs. */
     @discardableResult
     static func stage(videoURL: URL, related: [URL]) throws -> WivraPendingRecording {
@@ -275,7 +299,7 @@ enum WivraPendingRecordingStore {
             // A stop() receipt, when available, belongs to the SAME
             // consent decision even after relaunch. Absence means unknown,
             // not permission to join or publish a partial recording.
-            if let receipt = WivraSegmentedTakeReceipt.fileURL(for: first),
+            if let receipt = completionReceiptURL(for: first),
                markerNames.contains(receipt.lastPathComponent) {
                 related.append(receipt)
             }
