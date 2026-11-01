@@ -302,7 +302,7 @@ export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS =
 // not force a quality reduction. Browser-only exports keep the memory guard.
 export const exportBitrate = (seconds, { progressive = false } = {}) =>
   progressive ? EXPORT_BPS : Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
-export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+export const exportSizeMB = (seconds, options = {}) => Math.max(1, Math.round(exportBitrate(seconds, options) * Math.max(0, seconds || 0) / 8 / 1e6));
 /** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
  * until export ends. In progressive mode (native sink) only a bounded queue stays in
  * memory, so the risk is free storage, not RAM.
@@ -310,14 +310,14 @@ export const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(se
  * The warning does not certify any duration or block the owner's export.
  */
 export function exportMemoryRisk(seconds, { progressive = false } = {}) {
-  const estimatedMB = exportSizeMB(seconds);
+  const estimatedMB = exportSizeMB(seconds, { progressive });
   if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
 /** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
-export const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
+export const exportEstimatedBytes = (seconds, options = {}) => Math.round((exportBitrate(seconds, options) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 export function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -492,7 +492,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: Math.round((exportBitrate(plan.total, { progressive: true }) + 128_000) * plan.total / 8) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total, { progressive: true }) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
