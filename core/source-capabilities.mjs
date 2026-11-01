@@ -46,6 +46,13 @@ export function applyEvidence(source, key, evidence = {}) {
     capabilities: { ...source.capabilities },
     evidence: { ...source.evidence }
   };
+  // Never inherit a READY state from the previous device/permission session.
+  const previousSessions = Object.values(next.evidence)
+    .map(item => item?.sessionId).filter(Boolean);
+  if (previousSessions.some(id => id !== evidence.sessionId)) {
+    next.capabilities = Object.fromEntries(CAPABILITIES.map(key => [key, 'unknown']));
+    next.evidence = Object.create(null);
+  }
   const scopeOk = evidence.provenance === 'runtime' &&
     typeof evidence.sessionId === 'string' && SAFE_ID.test(evidence.sessionId) &&
     evidence.permissionGranted === true;
