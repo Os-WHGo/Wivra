@@ -98,3 +98,18 @@ test('audio-only recovery and kept catalog both respect malformed consent ticket
   assert.ok(saved.indexOf('!rawMarkers.contains(name + suffix)') <
     saved.indexOf('name + keptAudioSuffix'));
 });
+
+
+test('persistent library labels segmented MOVs as partial files with part number', () => {
+  assert.match(library, /var segmentNumber: Int\?/);
+  assert.match(library, /name\.range\(of: #"_part\[0-9\]\{4\}\\\.mov\$"#/);
+  assert.match(library, /Int\(String\(name\.dropLast\("\.mov"\.count\)\.suffix\(4\)\)\)/);
+  assert.match(library, /if let segmentNumber = item\.segmentNumber/);
+  assert.match(library, /NSLocalizedString\("ios\.capture\.individual_segment"/);
+  assert.match(library, /wivra_library_segment_number/);
+  for (const lang of ['es', 'en', 'fr', 'pt', 'de', 'it', 'ja', 'zh']) {
+    const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
+    const line = strings.split('"ios.capture.individual_segment" = "')[1]?.split('";')[0];
+    assert.ok(line?.includes('%d'), lang + ' must identify the segment number');
+  }
+});
