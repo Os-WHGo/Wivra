@@ -6,10 +6,10 @@ import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('XcodeGen uses checked-in Info.plist as-is, never regenerating it', () => {
-  const yaml = read('../ios/B0/project.yml');
-  assert.match(yaml, /^\\s*GENERATE_INFOPLIST_FILE:\\s*["']?NO["']?\\s*$/m);
-  assert.match(yaml, /^\\s*INFOPLIST_FILE:\\s*Info\\.plist\\s*$/m);
-  assert.doesNotMatch(yaml, /^\\s*info:\\s*\\n\\s*path:\\s*Info\\.plist/m);
+  const lines = read('../ios/B0/project.yml').split('\n').map(line => line.trim());
+  assert.ok(lines.includes('GENERATE_INFOPLIST_FILE: "NO"'));
+  assert.ok(lines.includes('INFOPLIST_FILE: Info.plist'));
+  assert.ok(!lines.includes('info:'), 'XcodeGen info.path would overwrite the checked-in file');
 });
 
 test('iOS source plist declares every required native hardware and Photos capability', () => {
@@ -19,10 +19,11 @@ test('iOS source plist declares every required native hardware and Photos capabi
     'NSMicrophoneUsageDescription', 'NSPhotoLibraryAddUsageDescription',
     'NSBluetoothAlwaysUsageDescription', 'NSLocalNetworkUsageDescription',
     'UIBackgroundModes', 'MWDAT'
-  ]) assert.ok(plist.includes('<key>' + key + '</key>'), 'missing iOS plist permission: '+key);
+  ]) assert.ok(plist.includes('<key>' + key + '</key>'), 'missing iOS plist permission: ' + key);
   for (const key of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription',
     'NSPhotoLibraryAddUsageDescription', 'NSBluetoothAlwaysUsageDescription']) {
-    const escaped = key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-    assert.match(plist, new RegExp('<key>' + escaped + '</key>\\\\s*<string>[^<]+</string>'));
+    const after = plist.split('<key>' + key + '</key>')[1];
+    assert.ok(after && after.trimStart().startsWith('<string>') && !after.trimStart().startsWith('<string></string>'),
+      'missing non-empty usage description for ' + key);
   }
 });
