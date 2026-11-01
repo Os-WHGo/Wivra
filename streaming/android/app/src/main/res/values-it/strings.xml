@@ -175,4 +175,18 @@
     <string name="source_limits_title">Funzioni delle sorgenti</string>
     <string name="source_limits_camera">Aprire una fotocamera non conferma la connessione. Wivra richiede i permessi e verifica i file completi. PiP e due fotocamere simultanee non sono ancora attivati.</string>
     <string name="source_limits_live">La condivisione di schermo o app richiede il consenso Android. Questa funzione trasmette solo video, senza audio interno delle altre app. PiP e multicamera simultanea non sono ancora attivati.</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">Ingresso audio: %1$s</string>
+    <string name="live_audio_auto">Automatico (Android)</string>
+    <string name="live_audio_phone">Microfono integrato</string>
+    <string name="live_audio_wired">Cuffie cablate</string>
+    <string name="live_audio_usb">Microfono USB</string>
+    <string name="live_audio_bluetooth">Microfono Bluetooth</string>
+    <string name="live_audio_other">Altro ingresso audio</string>
+    <string name="live_audio_select_title">Scegli ingresso LIVE</string>
+    <string name="live_audio_disconnected">Ingresso audio scollegato. LIVE fermato per evitare un cambio microfono senza consenso. Controlla la copia locale.</string>
+    <string name="live_audio_unavailable">Ingresso scelto non disponibile. Scegline un altro prima di LIVE.</string>
+    <string name="live_audio_limits_button">Limiti</string>
+    <string name="live_audio_preference_only">Android riceve una preferenza di ingresso. Percorso e qualità effettivi richiedono un test audio. Non conferma il microfono degli occhiali.</string>
 </resources>
