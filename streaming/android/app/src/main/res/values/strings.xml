@@ -155,4 +155,7 @@
     <string name="picker_phone_capture_bundle">Importar captura con WAV: %1$s</string>
     <string name="picker_capture_title">Elegir captura de Wivra</string>
     <string name="connect_glasses_accessibility">Conectar gafas Ray-Ban Meta</string>
+    <string name="meta_registration_in_progress">Meta AI: vinculando Wivra con las gafas…</string>
+    <string name="meta_registration_complete">Meta AI confirmó el registro de Wivra. Ya puedes conectar las gafas.</string>
+    <string name="meta_registration_stalled">Meta AI no confirmó el registro tras 20 segundos. Comprueba el Modo Desarrollador y los permisos de Meta AI y vuelve a intentarlo.</string>
 </resources>
