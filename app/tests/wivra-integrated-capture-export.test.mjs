@@ -94,3 +94,17 @@ test('iPhone direct Photos save is add-only and offered only for verified MP4 ex
   assert.match(template, /host\?\.platform === 'ios' && r\.ext === 'mp4'/);
   assert.match(template, /await saveExportToPhotos\(host, token\)/);
 });
+
+
+test('native iOS export library restores shareable files after app relaunch', () => {
+  const store = read('../../streaming/ios/B0/Sources/WivraExportStore.swift');
+  const app = read('../../streaming/ios/B0/Sources/WivraMetaB0App.swift');
+  const smoke = read('../../streaming/tests/WivraExportStoreSmoke.swift');
+  assert.match(store, /func listSavedExports\(\) -> \[WivraSavedExport\]/);
+  assert.match(store, /values\.isRegularFile == true, values\.isSymbolicLink != true/);
+  assert.match(store, /Self\.looksLikeContainer\(/);
+  assert.match(app, /showingExportLibrary = true/);
+  assert.match(app, /WivraNativeExportLibraryScreen\(\)/);
+  assert.match(app, /ShareLink\(item: video\.url\)/);
+  assert.match(smoke, /completed video must be discoverable after reopening Wivra/);
+});
