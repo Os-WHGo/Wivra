@@ -41,6 +41,8 @@ test('eight Android translations describe registration and no-glasses diagnostic
   ];
   for (const folder of ['values','values-en','values-fr','values-pt','values-de','values-it','values-ja','values-zh']) {
     const xml = read('../android/app/src/main/res/' + folder + '/strings.xml');
+    const warning = xml.match(/<string name="meta_registration_stalled">([^<]+)<\/string>/)?.[1];
+    assert.ok(warning?.includes('45'), folder + ' must show the actual 45-second diagnostic period');
     for (const key of keys) {
       const occurrences = xml.split('name="' + key + '"').length - 1;
       assert.equal(occurrences, 1, folder + ' must have exactly one ' + key);
