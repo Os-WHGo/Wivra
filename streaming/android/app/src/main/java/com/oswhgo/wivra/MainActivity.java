@@ -193,9 +193,8 @@ public final class MainActivity extends Activity {
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
         Button cameraSources = new Button(this);
-        cameraSources.setText("Cámara · elegir fuente");
-        cameraSources.setContentDescription(
-            "Elegir Ray-Ban Meta o cámara frontal o trasera del teléfono");
+        cameraSources.setText(R.string.source_camera_button);
+        cameraSources.setContentDescription(getString(R.string.source_camera_button));
         cameraSources.setOnClickListener(v -> showCameraSourceChooser());
         shell.addView(cameraSources, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -204,9 +203,8 @@ public final class MainActivity extends Activity {
         // Screen MediaProjection are packaged only in the full edition.
         if ("com.oswhgo.wivra".equals(getPackageName())) {
             Button liveSources = new Button(this);
-            liveSources.setText("LIVE · elegir fuente");
-            liveSources.setContentDescription(
-                "Elegir cámara del teléfono o pantalla y aplicación con permiso");
+            liveSources.setText(R.string.source_live_button);
+            liveSources.setContentDescription(getString(R.string.source_live_button));
             liveSources.setOnClickListener(v -> showLiveSourceChooser());
             shell.addView(liveSources, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -233,21 +231,19 @@ public final class MainActivity extends Activity {
 
     private void showPhoneCameraUnsupported() {
         new AlertDialog.Builder(this)
-            .setTitle("Fuente no disponible")
-            .setMessage("Android no detecta una cámara del teléfono. " +
-                "Puedes revisar Ray-Ban Meta, pero no se garantiza captura " +
-                "hasta que llegue video real y la grabación se finalice.")
-            .setPositiveButton("Entendido", null)
+            .setTitle(R.string.source_unavailable_title)
+            .setMessage(R.string.source_unavailable_body)
+            .setPositiveButton(android.R.string.ok, null)
             .show();
     }
 
     private void showCameraSourceChooser() {
         final String[] options = {
-            "Ray-Ban Meta · conectar y grabar",
-            "Teléfono · frontal o trasera (requiere permiso)"
+            getString(R.string.source_meta_option),
+            getString(R.string.source_phone_option)
         };
         new AlertDialog.Builder(this)
-            .setTitle("Fuentes → Cámara")
+            .setTitle(R.string.source_camera_title)
             // Android lists and messages share the same content area.
             // Keep setItems visible and move caveats to a separate dialog.
             .setItems(options, (dialog, selected) -> {
@@ -259,26 +255,19 @@ public final class MainActivity extends Activity {
                     showPhoneCameraUnsupported();
                 }
             })
-            .setNeutralButton("Limitaciones", (dialog, which) ->
+            .setNeutralButton(R.string.source_limits_button, (dialog, which) ->
                 showSourceLimitations(false))
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show();
     }
 
     private void showSourceLimitations(boolean live) {
-        final String explanation = live
-            ? "Pantalla o aplicación utiliza el permiso y el selector oficiales de " +
-                "Android. Esta primera ruta transmite solo video, sin audio interno " +
-                "de otras aplicaciones. PiP, multicámara y fuentes simultáneas " +
-                "aún requieren compatibilidad y validación independiente."
-            : "Abrir una cámara no confirma que esté conectada. Wivra solicita " +
-                "permisos en la pantalla correspondiente y solo debe considerar " +
-                "grabado un archivo finalizado y verificado. Dos cámaras " +
-                "simultáneas y PiP todavía no están habilitados.";
+        final int explanation = live
+            ? R.string.source_limits_live : R.string.source_limits_camera;
         new AlertDialog.Builder(this)
-            .setTitle("Capacidades de fuentes")
+            .setTitle(R.string.source_limits_title)
             .setMessage(explanation)
-            .setPositiveButton("Entendido", null)
+            .setPositiveButton(android.R.string.ok, null)
             .show();
     }
 
@@ -287,11 +276,11 @@ public final class MainActivity extends Activity {
         // the existing LIVE buttons. Wivra Capture must not expose RTMP.
         if (!"com.oswhgo.wivra".equals(getPackageName())) return;
         final String[] options = {
-            "Teléfono · LIVE cámara frontal o trasera",
-            "Pantalla o aplicación · LIVE con permiso de Android"
+            getString(R.string.source_live_phone_option),
+            getString(R.string.source_live_screen_option)
         };
         new AlertDialog.Builder(this)
-            .setTitle("Fuentes → LIVE")
+            .setTitle(R.string.source_live_title)
             .setItems(options, (dialog, selected) -> {
                 if (selected == 0) {
                     if (!hasPhoneCameraHardware()) {
@@ -307,9 +296,9 @@ public final class MainActivity extends Activity {
                     startActivity(live);
                 }
             })
-            .setNeutralButton("Limitaciones", (dialog, which) ->
+            .setNeutralButton(R.string.source_limits_button, (dialog, which) ->
                 showSourceLimitations(true))
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show();
     }
 
