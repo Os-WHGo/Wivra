@@ -28,7 +28,7 @@ test('All eight iOS localizations carry identical non-empty native keys and plac
 });
 test('Native iOS screens use localized resources without changing Claude editor',()=>{
   const ios = fileURLToPath(new URL('../ios/B0/Sources/', import.meta.url));
-  const swiftPaths = ['WivraEmbeddedEditorScreen.swift','WivraNativeCaptureLibrary.swift','WivraMetaB0App.swift','WivraPhoneNetworkStatus.swift'];
+  const swiftPaths = ['WivraEmbeddedEditorScreen.swift','WivraNativeCaptureLibrary.swift','WivraMetaB0App.swift','WivraPhoneNetworkStatus.swift','WivraCaptureStorageGuard.swift'];
   const code = swiftPaths.map(f=>readFileSync(join(ios,f),'utf8')).join('\n');
   const declared = dictionary('es');
   const refs = new Set([...code.matchAll(/ios\.(?:picker|editor|app|library|record|network|exports|capture)\.[a-z_]+/g)].map(m=>m[0]));
