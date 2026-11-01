@@ -41,3 +41,15 @@ test('new catalog action reuses existing translations in all eight iOS languages
     }
   }
 });
+
+test('undecided damaged video tickets cannot leak into Photos or native catalog', () => {
+  const pending = read('../ios/B0/Sources/WivraPendingRecordingStore.swift');
+  const fn = pending.split('static func isPendingVideo(_ videoURL: URL) -> Bool')[1]
+    ?.split('static func recoverUnstagedCheckpoints')[0];
+  assert.ok(fn, 'consent gate must exist');
+  assert.match(fn, /if pending\(\)\.contains\(where: \{ \$0\.files\.contains\(name\) \}\) \{ return true \}/);
+  assert.match(fn, /FileManager\.default\.contentsOfDirectory\(atPath: folder\.path\)/);
+  assert.match(fn, /markerNames\.contains\(name \+ suffix\)/);
+  assert.match(fn, /"_part0001\.mov" \+ suffix/);
+  assert.match(fn, /else \{ return true \} \/\/ Fail closed/);
+});
