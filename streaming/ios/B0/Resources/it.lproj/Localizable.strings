@@ -91,3 +91,12 @@
 "ios.capture.storage_minutes_estimate" = "Circa %d min al bitrate HEVC osservato; esclusi audio, cambi di qualità e copie.";
 "ios.capture.storage_export_reserve" = "Unione, esportazione e salvataggio in Foto richiedono altro spazio; la stima non garantisce l'esportazione.";
 "ios.capture.storage_stopped" = "Registrazione locale interrotta per spazio insufficiente. Conserva le parti recuperabili e libera memoria.";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "Unione dei segmenti in un video completo. Originali conservati.";
+"ios.capture.join_success" = "Video completo unito, verificato e salvato sul dispositivo.";
+"ios.capture.join_failed" = "Impossibile unire la ripresa; i segmenti originali restano disponibili.";
+"ios.capture.joined_share" = "Condividi il video completo";
+"ios.capture.joined_photos" = "Salva il video completo in Foto";
+"ios.capture.joined_saved" = "Video completo salvato in Foto";
+"ios.capture.retry_join" = "Unisci questa ripresa completa";

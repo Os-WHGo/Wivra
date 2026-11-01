@@ -91,3 +91,12 @@
 "ios.capture.storage_minutes_estimate" = "按当前观测到的HEVC码率估算约%d分钟，不含音频、画质变化或副本。";
 "ios.capture.storage_export_reserve" = "合并、导出或保存到照片需要额外空间；此估算不保证导出成功。";
 "ios.capture.storage_stopped" = "存储空间不足，已停止本地录制。请保留可恢复片段并释放空间。";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "正在将片段合并成一个完整视频，原始片段会保留。";
+"ios.capture.join_success" = "完整视频已合并、验证并保存到本机。";
+"ios.capture.join_failed" = "无法合并本次拍摄，原始片段仍然保留。";
+"ios.capture.joined_share" = "分享完整视频";
+"ios.capture.joined_photos" = "将完整视频保存到照片";
+"ios.capture.joined_saved" = "完整视频已保存到照片";
+"ios.capture.retry_join" = "将本次拍摄合并为完整视频";

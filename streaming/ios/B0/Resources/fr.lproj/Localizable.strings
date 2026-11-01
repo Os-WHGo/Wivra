@@ -91,3 +91,12 @@
 "ios.capture.storage_minutes_estimate" = "Environ %d min au débit HEVC observé, hors audio, changements de qualité et copies.";
 "ios.capture.storage_export_reserve" = "Fusionner, exporter ou enregistrer dans Photos exige de l'espace supplémentaire ; cette estimation ne garantit pas l'export.";
 "ios.capture.storage_stopped" = "Enregistrement local arrêté faute d'espace. Conservez les segments récupérables et libérez de la place.";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "Assemblage des segments en une seule vidéo. Originaux conservés.";
+"ios.capture.join_success" = "Vidéo complète assemblée, vérifiée et enregistrée localement.";
+"ios.capture.join_failed" = "Assemblage impossible ; les segments originaux restent disponibles.";
+"ios.capture.joined_share" = "Partager la vidéo complète";
+"ios.capture.joined_photos" = "Enregistrer la vidéo complète dans Photos";
+"ios.capture.joined_saved" = "Vidéo complète enregistrée dans Photos";
+"ios.capture.retry_join" = "Assembler cette prise complète";

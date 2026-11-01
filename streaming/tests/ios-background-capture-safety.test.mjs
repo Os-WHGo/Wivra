@@ -98,26 +98,25 @@ test('confirmed Meta videos offer a direct add-only Photos action, preferring mu
 });
 
 
-test('segmented Ray-Ban video does not silently send only the first MOV as full take', () => {
+test('multipart Ray-Ban capture offers Photos only for a verified joined MOV', () => {
   const model = read('../ios/B0/Sources/MetaB0Model.swift');
   assert.match(model, /var lastRecordedSegmentCount = 0/);
   assert.match(model, /lastRecordedSegmentCount = urls\.count/);
   assert.match(model, /case \.saved\(let url, let frames, let dropped\):[\s\S]*?lastRecordedSegmentCount = 1/);
-  assert.match(model, /func beginRecording\(\) \{[\s\S]*?lastRecordedSegmentCount = 0/);
   const preview = app.split('struct MetaB0Screen: View')[1]?.split('private struct WivraPendingDecisionPrompts')[0];
-  assert.ok(preview, 'Meta preview screen is required');
-  const start = preview.indexOf('if let url = model.lastRecordedURL {');
-  const multiple = preview.indexOf('if model.lastRecordedSegmentCount > 1', start);
-  const single = preview.indexOf('} else {', multiple);
-  const photos = preview.indexOf('WivraPhotosLibrary.savePreferredVideo(', single);
-  assert.ok(start >= 0 && multiple > start && single > multiple && photos > single,
-    'single-clip Photos action must only be exposed in single-file branch');
-  const multiContent = preview.slice(multiple, single);
-  assert.match(multiContent, /ios\.capture\.segments_not_combined/);
-  assert.match(multiContent, /ios\.capture\.segments_in_library_instruction/);
-  assert.match(multiContent, /ios\.capture\.share_first_segment/);
-  assert.match(multiContent, /meta_b1_segmented_warning/);
-  assert.doesNotMatch(multiContent, /savePreferredVideo|saveVideo\(/);
+  assert.ok(preview, 'Meta preview screen must exist');
+  const start = preview.indexOf('if model.lastRecordedSegmentCount > 1');
+  const after = preview.indexOf('ShareLink(item: url)', start);
+  assert.ok(start >= 0 && after > start, 'multiple-part branch must distinguish original');
+  const multi = preview.slice(start, after + 200);
+  assert.match(multi, /if model\.lastJoinedVideoURL == nil/);
+  assert.match(multi, /ios\.capture\.segments_not_combined/);
+  assert.match(multi, /ios\.capture\.segments_in_library_instruction/);
+  assert.match(multi, /if let completed = model\.lastJoinedVideoURL/);
+  assert.match(multi, /try await WivraPhotosLibrary\.saveVideo\(completed\)/);
+  assert.match(multi, /meta_b1_save_joined_photos/);
+  assert.match(multi, /ios\.capture\.share_first_segment/);
+  assert.doesNotMatch(multi, /WivraPhotosLibrary\.saveVideo\(url\)/);
 });
 
 test('all eight iOS locales distinguish multipart original from a complete exported movie', () => {

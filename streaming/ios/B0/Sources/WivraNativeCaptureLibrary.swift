@@ -170,12 +170,61 @@ struct WivraNativeCaptureLibraryScreen: View {
     @State private var photosSavedCaptureIDs = Set<String>()
     @State private var photosSavedOriginalOnly = Set<String>()
     @State private var photosError: String?
+    @State private var confirmedPartGroups: [String: [URL]] = [:]
+    @State private var joinedPartGroups = Set<String>()
+    @State private var joiningGroup: String?
+    @State private var joinFailure: String?
+
+    // Read only previously confirmed files from WivraLocalCaptureScanner.
+    // Never discover or join undecided recordings by scanning raw MOV names.
+    private func groupKey(for url: URL) -> String? {
+        let filename = url.lastPathComponent
+        guard let range = filename.range(
+            of: #"_part[0-9]{4}\.mov$"#, options: .regularExpression
+        ) else { return nil }
+        let prefix = String(filename[..<range.lowerBound])
+        return url.deletingLastPathComponent()
+            .appendingPathComponent(prefix).standardizedFileURL.path
+    }
 
     private func refresh() {
         let result = WivraLocalCaptureScanner.read()
         days = result.days
         rejected = result.rejected
         recoveredAudio = WivraPendingRecordingStore.savedAudioOnlyURLs()
+
+        var groups: [String: [URL]] = [:]
+        var joined = Set<String>()
+        for capture in result.days.flatMap(\.captures) {
+            guard let url = capture.videoURL, capture.source == "Ray-Ban Meta"
+            else { continue }
+            if let key = groupKey(for: url) {
+                groups[key, default: []].append(url)
+            } else if url.lastPathComponent.hasSuffix("_complete.mov") {
+                let prefix = String(url.lastPathComponent.dropLast("_complete.mov".count))
+                joined.insert(url.deletingLastPathComponent()
+                    .appendingPathComponent(prefix).standardizedFileURL.path)
+            }
+        }
+        confirmedPartGroups = groups.mapValues { $0.sorted {
+            $0.lastPathComponent < $1.lastPathComponent
+        } }
+        joinedPartGroups = joined
+    }
+
+    private func retryJoin(group key: String, parts: [URL]) {
+        guard joiningGroup == nil else { return }
+        joiningGroup = key
+        joinFailure = nil
+        Task { @MainActor in
+            defer { joiningGroup = nil }
+            do {
+                _ = try await WivraSegmentedCaptureJoiner.joinConfirmed(parts)
+                refresh()
+            } catch {
+                joinFailure = error.localizedDescription
+            }
+        }
     }
 
     var body: some View {
@@ -189,6 +238,14 @@ struct WivraNativeCaptureLibraryScreen: View {
                         Text(String(format: NSLocalizedString("ios.library.rejected", comment: ""), rejected))
                             .font(.caption)
                             .foregroundStyle(.orange)
+                    }
+                    if let joinFailure {
+                        Text("ios.capture.join_failed")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        Text(joinFailure)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 if days.isEmpty && recoveredAudio.isEmpty {
@@ -225,6 +282,26 @@ struct WivraNativeCaptureLibraryScreen: View {
                                         .accessibilityIdentifier("wivra_library_segment_number")
                                 }
                                 if let video = item.videoURL {
+                                    // If the app was closed, storage was insufficient, or
+                                    // the join failed, the kept original parts remain in
+                                    // Mis capturas and can be joined without recording again.
+                                    if item.segmentNumber == 1,
+                                       let group = groupKey(for: video),
+                                       let parts = confirmedPartGroups[group],
+                                       parts.count > 1 && !joinedPartGroups.contains(group) {
+                                        Button {
+                                            retryJoin(group: group, parts: parts)
+                                        } label: {
+                                            Label("ios.capture.retry_join", systemImage: "square.stack.3d.up")
+                                        }
+                                        .disabled(joiningGroup != nil)
+                                        .accessibilityIdentifier("wivra_library_retry_join")
+                                        if joiningGroup == group {
+                                            Text("ios.capture.joining")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
                                     ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
                                     // The catalog survives relaunch. Offer the same add-only
                                     // Photos action as the live capture screen for kept files.
