@@ -71,3 +71,8 @@
 "ios.exports.save_photos" = "Save to Photos";
 "ios.exports.saved_photos" = "Saved to Photos";
 "ios.exports.photos_error" = "Could not save to Photos";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban with screen locked (experimental)";
+"ios.app.background_capture_off_warning" = "Locking the iPhone now will end the Ray-Ban session. Enable experimental background capture before locking.";
+"ios.app.background_capture_experimental_warning" = "Experimental mode: iOS or Meta may still interrupt streaming while locked. Completed segments are kept; review them when you return.";
