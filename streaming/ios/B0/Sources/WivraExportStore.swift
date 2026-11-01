@@ -57,6 +57,16 @@ enum WivraCRC32 {
     }
 }
 
+/// A verified, completed local export that the user can reopen from Wivra's library.
+/// This value never exposes unfinished or arbitrary files from Application Support.
+struct WivraSavedExport: Identifiable, Sendable {
+    let name: String
+    let url: URL
+    let bytes: Int64
+    let modifiedAt: Date
+    var id: String { name }
+}
+
 actor WivraExportStore {
     static let shared = WivraExportStore()
     static let minimumFreeBytes: Int64 = 200 * 1024 * 1024
@@ -251,6 +261,31 @@ actor WivraExportStore {
     /// Finished files remain on disk even if the owning editor closes; only its
     /// native bridge may subsequently share or add a saved file to Photos.
     /// Passing nil is reserved for native internal verification and test callers.
+    /// Read-only local library: survives process restarts without relying on volatile
+    /// session tokens. Only regular, finished Wivra_Export_ MP4/WebM files are listed.
+    /// No file contents are read into memory and no files are copied or deleted.
+    func listSavedExports() -> [WivraSavedExport] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey,
+                                         .fileSizeKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles])) ?? []
+        var results: [WivraSavedExport] = []
+        for url in urls {
+            let name = url.lastPathComponent
+            guard name.hasPrefix("Wivra_Export_"),
+                  ["mp4", "webm"].contains(url.pathExtension.lowercased()),
+                  url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL,
+                  let values = try? url.resourceValues(forKeys: [
+                    .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]),
+                  values.isRegularFile == true, values.isSymbolicLink != true,
+                  let size = values.fileSize, size > 0 else { continue }
+            results.append(WivraSavedExport(name: name, url: url, bytes: Int64(size),
+                                             modifiedAt: values.contentModificationDate ?? .distantPast))
+        }
+        return results.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
     func savedURL(token: Int, owner: String? = nil) -> URL? {
         guard let entry = finished[token] else { return nil }
         if let owner, entry.owner != owner { return nil }
