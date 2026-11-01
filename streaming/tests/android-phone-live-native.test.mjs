@@ -77,7 +77,8 @@ test('critically low storage closes the local MP4 without unnecessarily ending L
 
 test('microphone and public transmission are opt-in, background publishing cannot continue silently', () => {
   assert.match(live, /micOption = CheckBox\(this\)\.apply \{[\s\S]*?isChecked = false/);
-  assert.match(live, /Camera2Source\(applicationContext\), NoAudioSource\(\)/);
+  assert.match(live, /val source = Camera2Source\(applicationContext\)/);
+  assert.match(live, /RtmpStream\(\s*applicationContext, this,\s*source, NoAudioSource\(\)/);
   assert.match(live, /publisher\.changeAudioSource\(\s*if \(withAudio\) MicrophoneSource\(\) else NoAudioSource\(\)/);
   assert.match(live, /micPermission\.launch\(Manifest\.permission\.RECORD_AUDIO\)/);
   assert.match(live, /publisher\.prepareAudio\(44_100, false, 64_000\)/);
