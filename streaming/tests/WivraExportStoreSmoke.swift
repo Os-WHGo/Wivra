@@ -38,6 +38,22 @@ struct WivraExportStoreSmoke {
         precondition(written == webm)
         let remembered = await store.savedURL(token: token)
         precondition(remembered == finalURL)
+        // The recovery library must find completed videos after a process restart,
+        // without needing the old bridge owner or in-memory export session token.
+        let reopened = WivraExportStore(directory: folder, freeBytes: { _ in 10_000_000_000 })
+        let retained = await reopened.listSavedExports()
+        precondition(retained.count == 1 && retained[0].url == finalURL &&
+                     retained[0].bytes == Int64(webm.count),
+                     "completed video must be discoverable after reopening Wivra")
+        // Never enumerate partial files or symlinks, even if their names resemble exports.
+        let fakePartial = folder.appendingPathComponent("Wivra_Export_999.mp4.partial")
+        _ = FileManager.default.createFile(atPath: fakePartial.path, contents: Data([1, 2]))
+        let fakeLink = folder.appendingPathComponent("Wivra_Export_999.mp4")
+        try FileManager.default.createSymbolicLink(at: fakeLink, withDestinationURL: finalURL)
+        precondition((await reopened.listSavedExports()).count == 1,
+                     "partial files and symlinks must remain invisible")
+        try FileManager.default.removeItem(at: fakeLink)
+        try FileManager.default.removeItem(at: fakePartial)
 
         // 2) Out-of-order chunk aborts and deletes the partial file.
         let second = try await store.begin(mime: "video/mp4", estimatedBytes: 0)
