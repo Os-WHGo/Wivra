@@ -74,3 +74,21 @@ test('Meta preview reevaluates stale DAT frame readiness using a visible SwiftUI
   assert.match(preview, /\.disabled\(model\.recordingArmed \? model\.recordingFinishing : !model\.canRecord\)/);
   assert.doesNotMatch(preview, /Timer\.scheduledTimer|DispatchQueue\.main\.asyncAfter/);
 });
+
+test('confirmed Meta videos offer a direct add-only Photos action, preferring muxed audio', () => {
+  const preview = app.split('struct MetaB0Screen: View')[1]?.split('private struct WivraPendingDecisionPrompts')[0];
+  const pending = preview.indexOf('if model.isCurrentRecordingPending {');
+  const eligible = preview.indexOf('} else {', pending);
+  const photoAction = preview.indexOf('.accessibilityIdentifier("meta_b1_save_photos")', eligible);
+  assert.ok(pending >= 0 && eligible > pending && photoAction > eligible,
+    'Photos save must remain behind confirmed Keep decision');
+  assert.match(preview, /let photosURL = model\.lastCombinedVideoURL \?\? url/);
+  assert.match(preview, /try await WivraPhotosLibrary\.saveVideo\(photosURL\)/);
+  assert.match(preview, /captureSavedToPhotosURL == photosURL/);
+  const bridge = read('../ios/B0/Sources/WivraExportNativeBridge.swift');
+  const plist = read('../ios/B0/Info.plist');
+  assert.match(plist, /<key>NSPhotoLibraryAddUsageDescription<\/key>/);
+  assert.match(bridge, /PHPhotoLibrary\.requestAuthorization\(for: \.addOnly\)/);
+  assert.match(bridge, /PHAssetChangeRequest\.creationRequestForAssetFromVideo\(atFileURL: url\)/);
+  assert.match(bridge, /WivraMp4Repair\.inspect\(url\)/);
+});
