@@ -66,3 +66,8 @@
 "ios.exports.empty_description" = "已导出并验证的视频会显示在这里，即使关闭 Wivra 也不会消失。";
 "ios.exports.share" = "分享或保存";
 "ios.exports.close" = "关闭";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "保存到照片";
+"ios.exports.saved_photos" = "已保存到照片";
+"ios.exports.photos_error" = "无法保存到照片";
