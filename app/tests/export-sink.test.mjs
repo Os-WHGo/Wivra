@@ -124,6 +124,75 @@ test('begin failure (no storage) exposes the reason and creates no session', asy
   assert.equal(native.files.size, 0);
 });
 
+test('cancel during native hello never starts an export after the cancellation', async () => {
+  const native = fakeNative();
+  let finishHello;
+  native.hello = () => new Promise(resolve => { finishHello = resolve; });
+  const sink = createProgressiveExportSink(native);
+  const pending = sink.begin();
+  assert.equal(sink.state, 'starting');
+  await assert.rejects(sink.begin(), /ya empezó/);
+  await sink.abort('user');
+  finishHello({ ok: true, arrayBuffer: false });
+  await assert.rejects(pending, /cancelada durante el inicio/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.size, 0);
+});
+
+test('cancel after native begin creates a file closes it and never reopens the sink', async () => {
+  const native = fakeNative();
+  const originalRequest = native.request.bind(native);
+  let releaseBegin;
+  native.request = async (msg) => {
+    const r = await originalRequest(msg);
+    if (msg.op === 'begin') await new Promise(resolve => { releaseBegin = resolve; });
+    return r;
+  };
+  const sink = createProgressiveExportSink(native);
+  const pending = sink.begin();
+  await tick();
+  assert.equal(typeof releaseBegin, 'function');
+  await sink.abort('user');
+  releaseBegin();
+  await assert.rejects(pending, /cancelada durante el inicio/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.log.filter(x => x === 'abort').length, 1);
+  assert.equal(native.log.includes('finish'), false);
+});
+
+test('cancel during an asynchronous Blob read never sends a late fragment', async () => {
+  const native = fakeNative();
+  let finishRead;
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  const bytes = rand(32, 91);
+  sink.push({
+    size: bytes.byteLength,
+    arrayBuffer() { return new Promise(resolve => { finishRead = () => resolve(bytes.buffer); }); },
+  });
+  await tick();
+  assert.equal(typeof finishRead, 'function');
+  const cleaning = sink.abort('user');
+  finishRead();
+  await cleaning;
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).parts.length, 0);
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+});
+
+test('cancel waits for an in-flight native write before deleting pending file', async () => {
+  const native = fakeNative({ delayMs: 20 });
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(300, 9)));
+  await tick();
+  await sink.abort('user');
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.files.get(sink.token).parts.length, 0);
+});
+
 test('android adapter: JSON control, binary frames, matched replies and base64 fallback', async () => {
   for (const binary of [true, false]) {
     const sent = []; const obj = { postMessage(m) { sent.push(m); queueMicrotask(() => reply(m)); } };
