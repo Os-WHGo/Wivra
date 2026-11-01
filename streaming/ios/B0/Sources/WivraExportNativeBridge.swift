@@ -69,6 +69,7 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             chunks: Int(number("chunks")), data: data)
 
         if op == "savePhotos" {
+            let owner = owner
             Task { @MainActor in
                 guard let url = await WivraExportStore.shared.savedURL(token: request.token, owner: owner) else {
                     replyHandler(nil, "Este video ya no está disponible para guardar en Fotos.")
@@ -86,6 +87,7 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         if op == "share" {
             // Capture only the (main-actor, Sendable) web view, never this handler object.
             let view = webView
+            let owner = owner
             Task { @MainActor in
                 guard let url = await WivraExportStore.shared.savedURL(token: request.token, owner: owner) else {
                     replyHandler(nil, "Este video ya no está disponible para compartir.")
