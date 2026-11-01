@@ -22,7 +22,7 @@ const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 const finitePositive = n => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
 export function createSourceCandidate({ id, kind, outputModes = [], label = '', provider = '' }) {
-  if (!SAFE_ID.test(id ?? '') || !has(SOURCE_KINDS, kind) ||
+  if (typeof id !== 'string' || !SAFE_ID.test(id) || !has(SOURCE_KINDS, kind) ||
       !Array.isArray(outputModes) || !outputModes.every(mode => has(OUTPUT_MODES, mode)) ||
       typeof label !== 'string' || typeof provider !== 'string') {
     throw new TypeError('Invalid wearable/camera source descriptor');
@@ -62,8 +62,9 @@ export function applyEvidence(source, key, evidence = {}) {
     finitePositive(evidence.measuredFPS) &&
     Number.isInteger(evidence.width) && evidence.width > 0 &&
     Number.isInteger(evidence.height) && evidence.height > 0 &&
-    finitePositive(evidence.lastFrameAgeSeconds) &&
-    evidence.lastFrameAgeSeconds <= 4;
+    typeof evidence.lastFrameAgeSeconds === 'number' &&
+    Number.isFinite(evidence.lastFrameAgeSeconds) &&
+    evidence.lastFrameAgeSeconds >= 0 && evidence.lastFrameAgeSeconds <= 4;
 
   const exportOk = scopeOk && source.outputModes.includes('recorded-media') &&
     evidence.localFileVerified === true && finitePositive(evidence.durationMs) &&
