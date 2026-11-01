@@ -149,10 +149,28 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
     get platform() { return host.platform; },
     async begin() {
       if (state !== 'idle') throw new Error('El guardado ya empezó.');
-      if (typeof host.hello === 'function') await host.hello();
-      const r = await host.request({ op: 'begin', mime, ext, estimatedBytes: Math.max(0, Math.round(estimatedBytes || 0)) });
-      if (!Number.isInteger(r.token) || r.token <= 0) throw new Error('El guardado nativo no devolvió una sesión válida.');
-      token = r.token; info = r; state = 'open';
+      // Lock synchronously: a second begin() or user cancellation can occur
+      // while native hello/begin is still waiting for its asynchronous reply.
+      state = 'starting';
+      let r;
+      try {
+        if (typeof host.hello === 'function') await host.hello();
+        if (state === 'aborted') throw new Error('Exportación cancelada durante el inicio.');
+        r = await host.request({ op: 'begin', mime, ext, estimatedBytes: Math.max(0, Math.round(estimatedBytes || 0)) });
+        if (!Number.isInteger(r?.token) || r.token <= 0) throw new Error('El guardado nativo no devolvió una sesión válida.');
+      } catch (e) {
+        if (state !== 'aborted') { state = 'failed'; fail(e); }
+        throw e;
+      }
+      token = r.token; info = r;
+      if (state === 'aborted') {
+        // Cancellation may win while the native begin() is creating its file.
+        // Always close THAT newly returned token, never revive this sink.
+        try { await host.request({ op: 'abort', token, reason: 'cancelled-before-begin-completed' }); }
+        catch { /* native startup orphan cleanup handles an unreachable bridge */ }
+        throw new Error('Exportación cancelada durante el inicio.');
+      }
+      state = 'open';
       return r;
     },
     push(blob) {
@@ -162,9 +180,12 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
       receivedBytes += size; queuedBytes += size; peakQueuedBytes = Math.max(peakQueuedBytes, queuedBytes);
       if (queuedBytes > maxQueuedBytes) return fail(new Error('El almacenamiento del teléfono no sigue el ritmo de la grabación. Libera espacio o cierra otras apps.'));
       chain = chain.then(async () => {
-        if (error) return;
+        if (error || state !== 'open') return;
         const prepared = typeof host.readChunk === 'function' ? await host.readChunk(blob, token, seq) : null;
         const bytes = prepared ? prepared.bytes : new Uint8Array(await blob.arrayBuffer());
+        // Reading a large Blob can yield control: a cancel may have arrived in
+        // the meantime. Never send a fragment after cancellation.
+        if (error || state !== 'open') return;
         if (bytes.length !== size) throw new Error('Un fragmento cambió de tamaño al leerlo.');
         const next = crc32Update(crc, bytes);
         const r = prepared ? await prepared.send() : await host.sendChunk({ token, seq, bytes });
@@ -196,7 +217,13 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
     async abort(reason = 'cancelled') {
       if (state === 'idle' || state === 'done' || state === 'aborted') { if (state === 'idle') state = 'aborted'; return; }
       const hadToken = token > 0; state = 'aborted';
+      // If begin() is in flight it will abort its newly created native file as
+      // soon as the token arrives. There is nothing to address yet.
       if (!hadToken) return;
+      // A Blob read or a native chunk may already be in flight. Wait for it to
+      // settle before deleting the pending file; otherwise a late native chunk
+      // could race the abort and leave a confusing or dangling session.
+      try { await chain; } catch { /* still attempt native cleanup */ }
       try { await host.request({ op: 'abort', token, reason: String(reason).slice(0, 120) }); } catch { /* el nativo limpia huérfanos al iniciar */ }
     },
     stats: () => ({ state, seq, sentBytes, receivedBytes, queuedBytes, peakQueuedBytes, crc32: crc, info }),
