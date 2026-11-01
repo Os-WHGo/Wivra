@@ -86,3 +86,21 @@ test('a new session invalidates all readiness from earlier sessions', () => {
   assert.equal(next.capabilities.directLive,'experimental');
   assert.equal(canUseForLocalComposition(next),false);
 });
+
+test('audio-only glasses can confirm an authorized microphone without video capability', () => {
+  const item=createSourceCandidate({
+    id:'meta-audio',kind:'wearable-vendor',provider:'Meta',outputModes:[]
+  });
+  const audio=applyEvidence(item,'audioFrames',{
+    provenance:'runtime',sessionId:'audio-1',permissionGranted:true,
+    validAudioSamples:512,sampleRateHz:48000,channelCount:1,lastAudioAgeSeconds:0.2
+  });
+  assert.equal(audio.capabilities.audioFrames,'ready');
+  assert.equal(audio.capabilities.cameraFrames,'unknown');
+  assert.equal(canUseForLocalComposition(audio),false);
+  const denied=applyEvidence(item,'audioFrames',{
+    provenance:'runtime',sessionId:'audio-1',permissionGranted:false,
+    validAudioSamples:512,sampleRateHz:48000,channelCount:1,lastAudioAgeSeconds:0.2
+  });
+  assert.notEqual(denied.capabilities.audioFrames,'ready');
+});
