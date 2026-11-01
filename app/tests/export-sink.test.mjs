@@ -229,6 +229,15 @@ test('iOS direct Photos save uses native versioned request for the verified toke
   assert.deepEqual(messages, [{ version: 1, op: 'savePhotos', token: 42 }]);
 });
 
+test('Photos permission dialog permits five minutes without changing other native export timeouts', async () => {
+  const calls = [];
+  const host = { platform: 'ios', request: async (payload, timeout) => {
+    calls.push({ payload, timeout }); return { ok: true };
+  } };
+  await saveExportToPhotos(host, 17);
+  assert.deepEqual(calls, [{ payload: { op: 'savePhotos', token: 17 }, timeout: 300000 }]);
+});
+
 test('Photos save rejects invalid tokens, other platforms and native permission errors', async () => {
   const messages = [];
   const host = iosExportHost({ postMessage: async (m) => {
