@@ -496,6 +496,27 @@ struct MetaB0Screen: View {
                                 .font(.caption.monospacedDigit())
                         }
                         if let url = model.lastRecordedURL {
+                            if model.lastRecordedSegmentCount > 1 {
+                                // The original is the FIRST independently finalized MOV.
+                                // Do not misrepresent or add 30 seconds to Photos as the
+                                // complete long capture. Each part remains in Mis capturas.
+                                Label(
+                                    String(format: NSLocalizedString("ios.capture.segments_not_combined",
+                                                                      comment: ""),
+                                           model.lastRecordedSegmentCount),
+                                    systemImage: "square.stack"
+                                )
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("meta_b1_segmented_warning")
+                                Text("ios.capture.segments_in_library_instruction")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                ShareLink(item: url) {
+                                    Label("ios.capture.share_first_segment", systemImage: "square.and.arrow.up")
+                                }
+                                .accessibilityIdentifier("meta_b1_share_first_segment")
+                            } else {
                             ShareLink(item: url) {
                                 Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
                             }
@@ -530,6 +551,7 @@ struct MetaB0Screen: View {
                                 Text("ios.library.photos_original_only")
                                     .font(.caption)
                                     .foregroundStyle(.orange)
+                            }
                             }
                             Text("Archivo local: \(url.lastPathComponent). Verifica su reproducción antes de usarlo en el editor.")
                                 .font(.caption)
