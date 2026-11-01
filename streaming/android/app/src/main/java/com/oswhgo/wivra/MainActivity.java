@@ -248,9 +248,8 @@ public final class MainActivity extends Activity {
         };
         new AlertDialog.Builder(this)
             .setTitle("Fuentes → Cámara")
-            .setMessage("Elige una fuente. El permiso, la vista previa y el " +
-                "archivo final se verifican en la cámara. " +
-                "PiP o dos cámaras simultáneas aún no están habilitados.")
+            // Android lists and messages share the same content area.
+            // Keep setItems visible and move caveats to a separate dialog.
             .setItems(options, (dialog, selected) -> {
                 if (selected == 0) {
                     launchRayBanCameraFromDirector();
@@ -260,7 +259,26 @@ public final class MainActivity extends Activity {
                     showPhoneCameraUnsupported();
                 }
             })
+            .setNeutralButton("Limitaciones", (dialog, which) ->
+                showSourceLimitations(false))
             .setNegativeButton("Cancelar", null)
+            .show();
+    }
+
+    private void showSourceLimitations(boolean live) {
+        final String explanation = live
+            ? "Pantalla o aplicación utiliza el permiso y el selector oficiales de " +
+                "Android. Esta primera ruta transmite solo video, sin audio interno " +
+                "de otras aplicaciones. PiP, multicámara y fuentes simultáneas " +
+                "aún requieren compatibilidad y validación independiente."
+            : "Abrir una cámara no confirma que esté conectada. Wivra solicita " +
+                "permisos en la pantalla correspondiente y solo debe considerar " +
+                "grabado un archivo finalizado y verificado. Dos cámaras " +
+                "simultáneas y PiP todavía no están habilitados.";
+        new AlertDialog.Builder(this)
+            .setTitle("Capacidades de fuentes")
+            .setMessage(explanation)
+            .setPositiveButton("Entendido", null)
             .show();
     }
 
@@ -274,9 +292,6 @@ public final class MainActivity extends Activity {
         };
         new AlertDialog.Builder(this)
             .setTitle("Fuentes → LIVE")
-            .setMessage("Elige la fuente antes de confirmar una emisión pública. " +
-                "Pantalla y aplicación usan el selector oficial de Android. " +
-                "No hay mezcla PiP ni audio interno de aplicaciones en esta versión.")
             .setItems(options, (dialog, selected) -> {
                 if (selected == 0) {
                     if (!hasPhoneCameraHardware()) {
@@ -292,6 +307,8 @@ public final class MainActivity extends Activity {
                     startActivity(live);
                 }
             })
+            .setNeutralButton("Limitaciones", (dialog, which) ->
+                showSourceLimitations(true))
             .setNegativeButton("Cancelar", null)
             .show();
     }
