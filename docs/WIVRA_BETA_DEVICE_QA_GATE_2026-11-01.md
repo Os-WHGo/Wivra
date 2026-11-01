@@ -200,3 +200,19 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - Restaurar la vista previa y permiso; permitir volver a intentar sin reiniciar la aplicación. Girar frontal/trasera y comprobar imagen, cuando el dispositivo lo soporte, sin declarar multicámara simultánea.
 - Probar pantalla MediaProjection por separado: esta puerta es SOLO de cámara nativa y no debe bloquear el servicio independiente de pantalla autorizado por el usuario.
 - Confirmar estado real del servidor RTMP y MP4 finalizado con dispositivo Android físico. Vista previa activa y callback de conexión no certifican VOD remoto.
+
+
+## P0-P · Selector único de fuentes de cámara y LIVE Android (PR #153)
+
+**Implementado como navegación real, no como compositor multicámara.** Se ejecutan los controles nativos existentes; el selector por sí mismo NO confirma permiso, fotogramas, emisión remota ni un MP4 válido.
+
+1. **Wivra FULL:** desde la app unificada pulsar **Cámara · elegir fuente** y comprobar que aparecen Ray-Ban Meta (abre el diagnóstico/captura DAT) y teléfono (abre CameraX, frontal/trasera). Regresar al Editor/Director y comprobar que el mismo proyecto continúa sin recargarse.
+2. **LIVE FULL:** pulsar **LIVE · elegir fuente**. La cámara de teléfono abre la actividad RootEncoder con micrófono y copia MP4 opcionales; «pantalla o aplicación» abre MediaProjection con consentimiento Android por sesión, FGS visible y STOP. No prometer que se capturó audio de otra aplicación ni soporte DRM.
+3. **Wivra Capture:** el selector de cámara debe existir, pero no aparecerá botón LIVE. El paquete Capture no incorpora RootEncoder. Verificar con `captureDebug` y `fullDebug` para evitar referencias de clases inexistentes.
+4. **Sin hardware de cámara:** la opción de teléfono debe explicar que Android no encuentra cámara sin lanzar una actividad que fallará. Ray-Ban Meta conserva su flujo autónomo de detección; abrir su pantalla no significa conexión satisfactoria.
+5. **Lista Android:** abrir ambos selectores y comprobar que se ven todos los elementos (Android no muestra a la vez mensaje normal y lista de `AlertDialog`). La opción **Limitaciones** abre un diálogo informativo separado; no lanza funciones todavía inexistentes.
+6. **Ocho idiomas:** alternar español, inglés, francés, portugués, alemán, italiano, japonés y chino; comprobar títulos, opciones, errores y limitaciones. No prometer traducción completa de mensajes antiguos de LIVE que todavía usan cadenas embebidas.
+7. **Política de capacidades:** `meta-dat`, `phone-camera`, `screen`, `app-window` se corresponden con el registro `core/source-capabilities.mjs`. El selector abre la ruta autorizada pero nunca asigna READY sin evidencia real de sesión. PiP, dos fuentes simultáneas y audio interno de terceros permanecen expresamente fuera de esta ruta.
+8. **Sin filtración:** elegir destino LIVE solo dentro de la actividad correspondiente, nunca desde el selector ni pasando clave RTMP por `Intent` o WebView. Probar cancelación en cada etapa sin emisión accidental.
+
+**Criterio P0:** poder elegir las rutas de captura/LIVE básicas en Android con una interfaz compacta, compilación FULL/Capture sin regresiones, sin exponer opciones falsas ni permisos implícitos. La validación de transmisión y calidad física sigue pendiente.
