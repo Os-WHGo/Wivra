@@ -40,3 +40,18 @@
 - No capturar sin permiso ni iniciar LIVE público sin confirmación explícita.
 - No introducir dependencias que rompan compilaciones de la beta para experimentos Gen 3/Display.
 - Evitar publicar o fusionar hasta autorización y matriz P0 revisada.
+
+
+## Instalación de desarrollo en el iPhone del propietario sin publicar en App Store
+
+**Ruta posible sin pagar una membresía Apple:** Apple permite firmar y ejecutar apps personales desde **Xcode con un Apple Account / Personal Team**. El perfil gratuito dura **7 días** y necesita reinstalación periódica; no permite distribución App Store ni TestFlight. La disponibilidad de capacidades Meta DAT/entitlements y la coincidencia TeamID se comprueban en la instalación real, **no están garantizadas** por compilar sin firma. Fuente oficial: https://developer.apple.com/help/account/basics/about-your-developer-account y https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices .
+
+1. Requisitos: un **Mac** con Xcode apropiado para el SDK Meta 1.0.1, Node.js 22, XcodeGen, un iPhone físico y Ray-Ban Meta ya enlazadas mediante Meta AI. No introducir contraseñas o certificados en GitHub ni en el chat.
+2. Usar la **rama de beta probada** indicada en la PR #138, nunca un viejo prototipo B0: `git clone https://github.com/Os-WHGo/Wivra.git`, `cd Wivra`, `git fetch origin`, `git switch chatgpt/wivra-dat-capability-probe-20261101`, `node app/build.mjs`, `cd streaming/ios/B0`, `xcodegen generate`, `open WivraMetaB0.xcodeproj`.
+3. En Xcode > Settings > Apple Accounts, iniciar sesión con la cuenta del propietario. En el target `WivraMetaB0`, Signing & Capabilities, usar **Automatically manage signing**, elegir Personal Team o equipo de desarrollador autorizado y seleccionar el iPhone conectado. Si Xcode solicita registrar el dispositivo, hacerlo desde Xcode.
+4. Configurar los datos **reales del proyecto Meta Wearables** del propietario para `META_APP_ID` y `CLIENT_TOKEN` en las Build Settings **locales**, sin introducirlos en el YAML o commits públicos. Verificar que el Team ID y el identificador de bundle estén registrados de forma compatible con la integración Meta. Los valores predeterminados de CI (`META_APP_ID=0` y token vacío) **no autorizan** la cámara real.
+5. Mantener las declaraciones `Info.plist` de cámara, micrófono, Bluetooth y `NSPhotoLibraryAddUsageDescription`, y el esquema de devolución `wivrametab0://`. Habilitar Developer Mode del iPhone si Xcode lo solicita; activar Developer Mode de las gafas en Meta AI cuando esté disponible y autorizado.
+6. **Build & Run** desde Xcode sobre el dispositivo físico. Registrar fecha, versión de iOS, firmware, permisos, commit y resultados de las puertas P0-A a P0-E. En el primer ensayo usar vista previa/captura en **primer plano**. Pantalla bloqueada permanece experimental.
+7. Si no hay Mac o no resulta compatible la firma Personal Team con Meta DAT, detener la instalación y registrar el bloqueo. La IPA CI **UNSIGNED** no se instala directamente en un iPhone. No comprar membresía ni publicar hasta autorización expresa.
+
+**Limitación importante:** esta ruta es una guía verificada contra documentación Apple, no una instalación ya ejecutada ni una garantía de acceso Meta. Para distribuir a terceros por TestFlight/App Store se necesita el programa adecuado; eso queda fuera de esta beta de prueba individual.
