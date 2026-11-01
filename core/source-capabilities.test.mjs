@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSourceCandidate, applyEvidence, canUseForLocalComposition,
-  canStartDirectLive, validateMultiSourcePlan} from './source-capabilities.mjs';
+  canStartDirectLive, validateMultiSourcePlan, expireSourceEvidence} from './source-capabilities.mjs';
 
 const source = (id, modes = ['local-frames']) =>
   createSourceCandidate({id,kind:'wearable-vendor',outputModes:modes});
@@ -103,4 +103,25 @@ test('audio-only glasses can confirm an authorized microphone without video capa
     validAudioSamples:512,sampleRateHz:48000,channelCount:1,lastAudioAgeSeconds:0.2
   });
   assert.notEqual(denied.capabilities.audioFrames,'ready');
+});
+
+test('capability expires when frames stop arriving or device reconnects', () => {
+  const item = source('meta-live', ['local-frames','direct-stream']);
+  const observed = applyEvidence(item, 'cameraFrames', frames('session1'));
+  assert.equal(observed.capabilities.cameraFrames, 'ready');
+  const stamp = observed.evidence.cameraFrames.observedAtMs;
+  assert.ok(Number.isFinite(stamp));
+  assert.equal(expireSourceEvidence(observed, {nowMs:stamp + 9999})
+    .capabilities.cameraFrames, 'ready');
+  const expired = expireSourceEvidence(observed, {nowMs:stamp + 10001});
+  assert.equal(expired.capabilities.cameraFrames, 'unknown');
+  assert.equal(canUseForLocalComposition(expired), false);
+  assert.equal(observed.capabilities.cameraFrames, 'ready', 'immutable input');
+  const oldManifest = {...observed, evidence: {
+    cameraFrames: {sessionId:'session1', provenance:'runtime'}
+  }};
+  assert.equal(expireSourceEvidence(oldManifest).capabilities.cameraFrames,'unknown');
+  assert.equal(expireSourceEvidence(observed, {nowMs:stamp - 1})
+    .capabilities.cameraFrames, 'unknown');
+  assert.throws(() => expireSourceEvidence(observed, {maxAgeMs:0}), TypeError);
 });
