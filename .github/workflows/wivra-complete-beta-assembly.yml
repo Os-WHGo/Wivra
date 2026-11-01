@@ -192,6 +192,9 @@ jobs:
             /usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" >/dev/null
           done
           /usr/libexec/PlistBuddy -c "Print :MWDAT:AppLinkURLScheme" "$app/Info.plist" >/dev/null
+          # The optional selected-mic sidecar needs background audio, in addition
+          # to Meta's Bluetooth and external-accessory transport modes.
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" "$app/Info.plist" | grep -qw audio
           # A signed IPA cannot launch without an executable and bundle identifier.
           bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
@@ -225,6 +228,7 @@ jobs:
             /usr/libexec/PlistBuddy -c "Print :$key" /tmp/wivra-beta-compiled-info.plist >/dev/null
           done
           /usr/libexec/PlistBuddy -c "Print :MWDAT:AppLinkURLScheme" /tmp/wivra-beta-compiled-info.plist >/dev/null
+          /usr/libexec/PlistBuddy -c "Print :UIBackgroundModes" /tmp/wivra-beta-compiled-info.plist | grep -qw audio
           bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /tmp/wivra-beta-compiled-info.plist)
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' /tmp/wivra-beta-compiled-info.plist)
           bundle_type=$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' /tmp/wivra-beta-compiled-info.plist)
