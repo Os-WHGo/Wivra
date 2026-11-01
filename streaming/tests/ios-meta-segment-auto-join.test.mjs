@@ -71,3 +71,30 @@ test('joining and one-final-video messages exist in all eight iOS locales', () =
     }
   }
 });
+
+
+test('after relaunch the native catalog offers a safe retry only for kept grouped parts', () => {
+  const library = read('../ios/B0/Sources/WivraNativeCaptureLibrary.swift');
+  assert.match(library, /WivraLocalCaptureScanner\.read\(\)/);
+  assert.match(library, /WivraPendingRecordingStore\.isPendingVideo\(candidateVideo\)/);
+  assert.match(library, /confirmedPartGroups = groups\.mapValues/);
+  assert.match(library, /joinedPartGroups = joined/);
+  assert.match(library, /item\.segmentNumber == 1/);
+  assert.match(library, /parts\.count > 1 && !joinedPartGroups\.contains\(group\)/);
+  assert.match(library, /joiningGroup == nil/);
+  assert.match(library, /try await WivraSegmentedCaptureJoiner\.joinConfirmed\(parts\)/);
+  assert.match(library, /wivra_library_retry_join/);
+  assert.match(library, /joinFailure = error\.localizedDescription/);
+});
+
+test('retry action is available in eight languages and never claims automatic Photos upload', () => {
+  for (const lang of ['es','en','fr','pt','de','it','ja','zh']) {
+    const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
+    assert.ok(strings.includes('"ios.capture.retry_join" = "'),
+      lang + ' missing retry label');
+  }
+  const library = read('../ios/B0/Sources/WivraNativeCaptureLibrary.swift');
+  const method = library.split('private func retryJoin(')[1]?.split('var body: some View')[0];
+  assert.ok(method);
+  assert.doesNotMatch(method, /saveVideo\(|PHPhotoLibrary|removeItem\(|discardConfirmed/);
+});
