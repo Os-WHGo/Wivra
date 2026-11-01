@@ -151,5 +151,5 @@ test('Meta DAT measures real compressed HEVC payload separately from SDK request
   assert.match(model, /measuredCompressedMbps = Double\(compressedBytesThisSecond\) \* 8/);
   assert.match(model, /measuredCompressedMbps = 0/);
   assert.match(app, /HEVC recibido: %.2f Mbps/);
-  assert.match(app, /no es bitrate RTMP/);
+  assert.match(app, /no es tasa de subida LIVE/);
 });
