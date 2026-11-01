@@ -105,3 +105,4 @@
 "ios.capture.parts_private_gallery" = "Segments stay in Wivra. Save only the complete video to Photos, or retry joining the take.";
 "ios.capture.share_segment_only" = "Share this segment only";
 "ios.capture.take_not_finalized" = "This take could not be verified as complete. Segments remain in Wivra but cannot be auto-joined or saved to Photos as a complete video.";
+"ios.capture.dat_signal_interrupted" = "Ray-Ban video signal was interrupted. Recording was closed to protect files. Segments may be incomplete; review them before exporting.";

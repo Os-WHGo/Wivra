@@ -478,6 +478,13 @@ struct MetaB0Screen: View {
                                 .foregroundStyle(.orange)
                                 .accessibilityIdentifier("meta_b1_storage_auto_stop")
                         }
+                        if model.recordingSignalInterrupted {
+                            Label("ios.capture.dat_signal_interrupted",
+                                  systemImage: "wifi.exclamationmark")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("meta_b1_dat_frame_stall")
+                        }
                         if model.isCurrentRecordingPending {
                             Label("ios.record.pending_notice", systemImage: "lock.shield")
                                 .font(.footnote)

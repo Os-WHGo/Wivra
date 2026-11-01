@@ -152,3 +152,35 @@ test('Meta DAT measures real compressed HEVC payload separately from SDK request
   assert.match(app, /HEVC recibido: %.2f Mbps/);
   assert.match(app, /no es tasa de subida LIVE/);
 });
+
+
+test('Meta DAT frame loss closes video without certifying an interrupted take', () => {
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  const recorder = read('../ios/B0/Sources/WivraSegmentedHEVCRecorder.swift');
+  assert.match(model, /private let maximumDATFrameGapSeconds: CFTimeInterval = 15/);
+  assert.match(model, /private var lastFrameUptime: CFTimeInterval\?/);
+  assert.match(model, /CACurrentMediaTime\(\) - lastFrame >= self\.maximumDATFrameGapSeconds/);
+  assert.match(model, /self\.recordingSignalInterrupted = true/);
+  assert.match(model, /self\.segmentedRecorder\.markTransportInterrupted\(\)/);
+  assert.match(model, /Task \{ @MainActor \[weak self\] in[\s\S]*?await self\?\.finishRecording\(\)/);
+  assert.match(model, /if state == \.stopped &&[\s\S]*?self\.segmentedRecorder\.markTransportInterrupted\(\)/);
+  assert.match(model, /case \.thermalHot:[\s\S]*?self\.segmentedRecorder\.markTransportInterrupted\(\)/);
+  assert.match(recorder, /func markTransportInterrupted\(\) \{[\s\S]*?rotationFailed = true/);
+  assert.match(recorder, /let fullyFinalized = !snapshot\.rotationFailed/);
+  // A deliberate Stop still remains allowed while DAT is stalled; the
+  // stopped stream must not silently delete or publish any original MOV.
+  const watcher = model.split('private func startStorageWatchdog() {')[1]
+    ?.split('func finishRecording() async {')[0];
+  assert.ok(watcher);
+  assert.doesNotMatch(watcher, /removeItem|discardConfirmed|saveVideo\(/);
+  assert.match(app, /model\.recordingSignalInterrupted/);
+  assert.match(app, /meta_b1_dat_frame_stall/);
+});
+
+test('the DAT interruption notice is present in all eight native languages', () => {
+  for (const lang of ['es','en','fr','pt','de','it','ja','zh']) {
+    const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
+    assert.ok(strings.includes('"ios.capture.dat_signal_interrupted" = "'),
+      lang + ' is missing recording interruption warning');
+  }
+});

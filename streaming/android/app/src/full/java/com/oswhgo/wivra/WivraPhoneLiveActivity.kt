@@ -203,6 +203,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 if (prepared && !stopping && stream?.isOnPreview != true) {
                     runCatching { stream?.startPreview(preview) }
                 }
+                if (!initiatedByUser) startButton.isEnabled = cameraReadyForLive()
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int,
                 width: Int, height: Int
@@ -214,6 +215,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 }
             }
             override fun surfaceDestroyed(holder: SurfaceHolder) {
+                if (!initiatedByUser) startButton.isEnabled = false
                 runCatching { if (stream?.isOnPreview == true) stream?.stopPreview() }
             }
         })
@@ -293,6 +295,17 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         }
     }
 
+    // Native equivalent of the source capability gate: a successful
+    // encoder setup alone is not evidence of a usable camera source.
+    // No stream or MP4 is allowed to start without a live preview surface
+    // and an actual camera permission on this foreground-only screen.
+    private fun cameraReadyForLive(): Boolean {
+        val publisher = stream ?: return false
+        return prepared && !stopping && !isFinishing &&
+            checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+            preview.holder.surface.isValid && publisher.isOnPreview
+    }
+
     private fun preparePreview() {
         if (prepared || stream != null || isFinishing) return
         try {
@@ -318,8 +331,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             prepared = true
             flipCameraButton.isEnabled = true
             if (preview.holder.surface.isValid) publisher.startPreview(preview)
-            setStatus("Cámara lista. Ninguna transmisión iniciada.")
-            startButton.isEnabled = true
+            setStatus(if (cameraReadyForLive())
+                "Vista previa de cámara activa. Ninguna transmisión iniciada."
+                else "Codificador preparado; esperando vista previa de cámara activa."
+            )
+            startButton.isEnabled = cameraReadyForLive()
         } catch (_: Exception) {
             prepared = false
             cameraVideoSource = null
@@ -332,6 +348,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun requestLive() {
         if (mediaBusy) return
+        if (!cameraReadyForLive()) {
+            setStatus("Cámara no disponible o sin vista previa activa. Revisa permiso y vuelve a preparar LIVE.")
+            return
+        }
         if (!prepared || stopping || initiatedByUser ||
             stream?.isStreaming == true || stream?.isRecording == true) return
         if (!validEndpoint(endpointInput.text.toString())) {
@@ -350,6 +370,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun confirmLive() {
         if (mediaBusy) return
+        if (!cameraReadyForLive()) {
+            setStatus("Se perdió la vista previa de cámara antes de confirmar LIVE.")
+            return
+        }
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         val address = endpointInput.text.toString()
         if (!validEndpoint(address)) return
@@ -384,6 +408,12 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private fun startLive(address: String, withAudio: Boolean, saveCopy: Boolean) {
         if (mediaBusy) return
         val publisher = stream ?: return
+        // Recheck after the public confirmation dialog, not only when
+        // opening it; the user may have revoked camera permission meanwhile.
+        if (!cameraReadyForLive() || initiatedByUser) {
+            setStatus("No se inició LIVE: cámara sin permiso o vista previa inactiva.")
+            return
+        }
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         if (saveCopy && applicationContext.filesDir.usableSpace < minFreeBytes) {
             setStatus("Espacio insuficiente para el MP4. Solo LIVE puede continuar sin copia.")
@@ -458,7 +488,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun controlsIdle() {
         runOnUiThread {
-            startButton.isEnabled = prepared && !isFinishing && !mediaBusy
+            startButton.isEnabled = cameraReadyForLive() && !mediaBusy
             flipCameraButton.isEnabled = prepared && !isFinishing &&
                 !isDestroyed && !mediaBusy && !stopping
             stopButton.isEnabled = false
@@ -647,6 +677,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         if (prepared && !isFinishing && preview.holder.surface.isValid &&
             stream?.isOnPreview != true) {
             runCatching { stream?.startPreview(preview) }
+        }
+        if (::startButton.isInitialized && !initiatedByUser) {
+            startButton.isEnabled = cameraReadyForLive() && !mediaBusy
         }
     }
 
