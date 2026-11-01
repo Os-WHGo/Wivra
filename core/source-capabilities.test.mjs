@@ -56,7 +56,8 @@ test('two sources require verified compositor and concurrent runtime observation
   assert.equal(validateMultiSourcePlan([one,two]).ok,false);
   assert.equal(validateMultiSourcePlan([one,two],{compositorValidated:true}).ok,false);
   const concurrent = item => applyEvidence(item,'concurrentVideo',{
-    provenance:'runtime',sessionId:'mix',permissionGranted:true,
+    provenance:'runtime',sessionId:item.evidence.cameraFrames.sessionId,
+    permissionGranted:true,
     vendorCapabilityExposed:true,simultaneousFrameSources:2,compositorValidated:true
   });
   assert.equal(validateMultiSourcePlan([concurrent(one),concurrent(two)],
