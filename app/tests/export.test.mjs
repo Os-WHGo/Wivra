@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt, exportBitrate, exportEstimatedBytes, exportMemoryRisk } from '../export.mjs';
+import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt, exportBitrate, exportEstimatedBytes, exportMemoryRisk, exportOverlayPreflight } from '../export.mjs';
 
 const P = (clips, texts = []) => ({ clips, texts });
 test('plan: clips en orden y hueco negro entre clips', () => {
@@ -188,4 +188,14 @@ test('native auto quality follows output pixels and frame rate, never video dura
   assert.equal(exportBitrate(3600, { progressive: false, width: 1920, height: 1080, fps: 60 }), 3_000_000);
   const bytes = exportEstimatedBytes(3600, fullHd);
   assert.equal(bytes, Math.round((exportBitrate(3600, fullHd) + 128_000) * 3600 / 8));
+});
+
+
+test('overlay preflight refuses a montage with missing videos, images, or GIF layers', () => {
+  const project = { overlayClips: [{ id: 'v', asset_id: 'a' }, { id: 'gif', asset_id: 'b' }, { id: 'logo', asset_id: 'c' }] };
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'logo']), { overlayBlocked: true, missingOverlay: ['gif'] });
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'gif', 'logo']), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [] }, []), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [{ id: 'v' }, { id: 'v' }] }, []),
+    { overlayBlocked: true, missingOverlay: ['v'] });
 });
