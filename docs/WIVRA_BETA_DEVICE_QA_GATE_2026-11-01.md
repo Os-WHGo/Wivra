@@ -153,3 +153,28 @@ Este sello demuestra la finalización de los escritores conocidos, **no** que el
 7. **Privacidad y ciclo de vida**: permiso micrófono opcional, `FLAG_SECURE`, confirmar emisión pública, emisión se detiene al salir de pantalla conforme a la implementación actual. Comprobar batería/temperatura y reproducibilidad del MP4.
 
 **No se presupone** LIVE en Ray-Ban, multicámara en directo ni LIVE iOS por disponer de LIVE Android con cámara del teléfono. El emulador/CI no prueban un destino RTMP externo.
+
+
+## P0-N · Fuente frontal/trasera de LIVE Android (PR #148)
+
+**Construido sobre RootEncoder 2.8.1 existente.** Es una sola cámara seleccionable, NO multicámara simultánea.
+
+- Antes de iniciar LIVE con cámara: pulsar Cambiar cámara y comprobar vista previa frontal y trasera, resolución disponible y permisos.
+- Durante emisión RTMP privada: cambiar entre ambas cámaras sin volver a autorizar publicación; confirmar imagen y sincronía en el servidor, no solo en vista previa.
+- Si el segundo sensor no soporta la resolución H.264 elegida, mostrar fallo sin inventar fotogramas REC; comprobar grabación MP4 opcional y archivo final.
+- Repetir con micrófono activado/desactivado y copia local activada/desactivada; no activar micrófono sin consentimiento.
+
+## P1-S · Pantalla completa / una aplicación como fuente LIVE Android (PR #149)
+
+**Implementación progresiva de VIDEO de pantalla únicamente**, con permiso de `MediaProjection` por sesión, FGS visible y RTMP directo. En esta variante no se captura audio del teléfono o de otras apps y NO se crea MP4 local. No inferir capacidad DRM ni entrevistar desde otra app con audio.
+
+- Pulsar LIVE · pantalla o aplicación. Comprobar `FLAG_SECURE` de la clave RTMP y la confirmación de emisión pública antes del selector del sistema.
+- Elegir pantalla completa o app compatible desde el selector nativo Android. Rechazar consentimiento no debe emitir ningún frame ni abrir RTMP. Mostrar notificación de pantalla compartida y Detener.
+- Una vez iniciado un destino RTMP privado, abandonar la Activity para mostrar otra app. Comprobar que el servicio `mediaProjection` mantiene video y notificación hasta la orden Detener. La continuidad real y FPS solo se aprueban con Android físico y reproducción remota.
+- Revocar MediaProjection desde el sistema: stream debe cerrarse y **pedir consentimiento NUEVO** para retomarlo, sin reutilizar token en Android 14+.
+- Probar app con `FLAG_SECURE`, DRM y contenido protegido: zonas negras son una limitación normal, nunca intentar saltársela. El audio de terceros puede no estar permitido incluso si su video se ve.
+- Revisar rotación, pantalla apagada, app dividida, conectividad, calor y consumo; no declarar compatibilidad universal por compilar Android SDK 35.
+- Verificar sin clave en logs/Intent extras/estado guardado/notificación, y que la variante Wivra Capture no incluya ni servicio ni permiso `FOREGROUND_SERVICE_MEDIA_PROJECTION`.
+- Confirmar ajustes VOD del proveedor antes de emitir: esta ruta **no tiene MP4 local ni comprobación de VOD remoto**. No confundir un evento «Conectando» con emisión aceptada por servidor.
+
+Las pruebas GitHub Actions de API/Gradle/UI son software QA; la demostración de pantalla/proveedor sigue pendiente para el lote físico autorizado por el propietario.
