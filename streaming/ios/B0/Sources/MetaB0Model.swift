@@ -364,13 +364,13 @@ final class MetaB0Model {
                 pendingRecording = try WivraPendingRecordingStore.stage(
                     videoURL: first, related: urls + manifests + [receipt].compactMap { $0 }
                 )
+                showPendingRecordingChoice = true
+                recordingStatus = "Recuperados \(urls.count) segmentos MOV (\(frames) cuadros, \(dropped) descartados). Aún no están unidos. Elige Guardar o Decidir después."
                 if !WivraSegmentedTakeReceipt.verifiedComplete(for: first) {
-                    recordingStatus = NSLocalizedString(
+                    recordingStatus += " " + NSLocalizedString(
                         "ios.capture.take_not_finalized", comment: ""
                     )
                 }
-                showPendingRecordingChoice = true
-                recordingStatus = "Recuperados \(urls.count) segmentos MOV (\(frames) cuadros, \(dropped) descartados). Aún no están unidos. Elige Guardar o Decidir después."
             } catch {
                 recordingStatus = "Segmentos conservados en el iPhone, sin decisión publicada: " +
                     error.localizedDescription
