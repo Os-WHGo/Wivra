@@ -156,6 +156,11 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard url.isFileURL, ["mp4", "mov"].contains(url.pathExtension.lowercased()) else {
             throw WivraExportError.io("Fotos solo admite videos MP4 o MOV compatibles.")
         }
+        // A verified byte stream can still contain a video that Photos cannot decode.
+        // Reject before prompting for permission; leave the original local file intact.
+        guard let media = await WivraMp4Repair.inspect(url), media.video, media.durationMs > 0 else {
+            throw WivraExportError.io("El MP4 no contiene un video reproducible para Fotos.")
+        }
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {
             throw WivraExportError.io("Permiso para añadir videos a Fotos denegado.")
