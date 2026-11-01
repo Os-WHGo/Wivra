@@ -43,7 +43,9 @@ test('receipt rejects missing, partial, invalid or tampered segment sequences', 
   assert.match(receipt, /\(info\.fileSize \?\? 0\) > 0/);
   assert.match(receipt, /size > 0, size <= 128 \* 1024/);
   assert.match(receipt, /fileURL\(for video: URL\) -> URL\?/);
-  assert.match(receipt, /lastPathComponent == "WivraRecordings"/);
+  assert.match(pending, /static func completionReceiptURL\(for video: URL\) -> URL\?/);
+  assert.match(pending, /lastPathComponent == "WivraRecordings"/);
+  assert.match(receipt, /WivraPendingRecordingStore\.completionReceiptURL\(for: video\)/);
   assert.doesNotMatch(receipt, /URLSession|PHPhotoLibrary|delete|removeItem/);
 });
 
@@ -59,7 +61,7 @@ test('pending consent owns the receipt and recovery cannot silently release a su
   const join = keep.indexOf('WivraSegmentedCaptureJoiner.joinConfirmed(partURLs)');
   assert.ok(kept >= 0 && verify > kept && join > verify);
   assert.match(keep, /&& canPublishEntireTake/);
-  assert.match(pending, /WivraSegmentedTakeReceipt\.fileURL\(for: first\)/);
+  assert.match(pending, /completionReceiptURL\(for: first\)/);
   assert.match(pending, /related\.append\(receipt\)/);
   assert.match(pending, /try\? stage\(videoURL: first, related: related\)/);
 });
