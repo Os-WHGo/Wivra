@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI hat die Registrierung nach 45 Sekunden nicht bestätigt. Prüfe den Entwicklermodus und die Meta AI-Berechtigungen und versuche es erneut.</string>
     <string name="meta_registration_required">Verbinde Wivra zuerst in Meta AI. Die Registrierung wurde noch nicht bestätigt.</string>
     <string name="meta_registered_no_devices">Meta AI hat Wivra registriert, aber keine verknüpfte Brille erkannt. Prüfe Bluetooth, Reichweite, Stromversorgung und Entwicklermodus und versuche es erneut.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Kamera · Quelle wählen</string>
+    <string name="source_live_button">LIVE · Quelle wählen</string>
+    <string name="source_camera_title">Quellen → Kamera</string>
+    <string name="source_live_title">Quellen → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · verbinden und aufnehmen</string>
+    <string name="source_phone_option">Telefon · vorne oder hinten (Berechtigung nötig)</string>
+    <string name="source_live_phone_option">Telefon · LIVE vorne oder hinten</string>
+    <string name="source_live_screen_option">Bildschirm oder App · LIVE mit Berechtigung</string>
+    <string name="source_unavailable_title">Quelle nicht verfügbar</string>
+    <string name="source_unavailable_body">Android erkennt keine Telefonkamera. Die Verbindung zur Ray-Ban Meta wird im eigenen Bildschirm geprüft. Ohne gültige Datei wird keine Aufnahme bestätigt.</string>
+    <string name="source_limits_button">Einschränkungen</string>
+    <string name="source_limits_title">Quellenfunktionen</string>
+    <string name="source_limits_camera">Das Öffnen einer Kamera bestätigt keine Verbindung. Wivra fordert Berechtigungen an und prüft abgeschlossene Dateien. PiP und zwei gleichzeitige Kameras sind noch nicht aktiviert.</string>
+    <string name="source_limits_live">Bildschirm- oder App-Freigabe benötigt die Zustimmung von Android. Diese Funktion sendet nur Video, keinen internen Ton anderer Apps. PiP und mehrere Kameras gleichzeitig sind noch nicht aktiviert.</string>
 </resources>
