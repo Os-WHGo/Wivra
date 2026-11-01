@@ -98,3 +98,18 @@ test('retry action is available in eight languages and never claims automatic Ph
   assert.ok(method);
   assert.doesNotMatch(method, /saveVideo\(|PHPhotoLibrary|removeItem\(|discardConfirmed/);
 });
+
+
+test('a previous joined MOV is never accepted on nonzero duration alone', () => {
+  const existing = joiner.split('if existingOutput {')[2]?.split('let temporary =')[0]
+    ?? joiner.slice(joiner.indexOf('// A prior output may be partially'));
+  assert.ok(existing.includes('WivraMp4Repair.inspect(destination)'));
+  assert.match(existing, /existingValues\?\.isRegularFile == true/);
+  assert.match(existing, /existingValues\?\.isSymbolicLink != true/);
+  assert.match(existing, /abs\(Double\(existingMedia\.durationMs\) - expectedMs\)/);
+  assert.match(existing, /max\(2000, expectedMs \* 0\.02\)/);
+  assert.match(joiner, /if !existingOutput \{/);
+  const before = joiner.indexOf('if existingOutput {', joiner.indexOf('let expectedMs'));
+  const beforeCursor = joiner.indexOf('let expectedMs = CMTimeGetSeconds(cursor) * 1000');
+  assert.ok(before > beforeCursor, 'only reuse prior export after summing source durations');
+});
