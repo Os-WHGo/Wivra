@@ -93,7 +93,7 @@ struct WivraMetaB0App: App {
                     Button {
                         showingExportLibrary = true
                     } label: {
-                        Label("Exportaciones", systemImage: "square.and.arrow.up.on.square")
+                        Label("ios.app.exports", systemImage: "square.and.arrow.up.on.square")
                     }
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
@@ -710,9 +710,9 @@ private struct WivraNativeExportLibraryScreen: View {
         NavigationStack {
             Group {
                 if exports.isEmpty {
-                    ContentUnavailableView("Sin exportaciones guardadas",
+                    ContentUnavailableView("ios.exports.empty",
                                            systemImage: "square.stack",
-                                           description: Text("Los videos exportados y verificados aparecerán aquí, incluso después de cerrar Wivra."))
+                                           description: Text("ios.exports.empty_description"))
                 } else {
                     List(exports) { video in
                         VStack(alignment: .leading, spacing: 6) {
@@ -724,7 +724,7 @@ private struct WivraNativeExportLibraryScreen: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             ShareLink(item: video.url) {
-                                Label("Compartir o guardar", systemImage: "square.and.arrow.up")
+                                Label("ios.exports.share", systemImage: "square.and.arrow.up")
                             }
                             .accessibilityIdentifier("wivra_export_library_share")
                         }
@@ -733,10 +733,10 @@ private struct WivraNativeExportLibraryScreen: View {
                     .refreshable { await reload() }
                 }
             }
-            .navigationTitle("Exportaciones de Wivra")
+            .navigationTitle("ios.exports.title")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cerrar") { dismiss() }
+                    Button("ios.exports.close") { dismiss() }
                 }
             }
             .task { await reload() }
