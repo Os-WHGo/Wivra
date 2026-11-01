@@ -13,6 +13,7 @@ test('shipping editor contains both Claude progressive export and latest capture
   for (const source of [
     '../export-sink.mjs',
     '../media-container.mjs',
+    '../export-engine-policy.mjs',
     '../export.mjs',
     '../capture-locked-session.mjs',
     '../capture-journal-store.mjs',
