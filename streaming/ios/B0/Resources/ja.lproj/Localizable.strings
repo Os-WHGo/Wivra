@@ -82,4 +82,4 @@
 "ios.capture.segments_not_combined" = "この撮影には %d 個の別々のMOVセグメントがあります。最初のファイルだけでは動画全体になりません。";
 "ios.capture.segments_in_library_instruction" = "セッションを終了して「マイキャプチャ」を開き、各クリップを個別に写真へ保存するか、Directorで結合して動画全体を書き出してください。";
 "ios.capture.share_first_segment" = "最初のセグメントのみ共有";
-"ios.capture.individual_segment" = "分割撮影のセグメント %d。動画全体ではありません。";
+"ios.capture.individual_segment" = "撮影のパート %d（MOV）。ほかのパートがあるか確認してください。";
