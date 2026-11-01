@@ -2257,6 +2257,25 @@ $('expGo').onclick = async () => {
       $('expVid').removeAttribute('src'); $('expVid').style.display = 'none'; $('expDl').style.display = 'none';
       $('expShare').textContent = 'Abrir o compartir';
       $('expShare').onclick = async () => { try { await shareSavedExport(host, token); } catch (e) { $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; } };
+      // iOS: explicit add-only Photos save, while keeping the local Wivra file and Share.
+      const previousPhotosButton = document.getElementById('expSavePhotos');
+      if (previousPhotosButton) previousPhotosButton.remove();
+      if (host?.platform === 'ios' && r.ext === 'mp4') {
+        const photosButton = document.createElement('button');
+        photosButton.id = 'expSavePhotos'; photosButton.type = 'button';
+        photosButton.textContent = 'Guardar en Fotos';
+        photosButton.onclick = async () => {
+          photosButton.disabled = true;
+          try {
+            await saveExportToPhotos(host, token);
+            photosButton.textContent = 'Guardado en Fotos ✓';
+          } catch (e) {
+            photosButton.disabled = false;
+            $('expMsg').textContent = 'No se pudo guardar en Fotos: ' + e.message;
+          }
+        };
+        $('expShare').insertAdjacentElement('afterend', photosButton);
+      }
       $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
       $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
       $('expMsg').textContent = `Guardado y verificado: ${r.saved.displayName || 'video'} (${r.saved.location || 'en el teléfono'}), ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${(r.saved.bytes / 1e6).toFixed(1)} MB, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + ' Revísalo antes de publicar.';
