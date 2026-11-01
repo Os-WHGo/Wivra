@@ -33,12 +33,15 @@ targets:
       - path: ../../../app/packs
         type: folder
         buildPhase: resources
-    info:
-      path: Info.plist
+    # Keep the checked-in privacy/Meta permissions plist as the single source.
+    # XcodeGen 'info.path' REGENERATES the file and silently strips keys unless
+    # duplicated under info.properties; use INFOPLIST_FILE instead.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.oswhgo.WivraMetaB0
         CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: Info.plist
     dependencies:
       - package: MetaDAT
         product: MWDATCore
