@@ -357,9 +357,18 @@ final class MetaB0Model {
                 let manifests = urls.map {
                     $0.deletingPathExtension().appendingPathExtension("wivra.json")
                 }
+                // Keep the private stop() receipt under the same explicit
+                // Keep/Later/Discard decision as the source MOV files.
+                // A missing or partial receipt is never considered complete.
+                let receipt = segmentedRecorder.lastTakeReceiptURL
                 pendingRecording = try WivraPendingRecordingStore.stage(
-                    videoURL: first, related: urls + manifests
+                    videoURL: first, related: urls + manifests + [receipt].compactMap { $0 }
                 )
+                if !WivraSegmentedTakeReceipt.verifiedComplete(for: first) {
+                    recordingStatus = NSLocalizedString(
+                        "ios.capture.take_not_finalized", comment: ""
+                    )
+                }
                 showPendingRecordingChoice = true
                 recordingStatus = "Recuperados \(urls.count) segmentos MOV (\(frames) cuadros, \(dropped) descartados). Aún no están unidos. Elige Guardar o Decidir después."
             } catch {
@@ -512,7 +521,22 @@ final class MetaB0Model {
                 .filter { $0.range(of: #"_part[0-9]{4}\.mov$"#,
                                   options: .regularExpression) != nil }
                 .sorted()
-            if partNames.count > 1 && !joiningSegments {
+            // A recovered subset can be playable even when the last writer
+            // failed. Only a durable stop() receipt allows publishing a
+            // single final movie; otherwise preserve the kept originals.
+            let canPublishEntireTake = entry.id.hasSuffix(".mov") &&
+                WivraSegmentedTakeReceipt.verifiedComplete(for:
+                    FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        .appendingPathComponent("WivraRecordings", isDirectory: true)
+                        .appendingPathComponent(entry.id)
+                )
+            if partNames.count > 1 && !canPublishEntireTake {
+                lastJoinError = NSLocalizedString(
+                    "ios.capture.take_not_finalized", comment: ""
+                )
+                recordingStatus = lastJoinError ?? recordingStatus
+            }
+            if partNames.count > 1 && !joiningSegments && canPublishEntireTake {
                 let folder = FileManager.default.urls(
                     for: .documentDirectory, in: .userDomainMask
                 )[0].appendingPathComponent("WivraRecordings", isDirectory: true)
