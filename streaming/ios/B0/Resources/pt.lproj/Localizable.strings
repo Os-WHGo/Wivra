@@ -91,3 +91,11 @@
 "ios.capture.storage_minutes_estimate" = "Cerca de %d min na taxa HEVC observada; não inclui áudio, mudanças de qualidade ou cópias.";
 "ios.capture.storage_export_reserve" = "Unir, exportar ou salvar em Fotos exige espaço extra; esta estimativa não garante a exportação.";
 "ios.capture.storage_stopped" = "Gravação local interrompida por falta de espaço. Preserve os segmentos recuperáveis e libere memória.";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "Unindo os segmentos em um único vídeo. Originais preservados.";
+"ios.capture.join_success" = "Vídeo completo unido, verificado e salvo localmente.";
+"ios.capture.join_failed" = "Não foi possível unir a gravação; os segmentos originais permanecem disponíveis.";
+"ios.capture.joined_share" = "Compartilhar vídeo completo";
+"ios.capture.joined_photos" = "Salvar vídeo completo em Fotos";
+"ios.capture.joined_saved" = "Vídeo completo salvo em Fotos";
