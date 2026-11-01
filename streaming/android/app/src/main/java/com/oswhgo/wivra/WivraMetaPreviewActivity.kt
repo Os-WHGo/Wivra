@@ -403,6 +403,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     RegistrationState.REGISTERING -> show(getString(R.string.meta_registration_in_progress))
                     else -> Unit // Leave unrelated camera/preview errors visible.
                 }
+                refreshButtons() // DAT callbacks may arrive after Meta AI closes.
             }
         }
     }
