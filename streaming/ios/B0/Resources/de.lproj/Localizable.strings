@@ -58,3 +58,11 @@
 "ios.network.constrained" = "Datensparmodus; Uploadrate nicht gemessen.";
 "ios.network.expensive" = "Netzwerk kann Datenkosten verursachen.";
 "ios.network.disclaimer" = "Nur Telefondiagnose, nicht Ray-Ban-Verbindung oder bestätigtes LIVE.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exporte";
+"ios.exports.title" = "Wivra-Exporte";
+"ios.exports.empty" = "Keine gespeicherten Exporte";
+"ios.exports.empty_description" = "Exportierte und überprüfte Videos erscheinen hier auch nach dem Schließen von Wivra.";
+"ios.exports.share" = "Teilen oder speichern";
+"ios.exports.close" = "Schließen";
