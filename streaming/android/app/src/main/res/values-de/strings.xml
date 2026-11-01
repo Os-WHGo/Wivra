@@ -158,4 +158,6 @@
     <string name="meta_registration_in_progress">Meta AI: Wivra wird mit der Brille verbunden…</string>
     <string name="meta_registration_complete">Meta AI hat die Registrierung von Wivra bestätigt. Du kannst die Brille jetzt verbinden.</string>
     <string name="meta_registration_stalled">Meta AI hat die Registrierung nach 20 Sekunden nicht bestätigt. Prüfe den Entwicklermodus und die Meta AI-Berechtigungen und versuche es erneut.</string>
+    <string name="meta_registration_required">Verbinde Wivra zuerst in Meta AI. Die Registrierung wurde noch nicht bestätigt.</string>
+    <string name="meta_registered_no_devices">Meta AI hat Wivra registriert, aber keine verknüpfte Brille erkannt. Prüfe Bluetooth, Reichweite, Stromversorgung und Entwicklermodus und versuche es erneut.</string>
 </resources>
