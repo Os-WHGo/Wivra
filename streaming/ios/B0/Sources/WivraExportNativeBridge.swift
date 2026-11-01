@@ -7,6 +7,7 @@
 import Foundation
 import UIKit
 import WebKit
+import Photos
 
 final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
     weak var webView: WKWebView?
@@ -67,6 +68,21 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             bytes: number("bytes"), crc32: UInt32(truncatingIfNeeded: number("crc32")),
             chunks: Int(number("chunks")), data: data)
 
+        if op == "savePhotos" {
+            Task { @MainActor in
+                guard let url = await WivraExportStore.shared.savedURL(token: request.token) else {
+                    replyHandler(nil, "Este video ya no está disponible para guardar en Fotos.")
+                    return
+                }
+                do {
+                    try await Self.saveVideoToPhotos(url)
+                    replyHandler(["ok": true, "savedToPhotos": true], nil)
+                } catch {
+                    replyHandler(nil, error.localizedDescription)
+                }
+            }
+            return
+        }
         if op == "share" {
             // Capture only the (main-actor, Sendable) web view, never this handler object.
             let view = webView
@@ -134,6 +150,24 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                             "declaresDuration": m.declaresDuration, "seekIndex": m.seekIndex]
         }
         return out
+    }
+
+    private static func saveVideoToPhotos(_ url: URL) async throws {
+        guard url.isFileURL, ["mp4", "mov"].contains(url.pathExtension.lowercased()) else {
+            throw WivraExportError.io("Fotos solo admite videos MP4 o MOV compatibles.")
+        }
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            throw WivraExportError.io("Permiso para añadir videos a Fotos denegado.")
+        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+            }, completionHandler: { success, error in
+                if success { continuation.resume() }
+                else { continuation.resume(throwing: error ?? WivraExportError.io("Fotos no pudo guardar el video.")) }
+            })
+        }
     }
 
     @MainActor
