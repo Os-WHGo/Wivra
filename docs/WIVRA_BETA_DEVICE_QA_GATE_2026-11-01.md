@@ -108,3 +108,19 @@ Referencias: https://developer.apple.com/documentation/foundation/checking-volum
 6. **Rendimiento P0**: probar 5, 15, 30 y 60 minutos reales con memoria, energía, temperatura, disco inicial/final, tiempo de unión y reproducción desde Archivos/Fotos. Comparar HEVC de baja/alta resolución; cuando los parámetros de los segmentos son incompatibles, bloquear unión en vez de producir video corrupto. Con entrada de audio CAF independiente el camino de unión debe tratarse en una fase separada de sincronía real.
 
 **Criterio de aprobación:** todos los MOV confirmados y reproducibles se reflejan en una única película completa **solo tras Keep**, conservando originales, sin duplicar segmentos en galería. En cualquier fallo, mantener partes y advertir. Una compilación de CI sin gafas NO satisface este criterio.
+
+
+## P0-K · Política estricta de galería: una película por toma (PR #143)
+
+**Cambio en el catálogo nativo, no en grabación o codec.** Los archivos internos `_part0001.mov`, `_part0002.mov`, etc. permanecen guardados y recuperables dentro de Wivra, pero no se ofrecen como videos independientes mediante `Guardar en Fotos` cuando existen varios en la misma toma.
+
+Pruebas físicas pendientes:
+
+1. **Un archivo corto:** grabar pocos segundos que finalicen en un único `_part0001.mov`. Confirmar Keep y comprobar que Mis capturas sí permite guardar ese video completo en Fotos.
+2. **Varios segmentos:** grabar más de una rotación y confirmar Keep. Antes y después de unir, las filas `_partNNNN.mov` no deben ofrecer botón `Guardar en Fotos`. Si la unión falla, conservar todos los originales y ofrecer `Reintentar unión`, sin llenar la galería.
+3. **Película completa:** tras generar y validar `_complete.mov`, su fila debe ofrecer `Guardar en Fotos`; guardar una vez por acción explícita y comprobar en la app Fotos que corresponde al lapso completo y no a un fragmento inicial.
+4. **Reinicio:** forzar cierre y reabrir con manifiestos verificados; repetir los tres casos. Una toma pendiente de Keep no debe aparecer ni publicarse.
+5. **Compartir fragmento:** Wivra puede permitirlo explícitamente para recuperar material, con etiqueta `Compartir solo este fragmento`. No confundir el Share Sheet de iOS con una publicación automática en Fotos.
+6. **Error/fallback:** permisos de Fotos denegados, sin espacio y MOV completo corrupto deben producir error legible, conservar originales y no fingir una copia correcta. Google Fotos solo sincroniza cuando el usuario activa el backup en esa app.
+
+Resultado de CI y QA físico deben anotarse por SHA. Ninguna prueba automatizada acredita la calidad de la película de 30/60 min o que Google Fotos ya realizó el respaldo.

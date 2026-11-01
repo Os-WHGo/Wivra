@@ -113,3 +113,38 @@ test('persistent library labels segmented MOVs as partial files with part number
     assert.ok(line?.includes('%d'), lang + ' must identify the segment number');
   }
 });
+
+
+
+test('multipart Meta MOVs stay private: only one-piece takes or completed joined MOV may enter Photos', () => {
+  const guard = library.split('private func maySaveToPhotos(')[1]
+    ?.split('private func retryJoin(')[0];
+  assert.ok(guard, 'Photos eligibility must be explicit and user-visible');
+  assert.match(guard, /guard let segment = item\.segmentNumber else \{ return true \}/);
+  assert.match(guard, /guard segment == 1/);
+  assert.match(guard, /let group = groupKey\(for: video\)/);
+  assert.match(guard, /let parts = confirmedPartGroups\[group\]/);
+  assert.match(guard, /parts\.count == 1/);
+  assert.match(guard, /!joinedPartGroups\.contains\(group\)/);
+  assert.match(guard, /else \{ return false \}/);
+
+  const view = library.split('ShareLink(item: video)')[1]?.split('} else {\n')[0];
+  assert.ok(view, 'native library video row must be present');
+  assert.match(view, /if maySaveToPhotos\(item, video: video\) \{/);
+  assert.match(view, /try await WivraPhotosLibrary\.savePreferredVideo\(/);
+  assert.match(view, /else if item\.segmentNumber != nil/);
+  assert.match(view, /ios\.capture\.parts_private_gallery/);
+  assert.match(view, /wivra_library_parts_private_notice/);
+  assert.match(view, /ios\.capture\.share_segment_only/);
+  assert.match(library, /joinedPartGroups = joined/);
+  assert.match(library, /lastPathComponent\.hasSuffix\("_complete\.mov"\)/);
+});
+
+test('all native locales warn that multipart take segments must not fill the photo gallery', () => {
+  for (const lang of ['es','en','fr','pt','de','it','ja','zh']) {
+    const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
+    for (const key of ['ios.capture.parts_private_gallery', 'ios.capture.share_segment_only']) {
+      assert.ok(strings.includes('"' + key + '" = "'), lang + ' missing '+key);
+    }
+  }
+});

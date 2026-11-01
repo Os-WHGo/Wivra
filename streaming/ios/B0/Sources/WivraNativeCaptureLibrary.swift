@@ -212,6 +212,20 @@ struct WivraNativeCaptureLibraryScreen: View {
         joinedPartGroups = joined
     }
 
+    // Keep the user's Photos gallery to ONE complete movie per take.
+    // Parts remain shareable locally for recovery, but a multi-part take
+    // cannot publish any individual _partNNNN.mov through the Photos button.
+    // A short complete single-part take (_part0001.mov) remains eligible.
+    private func maySaveToPhotos(_ item: WivraStoredCapture, video: URL) -> Bool {
+        guard let segment = item.segmentNumber else { return true }
+        guard segment == 1,
+              let group = groupKey(for: video),
+              let parts = confirmedPartGroups[group],
+              parts.count == 1,
+              !joinedPartGroups.contains(group) else { return false }
+        return true
+    }
+
     private func retryJoin(group key: String, parts: [URL]) {
         guard joiningGroup == nil else { return }
         joiningGroup = key
@@ -302,39 +316,52 @@ struct WivraNativeCaptureLibraryScreen: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
-                                    ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
-                                    // The catalog survives relaunch. Offer the same add-only
-                                    // Photos action as the live capture screen for kept files.
-                                    // Prefer a finished muxed MOV when available; Photos
-                                    // validates readability and never removes Wivra originals.
-                                    let preferredPhotosURL = item.alternateVideoURL ?? video
-                                    Button {
-                                        photosSavingCaptureID = item.id
-                                        Task { @MainActor in
-                                            defer { photosSavingCaptureID = nil }
-                                            do {
-                                                let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
-                                                    preferredPhotosURL,
-                                                    fallback: item.alternateVideoURL == nil ? nil : video
-                                                )
-                                                photosSavedCaptureIDs.insert(item.id)
-                                                if originalOnly { photosSavedOriginalOnly.insert(item.id) }
-                                            } catch {
-                                                photosError = error.localizedDescription
-                                            }
-                                        }
-                                    } label: {
-                                        Label(photosSavedCaptureIDs.contains(item.id)
-                                              ? "ios.exports.saved_photos" : "ios.exports.save_photos",
-                                              systemImage: "square.and.arrow.down")
+                                    ShareLink(item: video) {
+                                        // A computed String is not an implicit
+                                        // LocalizedStringKey in SwiftUI.
+                                        Label(item.segmentNumber == nil
+                                              ? NSLocalizedString("ios.library.share_video", comment: "")
+                                              : NSLocalizedString("ios.capture.share_segment_only", comment: ""),
+                                              systemImage: "square.and.arrow.up")
                                     }
-                                    .disabled(photosSavingCaptureID != nil ||
-                                              photosSavedCaptureIDs.contains(item.id))
-                                    .accessibilityIdentifier("wivra_capture_library_save_photos")
-                                    if photosSavedOriginalOnly.contains(item.id) {
-                                        Text("ios.library.photos_original_only")
+                                    if maySaveToPhotos(item, video: video) {
+                                        // Photos is add-only and explicit. For multipart takes
+                                        // only the validated _complete.mov catalog item offers
+                                        // this action. The originals stay in Wivra.
+                                        let preferredPhotosURL = item.alternateVideoURL ?? video
+                                        Button {
+                                            photosSavingCaptureID = item.id
+                                            Task { @MainActor in
+                                                defer { photosSavingCaptureID = nil }
+                                                do {
+                                                    let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
+                                                        preferredPhotosURL,
+                                                        fallback: item.alternateVideoURL == nil ? nil : video
+                                                    )
+                                                    photosSavedCaptureIDs.insert(item.id)
+                                                    if originalOnly { photosSavedOriginalOnly.insert(item.id) }
+                                                } catch {
+                                                    photosError = error.localizedDescription
+                                                }
+                                            }
+                                        } label: {
+                                            Label(photosSavedCaptureIDs.contains(item.id)
+                                                  ? "ios.exports.saved_photos" : "ios.exports.save_photos",
+                                                  systemImage: "square.and.arrow.down")
+                                        }
+                                        .disabled(photosSavingCaptureID != nil ||
+                                                  photosSavedCaptureIDs.contains(item.id))
+                                        .accessibilityIdentifier("wivra_capture_library_save_photos")
+                                        if photosSavedOriginalOnly.contains(item.id) {
+                                            Text("ios.library.photos_original_only")
+                                                .font(.caption)
+                                                .foregroundStyle(.orange)
+                                        }
+                                    } else if item.segmentNumber != nil {
+                                        Text("ios.capture.parts_private_gallery")
                                             .font(.caption)
                                             .foregroundStyle(.orange)
+                                            .accessibilityIdentifier("wivra_library_parts_private_notice")
                                     }
                                 } else {
                                     Text("ios.library.video_missing")

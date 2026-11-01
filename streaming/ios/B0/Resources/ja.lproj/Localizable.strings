@@ -100,3 +100,7 @@
 "ios.capture.joined_photos" = "動画全体を写真に保存";
 "ios.capture.joined_saved" = "動画全体を写真に保存しました";
 "ios.capture.retry_join" = "この撮影を1つの動画に結合";
+
+/* Multipart MOV originals are kept in Wivra, not copied to Photos. */
+"ios.capture.parts_private_gallery" = "元のセグメントはWivraに残ります。写真には完成した動画だけを保存するか、再結合を試してください。";
+"ios.capture.share_segment_only" = "このセグメントのみ共有";
