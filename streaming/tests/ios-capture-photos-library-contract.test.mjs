@@ -77,3 +77,24 @@ test('Photos fallback checks mux validity before doing a single add-only save', 
   assert.match(bridge, /PHPhotoLibrary\.requestAuthorization\(for: \.addOnly\)/);
   assert.match(bridge, /PHAssetChangeRequest\.creationRequestForAssetFromVideo\(atFileURL: url\)/);
 });
+
+
+test('audio-only recovery and kept catalog both respect malformed consent tickets', () => {
+  const store = read('../ios/B0/Sources/WivraPendingRecordingStore.swift');
+  const recovery = store.split('static func recoverOrphanedAudio() -> Int {')[1]
+    ?.split('static func savedAudioOnlyURLs() -> [URL] {')[0];
+  const saved = store.split('static func savedAudioOnlyURLs() -> [URL] {')[1]
+    ?.split('static func pending() -> [WivraPendingRecording]')[0];
+  assert.ok(recovery && saved, 'audio recovery functions must exist');
+  for (const section of [recovery, saved]) {
+    assert.match(section, /let rawMarkers = Set\(urls\.map\(\\\.lastPathComponent\)\)/);
+    assert.match(section, /!rawMarkers\.contains\(name \+ suffix\)/);
+    assert.match(section, /!claimed\.contains\(name\)/);
+  }
+  assert.match(recovery, /!usedByVideo\.contains\(name\)/);
+  assert.match(recovery, /\(try\? stageAudio\(url\)\) != nil/);
+  assert.match(saved, /name \+ keptAudioSuffix/);
+  // A kept marker alone is not an authorization if a pending JSON marker remains.
+  assert.ok(saved.indexOf('!rawMarkers.contains(name + suffix)') <
+    saved.indexOf('name + keptAudioSuffix'));
+});
