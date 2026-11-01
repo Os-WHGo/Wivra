@@ -285,6 +285,7 @@ struct MetaB0Screen: View {
                     Text("Display/gestos: no habilitados en esta beta")
                     Text("Fotogramas recibidos (no equivalen a MP4 grabado): \(model.framesReceived)")
                     Text(String(format: "FPS observados: %.1f", model.measuredFPS))
+                    Text(String(format: "HEVC recibido: %.2f Mbps (solo .hvc1; no es bitrate RTMP)", model.measuredCompressedMbps))
                     Text("Resolución recibida: \(model.frameWidth) × \(model.frameHeight)")
                     Text(String(format: "Tiempo con fotogramas: %.1f s", model.activeVideoSeconds))
                 }
