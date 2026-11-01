@@ -189,6 +189,8 @@ struct WivraMetaB0App: App {
 struct MetaB0Screen: View {
     @Bindable var model: MetaB0Model
     @State private var photoGridEnabled = false
+    @State private var capturePhotosSaving = false
+    @State private var captureSavedToPhotosURL: URL?
 
     var body: some View {
         // Recheck frame freshness while this screen is visible, without
@@ -497,6 +499,28 @@ struct MetaB0Screen: View {
                                 Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
                             }
                             .accessibilityIdentifier("meta_b1_export_mov")
+                            // When audio was separately recorded and successfully muxed,
+                            // prefer the finished MOV with audio for Photos.
+                            // Both the original and muxed files stay local in Wivra.
+                            let photosURL = model.lastCombinedVideoURL ?? url
+                            Button {
+                                capturePhotosSaving = true
+                                Task { @MainActor in
+                                    defer { capturePhotosSaving = false }
+                                    do {
+                                        try await WivraPhotosLibrary.saveVideo(photosURL)
+                                        captureSavedToPhotosURL = photosURL
+                                    } catch {
+                                        model.errorMessage = "Fotos: " + error.localizedDescription
+                                    }
+                                }
+                            } label: {
+                                Label(captureSavedToPhotosURL == photosURL
+                                      ? "Video guardado en Fotos" : "Guardar video en Fotos",
+                                      systemImage: "square.and.arrow.down")
+                            }
+                            .disabled(capturePhotosSaving || captureSavedToPhotosURL == photosURL)
+                            .accessibilityIdentifier("meta_b1_save_photos")
                             Text("Archivo local: \(url.lastPathComponent). Verifica su reproducción antes de usarlo en el editor.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
