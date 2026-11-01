@@ -71,3 +71,8 @@
 "ios.exports.save_photos" = "保存到照片";
 "ios.exports.saved_photos" = "已保存到照片";
 "ios.exports.photos_error" = "无法保存到照片";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "锁屏时使用 Ray-Ban（实验性）";
+"ios.app.background_capture_off_warning" = "现在锁定 iPhone 将结束 Ray-Ban 会话。请在锁屏前启用实验性后台录制。";
+"ios.app.background_capture_experimental_warning" = "实验模式：锁屏后 iOS 或 Meta 仍可能中断视频流。已完成的片段会保留，返回后请检查。";
