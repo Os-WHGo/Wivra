@@ -99,3 +99,4 @@
 "ios.capture.joined_share" = "動画全体を共有";
 "ios.capture.joined_photos" = "動画全体を写真に保存";
 "ios.capture.joined_saved" = "動画全体を写真に保存しました";
+"ios.capture.retry_join" = "この撮影を1つの動画に結合";
