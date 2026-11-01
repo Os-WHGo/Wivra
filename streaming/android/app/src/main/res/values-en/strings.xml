@@ -175,4 +175,18 @@
     <string name="source_limits_title">Source capabilities</string>
     <string name="source_limits_camera">Opening a camera does not confirm a connection. Wivra requests permissions and verifies completed files. PiP and simultaneous dual-camera capture are not enabled yet.</string>
     <string name="source_limits_live">Screen or app sharing requires Android consent. This route streams video only and does not capture internal audio from other apps. PiP and simultaneous multi-camera use are not enabled yet.</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">Audio input: %1$s</string>
+    <string name="live_audio_auto">Automatic (Android)</string>
+    <string name="live_audio_phone">Built-in microphone</string>
+    <string name="live_audio_wired">Wired headset</string>
+    <string name="live_audio_usb">USB microphone</string>
+    <string name="live_audio_bluetooth">Bluetooth microphone</string>
+    <string name="live_audio_other">Other audio input</string>
+    <string name="live_audio_select_title">Choose LIVE audio input</string>
+    <string name="live_audio_disconnected">Selected audio input disconnected. LIVE stopped to avoid switching microphones without consent. Check your local recording.</string>
+    <string name="live_audio_unavailable">Selected input is no longer available. Choose another before going live.</string>
+    <string name="live_audio_limits_button">Limitations</string>
+    <string name="live_audio_preference_only">Android receives a preferred input. The actual route and audio quality require a recording test. This does not prove a glasses microphone is available.</string>
 </resources>
