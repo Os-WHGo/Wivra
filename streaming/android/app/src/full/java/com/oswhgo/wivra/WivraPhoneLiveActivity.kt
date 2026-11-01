@@ -224,7 +224,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             val reserve = (free - minFreeBytes).coerceAtLeast(0L)
             // Estimated from the configured 1.2 Mbps H264 stream + optional
             // 64 kbps audio. VBR, mux indexes, exports and Photos need more.
-            val bitrate = 1_200_000.0 + if (micOption.isChecked) 64_000.0 else 0.0
+            val bitrate = 1_200_000.0 + (if (micOption.isChecked) 64_000.0 else 0.0)
             val estimatedMinutes = (reserve.toDouble() * 8.0 / bitrate / 60.0).toLong()
             "Espacio local: $mb MiB. Estimación para copia MP4: " +
                 "$estimatedMinutes min, no garantizados; la exportación requiere espacio extra."
