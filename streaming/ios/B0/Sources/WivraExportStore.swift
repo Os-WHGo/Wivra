@@ -275,7 +275,8 @@ actor WivraExportStore {
             let name = url.lastPathComponent
             guard name.hasPrefix("Wivra_Export_"),
                   ["mp4", "webm"].contains(url.pathExtension.lowercased()),
-                  url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL,
+                  // contentsOfDirectory returns direct children; avoid comparing
+                  // macOS /var vs /private/var URL spellings, which differ across APIs.
                   let values = try? url.resourceValues(forKeys: [
                     .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]),
                   values.isRegularFile == true, values.isSymbolicLink != true,
