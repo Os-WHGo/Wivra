@@ -52,3 +52,14 @@ test('iOS capture requires recent actual DAT video frames, never a device model 
   assert.match(app, /model\.cameraSignalDiagnostic/);
   assert.match(app, /Display\/gestos: no habilitados en esta beta/);
 });
+
+test('recording Stop remains enabled when DAT frames stall or stream is paused', () => {
+  const recordControls = app.split('Button(model.recordingArmed ? "Detener grabación" : "Grabar HEVC")')[1]
+    ?.split('.accessibilityIdentifier("meta_b1_record")')[0];
+  assert.ok(recordControls, 'single recording control must be present');
+  assert.match(recordControls, /if model\.recordingArmed \{/);
+  assert.match(recordControls, /await model\.finishRecording\(\)/);
+  // Fresh DAT frames gate a new recording; they must NOT gate Stop/recovery.
+  assert.match(recordControls, /\.disabled\(model\.recordingArmed \? model\.recordingFinishing : !model\.canRecord\)/);
+  assert.doesNotMatch(recordControls, /\.disabled\(!model\.canRecord\)/);
+});
