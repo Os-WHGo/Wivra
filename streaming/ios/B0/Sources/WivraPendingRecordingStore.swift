@@ -195,7 +195,25 @@ enum WivraPendingRecordingStore {
               let url = try? checkedURL(videoURL, in: folder) else { return false }
         // Grouped checkpoints share ONE decision ticket. All video segments
         // must remain hidden from the editor until that decision is resolved.
-        return pending().contains { $0.files.contains(url.lastPathComponent) }
+        let name = url.lastPathComponent
+        if pending().contains(where: { $0.files.contains(name) }) { return true }
+
+        // Even a damaged/unreadable consent ticket is evidence that Keep was
+        // NOT completed. Do not publish its media merely because JSON decoding
+        // failed. Directory enumeration also finds dangling symlink markers,
+        // unlike fileExists(atPath:) which follows symbolic links.
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: folder.path)
+        else { return true } // Fail closed when consent state cannot be inspected.
+        let markerNames = Set(entries)
+        if markerNames.contains(name + suffix) { return true }
+        if let part = name.range(of: #"_part[0-9]{4}\.mov$"#,
+                                 options: .regularExpression) {
+            // When a grouped recovery ticket is unreadable, it is named for
+            // its first segment. Protect every associated segment as well.
+            let first = String(name[..<part.lowerBound]) + "_part0001.mov" + suffix
+            if markerNames.contains(first) { return true }
+        }
+        return false
     }
 
     /**
