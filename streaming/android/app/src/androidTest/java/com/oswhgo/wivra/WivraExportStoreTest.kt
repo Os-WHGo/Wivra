@@ -24,17 +24,32 @@ class WivraExportStoreTest {
         val (current, currentName) = WivraExportStore.begin(context, "video/webm", 0, "new-editor")
         var published: Uri? = null
         try {
-            WivraExportStore.append(context, old, 0, webmHead, 0, webmHead.size)
-            WivraExportStore.append(context, current, 0, webmHead, 0, webmHead.size)
+            WivraExportStore.append(context, old, 0, webmHead, 0, webmHead.size, "old-editor")
+            WivraExportStore.append(context, current, 0, webmHead, 0, webmHead.size, "new-editor")
+            // A different editor can neither alter, finalize nor cancel this recording.
+            try {
+                WivraExportStore.append(context, current, 1, webmHead, 0, webmHead.size, "old-editor")
+                fail("Foreign append must be rejected before writing or aborting the owner's file")
+            } catch (_: java.io.IOException) { }
+            try {
+                WivraExportStore.finish(context, current, webmHead.size.toLong(), 0, 1,
+                    repair = false, owner = "old-editor")
+                fail("Foreign finish must not publish or discard the owner's session")
+            } catch (_: java.io.IOException) { }
+            WivraExportStore.abort(context, current, "old-editor")
+            assertEquals(1, rowsNamed(rec(currentName), pending = true).size)
             WivraExportStore.abortOwned(context, "old-editor")
             WivraExportStore.abortOwned(context, "old-editor")
             assertEquals(0, rowsNamed(rec(oldName), pending = true).size)
             assertEquals(1, rowsNamed(rec(currentName), pending = true).size)
             assertEquals(0, WivraExportStore.cleanupOrphans(context))
             val crc = CRC32().apply { update(webmHead) }.value
-            val done = WivraExportStore.finish(context, current, webmHead.size.toLong(), crc, 1, repair = false)
+            val done = WivraExportStore.finish(context, current, webmHead.size.toLong(), crc, 1,
+                repair = false, owner = "new-editor")
             published = done.uri
             assertEquals(1, rowsNamed(currentName, pending = false).size)
+            assertEquals(null, WivraExportStore.savedExport(current, "old-editor"))
+            assertEquals(done, WivraExportStore.savedExport(current, "new-editor"))
             // A late cleanup after publication cannot remove the finished video.
             WivraExportStore.abortOwned(context, "new-editor")
             assertEquals(1, rowsNamed(currentName, pending = false).size)
