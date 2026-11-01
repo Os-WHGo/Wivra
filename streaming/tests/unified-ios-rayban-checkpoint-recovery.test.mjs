@@ -81,8 +81,9 @@ test('relaunch restores finalized unindexed groups but ignores .writing files', 
   assert.match(store, /stage\(videoURL: first, related: related\)/);
   // Valid tickets and damaged tickets must BOTH keep undecided segments private.
   assert.match(store, /if pending\(\)\.contains\(where: \{ \$0\.files\.contains\(name\) \}\) \{ return true \}/);
-  assert.match(store, /markerNames\.contains\(name \+ suffix\)/);
-  assert.match(store, /"_part0001\.mov" \+ suffix/);
+  assert.match(store, /private static func hasUndecidedTicket\(/);
+  assert.match(store, /ticket\.hasPrefix\(groupPrefix\), ticket\.hasSuffix\(ticketEnding\)/);
+  assert.match(store, /!hasUndecidedTicket\(forVideo: first\.lastPathComponent, markerNames: markerNames\)/);
   assert.match(model, /WivraPendingRecordingStore\.recoverUnstagedCheckpoints\(\)/);
   assert.match(library, /WivraPendingRecordingStore\.isPendingVideo\(candidateVideo\)/);
 });
