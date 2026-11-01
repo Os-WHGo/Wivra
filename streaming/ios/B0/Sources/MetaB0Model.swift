@@ -65,6 +65,9 @@ final class MetaB0Model {
     }
 
     var lastRecordedURL: URL?
+    // A video-only take can contain several independent 30 s MOV files.
+    // Never present its first file as though it were the entire recording.
+    var lastRecordedSegmentCount = 0
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
     // Default to the lowest-risk Meta DAT path: uninterrupted HEVC-only
     // capture. Audio sidecar stays opt-in with explicit route preflight.
@@ -214,6 +217,7 @@ final class MetaB0Model {
     func beginRecording() {
         guard canRecord && !recordingArmed else { return }
         lastRecordedURL = nil
+        lastRecordedSegmentCount = 0
         lastSeparateAudioURL = nil
         lastCombinedVideoURL = nil
         lastAudioSyncOffsetSeconds = nil
@@ -287,6 +291,7 @@ final class MetaB0Model {
                 break
             }
             lastRecordedURL = first
+            lastRecordedSegmentCount = urls.count
             do {
                 let manifests = urls.map {
                     $0.deletingPathExtension().appendingPathExtension("wivra.json")
@@ -302,6 +307,7 @@ final class MetaB0Model {
             }
         case .saved(let url, let frames, let dropped):
             lastRecordedURL = url
+            lastRecordedSegmentCount = 1
             recordingStatus = "Video original guardado (\(frames) cuadros; \(dropped) descartados)."
             if let sound {
                 lastSeparateAudioURL = sound.url
@@ -457,6 +463,7 @@ final class MetaB0Model {
             if lastRecordedURL?.lastPathComponent == entry.id ||
                lastSeparateAudioURL?.lastPathComponent == entry.id {
                 lastRecordedURL = nil
+                lastRecordedSegmentCount = 0
                 lastSeparateAudioURL = nil
                 lastCombinedVideoURL = nil
                 lastCaptureManifestURL = nil
