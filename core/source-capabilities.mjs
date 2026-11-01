@@ -104,7 +104,10 @@ export function applyEvidence(source, key, evidence = {}) {
   }
   next.evidence[key] = {
     provenance: evidence.provenance === 'runtime' ? 'runtime' : 'unverified',
-    sessionId: scopeOk ? evidence.sessionId : null
+    sessionId: scopeOk ? evidence.sessionId : null,
+    // The clock is recorded by Wivra when an observation is received, not
+    // supplied by an untrusted device/SDK descriptor.
+    observedAtMs: scopeOk ? Date.now() : null
   };
   return next;
 }
@@ -141,4 +144,32 @@ export function validateMultiSourcePlan(sources, { compositorValidated = false }
     return { ok: false, reason: 'source-concurrency-unverified' };
   }
   return { ok: true, reason: 'validated' };
+}
+
+/**
+ * Revoke stale session claims before enabling a source chooser or compositor.
+ * No clock evidence (old manifests, vendor catalogs) fails closed.
+ * Never reuse an old camera/LIVE claim after a device disconnect/relaunch.
+ */
+export function expireSourceEvidence(source, {
+  nowMs = Date.now(), maxAgeMs = 10_000
+} = {}) {
+  if (!source || !source.capabilities || !source.evidence ||
+      !Number.isFinite(nowMs) || !Number.isFinite(maxAgeMs) ||
+      maxAgeMs <= 0) throw new TypeError('Invalid evidence expiry parameters');
+  const next = {
+    ...source,
+    capabilities: { ...source.capabilities },
+    evidence: { ...source.evidence }
+  };
+  for (const key of CAPABILITIES) {
+    const stamp = next.evidence[key]?.observedAtMs;
+    if (next.capabilities[key] === 'ready' &&
+        (!Number.isFinite(stamp) || stamp > nowMs ||
+         nowMs - stamp > maxAgeMs)) {
+      next.capabilities[key] = 'unknown';
+      delete next.evidence[key];
+    }
+  }
+  return next;
 }
