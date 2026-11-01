@@ -76,3 +76,4 @@
 "ios.app.background_capture_toggle" = "画面ロック中のRay-Ban録画（実験的）";
 "ios.app.background_capture_off_warning" = "今iPhoneをロックするとRay-Banのセッションが終了します。先に実験的なバックグラウンド録画を有効にしてください。";
 "ios.app.background_capture_experimental_warning" = "実験的な機能です。ロック中にiOSやMetaが配信を停止する場合があります。保存済みの動画断片は残ります。戻ったら確認してください。";
+"ios.library.photos_original_only" = "音声付きの動画が無効だったため、元の動画を保存しました。";
