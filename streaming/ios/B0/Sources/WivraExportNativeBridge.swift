@@ -76,7 +76,7 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                     return
                 }
                 do {
-                    try await Self.saveVideoToPhotos(url)
+                    try await WivraPhotosLibrary.saveVideo(url)
                     replyHandler(["ok": true, "savedToPhotos": true], nil)
                 } catch {
                     replyHandler(nil, error.localizedDescription)
@@ -154,7 +154,28 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         return out
     }
 
-    private static func saveVideoToPhotos(_ url: URL) async throws {
+    @MainActor
+    private static func presentShare(_ url: URL, from webView: WKWebView) -> Bool {
+        var top = webView.window?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        guard let presenter = top else { return false }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        // The owner approved add-only Photos access. The share sheet now offers
+        // Save Video alongside Files and other destinations when iOS supports it.
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = webView
+            popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.maxY - 40, width: 1, height: 1)
+        }
+        presenter.present(sheet, animated: true)
+        return true
+    }
+}
+
+/// Shared add-only Photos action for both the live editor and recovered exports.
+/// It preserves the Wivra copy and never reads the user's photo library.
+@MainActor
+enum WivraPhotosLibrary {
+    static func saveVideo(_ url: URL) async throws {
         guard url.isFileURL, ["mp4", "mov"].contains(url.pathExtension.lowercased()) else {
             throw WivraExportError.io("Fotos solo admite videos MP4 o MOV compatibles.")
         }
@@ -177,19 +198,4 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         }
     }
 
-    @MainActor
-    private static func presentShare(_ url: URL, from webView: WKWebView) -> Bool {
-        var top = webView.window?.rootViewController
-        while let presented = top?.presentedViewController { top = presented }
-        guard let presenter = top else { return false }
-        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        // The owner approved add-only Photos access. The share sheet now offers
-        // Save Video alongside Files and other destinations when iOS supports it.
-        if let popover = sheet.popoverPresentationController {
-            popover.sourceView = webView
-            popover.sourceRect = CGRect(x: webView.bounds.midX, y: webView.bounds.maxY - 40, width: 1, height: 1)
-        }
-        presenter.present(sheet, animated: true)
-        return true
-    }
 }
