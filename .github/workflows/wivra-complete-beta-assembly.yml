@@ -192,6 +192,16 @@ jobs:
             /usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" >/dev/null
           done
           /usr/libexec/PlistBuddy -c "Print :MWDAT:AppLinkURLScheme" "$app/Info.plist" >/dev/null
+          # A signed IPA cannot launch without an executable and bundle identifier.
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          bundle_type=$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$app/Info.plist")
+          test "$bundle_id" = "com.oswhgo.WivraMetaB0"
+          test "$bundle_type" = "APPL"
+          test -s "$app/$executable"
+          for key in CFBundleName CFBundleVersion CFBundleShortVersionString; do
+            /usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" >/dev/null
+          done
           # Byte-for-byte guard against stale editor/assets in the physical iPhone app.
           cmp -s "$app/agentcut.html" ../../../app/dist/agentcut.html
           cmp -s "$app/packs/catalog.json" ../../../app/packs/catalog.json
@@ -215,6 +225,15 @@ jobs:
             /usr/libexec/PlistBuddy -c "Print :$key" /tmp/wivra-beta-compiled-info.plist >/dev/null
           done
           /usr/libexec/PlistBuddy -c "Print :MWDAT:AppLinkURLScheme" /tmp/wivra-beta-compiled-info.plist >/dev/null
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /tmp/wivra-beta-compiled-info.plist)
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' /tmp/wivra-beta-compiled-info.plist)
+          bundle_type=$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' /tmp/wivra-beta-compiled-info.plist)
+          test "$bundle_id" = "com.oswhgo.WivraMetaB0"
+          test "$bundle_type" = "APPL"
+          unzip -Z1 "$ipa" | grep -Fx "Payload/WivraMetaB0.app/$executable"
+          for key in CFBundleName CFBundleVersion CFBundleShortVersionString; do
+            /usr/libexec/PlistBuddy -c "Print :$key" /tmp/wivra-beta-compiled-info.plist >/dev/null
+          done
           unzip -p "$ipa" Payload/WivraMetaB0.app/agentcut.html | cmp -s - ../../../app/dist/agentcut.html
           unzip -p "$ipa" Payload/WivraMetaB0.app/packs/catalog.json | cmp -s - ../../../app/packs/catalog.json
       - name: Generate iPhone unsigned IPA SHA-256 verification manifest
