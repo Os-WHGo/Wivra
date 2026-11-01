@@ -3,6 +3,7 @@ package com.oswhgo.wivra;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
@@ -186,51 +187,28 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
-        // A single native app: same Claude editor plus explicit Meta glasses entry.
-        // Returning from the glasses diagnostics keeps this editor WebView instance.
+        // The existing Editor/Director remains the only offline WebView.
+        // Native capture and LIVE share one simple source-selection entry.
+        // Opening a source is NOT evidence that it has working frames or RTMP.
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
-        Button glasses = new Button(this);
-        glasses.setText("Ray-Ban Meta");
-        glasses.setContentDescription(getString(R.string.connect_glasses_accessibility));
-        glasses.setOnClickListener(v -> launchRayBanCameraFromDirector());
-        // A View can have only one parent. The glasses shortcut belongs to
-        // the horizontal sources row; adding it to shell first crashes startup.
-        Button phone = new Button(this);
-        phone.setText(R.string.phone_camera_open);
-        phone.setContentDescription(getString(R.string.phone_camera_open));
-        phone.setOnClickListener(v -> launchPhoneCameraFromDirector());
-        // These are two capture sources feeding the same one-and-only editor.
-        LinearLayout sources = new LinearLayout(this);
-        sources.setOrientation(LinearLayout.HORIZONTAL);
-        sources.addView(glasses, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        sources.addView(phone, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        shell.addView(sources, new LinearLayout.LayoutParams(
+        Button cameraSources = new Button(this);
+        cameraSources.setText(R.string.source_camera_button);
+        cameraSources.setContentDescription(getString(R.string.source_camera_button));
+        cameraSources.setOnClickListener(v -> showCameraSourceChooser());
+        shell.addView(cameraSources, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
-        // Native RTMP publisher is installed ONLY in the full edition.
-        // No reflection, third-party encoder or LIVE control in Wivra Capture.
+        // Wivra Capture remains camera-only. The LIVE implementation and
+        // Screen MediaProjection are packaged only in the full edition.
         if ("com.oswhgo.wivra".equals(getPackageName())) {
-            Button phoneLive = new Button(this);
-            phoneLive.setText("LIVE · cámara del teléfono");
-            phoneLive.setContentDescription("Transmitir LIVE con consentimiento");
-            phoneLive.setOnClickListener(v -> {
-                Intent live = new Intent();
-                live.setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity");
-                startActivity(live);
-            });
-            shell.addView(phoneLive);
-            Button screenLive = new Button(this);
-            screenLive.setText("LIVE · pantalla o aplicación");
-            screenLive.setContentDescription("Transmitir pantalla o aplicación con permiso del sistema");
-            screenLive.setOnClickListener(v -> {
-                Intent live = new Intent();
-                live.setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity");
-                startActivity(live);
-            });
-            shell.addView(screenLive);
+            Button liveSources = new Button(this);
+            liveSources.setText(R.string.source_live_button);
+            liveSources.setContentDescription(getString(R.string.source_live_button));
+            liveSources.setOnClickListener(v -> showLiveSourceChooser());
+            shell.addView(liveSources, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         }
         shell.addView(editor, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
@@ -242,6 +220,86 @@ public final class MainActivity extends Activity {
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
         editor.loadUrl("file:///android_asset/agentcut.html");
+    }
+
+    // A platform camera feature is only an eligibility hint. CameraX/RootEncoder
+    // must still acquire permissions, open the device and observe real frames.
+    // Never treat this menu as runtime camera readiness or a multicamera test.
+    private boolean hasPhoneCameraHardware() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
+    }
+
+    private void showPhoneCameraUnsupported() {
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.source_unavailable_title)
+            .setMessage(R.string.source_unavailable_body)
+            .setPositiveButton(android.R.string.ok, null)
+            .show();
+    }
+
+    private void showCameraSourceChooser() {
+        final String[] options = {
+            getString(R.string.source_meta_option),
+            getString(R.string.source_phone_option)
+        };
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.source_camera_title)
+            // Android lists and messages share the same content area.
+            // Keep setItems visible and move caveats to a separate dialog.
+            .setItems(options, (dialog, selected) -> {
+                if (selected == 0) {
+                    launchRayBanCameraFromDirector();
+                } else if (hasPhoneCameraHardware()) {
+                    launchPhoneCameraFromDirector();
+                } else {
+                    showPhoneCameraUnsupported();
+                }
+            })
+            .setNeutralButton(R.string.source_limits_button, (dialog, which) ->
+                showSourceLimitations(false))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    private void showSourceLimitations(boolean live) {
+        final int explanation = live
+            ? R.string.source_limits_live : R.string.source_limits_camera;
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.source_limits_title)
+            .setMessage(explanation)
+            .setPositiveButton(android.R.string.ok, null)
+            .show();
+    }
+
+    private void showLiveSourceChooser() {
+        // Keep the same full-edition boundary as AndroidManifest.xml and
+        // the existing LIVE buttons. Wivra Capture must not expose RTMP.
+        if (!"com.oswhgo.wivra".equals(getPackageName())) return;
+        final String[] options = {
+            getString(R.string.source_live_phone_option),
+            getString(R.string.source_live_screen_option)
+        };
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.source_live_title)
+            .setItems(options, (dialog, selected) -> {
+                if (selected == 0) {
+                    if (!hasPhoneCameraHardware()) {
+                        showPhoneCameraUnsupported();
+                        return;
+                    }
+                    Intent live = new Intent();
+                    live.setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity");
+                    startActivity(live);
+                } else {
+                    Intent live = new Intent();
+                    live.setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity");
+                    startActivity(live);
+                }
+            })
+            .setNeutralButton(R.string.source_limits_button, (dialog, which) ->
+                showSourceLimitations(true))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
     }
 
     /**

@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI did not confirm registration after 45 seconds. Check Developer Mode and Meta AI permissions, then retry.</string>
     <string name="meta_registration_required">Link Wivra in Meta AI first. Registration has not been confirmed.</string>
     <string name="meta_registered_no_devices">Meta AI registered Wivra, but no linked glasses were found. Check Bluetooth, range, powered-on glasses, and Developer Mode. Then retry Connect.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Camera · choose source</string>
+    <string name="source_live_button">LIVE · choose source</string>
+    <string name="source_camera_title">Sources → Camera</string>
+    <string name="source_live_title">Sources → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · connect and record</string>
+    <string name="source_phone_option">Phone · front or rear (permission required)</string>
+    <string name="source_live_phone_option">Phone · LIVE front or rear</string>
+    <string name="source_live_screen_option">Screen or app · LIVE with permission</string>
+    <string name="source_unavailable_title">Source unavailable</string>
+    <string name="source_unavailable_body">Android did not detect a phone camera. Ray-Ban Meta connection is checked in its own screen. No recording is guaranteed without a valid file.</string>
+    <string name="source_limits_button">Limitations</string>
+    <string name="source_limits_title">Source capabilities</string>
+    <string name="source_limits_camera">Opening a camera does not confirm a connection. Wivra requests permissions and verifies completed files. PiP and simultaneous dual-camera capture are not enabled yet.</string>
+    <string name="source_limits_live">Screen or app sharing requires Android consent. This route streams video only and does not capture internal audio from other apps. PiP and simultaneous multi-camera use are not enabled yet.</string>
 </resources>

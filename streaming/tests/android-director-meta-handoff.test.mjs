@@ -8,7 +8,8 @@ const meta = get('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraMeta
 const phone = get('streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt');
 
 test('Director-selected script reaches both native capture sources without duplication', () => {
-  assert.match(main, /glasses\.setOnClickListener\(v -> launchRayBanCameraFromDirector\(\)\)/);
+  assert.match(main, /cameraSources\.setOnClickListener\(v -> showCameraSourceChooser\(\)\)/);
+  assert.match(main, /if \(selected == 0\) \{\s*launchRayBanCameraFromDirector\(\)/);
   assert.match(main, /launchCameraFromDirector\(WivraMetaPreviewActivity\.class\)/);
   assert.match(main, /launchCameraFromDirector\(WivraPhoneCameraActivity\.class\)/);
   assert.match(main, /const plan=typeof shootPlan==='object'\?shootPlan:null/);

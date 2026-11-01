@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">45 秒后 Meta AI 仍未确认注册。请检查 Meta AI 的开发者模式与权限，然后重试。</string>
     <string name="meta_registration_required">请先在 Meta AI 中连接 Wivra。注册尚未确认。</string>
     <string name="meta_registered_no_devices">Meta AI 已注册 Wivra，但找不到已关联的眼镜。请检查蓝牙、距离、眼镜电源和开发者模式，然后重试连接。</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">相机 · 选择来源</string>
+    <string name="source_live_button">LIVE · 选择来源</string>
+    <string name="source_camera_title">来源 → 相机</string>
+    <string name="source_live_title">来源 → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · 连接并录制</string>
+    <string name="source_phone_option">手机 · 前置或后置（需要授权）</string>
+    <string name="source_live_phone_option">手机 · 前置或后置 LIVE</string>
+    <string name="source_live_screen_option">屏幕或应用 · 授权后 LIVE</string>
+    <string name="source_unavailable_title">来源不可用</string>
+    <string name="source_unavailable_body">Android未检测到手机摄像头。Ray-Ban Meta连接将在专用界面验证。没有有效文件时不会认定录制完成。</string>
+    <string name="source_limits_button">限制</string>
+    <string name="source_limits_title">来源功能</string>
+    <string name="source_limits_camera">打开相机并不代表连接成功。Wivra会申请权限并验证完成的文件。画中画和双摄像头同时录制尚未启用。</string>
+    <string name="source_limits_live">共享屏幕或应用需要Android系统授权。此功能仅传输视频，不捕获其他应用的内部音频。画中画与多摄像头同时使用尚未启用。</string>
 </resources>

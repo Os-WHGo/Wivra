@@ -18,7 +18,8 @@ test('screen/app capture is FULL only and foreground-service typed for Android 1
   assert.match(fullManifest,/android:exported="false"/);
   assert.doesNotMatch(baseManifest,/WivraScreenLiveService|FOREGROUND_SERVICE_MEDIA_PROJECTION/);
   assert.match(shell,/"com\.oswhgo\.wivra"\.equals\(getPackageName\(\)\)/);
-  assert.match(shell,/LIVE · pantalla o aplicación/);
+  assert.match(shell,/R\.string\.source_live_screen_option/);
+  assert.match(shell,/liveSources\.setOnClickListener\(v -> showLiveSourceChooser\(\)\)/);
   assert.match(shell,/setClassName\(this, "com\.oswhgo\.wivra\.WivraScreenLiveActivity"\)/);
 });
 test('one fresh Android MediaProjection consent controls each LIVE session',()=>{

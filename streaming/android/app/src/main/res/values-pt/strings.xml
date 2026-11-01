@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI não confirmou o registro após 45 segundos. Verifique o Modo de Desenvolvedor e as permissões do Meta AI e tente novamente.</string>
     <string name="meta_registration_required">Primeiro conecte o Wivra pelo Meta AI. O registro ainda não foi confirmado.</string>
     <string name="meta_registered_no_devices">Meta AI registrou o Wivra, mas nenhum óculos vinculado foi encontrado. Verifique Bluetooth, alcance, energia e Modo de Desenvolvedor e tente conectar novamente.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Câmera · escolher fonte</string>
+    <string name="source_live_button">LIVE · escolher fonte</string>
+    <string name="source_camera_title">Fontes → Câmera</string>
+    <string name="source_live_title">Fontes → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · conectar e gravar</string>
+    <string name="source_phone_option">Telefone · frontal ou traseira (requer permissão)</string>
+    <string name="source_live_phone_option">Telefone · LIVE frontal ou traseira</string>
+    <string name="source_live_screen_option">Tela ou aplicativo · LIVE com permissão</string>
+    <string name="source_unavailable_title">Fonte indisponível</string>
+    <string name="source_unavailable_body">Android não detectou câmera no telefone. A conexão Ray-Ban Meta é verificada na tela própria. Não se garante gravação sem arquivo válido.</string>
+    <string name="source_limits_button">Limitações</string>
+    <string name="source_limits_title">Recursos das fontes</string>
+    <string name="source_limits_camera">Abrir a câmera não confirma a conexão. Wivra solicita permissões e verifica arquivos finalizados. PiP e duas câmeras simultâneas ainda não estão disponíveis.</string>
+    <string name="source_limits_live">Compartilhar tela ou aplicativo requer autorização do Android. Esta função transmite apenas vídeo, sem áudio interno de outros aplicativos. PiP e multicâmera simultânea ainda não estão disponíveis.</string>
 </resources>

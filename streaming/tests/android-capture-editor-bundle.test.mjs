@@ -128,10 +128,13 @@ test('CI instrumented emulator launches real offline WebView and validates captu
  assert.match(instrumented,/op\.ops\[1\]\.start===0\.22/);
 });
 
-test('Android MainActivity never attaches the Meta button to two view parents',()=>{
+test('Android MainActivity exposes one real camera source selector without double-parenting',()=>{
  const java=read(dir+'java/com/oswhgo/wivra/MainActivity.java');
- assert.doesNotMatch(java,/shell\.addView\(glasses/);
- assert.match(java,/sources\.addView\(glasses, new LinearLayout\.LayoutParams\(/);
- assert.match(java,/sources\.addView\(phone, new LinearLayout\.LayoutParams\(/);
- assert.match(java,/shell\.addView\(sources, new LinearLayout\.LayoutParams\(/);
+ assert.match(java,/Button cameraSources = new Button\(this\)/);
+ assert.match(java,/shell\.addView\(cameraSources, new LinearLayout\.LayoutParams\(/);
+ assert.match(java,/cameraSources\.setOnClickListener\(v -> showCameraSourceChooser\(\)\)/);
+ assert.match(java,/launchRayBanCameraFromDirector\(\)/);
+ assert.match(java,/launchPhoneCameraFromDirector\(\)/);
+ assert.doesNotMatch(java,/shell\.addView\(glasses|shell\.addView\(phone\)/);
+ assert.equal((java.match(/shell\.addView\(cameraSources/g)||[]).length,1);
 });

@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI ne confirme pas la connexion après 45 secondes. Activez le mode développeur, vérifiez les autorisations Meta AI, puis réessayez.</string>
     <string name="meta_registration_required">Associez d’abord Wivra dans Meta AI. L’inscription n’a pas encore été confirmée.</string>
     <string name="meta_registered_no_devices">Meta AI a enregistré Wivra, mais aucune lunette n’a été détectée. Vérifiez le Bluetooth, la portée, l’alimentation et le mode développeur, puis réessayez.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Caméra · choisir une source</string>
+    <string name="source_live_button">LIVE · choisir une source</string>
+    <string name="source_camera_title">Sources → Caméra</string>
+    <string name="source_live_title">Sources → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · connecter et enregistrer</string>
+    <string name="source_phone_option">Téléphone · avant ou arrière (autorisation requise)</string>
+    <string name="source_live_phone_option">Téléphone · LIVE avant ou arrière</string>
+    <string name="source_live_screen_option">Écran ou application · LIVE avec autorisation</string>
+    <string name="source_unavailable_title">Source indisponible</string>
+    <string name="source_unavailable_body">Android ne détecte aucune caméra du téléphone. La connexion Ray-Ban Meta est vérifiée dans son écran dédié. Aucun enregistrement sans fichier valide.</string>
+    <string name="source_limits_button">Limites</string>
+    <string name="source_limits_title">Capacités des sources</string>
+    <string name="source_limits_camera">Ouvrir une caméra ne confirme pas la connexion. Wivra demande les autorisations et vérifie les fichiers finalisés. PiP et deux caméras simultanées ne sont pas encore disponibles.</string>
+    <string name="source_limits_live">Le partage de l’écran ou des applications exige un accord Android. Cette fonction diffuse uniquement la vidéo, sans audio interne des autres applications. PiP et multicaméra ne sont pas encore disponibles.</string>
 </resources>

@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">45秒経過してもMeta AIで登録が確認されません。Meta AIの開発者モードと権限を確認して再試行してください。</string>
     <string name="meta_registration_required">先にMeta AIでWivraを登録してください。まだ登録が確認されていません。</string>
     <string name="meta_registered_no_devices">Meta AIへのWivra登録は完了しましたが、接続済みのメガネが見つかりません。Bluetooth、距離、電源、開発者モードを確認して再接続してください。</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">カメラ · 入力を選択</string>
+    <string name="source_live_button">LIVE · 入力を選択</string>
+    <string name="source_camera_title">入力 → カメラ</string>
+    <string name="source_live_title">入力 → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · 接続して録画</string>
+    <string name="source_phone_option">スマートフォン · 前面／背面（権限が必要）</string>
+    <string name="source_live_phone_option">スマートフォン · 前面／背面 LIVE</string>
+    <string name="source_live_screen_option">画面またはアプリ · 許可して LIVE</string>
+    <string name="source_unavailable_title">入力を利用できません</string>
+    <string name="source_unavailable_body">Androidでスマートフォンのカメラが見つかりません。Ray-Ban Metaへの接続は専用画面で確認します。有効なファイルがない録画は完了と見なしません。</string>
+    <string name="source_limits_button">制限事項</string>
+    <string name="source_limits_title">入力の機能</string>
+    <string name="source_limits_camera">カメラ画面を開いただけでは接続の確認になりません。Wivraは権限を要求し、完成したファイルを検証します。PiPと2台同時撮影はまだ有効ではありません。</string>
+    <string name="source_limits_live">画面やアプリの共有にはAndroidの許可が必要です。この機能は映像のみ配信し、ほかのアプリの内部音声は収録しません。PiPと複数カメラの同時使用はまだ有効ではありません。</string>
 </resources>

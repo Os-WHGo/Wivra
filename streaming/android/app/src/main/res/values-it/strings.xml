@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI non ha confermato la registrazione dopo 45 secondi. Controlla la modalità sviluppatore e i permessi Meta AI, quindi riprova.</string>
     <string name="meta_registration_required">Collega prima Wivra in Meta AI. La registrazione non è ancora confermata.</string>
     <string name="meta_registered_no_devices">Meta AI ha registrato Wivra, ma non sono stati trovati occhiali collegati. Controlla Bluetooth, distanza, accensione e modalità sviluppatore, poi riprova.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Fotocamera · scegli fonte</string>
+    <string name="source_live_button">LIVE · scegli fonte</string>
+    <string name="source_camera_title">Sorgenti → Fotocamera</string>
+    <string name="source_live_title">Sorgenti → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · connetti e registra</string>
+    <string name="source_phone_option">Telefono · anteriore o posteriore (permesso richiesto)</string>
+    <string name="source_live_phone_option">Telefono · LIVE anteriore o posteriore</string>
+    <string name="source_live_screen_option">Schermo o app · LIVE con permesso</string>
+    <string name="source_unavailable_title">Sorgente non disponibile</string>
+    <string name="source_unavailable_body">Android non rileva una fotocamera del telefono. La connessione Ray-Ban Meta viene verificata nella schermata dedicata. Nessuna registrazione è garantita senza un file valido.</string>
+    <string name="source_limits_button">Limitazioni</string>
+    <string name="source_limits_title">Funzioni delle sorgenti</string>
+    <string name="source_limits_camera">Aprire una fotocamera non conferma la connessione. Wivra richiede i permessi e verifica i file completi. PiP e due fotocamere simultanee non sono ancora attivati.</string>
+    <string name="source_limits_live">La condivisione di schermo o app richiede il consenso Android. Questa funzione trasmette solo video, senza audio interno delle altre app. PiP e multicamera simultanea non sono ancora attivati.</string>
 </resources>
