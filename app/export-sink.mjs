@@ -197,6 +197,9 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
     async finish({ timeoutMs, expectedDurationMs = 0, expectAudio = false } = {}) {
       if (state !== 'open') throw error || new Error('El guardado no está abierto.');
       await chain;
+      // A user may cancel while finish() waits for native chunks. In that case
+      // never begin finalization after abort() has already claimed the session.
+      if (state !== 'open') throw error || new Error('Exportación cancelada antes de finalizar.');
       if (error) throw error;
       if (sentBytes !== receivedBytes) throw new Error('No se escribieron todos los fragmentos grabados.');
       state = 'finishing';
@@ -216,6 +219,9 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
     /** Idempotente. Borra el archivo parcial en el nativo; nunca lanza. */
     async abort(reason = 'cancelled') {
       if (state === 'idle' || state === 'done' || state === 'aborted') { if (state === 'idle') state = 'aborted'; return; }
+      // Native finish may already be verifying/repairing a published recording.
+      // Never race its read/rename/publish with deletion of the underlying file.
+      if (state === 'finishing') return;
       const hadToken = token > 0; state = 'aborted';
       // If begin() is in flight it will abort its newly created native file as
       // soon as the token arrives. There is nothing to address yet.
