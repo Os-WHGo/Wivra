@@ -80,6 +80,10 @@ final class MetaB0Model {
     var lastRecordedSegmentCount = 0
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
     var storageStoppedCapture = false
+    var recordingSignalInterrupted = false
+    // Meta DAT can pause temporarily (e.g., glasses gesture or doffing).
+    // A sustained loss of media samples is NOT a usable long recording.
+    private let maximumDATFrameGapSeconds: CFTimeInterval = 15
     var storageDiagnostic: String {
         WivraCaptureStorageGuard.diagnostic(hevcMbps: measuredCompressedMbps)
     }
@@ -285,6 +289,7 @@ final class MetaB0Model {
         }
         recordingArmed = true
         storageStoppedCapture = false
+        recordingSignalInterrupted = false
         startStorageWatchdog()
         recordingStatus = captureSelectedAudio
             ? "Grabando video HEVC y entrada de audio seleccionada en archivo separado."
@@ -301,6 +306,22 @@ final class MetaB0Model {
                 do { try await Task.sleep(for: .seconds(10)) }
                 catch { return }
                 guard let self, self.recordingArmed, !self.recordingFinishing else { return }
+                // The recorder can be armed while DAT silently freezes or
+                // Meta reports a recoverable .paused state. A brief pause is
+                // allowed to resume; 15 seconds without real frames is not.
+                if let lastFrame = self.lastFrameUptime,
+                   CACurrentMediaTime() - lastFrame >= self.maximumDATFrameGapSeconds {
+                    self.recordingSignalInterrupted = true
+                    if !self.captureSelectedAudio {
+                        self.segmentedRecorder.markTransportInterrupted()
+                    }
+                    // finishRecording() cancels its watchdog. Finalization
+                    // lives in a separate task to avoid cancelling itself.
+                    Task { @MainActor [weak self] in
+                        await self?.finishRecording()
+                    }
+                    return
+                }
                 if WivraCaptureStorageGuard.shouldStopToProtectFiles(
                     availableBytes: WivraCaptureStorageGuard.availableBytes()
                 ) {
@@ -739,6 +760,10 @@ final class MetaB0Model {
                     if state == .stopped &&
                         (self.streamEverActive || wasStopping) {
                         if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingSignalInterrupted = true
+                            if !self.captureSelectedAudio {
+                                self.segmentedRecorder.markTransportInterrupted()
+                            }
                             self.recordingStatus =
                                 "Transmisión Ray-Ban finalizada. Cerrando MOV pendiente."
                             Task { await self.finishRecording() }
@@ -763,6 +788,12 @@ final class MetaB0Model {
                     switch error {
                     case .thermalHot:
                         self.lastErrorWasThermal = true
+                        if self.recordingArmed && !self.recordingFinishing {
+                            self.recordingSignalInterrupted = true
+                            if !self.captureSelectedAudio {
+                                self.segmentedRecorder.markTransportInterrupted()
+                            }
+                        }
                         self.stopPreview()
                     case .batteryLow:
                         self.errorMessage = "Batería de las gafas baja: " + error.localizedDescription
