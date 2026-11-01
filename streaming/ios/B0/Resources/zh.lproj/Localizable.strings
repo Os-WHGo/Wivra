@@ -100,3 +100,7 @@
 "ios.capture.joined_photos" = "将完整视频保存到照片";
 "ios.capture.joined_saved" = "完整视频已保存到照片";
 "ios.capture.retry_join" = "将本次拍摄合并为完整视频";
+
+/* Multipart MOV originals are kept in Wivra, not copied to Photos. */
+"ios.capture.parts_private_gallery" = "原始片段保留在Wivra中。仅将完整视频保存到照片，或重试合并。";
+"ios.capture.share_segment_only" = "仅分享此片段";
