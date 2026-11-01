@@ -79,6 +79,14 @@ final class MetaB0Model {
     // Never present its first file as though it were the entire recording.
     var lastRecordedSegmentCount = 0
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
+    var storageStoppedCapture = false
+    var storageDiagnostic: String {
+        WivraCaptureStorageGuard.diagnostic(hevcMbps: measuredCompressedMbps)
+    }
+    var storageNeedsAttention: Bool {
+        guard let free = WivraCaptureStorageGuard.availableBytes() else { return true }
+        return free < 1024 * 1024 * 1024
+    }
     // Default to the lowest-risk Meta DAT path: uninterrupted HEVC-only
     // capture. Audio sidecar stays opt-in with explicit route preflight.
     // Never open HFP/SCO implicitly alongside glasses video streaming.
@@ -101,6 +109,7 @@ final class MetaB0Model {
     private let audioSidecar = WivraAudioSidecar()
     private let clipRecorder = WivraHEVCRecorder()
     private let segmentedRecorder = WivraSegmentedHEVCRecorder()
+    private var storageWatchdog: Task<Void, Never>?
     private var audioRouteObserver: NSObjectProtocol?
 
     private let wearables: any WearablesInterface
@@ -226,6 +235,14 @@ final class MetaB0Model {
 
     func beginRecording() {
         guard canRecord && !recordingArmed else { return }
+        // Check actual writable volume BEFORE resetting the last finished take
+        // or creating CAF/MOV writers. Do not pretend space is unlimited.
+        let free = WivraCaptureStorageGuard.availableBytes()
+        guard WivraCaptureStorageGuard.mayStart(availableBytes: free) else {
+            recordingStatus = NSLocalizedString("ios.capture.storage_insufficient_start",
+                                                comment: "")
+            return
+        }
         lastRecordedURL = nil
         lastRecordedSegmentCount = 0
         lastSeparateAudioURL = nil
@@ -262,13 +279,42 @@ final class MetaB0Model {
             return
         }
         recordingArmed = true
+        storageStoppedCapture = false
+        startStorageWatchdog()
         recordingStatus = captureSelectedAudio
             ? "Grabando video HEVC y entrada de audio seleccionada en archivo separado."
             : "Grabando solo video HEVC, sin audio."
     }
 
+    // Watch the same local volume used by the HEVC recorder while capture
+    // is active, independently of SwiftUI rendering. iOS may suspend this
+    // task when backgrounded; no locked-screen continuity is guaranteed.
+    private func startStorageWatchdog() {
+        storageWatchdog?.cancel()
+        storageWatchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(10)) }
+                catch { return }
+                guard let self, self.recordingArmed, !self.recordingFinishing else { return }
+                if WivraCaptureStorageGuard.shouldStopToProtectFiles(
+                    availableBytes: WivraCaptureStorageGuard.availableBytes()
+                ) {
+                    self.storageStoppedCapture = true
+                    // Finalize in a separate task: finishRecording cancels the
+                    // watchdog, so it must not cancel its own finalizer.
+                    Task { @MainActor [weak self] in
+                        await self?.finishRecording()
+                    }
+                    return
+                }
+            }
+        }
+    }
+
     func finishRecording() async {
         guard recordingArmed && !recordingFinishing else { return }
+        storageWatchdog?.cancel()
+        storageWatchdog = nil
         // Request bounded execution time for MOV/CAF finalization when the
         // user locks the phone while stopping. This is not permission to
         // record indefinitely in the background.

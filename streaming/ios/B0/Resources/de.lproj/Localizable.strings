@@ -83,3 +83,11 @@
 "ios.capture.segments_in_library_instruction" = "Beende die Sitzung und öffne Meine Aufnahmen, um Clips einzeln in Fotos zu sichern, oder füge sie in Director zusammen und exportiere ein vollständiges Video.";
 "ios.capture.share_first_segment" = "Nur erstes Segment teilen";
 "ios.capture.individual_segment" = "Teil %d dieser Aufnahme (MOV); weitere Teile prüfen.";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "Verfügbarer Speicher: %@.";
+"ios.capture.storage_unknown" = "Freier Speicher nicht prüfbar. Prüfe den Speicher vor der Aufnahme.";
+"ios.capture.storage_insufficient_start" = "Zu wenig Speicher für eine sichere Aufnahme: mindestens 512 MB freigeben.";
+"ios.capture.storage_minutes_estimate" = "Etwa %d Min. bei gemessener HEVC-Datenrate, ohne Audio, Qualitätswechsel und Kopien.";
+"ios.capture.storage_export_reserve" = "Zusammenfügen, Export und Fotos benötigen zusätzlichen Speicher; diese Schätzung garantiert keinen Export.";
+"ios.capture.storage_stopped" = "Lokale Aufnahme wegen Speichermangel beendet. Wiederherstellbare Teile behalten und Speicher freigeben.";

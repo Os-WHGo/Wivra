@@ -83,3 +83,11 @@
 "ios.capture.segments_in_library_instruction" = "结束会话后打开“我的拍摄”，将各片段分别保存到照片，或在 Director 中合并并导出完整视频。";
 "ios.capture.share_first_segment" = "仅分享第一个片段";
 "ios.capture.individual_segment" = "本次拍摄第 %d 部分（MOV），请确认是否还有其他部分。";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "可用存储空间：%@。";
+"ios.capture.storage_unknown" = "无法确认剩余空间。录制前请检查存储容量。";
+"ios.capture.storage_insufficient_start" = "安全录制所需空间不足，请至少释放512 MB。";
+"ios.capture.storage_minutes_estimate" = "按当前观测到的HEVC码率估算约%d分钟，不含音频、画质变化或副本。";
+"ios.capture.storage_export_reserve" = "合并、导出或保存到照片需要额外空间；此估算不保证导出成功。";
+"ios.capture.storage_stopped" = "存储空间不足，已停止本地录制。请保留可恢复片段并释放空间。";

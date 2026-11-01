@@ -83,3 +83,11 @@
 "ios.capture.segments_in_library_instruction" = "セッションを終了して「マイキャプチャ」を開き、各クリップを個別に写真へ保存するか、Directorで結合して動画全体を書き出してください。";
 "ios.capture.share_first_segment" = "最初のセグメントのみ共有";
 "ios.capture.individual_segment" = "撮影のパート %d（MOV）。ほかのパートがあるか確認してください。";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "利用可能な容量: %@。";
+"ios.capture.storage_unknown" = "空き容量を確認できません。録画前にストレージを確認してください。";
+"ios.capture.storage_insufficient_start" = "安全な録画に必要な容量が不足しています。少なくとも512 MBを空けてください。";
+"ios.capture.storage_minutes_estimate" = "観測HEVCレートで約%d分。音声、画質変化、コピーは含みません。";
+"ios.capture.storage_export_reserve" = "結合、書き出し、写真への保存には追加容量が必要です。この推定は書き出し成功を保証しません。";
+"ios.capture.storage_stopped" = "空き容量不足のため端末内の録画を停止しました。復旧可能なパートを残し、空きを増やしてください。";
