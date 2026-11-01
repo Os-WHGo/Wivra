@@ -701,6 +701,9 @@ private struct WivraPendingRecordingReviewScreen: View {
 private struct WivraNativeExportLibraryScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exports: [WivraSavedExport] = []
+    @State private var savingPhoto: String?
+    @State private var savedToPhotos = Set<String>()
+    @State private var photosError: String?
 
     private func reload() async {
         exports = await WivraExportStore.shared.listSavedExports()
@@ -727,6 +730,25 @@ private struct WivraNativeExportLibraryScreen: View {
                                 Label("ios.exports.share", systemImage: "square.and.arrow.up")
                             }
                             .accessibilityIdentifier("wivra_export_library_share")
+                            if video.url.pathExtension.lowercased() == "mp4" {
+                                Button {
+                                    savingPhoto = video.id
+                                    Task { @MainActor in
+                                        do {
+                                            try await WivraPhotosLibrary.saveVideo(video.url)
+                                            savedToPhotos.insert(video.id)
+                                        } catch {
+                                            photosError = error.localizedDescription
+                                        }
+                                        savingPhoto = nil
+                                    }
+                                } label: {
+                                    Label(savedToPhotos.contains(video.id) ? "ios.exports.saved_photos" : "ios.exports.save_photos",
+                                          systemImage: "square.and.arrow.down")
+                                }
+                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id))
+                                .accessibilityIdentifier("wivra_export_library_save_photos")
+                            }
                         }
                         .padding(.vertical, 4)
                     }
@@ -740,6 +762,14 @@ private struct WivraNativeExportLibraryScreen: View {
                 }
             }
             .task { await reload() }
+            .alert("ios.exports.photos_error", isPresented: Binding(
+                get: { photosError != nil },
+                set: { if !$0 { photosError = nil } }
+            )) {
+                Button("OK", role: .cancel) { photosError = nil }
+            } message: {
+                Text(photosError ?? "")
+            }
         }
     }
 }
