@@ -100,3 +100,7 @@
 "ios.capture.joined_photos" = "Salva il video completo in Foto";
 "ios.capture.joined_saved" = "Video completo salvato in Foto";
 "ios.capture.retry_join" = "Unisci questa ripresa completa";
+
+/* Multipart MOV originals are kept in Wivra, not copied to Photos. */
+"ios.capture.parts_private_gallery" = "I segmenti restano in Wivra. Salva in Foto solo il video completo o riprova a unirli.";
+"ios.capture.share_segment_only" = "Condividi solo questo segmento";
