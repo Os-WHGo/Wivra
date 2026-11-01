@@ -7,7 +7,7 @@ import { crc32 as zlibCrc } from 'node:zlib';
 import {
   crc32Update, bytesToBase64, encodeExportFrame, EXPORT_FRAME_MAGIC, EXPORT_FRAME_HEADER,
   createProgressiveExportSink, androidExportHost, iosExportHost, detectExportHost, nativeExportAvailable,
-  EXPORT_SINK_MAX_QUEUED_BYTES,
+  EXPORT_SINK_MAX_QUEUED_BYTES, saveExportToPhotos,
 } from '../export-sink.mjs';
 import { exportMemoryRisk, exportEstimatedBytes } from '../export.mjs';
 
@@ -218,3 +218,28 @@ test('duplicated, lost or reordered acknowledgements stop the export and keep no
   }
 });
 
+
+test('iOS direct Photos save uses native versioned request for the verified token', async () => {
+  const messages = [];
+  const host = iosExportHost({ postMessage: async (m) => {
+    messages.push(m);
+    return { ok: true, savedToPhotos: true };
+  } });
+  assert.deepEqual(await saveExportToPhotos(host, 42), { ok: true, savedToPhotos: true });
+  assert.deepEqual(messages, [{ version: 1, op: 'savePhotos', token: 42 }]);
+});
+
+test('Photos save rejects invalid tokens, other platforms and native permission errors', async () => {
+  const messages = [];
+  const host = iosExportHost({ postMessage: async (m) => {
+    messages.push(m);
+    return Promise.reject(new Error('Permiso para añadir videos a Fotos denegado.'));
+  } });
+  await assert.rejects(saveExportToPhotos(host, 0), /sesión válida/);
+  await assert.rejects(saveExportToPhotos(host, -1), /sesión válida/);
+  await assert.rejects(saveExportToPhotos(host, 1.2), /sesión válida/);
+  await assert.rejects(saveExportToPhotos({ platform: 'android', request() { throw new Error('must not call'); } }, 42), /solo está disponible en iPhone/);
+  assert.equal(messages.length, 0);
+  await assert.rejects(saveExportToPhotos(host, 42), /Permiso para añadir videos/);
+  assert.equal(messages.length, 1);
+});
