@@ -151,9 +151,14 @@ jobs:
         run: |
           xcodebuild -version
           brew install xcodegen
-      - name: Generate iOS Wivra project
+      - name: Generate iOS Wivra project without rewriting privacy declarations
         working-directory: streaming/ios/B0
-        run: xcodegen generate
+        run: |
+          set -eu
+          xcodegen generate
+          # XcodeGen info.path used to silently regenerate Info.plist with no privacy keys.
+          # The checked-in plist must remain the single source of truth.
+          git diff --exit-code -- Info.plist
       - name: Resolve official Meta Wearables packages
         working-directory: streaming/ios/B0
         run: xcodebuild -resolvePackageDependencies -project WivraMetaB0.xcodeproj -scheme WivraMetaB0
@@ -181,6 +186,12 @@ jobs:
           app=.build/Build/Products/Debug-iphoneos/WivraMetaB0.app
           test -s "$app/agentcut.html"
           test -s "$app/packs/catalog.json"
+          # Inspect the COMPILED plist, not just the checked-in source.
+          # Without these permissions, iOS terminates the app when accessing hardware/Photos.
+          for key in CFBundleDisplayName NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryAddUsageDescription NSBluetoothAlwaysUsageDescription NSLocalNetworkUsageDescription UIBackgroundModes CFBundleURLTypes; do
+            /usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" >/dev/null
+          done
+          /usr/libexec/PlistBuddy -c "Print :MWDAT:AppLinkURLScheme" "$app/Info.plist" >/dev/null
           # Byte-for-byte guard against stale editor/assets in the physical iPhone app.
           cmp -s "$app/agentcut.html" ../../../app/dist/agentcut.html
           cmp -s "$app/packs/catalog.json" ../../../app/packs/catalog.json
