@@ -66,28 +66,18 @@ enum WivraSegmentedCaptureJoiner {
 
         let destination = folder.appendingPathComponent(prefix + "_complete.mov")
         let fm = FileManager.default
-        // Keep a previous successfully built take rather than overwriting it.
-        if fm.fileExists(atPath: destination.path) {
-            guard let media = await WivraMp4Repair.inspect(destination),
-                  media.video && media.durationMs > 0 else {
-                throw WivraSegmentJoinError.outputInvalid
-            }
-            _ = try WivraCaptureManifest.write(
-                videoURL: destination, tracks: [], mergedURL: nil,
-                cameraSource: "meta-dat-hevc-joined"
+        let existingOutput = fm.fileExists(atPath: destination.path)
+        // Remux writes a second full video. On retry, an existing output is
+        // checked against ALL source durations before it can be reused.
+        if !existingOutput {
+            let (needed, overflow) = sourceBytes.addingReportingOverflow(
+                WivraCaptureStorageGuard.minimumStartBytes
             )
-            return destination
-        }
-
-        // Pass-through remux still writes a second full video. It MUST NOT
-        // consume the space reserved for iOS or safe MOV finalization.
-        let (needed, overflow) = sourceBytes.addingReportingOverflow(
-            WivraCaptureStorageGuard.minimumStartBytes
-        )
-        guard !overflow,
-              let free = WivraCaptureStorageGuard.availableBytes(),
-              free > needed else {
-            throw WivraSegmentJoinError.insufficientSpace
+            guard !overflow,
+                  let free = WivraCaptureStorageGuard.availableBytes(),
+                  free > needed else {
+                throw WivraSegmentJoinError.insufficientSpace
+            }
         }
         let composition = AVMutableComposition()
         guard let outputTrack = composition.addMutableTrack(
@@ -125,6 +115,30 @@ enum WivraSegmentedCaptureJoiner {
             )
             cursor = CMTimeAdd(cursor, duration)
         }
+        let expectedMs = CMTimeGetSeconds(cursor) * 1000
+        guard expectedMs.isFinite && expectedMs > 0 else {
+            throw WivraSegmentJoinError.outputInvalid
+        }
+        // A prior output may be partially written despite having video frames.
+        // Never equate nonzero duration with a complete recording.
+        if existingOutput {
+            let existingValues = try? destination.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            )
+            guard existingValues?.isRegularFile == true,
+                  existingValues?.isSymbolicLink != true,
+                  let existingMedia = await WivraMp4Repair.inspect(destination),
+                  existingMedia.video,
+                  abs(Double(existingMedia.durationMs) - expectedMs)
+                      <= max(2000, expectedMs * 0.02) else {
+                throw WivraSegmentJoinError.outputInvalid
+            }
+            _ = try WivraCaptureManifest.write(
+                videoURL: destination, tracks: [], mergedURL: nil,
+                cameraSource: "meta-dat-hevc-joined"
+            )
+            return destination
+        }
 
         let temporary = folder.appendingPathComponent(prefix + "_joining.mov")
         // Only our own incomplete DERIVED output may be replaced on retry.
@@ -149,10 +163,10 @@ enum WivraSegmentedCaptureJoiner {
               media.video && media.durationMs > 0 else {
             throw exporter.error ?? WivraSegmentJoinError.outputInvalid
         }
-        let expectedMs = CMTimeGetSeconds(cursor) * 1000
-        guard expectedMs.isFinite && expectedMs > 0,
-              abs(Double(media.durationMs) - expectedMs) <= max(2000, expectedMs * 0.02)
-        else { throw WivraSegmentJoinError.outputInvalid }
+        guard abs(Double(media.durationMs) - expectedMs)
+                  <= max(2000, expectedMs * 0.02) else {
+            throw WivraSegmentJoinError.outputInvalid
+        }
 
         // A same-volume move publishes only a fully verified derived MOV.
         guard !fm.fileExists(atPath: destination.path) else {
