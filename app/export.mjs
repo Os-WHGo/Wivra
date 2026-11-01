@@ -527,6 +527,15 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
     }
   }
+  // Cancellation requested from the UI while native begin() was pending must
+  // not go on to decode overlays or start MediaRecorder after that request.
+  if (isCancelled()) {
+    if (sink) await sink.abort('cancelled-before-recorder');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return { cancelled: true };
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
@@ -551,15 +560,16 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   }
   oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
   const overlayPreflight = exportOverlayPreflight(project, oList.map(o => o.c.id));
-  if (overlayPreflight.overlayBlocked && !allowIncompleteOverlay) {
+  if (isCancelled() || (overlayPreflight.overlayBlocked && !allowIncompleteOverlay)) {
     // Return BEFORE constructing MediaRecorder. If native export already opened
-    // a pending row, abort it; never publish a video with an unnoticed lost layer.
-    if (sink) await sink.abort('missing-overlay');
+    // a pending row, abort it; never publish a canceled or visually incomplete file.
+    const cancelledBeforeRecorder = isCancelled();
+    if (sink) await sink.abort(cancelledBeforeRecorder ? 'cancelled-before-recorder' : 'missing-overlay');
     stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
     oList.forEach(o => { try { o.el.pause?.(); } catch {} try { o.el.remove?.(); } catch {} });
     ev.remove();
     try { if (ac) await ac.close(); } catch {}
-    return overlayPreflight;
+    return cancelledBeforeRecorder ? { cancelled: true } : overlayPreflight;
   }
   const overlayTick = (t) => {
     const draw = [];
