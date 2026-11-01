@@ -49,7 +49,13 @@ test('undecided damaged video tickets cannot leak into Photos or native catalog'
   assert.ok(fn, 'consent gate must exist');
   assert.match(fn, /if pending\(\)\.contains\(where: \{ \$0\.files\.contains\(name\) \}\) \{ return true \}/);
   assert.match(fn, /FileManager\.default\.contentsOfDirectory\(atPath: folder\.path\)/);
-  assert.match(fn, /markerNames\.contains\(name \+ suffix\)/);
-  assert.match(fn, /"_part0001\.mov" \+ suffix/);
-  assert.match(fn, /else \{ return true \} \/\/ Fail closed/);
+  assert.match(fn, /return hasUndecidedTicket\(forVideo: name, markerNames: Set\(entries\)\)/);
+  assert.match(fn, /else \{ return true \}/);
+  const matcher = pending.split('private static func hasUndecidedTicket(')[1]
+    ?.split('static func isPendingVideo')[0];
+  assert.ok(matcher, 'raw ticket matcher must exist');
+  assert.match(matcher, /markerNames\.contains\(name \+ suffix\)/);
+  assert.match(matcher, /ticket\.hasPrefix\(groupPrefix\), ticket\.hasSuffix\(ticketEnding\)/);
+  assert.match(matcher, /index\.count == 4 && index\.allSatisfy/);
+  assert.match(pending, /!hasUndecidedTicket\(forVideo: first\.lastPathComponent, markerNames: markerNames\)/);
 });
