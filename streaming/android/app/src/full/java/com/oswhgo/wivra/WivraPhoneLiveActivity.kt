@@ -53,11 +53,15 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var preview: SurfaceView
     private lateinit var endpointInput: EditText
     private lateinit var micOption: CheckBox
+    private lateinit var localCopyOption: CheckBox
+    private lateinit var storageHint: TextView
     private lateinit var status: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private var stream: RtmpStream? = null
     private var pendingFile: File? = null
+    private var saveLocalCopy = false
+    private var localCopyFinalized = false
     private var prepared = false
     private var stopping = false
     private var liveRequested = false
@@ -69,10 +73,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private val storageCheck = object : Runnable {
         override fun run() {
             if (!initiatedByUser || stopping) return
-            if (applicationContext.filesDir.usableSpace < minFreeBytes) {
-                setStatus("Espacio bajo. Deteniendo LIVE para conservar el MP4 local.")
-                stopAndReview()
-            } else storageHandler.postDelayed(this, 10_000L)
+            // A full phone must not end an otherwise healthy network LIVE.
+            // Stop ONLY the optional local muxer and leave RTMP untouched.
+            if (saveLocalCopy && stream?.isRecording == true &&
+                applicationContext.filesDir.usableSpace < minFreeBytes) {
+                finishLocalCopyForLowStorage()
+            }
+            storageHandler.postDelayed(this, 10_000L)
         }
     }
 
@@ -132,6 +139,21 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             isChecked = false
         }
         root.addView(micOption)
+        localCopyOption = CheckBox(this).apply {
+            text = "Guardar también una copia MP4 local (opcional)"
+            isChecked = true // Keep the previous safe default until user opts out.
+        }
+        root.addView(localCopyOption)
+        storageHint = TextView(this).apply { textSize = 13f }
+        root.addView(storageHint)
+        root.addView(TextView(this).apply {
+            text = "LIVE largo: comprueba que tu plataforma conserve el VOD. " +
+                "YouTube/Twitch/Kick/TikTok no garantizan un archivo automático. " +
+                "Grabar localmente consume espacio adicional para cerrar y exportar. " +
+                "Mantén batería suficiente y vigila la temperatura."
+        })
+        localCopyOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
+        micOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
         status = TextView(this).apply {
             text = "LIVE desconectado. No se ha emitido ningún video."
             textSize = 15f
@@ -143,7 +165,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { requestLive() }
         }
         stopButton = Button(this).apply {
-            text = "Detener y revisar MP4"
+            text = "Detener LIVE y revisar copia opcional"
             isEnabled = false
             setOnClickListener { stopAndReview() }
         }
@@ -165,6 +187,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { finish() }
         })
         setContentView(root)
+        updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 if (prepared && !stopping && stream?.isOnPreview != true) {
@@ -191,6 +214,46 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun setStatus(message: String) {
         runOnUiThread { if (!isFinishing && !isDestroyed) status.text = message }
+    }
+
+    private fun updateStorageHint() {
+        if (!::storageHint.isInitialized) return
+        val free = applicationContext.filesDir.usableSpace
+        val mb = free / (1024 * 1024)
+        storageHint.text = if (localCopyOption.isChecked) {
+            val reserve = (free - minFreeBytes).coerceAtLeast(0L)
+            // Estimated from the configured 1.2 Mbps H264 stream + optional
+            // 64 kbps audio. VBR, mux indexes, exports and Photos need more.
+            val bitrate = 1_200_000.0 + if (micOption.isChecked) 64_000.0 else 0.0
+            val estimatedMinutes = (reserve.toDouble() * 8.0 / bitrate / 60.0).toLong()
+            "Espacio local: $mb MiB. Estimación para copia MP4: " +
+                "$estimatedMinutes min, no garantizados; la exportación requiere espacio extra."
+        } else {
+            "Solo LIVE: no se creará MP4 local. Comprueba antes el archivo/VOD " +
+                "de la plataforma; Wivra no puede garantizarlo. Espacio: $mb MiB."
+        }
+    }
+
+    private fun finishLocalCopyForLowStorage() {
+        val publisher = stream ?: return
+        if (!saveLocalCopy || !publisher.isRecording) return
+        // RootEncoder exposes independent recording and RTMP states.
+        // Never call stopStream() from the local-storage watchdog.
+        val closed = runCatching { publisher.stopRecord(); true }.getOrDefault(false)
+        localCopyFinalized = closed
+        saveLocalCopy = false
+        if (publisher.isStreaming) {
+            setStatus(if (closed)
+                "Espacio crítico: copia MP4 local cerrada. LIVE continúa. " +
+                    "Libera espacio y revisa el archivo al terminar."
+            else "Espacio crítico: cierre MP4 sin verificar. LIVE sigue si el " +
+                    "servidor continúa conectado; revisa el original privado."
+            )
+        } else {
+            setStatus("Espacio crítico: no hay RTMP activo. Revisa la copia MP4 " +
+                "y activa VOD en la plataforma antes de otra emisión.")
+        }
+        updateStorageHint()
     }
 
     private fun preparePreview() {
