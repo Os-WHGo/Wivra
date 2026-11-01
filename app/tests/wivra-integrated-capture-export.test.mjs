@@ -138,3 +138,17 @@ test('saved exports native controls are translated in every supported iOS langua
     }
   }
 });
+
+
+test('overlay loss cannot silently enter final export and requires one-export consent', () => {
+  const template = read('../template.html');
+  const exporter = read('../export.mjs');
+  assert.match(template, /id="expAllowOverlayGaps"/);
+  assert.match(template, /\$\('expAllowOverlayGaps'\)\.checked = false/);
+  assert.match(template, /allowIncompleteOverlay: \$\('expAllowOverlayGaps'\)\.checked/);
+  assert.match(template, /if \(r\.overlayBlocked\)/);
+  assert.match(exporter, /overlayPreflight\.overlayBlocked && !allowIncompleteOverlay/);
+  assert.match(exporter, /await sink\.abort\('missing-overlay'\)/);
+  assert.ok(exporter.indexOf("if (overlayPreflight.overlayBlocked && !allowIncompleteOverlay)") <
+    exporter.indexOf("rec = new MediaRecorder(stream"), 'overlay preflight must happen before starting recording');
+});
