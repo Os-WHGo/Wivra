@@ -208,3 +208,12 @@ export function createProgressiveExportSink(host, { mime = '', ext = '', estimat
 export function shareSavedExport(host, token) {
   return host.request({ op: 'share', token });
 }
+
+/** Guarda directamente en Fotos en iOS, sin abrir la hoja Compartir.
+ * Requiere un token de exportación finalizada y verificada; nunca solicita acceso de lectura.
+ * En Android el usuario puede usar el guardado nativo MediaStore existente. */
+export function saveExportToPhotos(host, token) {
+  if (!host || host.platform !== 'ios') return Promise.reject(new Error('Guardar en Fotos directamente solo está disponible en iPhone.'));
+  if (!Number.isInteger(token) || token <= 0) return Promise.reject(new Error('La exportación no tiene una sesión válida.'));
+  return host.request({ op: 'savePhotos', token });
+}
