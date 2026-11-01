@@ -165,7 +165,7 @@ object WivraExportStore {
         val done = repaired
         val result = if (done != null) {
             Saved(done.uri, done.displayName, done.bytes, diskCrc, item.session.mime, diskBytes, diskCrc,
-                runCatching { WivraExportFinalizer.inspect(context, done.uri, item.session.mime) }.getOrNull(), done.method)
+                inspectAfterPublish(context, done.uri, item.session.mime, repaired = true), done.method)
         } else {
             val visible = ContentValues().apply {
                 put(MediaStore.Video.Media.IS_PENDING, 0)
@@ -176,10 +176,31 @@ object WivraExportStore {
                 throw IOException("No se pudo publicar el video en la galería.")
             }
             Saved(item.uri, item.finalName, diskBytes, diskCrc, item.session.mime, diskBytes, diskCrc,
-                runCatching { WivraExportFinalizer.inspect(context, item.uri, item.session.mime) }.getOrNull(), "none", note)
+                inspectAfterPublish(context, item.uri, item.session.mime, repaired = false), "none", note)
         }
         saved[token] = Finished(result, item.owner)
         return result
+    }
+
+
+    /**
+     * Android may expose a newly published MediaStore item before its metadata retriever
+     * can read the duration. Retry only verified, repaired videos on the bridge's IO thread.
+     * The file remains published if device metadata is still unavailable: never invent
+     * a playable duration or label unknown metadata as validated.
+     */
+    private fun inspectAfterPublish(context: Context, uri: Uri, mime: String, repaired: Boolean): WivraExportFinalizer.Media? {
+        if (!repaired) return runCatching { WivraExportFinalizer.inspect(context, uri, mime) }.getOrNull()
+        repeat(4) { attempt ->
+            val media = runCatching { WivraExportFinalizer.inspect(context, uri, mime) }.getOrNull()
+            if (media != null && media.video && media.durationMs > 0 &&
+                (media.container != "webm" || (media.declaresDuration && media.seekIndex))) return media
+            if (attempt < 3) {
+                try { Thread.sleep(100L * (attempt + 1)) }
+                catch (_: InterruptedException) { Thread.currentThread().interrupt(); return null }
+            }
+        }
+        return null
     }
 
     private class Repaired(val uri: Uri, val displayName: String, val bytes: Long, val method: String)
