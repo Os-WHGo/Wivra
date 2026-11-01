@@ -57,7 +57,8 @@ test('measured compressed HEVC rate creates only an explicitly approximate durat
   assert.match(app, /model\.storageDiagnostic/);
   assert.match(app, /meta_b1_storage_estimate/);
   assert.match(app, /ios\.capture\.storage_export_reserve/);
-  assert.doesNotMatch(guard, /guarantee|unlimited duration/);
+  // The warning explicitly distinguishes HEVC payload from export requirements.
+  assert.match(guard, /audio, Photos copies, a merged export or temporary files/);
 });
 
 test('all eight iOS locales have consistent on-device warnings and placeholder types', () => {
