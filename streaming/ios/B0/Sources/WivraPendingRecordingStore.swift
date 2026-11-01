@@ -269,8 +269,15 @@ enum WivraPendingRecordingStore {
                     $0.deletingPathExtension().appendingPathExtension("wivra.json").path)
             }
             if allManifested { continue }
-            let related = sorted.flatMap {
+            var related = sorted.flatMap {
                 [$0, $0.deletingPathExtension().appendingPathExtension("wivra.json")]
+            }
+            // A stop() receipt, when available, belongs to the SAME
+            // consent decision even after relaunch. Absence means unknown,
+            // not permission to join or publish a partial recording.
+            if let receipt = WivraSegmentedTakeReceipt.fileURL(for: first),
+               markerNames.contains(receipt.lastPathComponent) {
+                related.append(receipt)
             }
             if (try? stage(videoURL: first, related: related)) != nil {
                 recovered += 1
