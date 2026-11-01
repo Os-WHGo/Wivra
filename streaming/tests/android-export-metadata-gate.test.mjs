@@ -21,7 +21,10 @@ test('repaired media retries metadata on IO without inventing a playable duratio
 });
 
 test('bridge exposes unknown inspection status rather than asserting a playable video', () => {
-  assert.match(bridge, /androidMediaInspection", if \(saved\.media == null\) "unverified" else "available"/);
+  assert.match(bridge, /androidMediaInspection", if \(saved\.media\?\.let/);
+  assert.match(bridge, /m\.video && m\.durationMs > 0/);
+  assert.match(bridge, /m\.declaresDuration && m\.seekIndex/);
+  assert.match(bridge, /"available" else "unverified"/);
   assert.match(bridge, /saved\.media\?\.let/);
   assert.doesNotMatch(bridge, /"durationMs", 60000|"video", true/);
 });
