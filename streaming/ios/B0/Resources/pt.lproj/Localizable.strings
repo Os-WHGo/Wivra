@@ -105,3 +105,4 @@
 "ios.capture.parts_private_gallery" = "Os segmentos ficam no Wivra. Salve apenas o vídeo completo em Fotos ou tente uni-los novamente.";
 "ios.capture.share_segment_only" = "Compartilhar apenas este segmento";
 "ios.capture.take_not_finalized" = "Não foi possível confirmar que a gravação está completa. Os segmentos ficam no Wivra, sem união automática ou publicação em Fotos.";
+"ios.capture.dat_signal_interrupted" = "O sinal de vídeo Ray-Ban foi interrompido. A gravação foi encerrada para proteger os arquivos. Os segmentos podem estar incompletos.";

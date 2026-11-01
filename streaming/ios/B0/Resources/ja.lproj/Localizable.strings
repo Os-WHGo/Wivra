@@ -105,3 +105,4 @@
 "ios.capture.parts_private_gallery" = "元のセグメントはWivraに残ります。写真には完成した動画だけを保存するか、再結合を試してください。";
 "ios.capture.share_segment_only" = "このセグメントのみ共有";
 "ios.capture.take_not_finalized" = "撮影全体の完了を確認できません。セグメントはWivraに保持され、自動結合や写真への公開は行いません。";
+"ios.capture.dat_signal_interrupted" = "Ray-Banの映像信号が途切れたため、ファイル保護のため録画を終了しました。セグメントが不完全な場合があります。書き出し前に確認してください。";
