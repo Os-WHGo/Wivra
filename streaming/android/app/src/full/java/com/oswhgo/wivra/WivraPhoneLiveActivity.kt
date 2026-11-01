@@ -419,7 +419,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             startButton.isEnabled = prepared && !isFinishing && !mediaBusy
             stopButton.isEnabled = false
             micOption.isEnabled = true
+            localCopyOption.isEnabled = true
             endpointInput.isEnabled = true
+            updateStorageHint()
         }
     }
 
@@ -432,26 +434,30 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val publisher = stream
         val file = pendingFile
         pendingFile = null
+        val alreadyFinalized = localCopyFinalized
+        localCopyFinalized = false
         runCatching { if (publisher?.isStreaming == true) publisher.stopStream() }
-        // MP4 is only usable after RootEncoder's MediaMuxer.stop().
-        val muxerClosed = runCatching {
-            if (publisher?.isRecording == true) {
-                // stopRecord() may return false when a SECOND encoder setup
-                // fails after MediaMuxer.stop() already finalized the file.
-                // Verify actual MP4 bytes separately before offering Save.
+        // A local muxer is optional. Never invent a recording for LIVE-only.
+        val muxerClosed = if (publisher?.isRecording == true) {
+            runCatching {
                 publisher.stopRecord()
                 true
-            } else false
-        }.getOrDefault(false)
+            }.getOrDefault(false)
+        } else alreadyFinalized
+        saveLocalCopy = false
         initiatedByUser = false
         stopping = false
         controlsIdle()
-        if (file != null && muxerClosed) {
-            reviewFile(file)
-        } else {
-            // Never silently discard a potentially salvageable video.
-            setStatus("LIVE detenido. El último archivo no se pudo certificar. " +
-                "Cualquier archivo parcial sigue privado.")
+        when {
+            file != null && muxerClosed -> reviewFile(file)
+            file != null -> setStatus(
+                "LIVE detenido. La copia local no pudo certificarse; " +
+                "el archivo parcial permanece privado para recuperarlo."
+            )
+            else -> setStatus(
+                "LIVE detenido. No se creó copia local. Verifica en la " +
+                "plataforma si la emisión quedó archivada como VOD."
+            )
         }
     }
 
@@ -540,7 +546,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onConnectionSuccess() {
         if (!liveRequested || !initiatedByUser || stopping) return
         connected = true
-        setStatus("EN VIVO. Grabando copia local mientras transmites.")
+        setStatus(if (saveLocalCopy)
+            "EN VIVO. También se está grabando una copia MP4 local."
+            else "EN VIVO. Sin copia MP4 local: comprueba el VOD del proveedor."
+        )
     }
     override fun onConnectionFailed(reason: String) {
         // Some servers embed the full key in error messages.
@@ -548,14 +557,19 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus("La conexión LIVE falló. La grabación local continúa. " +
-            "Pulsa Detener y revisar para conservarla.")
+        setStatus(if (saveLocalCopy)
+            "LIVE falló, pero la copia MP4 local continúa. Detén para revisarla."
+            else "LIVE falló. No había copia local: revisa si existe un VOD remoto."
+        )
     }
     override fun onDisconnect() {
         if (!stopping && initiatedByUser) {
             liveRequested = false
             connected = false
-            setStatus("LIVE desconectado. La copia MP4 local continúa.")
+            setStatus(if (saveLocalCopy)
+                "LIVE desconectado. La copia MP4 local continúa."
+                else "LIVE desconectado sin copia local. Comprueba si hay VOD remoto."
+            )
         }
     }
     override fun onAuthError() {
@@ -563,7 +577,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus("El servidor rechazó la clave LIVE. MP4 local continúa.")
+        setStatus(if (saveLocalCopy)
+            "Clave LIVE rechazada. La copia MP4 local continúa."
+            else "Clave LIVE rechazada. No hay copia local para recuperar."
+        )
     }
     override fun onAuthSuccess() { /* Never expose credentials. */ }
 
