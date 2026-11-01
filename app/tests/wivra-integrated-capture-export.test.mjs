@@ -149,6 +149,8 @@ test('overlay loss cannot silently enter final export and requires one-export co
   assert.match(template, /if \(r\.overlayBlocked\)/);
   assert.match(exporter, /overlayPreflight\.overlayBlocked && !allowIncompleteOverlay/);
   assert.match(exporter, /await sink\.abort\('missing-overlay'\)/);
-  assert.ok(exporter.indexOf("if (overlayPreflight.overlayBlocked && !allowIncompleteOverlay)") <
+  assert.ok(exporter.indexOf("const overlayPreflight = exportOverlayPreflight(") <
     exporter.indexOf("rec = new MediaRecorder(stream"), 'overlay preflight must happen before starting recording');
+  assert.match(exporter, /cancelled-before-recorder/);
+  assert.match(exporter, /if \(isCancelled\(\) \|\| \(overlayPreflight\.overlayBlocked && !allowIncompleteOverlay\)\)/);
 });
