@@ -98,6 +98,10 @@ struct WivraExportStoreSmoke {
         let orphanCount = await store.cleanupOrphans()
         precondition(orphanCount == 0)
         _ = try await store.finish(token: current.token!, bytes: Int64(webm.count), crc32: WivraCRC32.update(0, webm), chunks: 1, repair: false)
+        // A second editor cannot share a finished export by guessing its token.
+        let ownFile = await store.savedURL(token: current.token!, owner: "new-editor")
+        let foreignFile = await store.savedURL(token: current.token!, owner: "old-editor")
+        precondition(ownFile != nil && foreignFile == nil, "finished export must be bound to its editor owner")
         await store.abortOwned(owner: "new-editor")
         precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName!).path))
 
