@@ -49,7 +49,10 @@ test('B1F photo mode captures an SDK still, not the preview image, and saves JPE
  assert.match(model,/stream\.photoDataPublisher\.listen/);
  assert.match(model,/stream\.capturePhoto\(format: \.jpeg\)/);
  assert.match(model,/if !stream\.capturePhoto/);
- assert.match(model,/camera != nil && streamState == \.streaming && framesReceived > 0/);
+ assert.match(model,/var canCapturePhoto: Bool \{/);
+ assert.match(model,/hasFreshDATFrames && !photoCaptureInFlight/);
+ assert.match(model,/streamState == \.streaming/);
+ assert.match(model,/CACurrentMediaTime\(\) - lastFrameUptime <= 4/);
  assert.match(model,/UIImage\(data: bytes\)/);
  assert.match(model,/appendingPathComponent\("WivraPhotos", isDirectory: true\)/);
  assert.match(model,/bytes\.write\(to: url, options: \.atomic\)/);
