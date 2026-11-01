@@ -16,13 +16,13 @@ const phoneLive = read('../android/app/src/full/java/com/oswhgo/wivra/WivraPhone
 const phoneCamera = read('../android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt');
 
 test('camera selector routes to existing Ray-Ban DAT and CameraX, not simulated cameras', () => {
-  assert.match(main, /cameraSources\.setText\("Cámara · elegir fuente"\)/);
-  assert.match(main, /setTitle\("Fuentes → Cámara"\)/);
+  assert.match(main, /cameraSources\.setText\(R\.string\.source_camera_button\)/);
+  assert.match(main, /setTitle\(R\.string\.source_camera_title\)/);
   assert.match(main, /launchRayBanCameraFromDirector\(\)/);
   assert.match(main, /launchPhoneCameraFromDirector\(\)/);
   assert.match(main, /hasSystemFeature\(PackageManager\.FEATURE_CAMERA_ANY\)/);
   assert.match(main, /showPhoneCameraUnsupported\(\)/);
-  assert.match(main, /Dos cámaras simultáneas y PiP todavía no están habilitados/);
+  assert.match(main, /R\.string\.source_limits_camera/);
   assert.match(phoneCamera, /ProcessCameraProvider\.getInstance\(this\)/);
   assert.match(phoneCamera, /CameraSelector\.DEFAULT_BACK_CAMERA/);
   assert.match(phoneCamera, /CameraSelector\.DEFAULT_FRONT_CAMERA/);
@@ -32,8 +32,8 @@ test('camera selector routes to existing Ray-Ban DAT and CameraX, not simulated 
 });
 
 test('full LIVE selector opens only compiled camera RTMP or consented MediaProjection', () => {
-  assert.match(main, /liveSources\.setText\("LIVE · elegir fuente"\)/);
-  assert.match(main, /setTitle\("Fuentes → LIVE"\)/);
+  assert.match(main, /liveSources\.setText\(R\.string\.source_live_button\)/);
+  assert.match(main, /setTitle\(R\.string\.source_live_title\)/);
   assert.match(main, /"com\.oswhgo\.wivra"\.equals\(getPackageName\(\)\)/);
   assert.match(main, /live\.setClassName\(this, "com\.oswhgo\.wivra\.WivraPhoneLiveActivity"\)/);
   assert.match(main, /live\.setClassName\(this, "com\.oswhgo\.wivra\.WivraScreenLiveActivity"\)/);
@@ -42,8 +42,8 @@ test('full LIVE selector opens only compiled camera RTMP or consented MediaProje
   assert.match(screen, /createScreenCaptureIntent\(\)/);
   assert.match(screen, /setTitle\("Confirmar LIVE público de pantalla"\)/);
   assert.match(phoneLive, /publisher\.startStream\(address\)/);
-  assert.match(main, /PiP, multicámara y fuentes simultáneas/);
-  assert.match(main, /Esta primera ruta transmite solo video, sin audio interno/);
+  assert.match(main, /R\.string\.source_limits_live/);
+  assert.match(main, /R\.string\.source_live_screen_option/);
   assert.ok(SOURCE_KINDS.includes('screen'));
   assert.ok(SOURCE_KINDS.includes('app-window'));
 });
@@ -78,7 +78,7 @@ test('source chooser never captures or persists any RTMP key', () => {
   assert.ok(body);
   assert.doesNotMatch(body, /SharedPreferences|RTMP_KEY|http:|https:|putExtra\(/);
   assert.doesNotMatch(body, /startStream\(|startRecord\(/);
-  assert.match(body, /setNegativeButton\("Cancelar", null\)/);
+  assert.match(body, /setNegativeButton\(android\.R\.string\.cancel, null\)/);
 });
 
 
@@ -92,7 +92,34 @@ test('Android source option dialogs never combine setMessage with setItems', () 
     assert.match(body, /\.setItems\(options,/);
     assert.doesNotMatch(body, /\.setMessage\(/,
       label + ' should show tappable options, not replace list with text');
-    assert.match(body, /\.setNeutralButton\("Limitaciones"/);
-    assert.match(body, /\.setNegativeButton\("Cancelar", null\)/);
+    assert.match(body, /\.setNeutralButton\(R\.string\.source_limits_button/);
+    assert.match(body, /\.setNegativeButton\(android\.R\.string\.cancel, null\)/);
+  }
+});
+
+
+test('camera and LIVE source dialogs resolve 14 labels across eight Android languages', () => {
+  const keys = [
+    'source_camera_button', 'source_live_button', 'source_camera_title',
+    'source_live_title', 'source_meta_option', 'source_phone_option',
+    'source_live_phone_option', 'source_live_screen_option',
+    'source_unavailable_title', 'source_unavailable_body',
+    'source_limits_button','source_limits_title',
+    'source_limits_camera','source_limits_live'
+  ];
+  const folders = [
+    'values','values-en','values-fr','values-pt',
+    'values-de','values-it','values-ja','values-zh'
+  ];
+  for (const folder of folders) {
+    const resources = read('../android/app/src/main/res/' + folder + '/strings.xml');
+    for (const key of keys) {
+      assert.ok(resources.includes('<string name="' + key + '">'),
+        folder + ': missing ' + key);
+    }
+    assert.ok(resources.includes('<resources>') && resources.includes('</resources>'));
+  }
+  for (const key of keys) {
+    assert.match(main, new RegExp('R\\.string\\.' + key + '\\b'));
   }
 });
