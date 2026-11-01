@@ -43,6 +43,9 @@
   <array><string>com.meta.ar.wearable</string></array>
   <key>UIBackgroundModes</key>
   <array>
+    <!-- Only used when the owner explicitly enables native microphone recording.
+         iOS may still suspend Meta video despite this declaration. -->
+    <string>audio</string>
     <string>processing</string>
     <string>bluetooth-central</string>
     <string>bluetooth-peripheral</string>
