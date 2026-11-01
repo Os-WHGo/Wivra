@@ -63,3 +63,14 @@ test('recording Stop remains enabled when DAT frames stall or stream is paused',
   assert.match(recordControls, /\.disabled\(model\.recordingArmed \? model\.recordingFinishing : !model\.canRecord\)/);
   assert.doesNotMatch(recordControls, /\.disabled\(!model\.canRecord\)/);
 });
+
+
+test('Meta preview reevaluates stale DAT frame readiness using a visible SwiftUI timeline', () => {
+  const preview = app.split('struct MetaB0Screen: View')[1]?.split('private struct WivraPendingDecisionPrompts')[0];
+  assert.ok(preview, 'Meta preview screen must exist');
+  assert.match(preview, /TimelineView\(\.periodic\(from: \.now, by: 1\)\)/);
+  assert.match(preview, /let _ = tick\.date/);
+  assert.match(preview, /model\.cameraSignalDiagnostic/);
+  assert.match(preview, /\.disabled\(model\.recordingArmed \? model\.recordingFinishing : !model\.canRecord\)/);
+  assert.doesNotMatch(preview, /Timer\.scheduledTimer|DispatchQueue\.main\.asyncAfter/);
+});
