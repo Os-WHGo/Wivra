@@ -171,3 +171,21 @@ test('quality auto: progressive disk estimate matches bitrate and memory mode re
   assert.equal(disk.storageMB, 3600);
   assert.equal(exportMemoryRisk(seconds).bufferedUntilComplete, true);
 });
+
+
+test('native auto quality follows output pixels and frame rate, never video duration', () => {
+  const hd = { progressive: true, width: 1280, height: 720, fps: 30 };
+  const fullHd = { progressive: true, width: 1920, height: 1080, fps: 30 };
+  const highFps = { ...fullHd, fps: 60 };
+  assert.equal(exportBitrate(60, fullHd), 8_000_000);
+  assert.equal(exportBitrate(3600, fullHd), 8_000_000);
+  assert.ok(exportBitrate(3600, hd) < exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, highFps) > exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, { progressive: true, width: 0, height: 0 }) === 8_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: 4096, height: 4096, fps: 120 }) <= 24_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: Infinity, height: 1080 }) === 8_000_000);
+  // Legacy in-memory path must retain its duration-based memory protection.
+  assert.equal(exportBitrate(3600, { progressive: false, width: 1920, height: 1080, fps: 60 }), 3_000_000);
+  const bytes = exportEstimatedBytes(3600, fullHd);
+  assert.equal(bytes, Math.round((exportBitrate(3600, fullHd) + 128_000) * 3600 / 8));
+});
