@@ -1,0 +1,75 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createSourceCandidate, applyEvidence, canUseForLocalComposition,
+  canStartDirectLive, validateMultiSourcePlan} from './source-capabilities.mjs';
+
+const source = (id, modes = ['local-frames']) =>
+  createSourceCandidate({id,kind:'wearable-vendor',outputModes:modes});
+const frames = id => ({provenance:'runtime',sessionId:id,permissionGranted:true,
+  validFrames:40,measuredFPS:24,width:504,height:896,lastFrameAgeSeconds:0.2});
+
+test('catalog and marketing do not constitute runtime compatibility', () => {
+  for (const id of ['mentra','vive-eagle','rokid','rayneo','android-xr','snap',
+                    'vuzix','solos','brilliant','xg-glass']) {
+    const item = source(id);
+    assert.ok(Object.values(item.capabilities).every(s => s === 'unknown'));
+    assert.equal(canUseForLocalComposition(item),false);
+    const researched = applyEvidence(item,'cameraFrames',{
+      ...frames('probe'),provenance:'documentation'
+    });
+    assert.equal(researched.capabilities.cameraFrames,'unknown');
+  }
+});
+
+test('real DAT frames require permission, freshness and measured frames', () => {
+  const item = source('meta-gen2');
+  const confirmed = applyEvidence(item,'cameraFrames',frames('meta-session'));
+  assert.equal(confirmed.capabilities.cameraFrames,'ready');
+  assert.equal(canUseForLocalComposition(confirmed),true);
+  assert.equal(item.capabilities.cameraFrames,'unknown');
+  assert.equal(applyEvidence(item,'cameraFrames',{
+    ...frames('meta-session'),lastFrameAgeSeconds:6
+  }).capabilities.cameraFrames,'experimental');
+  assert.equal(applyEvidence(item,'cameraFrames',{
+    ...frames('meta-session'),permissionGranted:false
+  }).capabilities.cameraFrames,'unknown');
+});
+
+test('direct RTMP transport does not supply PiP frames or guarantee LIVE', () => {
+  const item = source('mentra-live',['direct-stream']);
+  assert.equal(canUseForLocalComposition(applyEvidence(item,'cameraFrames',
+    frames('session'))),false);
+  assert.equal(canStartDirectLive(applyEvidence(item,'directLive',{
+    provenance:'runtime',sessionId:'session',permissionGranted:true,
+    userConfirmed:true,remoteIngestConfirmed:false
+  })),false);
+  assert.equal(canStartDirectLive(applyEvidence(item,'directLive',{
+    provenance:'runtime',sessionId:'session',permissionGranted:true,
+    userConfirmed:true,remoteIngestConfirmed:true
+  })),true);
+});
+
+test('two sources require verified compositor and concurrent runtime observations', () => {
+  const one=applyEvidence(source('front'),'cameraFrames',frames('front'));
+  const two=applyEvidence(source('meta'),'cameraFrames',frames('meta'));
+  assert.equal(validateMultiSourcePlan([one]).ok,true);
+  assert.equal(validateMultiSourcePlan([one,two]).ok,false);
+  assert.equal(validateMultiSourcePlan([one,two],{compositorValidated:true}).ok,false);
+  const concurrent = item => applyEvidence(item,'concurrentVideo',{
+    provenance:'runtime',sessionId:'mix',permissionGranted:true,
+    vendorCapabilityExposed:true,simultaneousFrameSources:2,compositorValidated:true
+  });
+  assert.equal(validateMultiSourcePlan([concurrent(one),concurrent(two)],
+    {compositorValidated:true}).ok,true);
+  assert.equal(validateMultiSourcePlan([one,one]).ok,false);
+});
+
+test('a verified media import remains separate from live camera access', () => {
+  const item=source('clip',['recorded-media']);
+  const imported=applyEvidence(item,'mediaImport',{
+    provenance:'runtime',sessionId:'import',permissionGranted:true,
+    userConfirmed:true,localFileVerified:true,fileBytes:420000,durationMs:5000
+  });
+  assert.equal(imported.capabilities.mediaImport,'ready');
+  assert.equal(canUseForLocalComposition(imported),false);
+});
