@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt } from '../export.mjs';
+import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt, exportBitrate, exportEstimatedBytes, exportMemoryRisk } from '../export.mjs';
 
 const P = (clips, texts = []) => ({ clips, texts });
 test('plan: clips en orden y hueco negro entre clips', () => {
@@ -158,4 +158,16 @@ test('hundreds of accepted sub-5ms overlaps must not accumulate audible A/V drif
  assert.equal(verdict.reason,'overlap');
  assert.ok(verdict.seconds >= 0.05,'cumulative lost time must be reported');
  await assert.rejects(recordProject({project:p,media:{}}),/se superponen/);
+});
+
+
+test('quality auto: progressive disk estimate matches bitrate and memory mode retains cap', () => {
+  const seconds = 3600;
+  assert.equal(exportBitrate(seconds, { progressive: true }), 8_000_000);
+  assert.equal(exportBitrate(seconds), 3_000_000);
+  assert.equal(exportEstimatedBytes(seconds, { progressive: true }), 3_657_600_000);
+  const disk = exportMemoryRisk(seconds, { progressive: true });
+  assert.equal(disk.bufferedUntilComplete, false);
+  assert.equal(disk.storageMB, 3600);
+  assert.equal(exportMemoryRisk(seconds).bufferedUntilComplete, true);
 });
