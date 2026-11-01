@@ -42,9 +42,14 @@ struct WivraExportStoreSmoke {
         // without needing the old bridge owner or in-memory export session token.
         let reopened = WivraExportStore(directory: folder, freeBytes: { _ in 10_000_000_000 })
         let retained = await reopened.listSavedExports()
-        precondition(retained.count == 1 && retained[0].url == finalURL &&
-                     retained[0].bytes == Int64(webm.count),
+        let diskNames = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        print("iOS recovered export diagnostic: count=\\(retained.count), names=\\(diskNames), retained=\\(retained.map { "\\($0.name):\\($0.bytes)" }), expected=\\(finalURL.lastPathComponent):\\(webm.count)")
+        precondition(retained.count == 1,
                      "completed video must be discoverable after reopening Wivra")
+        precondition(retained[0].url.standardizedFileURL == finalURL.standardizedFileURL,
+                     "recovered export URL must match saved native file")
+        precondition(retained[0].bytes == Int64(webm.count),
+                     "recovered export size must match original export")
         // Never enumerate partial files or symlinks, even if their names resemble exports.
         let fakePartial = folder.appendingPathComponent("Wivra_Export_999.mp4.partial")
         _ = FileManager.default.createFile(atPath: fakePartial.path, contents: Data([1, 2]))
