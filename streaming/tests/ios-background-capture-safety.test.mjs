@@ -83,7 +83,11 @@ test('confirmed Meta videos offer a direct add-only Photos action, preferring mu
   assert.ok(pending >= 0 && eligible > pending && photoAction > eligible,
     'Photos save must remain behind confirmed Keep decision');
   assert.match(preview, /let photosURL = model\.lastCombinedVideoURL \?\? url/);
-  assert.match(preview, /try await WivraPhotosLibrary\.saveVideo\(photosURL\)/);
+  assert.match(preview, /let originalFallbackURL = model\.lastCombinedVideoURL == nil \? nil : url/);
+  assert.match(preview, /try await WivraPhotosLibrary\.savePreferredVideo\(/);
+  assert.match(preview, /fallback: originalFallbackURL/);
+  assert.match(preview, /captureSavedOriginalOnlyURL = originalOnly \? photosURL : nil/);
+  assert.match(preview, /Text\("ios\.library\.photos_original_only"\)/);
   assert.match(preview, /captureSavedToPhotosURL == photosURL/);
   const bridge = read('../ios/B0/Sources/WivraExportNativeBridge.swift');
   const plist = read('../ios/B0/Info.plist');
