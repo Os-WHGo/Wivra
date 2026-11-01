@@ -99,3 +99,4 @@
 "ios.capture.joined_share" = "Compartir video completo";
 "ios.capture.joined_photos" = "Guardar video completo en Fotos";
 "ios.capture.joined_saved" = "Video completo guardado en Fotos";
+"ios.capture.retry_join" = "Unir esta toma completa";
