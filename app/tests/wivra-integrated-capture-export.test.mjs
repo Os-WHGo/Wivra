@@ -69,3 +69,18 @@ test('iOS capture picker verifies real media before releasing an existing captur
   assert.match(ios, /let checked = await self\?\.verifiedCaptureURLs\(urls\)/);
   assert.match(ios, /self\?\.finishSelection\(checked\)/);
 });
+
+
+test('iPhone direct Photos save is add-only and offered only for verified MP4 exports', () => {
+  const bridge = read('../../streaming/ios/B0/Sources/WivraExportNativeBridge.swift');
+  const sink = read('../export-sink.mjs');
+  const template = read('../template.html');
+  assert.match(bridge, /import Photos/);
+  assert.match(bridge, /if op == "savePhotos"/);
+  assert.match(bridge, /savedURL\(token: request\.token\)/);
+  assert.match(bridge, /requestAuthorization\(for: \.addOnly\)/);
+  assert.match(bridge, /creationRequestForAssetFromVideo\(atFileURL: url\)/);
+  assert.match(sink, /export function saveExportToPhotos\(host, token\)/);
+  assert.match(template, /host\?\.platform === 'ios' && r\.ext === 'mp4'/);
+  assert.match(template, /await saveExportToPhotos\(host, token\)/);
+});
