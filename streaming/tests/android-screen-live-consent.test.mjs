@@ -64,7 +64,7 @@ test('projection revocation always ends screen sharing, no reuse or stealth back
 test('credentials are memory-only and LIVE confirms actual ingest',()=>{
   assert.match(activity,/WindowManager\.LayoutParams\.FLAG_SECURE/);
   assert.match(activity,/isSaveEnabled = false/);
-  assert.match(activity,/importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO/);
+  assert.match(activity,/importantForAutofill = android\.view\.View\.IMPORTANT_FOR_AUTOFILL_NO/);
   assert.match(service,/private var offered: Launch\? = null/);
   assert.match(service,/!WivraLiveEndpoint\.valid\(url\)/);
   assert.match(activity,/Intent\(this, WivraScreenLiveService::class\.java\)/);
