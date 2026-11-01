@@ -82,3 +82,4 @@
 "ios.capture.segments_not_combined" = "本次拍摄包含 %d 个独立的 MOV 片段。第一个文件并非完整视频。";
 "ios.capture.segments_in_library_instruction" = "结束会话后打开“我的拍摄”，将各片段分别保存到照片，或在 Director 中合并并导出完整视频。";
 "ios.capture.share_first_segment" = "仅分享第一个片段";
+"ios.capture.individual_segment" = "分段录制的第 %d 个片段，并非完整视频。";
