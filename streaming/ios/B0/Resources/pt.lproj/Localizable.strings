@@ -82,4 +82,4 @@
 "ios.capture.segments_not_combined" = "Esta gravação contém %d segmentos MOV separados. O primeiro não é o vídeo completo.";
 "ios.capture.segments_in_library_instruction" = "Encerre a sessão e abra Minhas capturas para salvar os clipes separadamente em Fotos, ou una-os no Director e exporte um vídeo completo.";
 "ios.capture.share_first_segment" = "Compartilhar apenas o primeiro segmento";
-"ios.capture.individual_segment" = "Segmento %d de uma gravação dividida. Não é o vídeo completo.";
+"ios.capture.individual_segment" = "Parte %d desta gravação (MOV); verifique se há outras partes.";
