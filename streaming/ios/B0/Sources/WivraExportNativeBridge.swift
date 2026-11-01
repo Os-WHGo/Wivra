@@ -120,12 +120,12 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         case "begin":
             return try await store.begin(mime: request.mime, estimatedBytes: request.estimatedBytes, owner: owner)
         case "chunk":
-            return try await store.append(token: request.token, seq: request.seq, data: request.data ?? Data())
+            return try await store.append(token: request.token, seq: request.seq, data: request.data ?? Data(), owner: owner)
         case "finish":
             return try await store.finish(token: request.token, bytes: request.bytes,
-                                          crc32: request.crc32, chunks: request.chunks)
+                                          crc32: request.crc32, chunks: request.chunks, owner: owner)
         case "abort":
-            await store.abort(token: request.token)
+            await store.abort(token: request.token, owner: owner)
             return WivraExportReply()
         default:
             throw WivraExportError.io("Método no permitido.")
