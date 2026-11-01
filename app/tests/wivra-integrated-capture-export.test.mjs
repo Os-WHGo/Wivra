@@ -108,3 +108,17 @@ test('native iOS export library restores shareable files after app relaunch', ()
   assert.match(app, /ShareLink\(item: video\.url\)/);
   assert.match(smoke, /completed video must be discoverable after reopening Wivra/);
 });
+
+
+test('saved exports native controls are translated in every supported iOS language', () => {
+  const app = read('../../streaming/ios/B0/Sources/WivraMetaB0App.swift');
+  const keys = ['ios.app.exports', 'ios.exports.title', 'ios.exports.empty',
+    'ios.exports.empty_description', 'ios.exports.share', 'ios.exports.close'];
+  for (const key of keys) assert.ok(app.includes('"' + key + '"'), 'UI must reference '+key);
+  for (const language of ['es', 'en', 'pt', 'fr', 'de', 'ja', 'zh', 'it']) {
+    const strings = read('../../streaming/ios/B0/Resources/' + language + '.lproj/Localizable.strings');
+    for (const key of keys) {
+      assert.ok(strings.includes('"' + key + '" = "'), language + ' missing '+key);
+    }
+  }
+});
