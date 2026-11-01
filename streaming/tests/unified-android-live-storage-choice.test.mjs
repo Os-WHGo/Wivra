@@ -47,7 +47,10 @@ test('critical low storage stops only local MP4, not a healthy remote LIVE', () 
   assert.match(stopLocal, /localCopyFinalized = closed/);
   assert.match(stopLocal, /saveLocalCopy = false/);
   assert.match(stopLocal, /if \(publisher\.isStreaming\)/);
-  assert.doesNotMatch(stopLocal, /stopStream\(|stopAndReview\(|delete\(/);
+  assert.doesNotMatch(stopLocal, /publisher\.stopStream\(|delete\(/);
+  // If RootEncoder refuses to stop the local writer, fail closed rather
+  // than letting the still-running muxer exhaust the phone storage.
+  assert.match(stopLocal, /if \(publisher\.isRecording\) \{[\s\S]*?stopAndReview\(\)/);
 });
 
 test('finishing LIVE never pretends a remote-only session created a local MP4', () => {
