@@ -241,6 +241,14 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         // Never call stopStream() from the local-storage watchdog.
         val closed = runCatching { publisher.stopRecord(); true }.getOrDefault(false)
         localCopyFinalized = closed
+        if (publisher.isRecording) {
+            // RootEncoder may reject the split-stop for a particular device.
+            // Do not leave a writer running until the phone is full.
+            setStatus("No fue posible detener la copia MP4. " +
+                "Finalizando LIVE para proteger el teléfono y los archivos.")
+            stopAndReview()
+            return
+        }
         saveLocalCopy = false
         if (publisher.isStreaming) {
             setStatus(if (closed)
@@ -557,10 +565,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus(if (saveLocalCopy)
-            "LIVE falló, pero la copia MP4 local continúa. Detén para revisarla."
-            else "LIVE falló. No había copia local: revisa si existe un VOD remoto."
-        )
+        setStatus(when {
+            saveLocalCopy -> "LIVE falló, pero la copia MP4 local continúa. Detén para revisarla."
+            pendingFile != null -> "LIVE falló. Hay un MP4 local cerrado o parcial pendiente de revisión."
+            else -> "LIVE falló. No había copia local: revisa si existe un VOD remoto."
+        })
     }
     override fun onDisconnect() {
         if (!stopping && initiatedByUser) {
