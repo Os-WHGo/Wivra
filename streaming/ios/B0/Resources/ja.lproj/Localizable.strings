@@ -104,3 +104,4 @@
 /* Multipart MOV originals are kept in Wivra, not copied to Photos. */
 "ios.capture.parts_private_gallery" = "元のセグメントはWivraに残ります。写真には完成した動画だけを保存するか、再結合を試してください。";
 "ios.capture.share_segment_only" = "このセグメントのみ共有";
+"ios.capture.take_not_finalized" = "撮影全体の完了を確認できません。セグメントはWivraに保持され、自動結合や写真への公開は行いません。";
