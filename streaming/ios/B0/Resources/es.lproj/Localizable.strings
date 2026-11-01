@@ -71,3 +71,8 @@
 "ios.exports.save_photos" = "Guardar en Fotos";
 "ios.exports.saved_photos" = "Guardado en Fotos";
 "ios.exports.photos_error" = "No se pudo guardar en Fotos";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban con pantalla bloqueada (experimental)";
+"ios.app.background_capture_off_warning" = "Si bloqueas el iPhone ahora, Wivra cerrará la sesión Ray-Ban. Activa la opción experimental antes de bloquearlo.";
+"ios.app.background_capture_experimental_warning" = "Modo experimental: iOS o Meta pueden detener la transmisión al bloquear. Los segmentos cerrados se conservan; revisa el resultado al volver.";
