@@ -100,10 +100,24 @@ struct WivraMetaB0App: App {
                               pendingCaptureTab != nil)
                         .padding(.horizontal)
                     }
-                    Toggle("Ray-Ban en segundo plano (experimental)", isOn: $experimentalBackgroundMetaCapture)
+                    Toggle("ios.app.background_capture_toggle", isOn: $experimentalBackgroundMetaCapture)
                         .font(.footnote)
                         .padding(.horizontal)
                         .accessibilityIdentifier("meta_background_capture_opt_in")
+                    if model.recordingArmed && !experimentalBackgroundMetaCapture {
+                        Text("ios.app.background_capture_off_warning")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("meta_background_capture_off_warning")
+                    }
+                    if experimentalBackgroundMetaCapture {
+                        Text("ios.app.background_capture_experimental_warning")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("meta_background_capture_limit_warning")
+                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(phoneNetwork.summary)
                             .font(.footnote.bold())
