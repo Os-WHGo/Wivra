@@ -280,6 +280,14 @@ actor WivraExportStore {
                     .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]),
                   values.isRegularFile == true, values.isSymbolicLink != true,
                   let size = values.fileSize, size > 0 else { continue }
+            // Minimal container validation prevents empty or wrongly renamed files
+            // from appearing as playable exports. Reads only the first 16 bytes.
+            guard let reader = try? FileHandle(forReadingFrom: url) else { continue }
+            let header = (try? reader.read(upToCount: 16)) ?? Data()
+            try? reader.close()
+            guard Self.looksLikeContainer(
+                mime: url.pathExtension.lowercased() == "mp4" ? "video/mp4" : "video/webm",
+                head: header) else { continue }
             results.append(WivraSavedExport(name: name, url: url, bytes: Int64(size),
                                              modifiedAt: values.contentModificationDate ?? .distantPast))
         }
