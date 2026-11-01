@@ -222,6 +222,15 @@ public final class MainActivity extends Activity {
                 startActivity(live);
             });
             shell.addView(phoneLive);
+            Button screenLive = new Button(this);
+            screenLive.setText("LIVE · pantalla o aplicación");
+            screenLive.setContentDescription("Transmitir pantalla o aplicación con permiso del sistema");
+            screenLive.setOnClickListener(v -> {
+                Intent live = new Intent();
+                live.setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity");
+                startActivity(live);
+            });
+            shell.addView(screenLive);
         }
         shell.addView(editor, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
