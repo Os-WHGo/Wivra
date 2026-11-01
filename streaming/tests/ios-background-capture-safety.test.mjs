@@ -96,3 +96,38 @@ test('confirmed Meta videos offer a direct add-only Photos action, preferring mu
   assert.match(bridge, /PHAssetChangeRequest\.creationRequestForAssetFromVideo\(atFileURL: url\)/);
   assert.match(bridge, /WivraMp4Repair\.inspect\(url\)/);
 });
+
+
+test('segmented Ray-Ban video does not silently send only the first MOV as full take', () => {
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  assert.match(model, /var lastRecordedSegmentCount = 0/);
+  assert.match(model, /lastRecordedSegmentCount = urls\.count/);
+  assert.match(model, /case \.saved\(let url, let frames, let dropped\):[\s\S]*?lastRecordedSegmentCount = 1/);
+  assert.match(model, /func beginRecording\(\) \{[\s\S]*?lastRecordedSegmentCount = 0/);
+  const preview = app.split('struct MetaB0Screen: View')[1]?.split('private struct WivraPendingDecisionPrompts')[0];
+  assert.ok(preview, 'Meta preview screen is required');
+  const start = preview.indexOf('if let url = model.lastRecordedURL {');
+  const multiple = preview.indexOf('if model.lastRecordedSegmentCount > 1', start);
+  const single = preview.indexOf('} else {', multiple);
+  const photos = preview.indexOf('WivraPhotosLibrary.savePreferredVideo(', single);
+  assert.ok(start >= 0 && multiple > start && single > multiple && photos > single,
+    'single-clip Photos action must only be exposed in single-file branch');
+  const multiContent = preview.slice(multiple, single);
+  assert.match(multiContent, /ios\.capture\.segments_not_combined/);
+  assert.match(multiContent, /ios\.capture\.segments_in_library_instruction/);
+  assert.match(multiContent, /ios\.capture\.share_first_segment/);
+  assert.match(multiContent, /meta_b1_segmented_warning/);
+  assert.doesNotMatch(multiContent, /savePreferredVideo|saveVideo\(/);
+});
+
+test('all eight iOS locales distinguish multipart original from a complete exported movie', () => {
+  for (const lang of ['es', 'en', 'fr', 'pt', 'de', 'it', 'ja', 'zh']) {
+    const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
+    for (const key of ['ios.capture.segments_not_combined',
+        'ios.capture.segments_in_library_instruction','ios.capture.share_first_segment']) {
+      assert.ok(strings.includes('"' + key + '" = "'), lang + ' missing ' + key);
+    }
+    const segmentedWarning = strings.split('"ios.capture.segments_not_combined" = "')[1]?.split('";')[0];
+    assert.ok(segmentedWarning?.includes('%d'), lang + ' needs an integer segment count');
+  }
+});
