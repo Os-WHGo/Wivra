@@ -300,7 +300,11 @@ final class MetaB0Model {
                     availableBytes: WivraCaptureStorageGuard.availableBytes()
                 ) {
                     self.storageStoppedCapture = true
-                    await self.finishRecording()
+                    // Finalize in a separate task: finishRecording cancels the
+                    // watchdog, so it must not cancel its own finalizer.
+                    Task { @MainActor [weak self] in
+                        await self?.finishRecording()
+                    }
                     return
                 }
             }
