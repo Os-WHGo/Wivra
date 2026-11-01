@@ -73,3 +73,15 @@ test('a verified media import remains separate from live camera access', () => {
   assert.equal(imported.capabilities.mediaImport,'ready');
   assert.equal(canUseForLocalComposition(imported),false);
 });
+
+test('a new session invalidates all readiness from earlier sessions', () => {
+  const one=applyEvidence(source('wearable'),'cameraFrames',frames('session-one'));
+  assert.equal(one.capabilities.cameraFrames,'ready');
+  const next=applyEvidence(one,'directLive',{
+    provenance:'runtime',sessionId:'session-two',permissionGranted:true,
+    userConfirmed:false,remoteIngestConfirmed:false
+  });
+  assert.equal(next.capabilities.cameraFrames,'unknown');
+  assert.equal(next.capabilities.directLive,'experimental');
+  assert.equal(canUseForLocalComposition(next),false);
+});
