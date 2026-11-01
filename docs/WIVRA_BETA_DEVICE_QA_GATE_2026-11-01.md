@@ -57,3 +57,26 @@
 **Limitación importante:** esta ruta es una guía verificada contra documentación Apple, no una instalación ya ejecutada ni una garantía de acceso Meta. Para distribuir a terceros por TestFlight/App Store se necesita el programa adecuado; eso queda fuera de esta beta de prueba individual.
 
 Fuente oficial Meta sobre Developer Mode versus Production y ausencia de credenciales en modo desarrollador: https://github.com/facebook/meta-wearables-dat-ios/blob/main/plugins/mwdat-ios/skills/getting-started/SKILL.md . Meta CameraAccess sample: https://github.com/facebook/meta-wearables-dat-ios/blob/main/samples/CameraAccess/README.md .
+
+
+## Alternativa experimental si solo hay PC Windows (sin pagar por publicar)
+
+**No sustituye la firma Apple y NO está validada con la beta Wivra ni con Meta DAT.** El IPA de GitHub Actions es **UNSIGNED**; una herramienta de confianza debe firmarlo con el perfil de desarrollo del propietario. Nunca enviar Apple ID, contraseñas, 2FA, pairing files ni perfiles a ChatGPT, issues, repositorios o servicios de firma desconocidos.
+
+| Método | Requisitos y evaluación | Decisión |
+|---|---|---|
+| **Xcode + Personal Team** | Mac + Xcode + Apple Account gratuito; herramienta oficial, depuración y firma más transparente | **Primera opción si hay Mac** |
+| **AltStore Classic / AltServer** | PC Windows 10+ o Mac; instalación desde sitio oficial, iTunes/iCloud de Apple; permite cargar un IPA propio y renovar firmas de 7 días. Límite 3 apps activas / hasta 10 App IDs bajo cuenta gratuita | **Candidato Windows P0**, verificar primero Meta callback, permisos y firma |
+| SideStore | Proyecto comunitario basado en AltStore; requiere preparación inicial con computador y VPN/local pairing para renovar sin computadora | Alternativa futura, más compleja, no necesaria para primer test |
+| Sideloadly | Windows/Mac y Apple Account; firma gratuita 7 días. Herramienta de terceros, evaluar privacidad y confianza antes de introducir credenciales | No se requiere para P0, documentado para comparación |
+
+Procedimiento Windows que **puede intentarse**, una vez que CI del commit exacto sea verde:
+1. Descargar `Wivra-BETA-iOS-UNSIGNED-ipa` del mismo run de `Wivra Complete Beta Assembly (Mobile)`, verificar su SHA256 y conservar el paquete original intacto.
+2. Instalar **AltServer/AltStore Classic** únicamente desde https://altstore.io/ y seguir su guía Windows: https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows . No utilizar AltStore PAL, ya que la disponibilidad de ese marketplace depende de regiones.
+3. Conectar el iPhone al computador, confiar en el dispositivo, habilitar **Developer Mode** de iOS si se solicita y firmar/sideloadear **solo el IPA propio** mediante AltStore Classic o `Sideload .ipa…` de AltServer cuando la versión lo incluya. La cuenta Apple se gestiona localmente en la herramienta instalada, nunca en repositorio ni chat.
+4. Verificar si la app realmente **abre**, el identificador firmado y `wivrametab0://` se conservan, Meta AI puede devolver el registro, DAT detecta gafas Gen 2 y la app solicita permisos; si la firma altera Team ID, callback o capacidades, registrar **BLOCKED**, no asumir compatibilidad.
+5. Aplicar la matriz P0. Mantener archivos originales de captura y hacer copia de seguridad antes de reinstalar. Los perfiles gratuitos caducan a los **7 días**, por lo que habrá que renovarlos sin borrar datos; respetar los límites de tres apps activas y diez App IDs.
+
+Referencias oficiales de terceros: https://faq.altstore.io/altstore-classic/altserver ; https://faq.altstore.io/altstore-classic/app-ids ; https://docs.sidestore.io/docs/installation/install ; https://sideloadly.io/faq . Referencia Apple Personal Team: https://developer.apple.com/help/account/basics/about-your-developer-account .
+
+**Estado de prueba:** solo investigación documental comparativa, sin instalación de AltStore ni firma de Wivra. Ninguna de estas herramientas se añade como dependencia del producto; no implica gastos ni publicación.
