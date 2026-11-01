@@ -15,6 +15,7 @@ struct WivraMetaB0App: App {
     @State private var phoneNetwork = WivraPhoneNetworkStatus()
     @State private var experimentalBackgroundMetaCapture = false
     @State private var showingCaptureLibrary = false
+    @State private var showingExportLibrary = false
     @State private var showingUnifiedEditor = false
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
@@ -89,6 +90,14 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
+                    Button {
+                        showingExportLibrary = true
+                    } label: {
+                        Label("Exportaciones", systemImage: "square.and.arrow.up.on.square")
+                    }
+                    .disabled(!model.isReleasedForCameraHandoff ||
+                              !iPhoneCamera.isReleasedForCameraHandoff ||
+                              pendingCaptureTab != nil)
                         .padding(.horizontal)
                     }
                     Toggle("Ray-Ban en segundo plano (experimental)", isOn: $experimentalBackgroundMetaCapture)
@@ -113,6 +122,9 @@ struct WivraMetaB0App: App {
             .onAppear { phoneNetwork.start() }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
+            }
+            .sheet(isPresented: $showingExportLibrary) {
+                WivraNativeExportLibraryScreen()
             }
             .fullScreenCover(isPresented: $showingUnifiedEditor) {
                 WivraEmbeddedEditorScreen()
@@ -677,6 +689,57 @@ private struct WivraPendingRecordingReviewScreen: View {
                 audioPlayer = nil
                 audioIsPlaying = false
             }
+        }
+    }
+}
+
+
+/// Visible native recovery path for videos exported before this app launch.
+/// The sheet enumerates verified completed files only; it never deletes or copies
+/// originals. ShareLink streams the existing file to the system share sheet.
+@MainActor
+private struct WivraNativeExportLibraryScreen: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var exports: [WivraSavedExport] = []
+
+    private func reload() async {
+        exports = await WivraExportStore.shared.listSavedExports()
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if exports.isEmpty {
+                    ContentUnavailableView("Sin exportaciones guardadas",
+                                           systemImage: "square.stack",
+                                           description: Text("Los videos exportados y verificados aparecerán aquí, incluso después de cerrar Wivra."))
+                } else {
+                    List(exports) { video in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(video.name).font(.subheadline).lineLimit(2)
+                            HStack(spacing: 10) {
+                                Text(ByteCountFormatter.string(fromByteCount: video.bytes, countStyle: .file))
+                                Text(video.modifiedAt, style: .date)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            ShareLink(item: video.url) {
+                                Label("Compartir o guardar", systemImage: "square.and.arrow.up")
+                            }
+                            .accessibilityIdentifier("wivra_export_library_share")
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .refreshable { await reload() }
+                }
+            }
+            .navigationTitle("Exportaciones de Wivra")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cerrar") { dismiss() }
+                }
+            }
+            .task { await reload() }
         }
     }
 }
