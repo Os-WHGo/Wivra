@@ -2252,6 +2252,7 @@ $('expGo').onclick = async () => {
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (r.interrupted) { $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez'; $('expMsg').className = 'bad'; $('expMsg').textContent = 'La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida.'; return; }
     if (expUrl) { URL.revokeObjectURL(expUrl); expUrl = null; }
+    document.getElementById('expSavePhotos')?.remove();
     if (r.saved) {   // guardado por partes: el archivo ya está en el teléfono y verificado; no hay Blob en memoria
       const token = r.saved.token, host = detectExportHost();
       $('expVid').removeAttribute('src'); $('expVid').style.display = 'none'; $('expDl').style.display = 'none';
