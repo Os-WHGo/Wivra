@@ -191,9 +191,13 @@ struct MetaB0Screen: View {
     @State private var photoGridEnabled = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Wivra · Meta B0")
+        // Recheck frame freshness while this screen is visible, without
+        // extending the Meta DAT stream or restarting a camera session.
+        TimelineView(.periodic(from: .now, by: 1)) { tick in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    let _ = tick.date
+                    Text("Wivra · Meta B0")
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
@@ -523,6 +527,7 @@ struct MetaB0Screen: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
+            }
         }
         .onAppear {
             model.refreshPendingRecordingChoice()
