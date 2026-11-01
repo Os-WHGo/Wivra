@@ -83,3 +83,11 @@
 "ios.capture.segments_in_library_instruction" = "Termina la sessione e apri Le mie acquisizioni per salvare ogni clip in Foto, oppure uniscili in Director ed esporta un video completo.";
 "ios.capture.share_first_segment" = "Condividi solo il primo segmento";
 "ios.capture.individual_segment" = "Parte %d della ripresa (MOV); verifica se ci sono altre parti.";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "Spazio disponibile: %@.";
+"ios.capture.storage_unknown" = "Spazio disponibile non verificabile. Controllalo prima di registrare.";
+"ios.capture.storage_insufficient_start" = "Spazio insufficiente per registrare in sicurezza: libera almeno 512 MB.";
+"ios.capture.storage_minutes_estimate" = "Circa %d min al bitrate HEVC osservato; esclusi audio, cambi di qualità e copie.";
+"ios.capture.storage_export_reserve" = "Unione, esportazione e salvataggio in Foto richiedono altro spazio; la stima non garantisce l'esportazione.";
+"ios.capture.storage_stopped" = "Registrazione locale interrotta per spazio insufficiente. Conserva le parti recuperabili e libera memoria.";
