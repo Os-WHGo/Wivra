@@ -22,6 +22,7 @@ import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.rtmp.RtmpStream
 import java.io.File
@@ -58,7 +59,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var status: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
+    private lateinit var flipCameraButton: Button
     private var stream: RtmpStream? = null
+    private var cameraVideoSource: Camera2Source? = null
     private var pendingFile: File? = null
     private var saveLocalCopy = false
     private var localCopyFinalized = false
@@ -174,6 +177,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         controls.addView(stopButton, LinearLayout.LayoutParams(0,
             ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(controls)
+        flipCameraButton = Button(this).apply {
+            text = "Cambiar cámara frontal/trasera"
+            contentDescription = "Cambiar cámara de video del teléfono"
+            isEnabled = false
+            setOnClickListener { togglePhoneCamera() }
+        }
+        root.addView(flipCameraButton)
         root.addView(Button(this).apply {
             text = "Revisar capturas locales pendientes"
             setOnClickListener { reviewPendingVideo() }
@@ -264,15 +274,35 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         updateStorageHint()
     }
 
+    private fun togglePhoneCamera() {
+        if (!prepared || stopping || mediaBusy || isFinishing || isDestroyed) return
+        val source = cameraVideoSource ?: return
+        try {
+            source.switchCamera()
+            val side = if (source.getCameraFacing() == CameraHelper.Facing.FRONT) {
+                "frontal"
+            } else "trasera"
+            setStatus("Cámara $side seleccionada. " +
+                if (connected) "LIVE continúa; verifica la imagen del servidor."
+                else "Comprueba la vista previa antes de transmitir.")
+        } catch (_: Exception) {
+            // Some phones cannot open the other camera at the chosen
+            // resolution while encoding. Keep the existing publisher alive.
+            setStatus("No se pudo cambiar cámara: el teléfono podría no admitir " +
+                "la resolución elegida. Revisa la vista previa.")
+        }
+    }
+
     private fun preparePreview() {
         if (prepared || stream != null || isFinishing) return
         try {
             // Never open the microphone merely because the user previews
             // or selects video-only LIVE. NoAudioSource is an actual no-op
             // source; RootEncoder starts its audioSource during encoding.
+            val source = Camera2Source(applicationContext)
             val publisher = RtmpStream(
                 applicationContext, this,
-                Camera2Source(applicationContext), NoAudioSource()
+                source, NoAudioSource()
             )
             // 4:3 portrait conservative compatibility profile. Not Ray-Ban.
             val videoReady = publisher.prepareVideo(
@@ -283,13 +313,17 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 setStatus("El teléfono no pudo preparar el encoder H.264.")
                 return
             }
+            cameraVideoSource = source
             stream = publisher
             prepared = true
+            flipCameraButton.isEnabled = true
             if (preview.holder.surface.isValid) publisher.startPreview(preview)
             setStatus("Cámara lista. Ninguna transmisión iniciada.")
             startButton.isEnabled = true
         } catch (_: Exception) {
             prepared = false
+            cameraVideoSource = null
+            flipCameraButton.isEnabled = false
             runCatching { stream?.release() }
             stream = null
             setStatus("No se pudo abrir la cámara para LIVE.")
@@ -425,6 +459,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private fun controlsIdle() {
         runOnUiThread {
             startButton.isEnabled = prepared && !isFinishing && !mediaBusy
+            flipCameraButton.isEnabled = prepared && !isFinishing &&
+                !isDestroyed && !mediaBusy && !stopping
             stopButton.isEnabled = false
             micOption.isEnabled = true
             localCopyOption.isEnabled = true
@@ -620,6 +656,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             stream?.isRecording == true) stopAndReview()
         runCatching { stream?.release() }
         stream = null
+        cameraVideoSource = null
         prepared = false
         endpointInput.text?.clear()
         mediaScope.cancel()
