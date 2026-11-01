@@ -37,12 +37,14 @@ import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
+import com.meta.wearable.dat.core.types.RegistrationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import java.io.File
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
@@ -60,6 +62,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var camera: Camera? = null
     private var stream: Stream? = null
     private var sessionJob: Job? = null
+    private var metaRegistrationJob: Job? = null
+    private var metaRegistrationWarningJob: Job? = null
     private var errorJob: Job? = null
     private var framesJob: Job? = null
     private var streamJob: Job? = null
@@ -377,17 +381,52 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .onSuccess {
                 sdkReady = true
                 show(getString(R.string.sdk_ready))
+                observeMetaRegistration()
                 refreshButtons()
             }
             .onFailure { error, _ -> show(getString(R.string.sdk_error, error.description)) }
+    }
+
+    private fun observeMetaRegistration() {
+        if (metaRegistrationJob != null) return
+        metaRegistrationJob = scope.launch {
+            Wearables.registrationState.collect { state ->
+                if (!::status.isInitialized || session != null || recordingMode ||
+                    WivraCaptureForegroundService.isCaptureActive()) return@collect
+                when (state) {
+                    RegistrationState.REGISTERED -> {
+                        metaRegistrationWarningJob?.cancel()
+                        show(getString(R.string.meta_registration_complete))
+                    }
+                    RegistrationState.REGISTERING -> show(getString(R.string.meta_registration_in_progress))
+                    else -> Unit // Leave unrelated camera/preview errors visible.
+                }
+            }
+        }
     }
 
     private fun registerMeta() {
         // Registration can temporarily take the glasses away from a live DAT
         // session. Never open that flow during user-initiated pocket capture.
         if (!sdkReady || WivraCaptureForegroundService.isCaptureActive()) return
+        if (Wearables.registrationState.value == RegistrationState.REGISTERED) {
+            show(getString(R.string.meta_registration_complete))
+            return
+        }
         Wearables.startRegistration(this)
         show(getString(R.string.authorize_meta))
+        // Developer Mode can stall in the Meta AI companion app without
+        // delivering a typed failure. Never announce success merely because
+        // startRegistration returned; only the SDK's REGISTERED state proves it.
+        metaRegistrationWarningJob?.cancel()
+        metaRegistrationWarningJob = scope.launch {
+            delay(20_000L)
+            if (Wearables.registrationState.value != RegistrationState.REGISTERED &&
+                session == null && !recordingMode &&
+                !WivraCaptureForegroundService.isCaptureActive()) {
+                show(getString(R.string.meta_registration_stalled))
+            }
+        }
     }
 
     private fun beginSession() {
