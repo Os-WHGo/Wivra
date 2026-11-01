@@ -50,6 +50,7 @@ test('WAV pairing, chooser and Ray-Ban accessibility localized across eight dict
   const main=readFileSync(new URL('../android/app/src/main/java/com/oswhgo/wivra/MainActivity.java',import.meta.url),'utf8');
   assert.match(main,/R\.string\.picker_phone_capture_bundle/);
   assert.match(main,/R\.string\.picker_capture_title/);
-  assert.match(main,/getString\(R\.string\.connect_glasses_accessibility\)/);
+  assert.match(main,/cameraSources\.setContentDescription\(getString\(R\.string\.source_camera_button\)\)/);
+  assert.match(main,/R\.string\.source_meta_option/);
   assert.doesNotMatch(main,/glasses\.setContentDescription\("Conectar gafas/);
 });
