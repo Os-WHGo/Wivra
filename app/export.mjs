@@ -442,7 +442,16 @@ export function exportAudioPreflight(project, media, { hasAudio = true, decodedA
 }
 // saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
 // 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost, exportEngine = 'auto' }) {
+/** Missing overlay media must not silently disappear from a final video.
+ * The UI may request an explicit, one-export opt-in to an incomplete result. */
+export function exportOverlayPreflight(project, loadedOverlayIds = []) {
+  const loaded = new Set(loadedOverlayIds);
+  const missingOverlay = [...new Set((project.overlayClips || [])
+    .filter(c => !loaded.has(c.id)).map(c => c.id))];
+  return { overlayBlocked: missingOverlay.length > 0, missingOverlay };
+}
+
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto' }) {
   // The accelerated prototype has not yet been ported to the full timeline renderer.
   // Keep the proven recorder until a device-validated implementation exists.
   const engineSelection = selectExportEngine({ requested: exportEngine });
@@ -523,7 +532,11 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   for (const c of (project.overlayClips || [])) {
     const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
     if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
-      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      if (m.gif) {
+        try { const el = m.makeEl(); if (!el) throw new Error('GIF sin fotogramas'); oList.push({ el, c }); }
+        catch { skippedOverlay.push(c.id); }
+        continue;
+      }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
       const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
       try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
       continue;
@@ -537,6 +550,17 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     } catch { el.remove(); skippedOverlay.push(c.id); }
   }
   oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayPreflight = exportOverlayPreflight(project, oList.map(o => o.c.id));
+  if (overlayPreflight.overlayBlocked && !allowIncompleteOverlay) {
+    // Return BEFORE constructing MediaRecorder. If native export already opened
+    // a pending row, abort it; never publish a video with an unnoticed lost layer.
+    if (sink) await sink.abort('missing-overlay');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    oList.forEach(o => { try { o.el.pause?.(); } catch {} try { o.el.remove?.(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return overlayPreflight;
+  }
   const overlayTick = (t) => {
     const draw = [];
     for (const o of oList) {
