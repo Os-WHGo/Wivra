@@ -50,11 +50,14 @@ struct WivraExportStoreSmoke {
         _ = FileManager.default.createFile(atPath: fakePartial.path, contents: Data([1, 2]))
         let fakeLink = folder.appendingPathComponent("Wivra_Export_999.mp4")
         try FileManager.default.createSymbolicLink(at: fakeLink, withDestinationURL: finalURL)
+        let fakeCorrupted = folder.appendingPathComponent("Wivra_Export_1000.mp4")
+        _ = FileManager.default.createFile(atPath: fakeCorrupted.path, contents: Data("NOT_MP4".utf8))
         let visibleAfterInjection = await reopened.listSavedExports()
         precondition(visibleAfterInjection.count == 1,
-                     "partial files and symlinks must remain invisible")
+                     "partial files, symlinks and invalid headers must remain invisible")
         try FileManager.default.removeItem(at: fakeLink)
         try FileManager.default.removeItem(at: fakePartial)
+        try FileManager.default.removeItem(at: fakeCorrupted)
 
         // 2) Out-of-order chunk aborts and deletes the partial file.
         let second = try await store.begin(mime: "video/mp4", estimatedBytes: 0)
