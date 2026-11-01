@@ -94,3 +94,17 @@ Referencias oficiales de terceros: https://faq.altstore.io/altstore-classic/alts
 6. **Regresión con hardware**: repetir con Ray-Ban Gen 2, micrófono seleccionado y sin audio; pérdida de conexión DAT mientras el watchdog consulta espacio, terminación voluntaria y cambio de cámara; no atribuir PASS físico a compilación CI.
 
 Referencias: https://developer.apple.com/documentation/foundation/checking-volume-storage-capacity ; https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype .
+
+
+## P0-J · una toma Meta -> un MOV completo local tras conservar (PR #141)
+
+**Implementado en código, NO validado con Ray-Ban reales.** Esta ruta es solo para partes de video HEVC sin audio. No sustituye la prueba de 60 minutos ni promete que el archivo combinado pueda publicarse en Fotos sin espacio adicional.
+
+1. **Consentimiento**: generar 2 o más partes `Wivra_Meta_<sesión>_partNNNN.mov`; detener; elegir **Más tarde**, cerrar/reabrir y comprobar que no se une ni se añade nada a Fotos. Reabrir y elegir **Conservar**. Solo entonces debe comenzar la unión. Confirmar ausencia de destrucción y publicación mientras esté pendiente.
+2. **Archivo unificado**: tras Keep, comprobar `_complete.mov` en la carpeta privada de Wivra, reproducirlo desde principio a fin, comparar duración con suma de partes (tolerancia de 2 s o 2 %) y comprobar orientación y fotogramas en las uniones. Verificar que cada parte original y su manifiesto permanece disponible. Revisar catálogo después de reiniciar.
+3. **Fotos**: nunca ofrecer solo la primera parte como si fuera la película completa. Cuando el MOV unido esté verificado, permitir **Guardar video completo en Fotos** por acción explícita; reproducir el único video copiado con Photos. Google Fotos depende de copia de seguridad de su propia app, no de Wivra.
+4. **Espacio y formatos**: repetir sin espacio adicional suficiente, con parte faltante/corrupta/symlink, orden roto, dimensión DAT cambiada durante la toma y un `_complete.mov` previo. No sustituir archivos previos, no declarar completado un MP4 vacío/truncado, mantener todos los MOV originales y ofrecer reintento después de liberar espacio. No saturar el dispositivo físico hasta cero bytes.
+5. **Interrupciones**: forzar cierre de la app durante la unión y al bloquear el iPhone. Comprobar recuperación de partes originales; reconocer que el proceso de unión no tiene todavía reanudación automática si iOS suspende/mata la app. No inferir grabación exitosa de un estado REC ni exportación exitosa de un archivo no inspeccionado.
+6. **Rendimiento P0**: probar 5, 15, 30 y 60 minutos reales con memoria, energía, temperatura, disco inicial/final, tiempo de unión y reproducción desde Archivos/Fotos. Comparar HEVC de baja/alta resolución; cuando los parámetros de los segmentos son incompatibles, bloquear unión en vez de producir video corrupto. Con entrada de audio CAF independiente el camino de unión debe tratarse en una fase separada de sincronía real.
+
+**Criterio de aprobación:** todos los MOV confirmados y reproducibles se reflejan en una única película completa **solo tras Keep**, conservando originales, sin duplicar segmentos en galería. En cualquier fallo, mantener partes y advertir. Una compilación de CI sin gafas NO satisface este criterio.
