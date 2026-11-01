@@ -99,3 +99,4 @@
 "ios.capture.joined_share" = "分享完整视频";
 "ios.capture.joined_photos" = "将完整视频保存到照片";
 "ios.capture.joined_saved" = "完整视频已保存到照片";
+"ios.capture.retry_join" = "将本次拍摄合并为完整视频";
