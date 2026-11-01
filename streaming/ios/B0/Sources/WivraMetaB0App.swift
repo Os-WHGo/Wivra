@@ -465,6 +465,19 @@ struct MetaB0Screen: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("meta_b1_recording_status")
+                        Text(model.storageDiagnostic)
+                            .font(.caption)
+                            .foregroundStyle(model.storageNeedsAttention ? Color.orange : Color.secondary)
+                            .accessibilityIdentifier("meta_b1_storage_estimate")
+                        Text("ios.capture.storage_export_reserve")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        if model.storageStoppedCapture {
+                            Label("ios.capture.storage_stopped", systemImage: "externaldrive.badge.exclamationmark")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("meta_b1_storage_auto_stop")
+                        }
                         if model.isCurrentRecordingPending {
                             Label("ios.record.pending_notice", systemImage: "lock.shield")
                                 .font(.footnote)
