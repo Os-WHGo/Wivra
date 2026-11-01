@@ -66,6 +66,15 @@ export function applyEvidence(source, key, evidence = {}) {
     Number.isFinite(evidence.lastFrameAgeSeconds) &&
     evidence.lastFrameAgeSeconds >= 0 && evidence.lastFrameAgeSeconds <= 4;
 
+  // Audio-only eyewear can expose microphone samples without any camera.
+  // PCM/audio evidence does not need video width/height or video FPS.
+  const audioOk = scopeOk && Number.isInteger(evidence.validAudioSamples) &&
+    evidence.validAudioSamples > 0 && finitePositive(evidence.sampleRateHz) &&
+    Number.isInteger(evidence.channelCount) && evidence.channelCount > 0 &&
+    typeof evidence.lastAudioAgeSeconds === 'number' &&
+    Number.isFinite(evidence.lastAudioAgeSeconds) &&
+    evidence.lastAudioAgeSeconds >= 0 && evidence.lastAudioAgeSeconds <= 4;
+
   const exportOk = scopeOk && source.outputModes.includes('recorded-media') &&
     evidence.localFileVerified === true && finitePositive(evidence.durationMs) &&
     evidence.fileBytes > 0 && evidence.userConfirmed === true;
@@ -74,8 +83,9 @@ export function applyEvidence(source, key, evidence = {}) {
     evidence.remoteIngestConfirmed === true && evidence.userConfirmed === true;
 
   const permissions = scopeOk && evidence.vendorCapabilityExposed === true;
-  const validated = key === 'cameraFrames' || key === 'screenFrames' || key === 'audioFrames'
+  const validated = key === 'cameraFrames' || key === 'screenFrames'
     ? frameOk
+    : key === 'audioFrames' ? audioOk
     : key === 'mediaImport' || key === 'recordVideo' ? exportOk
     : key === 'directLive' ? liveOk
     : key === 'displayHud' ? permissions && evidence.hudRenderedAndConfirmed === true
