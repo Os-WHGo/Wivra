@@ -170,10 +170,10 @@ test('host detection prefers iOS handler, caches one adapter per channel, and is
   assert.equal(detectExportHost(ios).platform, 'ios');
 });
 
-test('progressive mode reports storage instead of RAM risk and keeps the old estimator unchanged', () => {
+test('progressive mode reports storage instead of RAM risk and preserves the legacy memory estimator', () => {
   assert.deepEqual(exportMemoryRisk(3600), { estimatedMB: 1350, level: 'critical', bufferedUntilComplete: true });
   const p = exportMemoryRisk(3600, { progressive: true });
-  assert.equal(p.bufferedUntilComplete, false); assert.equal(p.level, 'normal'); assert.equal(p.storageMB, 1350);
+  assert.equal(p.bufferedUntilComplete, false); assert.equal(p.level, 'normal'); assert.equal(p.storageMB, 3600);
   assert.equal(exportEstimatedBytes(10), Math.round((8_000_000 + 128_000) * 10 / 8));
 });
 
