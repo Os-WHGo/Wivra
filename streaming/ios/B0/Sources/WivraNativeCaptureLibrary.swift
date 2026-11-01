@@ -318,7 +318,7 @@ struct WivraNativeCaptureLibraryScreen: View {
                                     }
                                     ShareLink(item: video) {
                                         Label(item.segmentNumber == nil
-                                              ? "ios.library.share_video" : "ios.capture.share_first_segment",
+                                              ? "ios.library.share_video" : "ios.capture.share_segment_only",
                                               systemImage: "square.and.arrow.up")
                                     }
                                     if maySaveToPhotos(item, video: video) {
