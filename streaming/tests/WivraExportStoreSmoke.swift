@@ -95,6 +95,18 @@ struct WivraExportStoreSmoke {
         await store.abortOwned(owner: "old-editor")
         precondition(!FileManager.default.fileExists(atPath: folder.appendingPathComponent(old.displayName! + ".partial").path))
         precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName! + ".partial").path))
+        // A foreign editor must neither append, finish nor abort this live export.
+        await expectThrows("foreign append") {
+            _ = try await store.append(token: current.token!, seq: 1, data: webm.prefix(64), owner: "old-editor")
+        }
+        await expectThrows("foreign finish") {
+            _ = try await store.finish(token: current.token!, bytes: Int64(webm.count),
+                                       crc32: WivraCRC32.update(0, webm), chunks: 1,
+                                       repair: false, owner: "old-editor")
+        }
+        await store.abort(token: current.token!, owner: "old-editor")
+        precondition(FileManager.default.fileExists(atPath: folder.appendingPathComponent(current.displayName! + ".partial").path),
+                     "foreign abort must preserve the owner's live file")
         let orphanCount = await store.cleanupOrphans()
         precondition(orphanCount == 0)
         _ = try await store.finish(token: current.token!, bytes: Int64(webm.count), crc32: WivraCRC32.update(0, webm), chunks: 1, repair: false)
