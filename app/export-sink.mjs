@@ -215,5 +215,7 @@ export function shareSavedExport(host, token) {
 export function saveExportToPhotos(host, token) {
   if (!host || host.platform !== 'ios') return Promise.reject(new Error('Guardar en Fotos directamente solo está disponible en iPhone.'));
   if (!Number.isInteger(token) || token <= 0) return Promise.reject(new Error('La exportación no tiene una sesión válida.'));
-  return host.request({ op: 'savePhotos', token });
+  // The initial add-only permission dialog is controlled by the user. A 30-second
+  // transport timeout would report failure while the iOS prompt is still open.
+  return host.request({ op: 'savePhotos', token }, 5 * 60 * 1000);
 }
