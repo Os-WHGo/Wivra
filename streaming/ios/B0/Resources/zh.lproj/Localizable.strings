@@ -104,3 +104,4 @@
 /* Multipart MOV originals are kept in Wivra, not copied to Photos. */
 "ios.capture.parts_private_gallery" = "原始片段保留在Wivra中。仅将完整视频保存到照片，或重试合并。";
 "ios.capture.share_segment_only" = "仅分享此片段";
+"ios.capture.take_not_finalized" = "无法确认本次拍摄完整。片段保留在Wivra中，不会自动合并或作为完整视频保存到照片。";

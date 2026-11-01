@@ -217,6 +217,11 @@ struct WivraNativeCaptureLibraryScreen: View {
     // cannot publish any individual _partNNNN.mov through the Photos button.
     // A short complete single-part take (_part0001.mov) remains eligible.
     private func maySaveToPhotos(_ item: WivraStoredCapture, video: URL) -> Bool {
+        // The iPhone camera's own media does not use Meta segment receipts.
+        if item.source != "Ray-Ban Meta" { return item.segmentNumber == nil }
+        guard WivraSegmentedTakeReceipt.verifiedComplete(for: video) else {
+            return false
+        }
         guard let segment = item.segmentNumber else { return true }
         guard segment == 1,
               let group = groupKey(for: video),
@@ -302,7 +307,8 @@ struct WivraNativeCaptureLibraryScreen: View {
                                     if item.segmentNumber == 1,
                                        let group = groupKey(for: video),
                                        let parts = confirmedPartGroups[group],
-                                       parts.count > 1 && !joinedPartGroups.contains(group) {
+                                       parts.count > 1 && !joinedPartGroups.contains(group) &&
+                                       WivraSegmentedTakeReceipt.verifiedComplete(for: video) {
                                         Button {
                                             retryJoin(group: group, parts: parts)
                                         } label: {
@@ -358,6 +364,12 @@ struct WivraNativeCaptureLibraryScreen: View {
                                                 .foregroundStyle(.orange)
                                         }
                                     } else if item.segmentNumber != nil {
+                                        if !WivraSegmentedTakeReceipt.verifiedComplete(for: video) {
+                                            Text("ios.capture.take_not_finalized")
+                                                .font(.caption)
+                                                .foregroundStyle(.orange)
+                                                .accessibilityIdentifier("wivra_library_incomplete_take")
+                                        }
                                         Text("ios.capture.parts_private_gallery")
                                             .font(.caption)
                                             .foregroundStyle(.orange)

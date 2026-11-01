@@ -17,6 +17,19 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
     private var sessionID = ""
     private var partIndex = 0
     private var active = false
+    private var rotationFailed = false
+    private var lastReceipt: URL?
+
+    private struct StopSnapshot {
+        let jobs: [Task<WivraRecordingResult, Never>]
+        let sessionID: String
+        let expectedParts: Int
+        let rotationFailed: Bool
+    }
+
+    var lastTakeReceiptURL: URL? {
+        queue.sync { lastReceipt }
+    }
 
     init(intervalSeconds: Double = 30) {
         self.intervalSeconds = max(5, intervalSeconds)
@@ -33,6 +46,8 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
             partIndex = 1
             segmentStartUptime = nil
             finalizations = []
+            rotationFailed = false
+            lastReceipt = nil
             let writer = WivraHEVCRecorder()
             guard writer.arm(fileName: partName(partIndex)) else { return false }
             current = writer
@@ -75,6 +90,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
                 } else {
                     // Avoid a false claim of recording if the next part cannot
                     // open. Earlier checkpoint tasks still remain recoverable.
+                    rotationFailed = true
                     current = nil
                     active = false
                     return
@@ -85,7 +101,7 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
     }
 
     func stop() async -> WivraRecordingResult {
-        let jobs: [Task<WivraRecordingResult, Never>]? = queue.sync {
+        let snapshot: StopSnapshot? = queue.sync {
             guard active || current != nil || !finalizations.isEmpty else {
                 return nil
             }
@@ -97,16 +113,20 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
             }
             current = nil
             segmentStartUptime = nil
-            let submitted = finalizations
+            let captured = StopSnapshot(
+                jobs: finalizations, sessionID: sessionID,
+                expectedParts: partIndex, rotationFailed: rotationFailed
+            )
             finalizations = []
-            return submitted
+            return captured
         }
-        guard let jobs else { return .noFrames }
+        guard let snapshot else { return .noFrames }
         var files: [URL] = []
         var frames = 0
         var dropped = 0
         var lastFailure: String?
-        for job in jobs {
+        var hadEmptyPart = false
+        for job in snapshot.jobs {
             switch await job.value {
             case .saved(let url, let count, let missing):
                 files.append(url)
@@ -119,11 +139,37 @@ final class WivraSegmentedHEVCRecorder: @unchecked Sendable {
             case .failed(let message):
                 lastFailure = message
             case .noFrames:
-                break
+                hadEmptyPart = true
             }
         }
-        // Preserve all completed parts even if the final part failed.
+
+        // A playable part0001.mov alone is NOT proof that the entire take
+        // finalized. Preserve it, but record how many parts were attempted.
+        // A failed rotation or missing writer marks the take as incomplete.
+        let prefix = "Wivra_Meta_" + snapshot.sessionID + "_part"
+        let everyPartPresent = files.count == snapshot.expectedParts &&
+            snapshot.jobs.count == snapshot.expectedParts &&
+            files.enumerated().allSatisfy { index, url in
+                url.lastPathComponent ==
+                    prefix + String(format: "%04d", index + 1) + ".mov"
+            }
+        let fullyFinalized = !snapshot.rotationFailed &&
+            lastFailure == nil && !hadEmptyPart && everyPartPresent
+
         if !files.isEmpty {
+            do {
+                let receipt = try WivraSegmentedTakeReceipt.write(
+                    sessionID: snapshot.sessionID,
+                    expectedParts: snapshot.expectedParts,
+                    savedFiles: files,
+                    fullyFinalized: fullyFinalized
+                )
+                queue.sync { lastReceipt = receipt }
+            } catch {
+                // Never silently promote an incomplete/unknown take as complete.
+                // The originals remain recoverable; a missing receipt fails closed.
+                queue.sync { lastReceipt = nil }
+            }
             return .savedSegments(files, frames: frames, dropped: dropped)
         }
         return lastFailure.map { .failed($0) } ?? .noFrames
