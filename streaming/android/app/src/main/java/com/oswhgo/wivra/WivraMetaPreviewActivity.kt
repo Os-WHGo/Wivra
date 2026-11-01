@@ -64,6 +64,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var sessionJob: Job? = null
     private var metaRegistrationJob: Job? = null
     private var availableDevicesJob: Job? = null
+    private var capabilityRefreshJob: Job? = null
     private var metaRegistrationWarningJob: Job? = null
     private var errorJob: Job? = null
     private var framesJob: Job? = null
@@ -323,6 +324,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         refreshButtons()
+        // A halted DAT stream may stay STREAMING but stop producing frames.
+        // Re-evaluate the photo shutter and signal age only while UI is visible;
+        // the separate capture foreground service is unaffected.
+        if (capabilityRefreshJob == null) {
+            capabilityRefreshJob = scope.launch {
+                while (true) {
+                    refreshButtons()
+                    delay(1_000L)
+                }
+            }
+        }
         if (WivraCaptureForegroundService.isCaptureActive()) {
             show("Grabación Ray-Ban a cargo del servicio. Puedes bloquear la pantalla.")
         } else {
@@ -342,6 +354,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        capabilityRefreshJob?.cancel()
+        capabilityRefreshJob = null
         if (networkObserverRegistered) {
             connectivityManager.unregisterNetworkCallback(networkObserver)
             networkObserverRegistered = false
