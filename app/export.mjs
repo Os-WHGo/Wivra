@@ -297,12 +297,23 @@ export function drawTexts(g, list, W, H, zone = TEXT_ZONES.normal) {
 
 const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
 const frame = () => new Promise((res) => requestAnimationFrame(res));
-/** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
+/** Bitrate requested from MediaRecorder; it may choose a different actual value.
+ * In-memory fallback still caps long videos to avoid filling JS heap. */
 export const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
-// Native progressive exports write chunks to disk, so duration alone should
-// not force a quality reduction. Browser-only exports keep the memory guard.
-export const exportBitrate = (seconds, { progressive = false } = {}) =>
-  progressive ? EXPORT_BPS : Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+// For native progressive storage, use resolution and FPS, NOT duration, to set
+// the requested bitrate: an hour-long 1080p montage should not become blurrier
+// merely because it is long. Reference: 1080p/30 SDR at ~8 Mbps. Constrain
+// unexpected source dimensions before passing them to MediaRecorder.
+export function exportBitrate(seconds, { progressive = false, width = 0, height = 0, fps = 30 } = {}) {
+  if (!progressive) return Math.round(Math.max(EXPORT_MIN_BPS,
+    Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    return EXPORT_BPS; // preserve compatibility with existing project callers
+  const pixels = Math.min(7680 * 4320, Math.max(320 * 240, width * height));
+  const frameFactor = Number.isFinite(fps) && fps > 45 ? 1.5 : 1;
+  const target = EXPORT_BPS * Math.sqrt(pixels / (1920 * 1080)) * frameFactor;
+  return Math.round(Math.max(2_500_000, Math.min(24_000_000, target)) / 250_000) * 250_000;
+}
 export const exportSizeMB = (seconds, options = {}) => Math.max(1, Math.round(exportBitrate(seconds, options) * Math.max(0, seconds || 0) / 8 / 1e6));
 /** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
  * until export ends. In progressive mode (native sink) only a bounded queue stays in
@@ -497,7 +508,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total, { progressive: true }) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total, { progressive: true, width: W, height: H, fps }) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
@@ -552,7 +563,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
 
   let rec;
   try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink }) });
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) });
   } catch (error) {
     // Some WebViews advertise a container through isTypeSupported(), then
     // throw from the constructor. This is before the main recording try/finally.
