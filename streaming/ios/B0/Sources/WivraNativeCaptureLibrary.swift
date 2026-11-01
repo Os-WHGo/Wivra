@@ -14,8 +14,9 @@ struct WivraStoredCapture: Identifiable {
     let audioURLs: [URL]
     let missing: [String]
 
-    // A segment is an individual capture file, not the whole recording.
-    // Derive the index from the verified local MOV name without altering media.
+    // Segment index is a filename fact, NOT evidence that more files exist.
+    // A short take can have only _part0001.mov and already be complete.
+    // Derive the index without changing or publishing the local media.
     var segmentNumber: Int? {
         guard let name = videoURL?.lastPathComponent,
               name.range(of: #"_part[0-9]{4}\.mov$"#, options: .regularExpression) != nil
