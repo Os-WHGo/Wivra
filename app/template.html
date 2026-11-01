@@ -541,6 +541,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
   <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
+  <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowOverlayGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportar aunque falte un video, GIF o imagen superpuesta. Podrían desaparecer logos o tomas. Desmarcado por seguridad.</span></label>
   <div id="expSaveRow" style="display:none;margin:8px 0"><label for="expSave" style="display:block">Cómo guardar</label>
     <select id="expSave"><option value="auto">Directo al teléfono, por partes (nuevo, beta)</option><option value="memory">En memoria (anterior)</option></select>
     <p class="m" id="expSaveInfo">Por partes: cada segundo grabado se escribe en el teléfono y se comprueba al final; usa poca memoria. En memoria: el método anterior, todo el video se guarda en la RAM hasta terminar.</p></div>
@@ -2199,6 +2200,7 @@ $('bExp').onclick = () => {
         : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
+  $('expAllowOverlayGaps').checked = false; // Explicit consent applies to one export only.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
@@ -2234,7 +2236,7 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
       return;
     }
-    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, allowIncompleteOverlay: $('expAllowOverlayGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.audioBlocked) {
@@ -2247,6 +2249,12 @@ $('expGo').onclick = async () => {
         (r.truncatedVoices?.length ? r.truncatedVoices.length + ' pista(s) de voz se cortarían al finalizar el video (' +
           r.truncatedVoices.map(v => v.secondsLost + ' s').join(', ') + '). Acorta/reubica las voces o extiende los clips visuales. ' : '') +
         'Puedes revisar/reimportar las pistas, o marcar la casilla para aceptar expresamente una exportación incompleta.';
+      return;
+    }
+    if (r.overlayBlocked) {
+      $('expGo').style.display = 'block'; $('expMsg').className = 'bad';
+      $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder imágenes o videos superpuestos. ' +
+        r.missingOverlay.length + ' capa(s) no se pudieron preparar. Reimporta los archivos o marca expresamente la casilla para continuar sin esas capas.';
       return;
     }
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
