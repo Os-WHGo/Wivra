@@ -58,3 +58,11 @@
 "ios.network.constrained" = "Mode données réduites ; débit non mesuré.";
 "ios.network.expensive" = "Le réseau peut entraîner des frais de données.";
 "ios.network.disclaimer" = "Diagnostic du téléphone, pas de la liaison Ray-Ban ni du LIVE vérifié.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exportations";
+"ios.exports.title" = "Exportations Wivra";
+"ios.exports.empty" = "Aucune exportation enregistrée";
+"ios.exports.empty_description" = "Les vidéos exportées et vérifiées apparaîtront ici, même après avoir fermé Wivra.";
+"ios.exports.share" = "Partager ou enregistrer";
+"ios.exports.close" = "Fermer";
