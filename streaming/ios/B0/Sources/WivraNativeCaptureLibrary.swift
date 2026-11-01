@@ -13,6 +13,15 @@ struct WivraStoredCapture: Identifiable {
     let alternateVideoURL: URL?
     let audioURLs: [URL]
     let missing: [String]
+
+    // A segment is an individual capture file, not the whole recording.
+    // Derive the index from the verified local MOV name without altering media.
+    var segmentNumber: Int? {
+        guard let name = videoURL?.lastPathComponent,
+              name.range(of: #"_part[0-9]{4}\.mov$"#, options: .regularExpression) != nil
+        else { return nil }
+        return Int(String(name.dropLast(".mov".count).suffix(4)))
+    }
 }
 
 struct WivraStoredCaptureDay: Identifiable {
@@ -206,6 +215,14 @@ struct WivraNativeCaptureLibraryScreen: View {
                                 Text(item.source).font(.headline)
                                 Text(item.recordedAt.formatted(date: .omitted, time: .shortened))
                                     .font(.caption).foregroundStyle(.secondary)
+                                if let segmentNumber = item.segmentNumber {
+                                    Text(String(format: NSLocalizedString("ios.capture.individual_segment",
+                                                                          comment: ""),
+                                                segmentNumber))
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                        .accessibilityIdentifier("wivra_library_segment_number")
+                                }
                                 if let video = item.videoURL {
                                     ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
                                     // The catalog survives relaunch. Offer the same add-only
