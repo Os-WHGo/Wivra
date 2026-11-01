@@ -14,7 +14,7 @@ test('Meta AI registration is confirmed by DAT state, never by starting its exte
 });
 
 test('a stuck Meta AI registration warns rather than reporting success and leaves retries available', () => {
-  assert.match(activity, /delay\(20_000L\)/);
+  assert.match(activity, /delay\(45_000L\)/);
   assert.match(activity, /Wearables\.registrationState\.value != RegistrationState\.REGISTERED/);
   assert.match(activity, /getString\(R\.string\.meta_registration_stalled\)/);
   assert.match(activity, /registerButton\.isEnabled = sdkReady && !serviceRecording/);
