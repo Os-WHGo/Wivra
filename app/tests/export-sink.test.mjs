@@ -193,6 +193,43 @@ test('cancel waits for an in-flight native write before deleting pending file', 
   assert.equal(native.files.get(sink.token).parts.length, 0);
 });
 
+test('cancel while finish waits for chunks never publishes a discarded video', async () => {
+  const native = fakeNative({ delayMs: 35 });
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(1024, 71)));
+  const finishing = sink.finish();
+  await tick();
+  await sink.abort('user');
+  await assert.rejects(finishing, /cancelada antes de finalizar/);
+  assert.equal(sink.state, 'aborted');
+  assert.equal(native.files.get(sink.token).state, 'deleted');
+  assert.equal(native.log.includes('finish'), false);
+});
+
+test('cancel after native finalization starts cannot delete verified recording', async () => {
+  const native = fakeNative();
+  const original = native.request.bind(native);
+  let releaseFinish;
+  native.request = async msg => {
+    if (msg.op === 'finish') await new Promise(resolve => { releaseFinish = resolve; });
+    return original(msg);
+  };
+  const sink = createProgressiveExportSink(native);
+  await sink.begin();
+  sink.push(blobOf(rand(1024, 75)));
+  const finishing = sink.finish();
+  await tick();
+  assert.equal(sink.state, 'finishing');
+  assert.equal(typeof releaseFinish, 'function');
+  await sink.abort('user');
+  releaseFinish();
+  await finishing;
+  assert.equal(sink.state, 'done');
+  assert.equal(native.files.get(sink.token).state, 'published');
+  assert.equal(native.log.includes('abort'), false);
+});
+
 test('android adapter: JSON control, binary frames, matched replies and base64 fallback', async () => {
   for (const binary of [true, false]) {
     const sent = []; const obj = { postMessage(m) { sent.push(m); queueMicrotask(() => reply(m)); } };
