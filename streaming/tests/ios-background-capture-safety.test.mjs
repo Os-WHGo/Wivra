@@ -135,7 +135,7 @@ test('all eight iOS locales distinguish multipart original from a complete expor
 test('Meta DAT iOS profile choices expose 504p30 motion without mislabeling requested as observed video quality', () => {
   const model = read('../ios/B0/Sources/MetaB0Model.swift');
   for (const key of ['balanced', 'motion', 'detail', 'economy']) {
-    assert.match(app, new RegExp('tag\\("' + key + '"\\)'));
+    assert.ok(app.includes('.tag("' + key + '")'), key + ' profile missing');
     assert.match(model, new RegExp('"' + key + '"'));
   }
   assert.match(model, /resolution: economy \? \.low : detail \? \.high : \.medium/);
