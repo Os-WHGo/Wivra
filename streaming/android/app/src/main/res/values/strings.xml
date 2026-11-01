@@ -160,4 +160,19 @@
     <string name="meta_registration_stalled">Meta AI no confirmó el registro tras 45 segundos. Comprueba el Modo Desarrollador y los permisos de Meta AI y vuelve a intentarlo.</string>
     <string name="meta_registration_required">Primero vincula Wivra desde Meta AI. Todavía no se confirmó el registro.</string>
     <string name="meta_registered_no_devices">Meta AI confirmó Wivra, pero no se detectan gafas vinculadas. Comprueba Bluetooth, alcance, gafas encendidas y Modo Desarrollador. Vuelve a intentar Conectar.</string>
+    <!-- Wivra native source chooser: evidence-gated routes; no implied multicamera. -->
+    <string name="source_camera_button">Cámara · elegir fuente</string>
+    <string name="source_live_button">LIVE · elegir fuente</string>
+    <string name="source_camera_title">Fuentes → Cámara</string>
+    <string name="source_live_title">Fuentes → LIVE</string>
+    <string name="source_meta_option">Ray-Ban Meta · conectar y grabar</string>
+    <string name="source_phone_option">Teléfono · frontal o trasera (requiere permiso)</string>
+    <string name="source_live_phone_option">Teléfono · LIVE frontal o trasera</string>
+    <string name="source_live_screen_option">Pantalla o aplicación · LIVE con permiso</string>
+    <string name="source_unavailable_title">Fuente no disponible</string>
+    <string name="source_unavailable_body">Android no detecta una cámara del teléfono. La conexión de Ray-Ban Meta se verifica dentro de su propia pantalla, y no se promete una grabación sin archivo válido.</string>
+    <string name="source_limits_button">Limitaciones</string>
+    <string name="source_limits_title">Capacidades de fuentes</string>
+    <string name="source_limits_camera">Abrir una cámara no confirma que esté conectada. Wivra solicita permisos y verifica los archivos terminados. PiP y dos cámaras simultáneas aún no están habilitados.</string>
+    <string name="source_limits_live">Pantalla y aplicación requieren el permiso oficial de Android. Esta ruta transmite solo video y no captura audio interno de otras aplicaciones. PiP y multicámara simultánea aún no están habilitados.</string>
 </resources>
