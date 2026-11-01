@@ -58,3 +58,11 @@
 "ios.network.constrained" = "省データモード。速度は測定していません。";
 "ios.network.expensive" = "データ料金が発生する可能性があります。";
 "ios.network.disclaimer" = "スマートフォンの診断です。Ray-Ban 接続や LIVE の動作保証ではありません。";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "書き出し";
+"ios.exports.title" = "Wivraの書き出し";
+"ios.exports.empty" = "保存済みの書き出しはありません";
+"ios.exports.empty_description" = "書き出しと検証が完了した動画は、Wivraを終了した後もここに表示されます。";
+"ios.exports.share" = "共有または保存";
+"ios.exports.close" = "閉じる";
