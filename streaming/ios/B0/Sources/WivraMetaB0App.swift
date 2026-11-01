@@ -438,7 +438,10 @@ struct MetaB0Screen: View {
                                     model.beginRecording()
                                 }
                             }
-                            .disabled(!model.canRecord)
+                            // Loss of DAT frames must never trap the user in REC.
+                            // A new take needs fresh frames; Stop must remain usable
+                            // during a stream pause so HEVC/CAF can be finalized.
+                            .disabled(model.recordingArmed ? model.recordingFinishing : !model.canRecord)
                             .buttonStyle(.borderedProminent)
                             .accessibilityIdentifier("meta_b1_record")
                             if model.recordingArmed {
