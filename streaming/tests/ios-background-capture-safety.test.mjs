@@ -131,3 +131,25 @@ test('all eight iOS locales distinguish multipart original from a complete expor
     assert.ok(segmentedWarning?.includes('%d'), lang + ' needs an integer segment count');
   }
 });
+
+test('Meta DAT iOS profile choices expose 504p30 motion without mislabeling requested as observed video quality', () => {
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  for (const key of ['balanced', 'motion', 'detail', 'economy']) {
+    assert.match(app, new RegExp('tag\\("' + key + '"\\)'));
+    assert.match(model, new RegExp('"' + key + '"'));
+  }
+  assert.match(model, /resolution: economy \? \.low : detail \? \.high : \.medium/);
+  assert.match(model, /frameRate: \(economy \|\| detail\) \? 15 : motion \? 30 : 24/);
+  assert.match(app, /model\.requestedDatProfileDescription/);
+  assert.match(app, /La calidad recibida depende del enlace Meta/);
+});
+
+test('Meta DAT measures real compressed HEVC payload separately from SDK request and RTMP bitrate', () => {
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  assert.match(model, /CMSampleBufferGetTotalSampleSize\(frame\.sampleBuffer\)/);
+  assert.match(model, /compressedBytes: payloadBytes/);
+  assert.match(model, /measuredCompressedMbps = Double\(compressedBytesThisSecond\) \* 8/);
+  assert.match(model, /measuredCompressedMbps = 0/);
+  assert.match(app, /HEVC recibido: %.2f Mbps/);
+  assert.match(app, /no es bitrate RTMP/);
+});
