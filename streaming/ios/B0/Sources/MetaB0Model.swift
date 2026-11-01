@@ -47,6 +47,8 @@ final class MetaB0Model {
             "fotogramas interrumpidos o sin confirmar"
     }
     var measuredFPS: Double = 0
+    var measuredCompressedMbps: Double = 0
+    private var compressedBytesThisSecond = 0
     var activeVideoSeconds: Double = 0
     var frameWidth = 0
     var frameHeight = 0
@@ -679,8 +681,10 @@ final class MetaB0Model {
                         .map { CMVideoFormatDescriptionGetDimensions($0) }
                     let width = Int(dimensions?.width ?? 0)
                     let height = Int(dimensions?.height ?? 0)
+                    let payloadBytes = CMSampleBufferGetTotalSampleSize(frame.sampleBuffer)
                     Task { @MainActor [weak self] in
-                        self?.onFrame(nil, compressedWidth: width, compressedHeight: height)
+                        self?.onFrame(nil, compressedWidth: width, compressedHeight: height,
+                            compressedBytes: payloadBytes)
                     }
                 } else {
                     let image = frame.makeUIImage()
@@ -694,6 +698,8 @@ final class MetaB0Model {
             framesReceived = 0
             lastFrameUptime = nil
             measuredFPS = 0
+            measuredCompressedMbps = 0
+            compressedBytesThisSecond = 0
             activeVideoSeconds = 0
             lastErrorWasThermal = false
             newCamera.stream.start()
@@ -703,7 +709,8 @@ final class MetaB0Model {
         }
     }
 
-    private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0) {
+    private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0,
+                         compressedBytes: Int = 0) {
         guard camera != nil, streamState != .stopped else { return }
         if !receiveCompressedHEVC && image == nil { return }
         // A compressed header without image dimensions is not an observed
@@ -719,6 +726,7 @@ final class MetaB0Model {
         }
         framesReceived += 1
         framesThisSecond += 1
+        compressedBytesThisSecond += max(0, compressedBytes)
 
         let now = CACurrentMediaTime()
         lastFrameUptime = now
@@ -731,6 +739,9 @@ final class MetaB0Model {
         }
         if let lastCountTime, now - lastCountTime >= 1 {
             measuredFPS = Double(framesThisSecond) / (now - lastCountTime)
+            measuredCompressedMbps = Double(compressedBytesThisSecond) * 8 /
+                ((now - lastCountTime) * 1_000_000)
+            compressedBytesThisSecond = 0
             framesThisSecond = 0
             self.lastCountTime = now
         }
@@ -784,6 +795,8 @@ final class MetaB0Model {
         lastFrameUptime = nil
         lastCountTime = nil
         framesThisSecond = 0
+        compressedBytesThisSecond = 0
+        measuredCompressedMbps = 0
         streamState = .stopped
     }
 }
