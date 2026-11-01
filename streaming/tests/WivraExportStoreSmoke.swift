@@ -50,7 +50,8 @@ struct WivraExportStoreSmoke {
         _ = FileManager.default.createFile(atPath: fakePartial.path, contents: Data([1, 2]))
         let fakeLink = folder.appendingPathComponent("Wivra_Export_999.mp4")
         try FileManager.default.createSymbolicLink(at: fakeLink, withDestinationURL: finalURL)
-        precondition((await reopened.listSavedExports()).count == 1,
+        let visibleAfterInjection = await reopened.listSavedExports()
+        precondition(visibleAfterInjection.count == 1,
                      "partial files and symlinks must remain invisible")
         try FileManager.default.removeItem(at: fakeLink)
         try FileManager.default.removeItem(at: fakePartial)
