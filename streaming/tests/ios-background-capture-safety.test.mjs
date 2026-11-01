@@ -24,3 +24,17 @@ test('all eight iOS languages disclose that locking can interrupt Meta camera st
     for (const key of keys) assert.ok(strings.includes('"' + key + '" = "'), lang + ' missing ' + key);
   }
 });
+
+
+test('selected microphone capture declares audio background mode alongside Meta camera transports', () => {
+  const plist = read('../ios/B0/Info.plist');
+  const route = read('../ios/B0/Sources/WivraAudioRoute.swift');
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  const bg = plist.split('<key>UIBackgroundModes</key>')[1]?.split('</array>')[0];
+  assert.ok(bg, 'iOS background mode list not declared');
+  for (const mode of ['audio', 'processing', 'bluetooth-central', 'bluetooth-peripheral', 'external-accessory'])
+    assert.ok(bg.includes('<string>' + mode + '</string>'), 'iOS background mode missing: ' + mode);
+  assert.match(route, /setCategory\(\.playAndRecord, mode: \.videoRecording/);
+  assert.match(route, /setActive\(true\)/);
+  assert.match(model, /var captureSelectedAudio = false/, 'microphone capture must remain opt-in');
+});
