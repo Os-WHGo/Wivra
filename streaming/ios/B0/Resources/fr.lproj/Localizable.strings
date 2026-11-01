@@ -99,3 +99,4 @@
 "ios.capture.joined_share" = "Partager la vidéo complète";
 "ios.capture.joined_photos" = "Enregistrer la vidéo complète dans Photos";
 "ios.capture.joined_saved" = "Vidéo complète enregistrée dans Photos";
+"ios.capture.retry_join" = "Assembler cette prise complète";
