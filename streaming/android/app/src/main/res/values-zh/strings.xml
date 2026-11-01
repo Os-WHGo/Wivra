@@ -175,4 +175,18 @@
     <string name="source_limits_title">来源功能</string>
     <string name="source_limits_camera">打开相机并不代表连接成功。Wivra会申请权限并验证完成的文件。画中画和双摄像头同时录制尚未启用。</string>
     <string name="source_limits_live">共享屏幕或应用需要Android系统授权。此功能仅传输视频，不捕获其他应用的内部音频。画中画与多摄像头同时使用尚未启用。</string>
+
+    <!-- Android FULL LIVE microphone source: preference only until real route is observed. -->
+    <string name="live_audio_select_button">音频输入：%1$s</string>
+    <string name="live_audio_auto">自动 (Android)</string>
+    <string name="live_audio_phone">内置麦克风</string>
+    <string name="live_audio_wired">有线耳机</string>
+    <string name="live_audio_usb">USB 麦克风</string>
+    <string name="live_audio_bluetooth">蓝牙麦克风</string>
+    <string name="live_audio_other">其他音频输入</string>
+    <string name="live_audio_select_title">选择 LIVE 音频输入</string>
+    <string name="live_audio_disconnected">所选音频设备已断开。为避免未经同意切换麦克风，LIVE 已停止。请检查本地录像。</string>
+    <string name="live_audio_unavailable">所选输入已不可用。请在开播前重新选择。</string>
+    <string name="live_audio_limits_button">限制</string>
+    <string name="live_audio_preference_only">Android 只接收首选输入请求。实际音频路由和质量仍需录音测试。不代表眼镜麦克风已可用。</string>
 </resources>
