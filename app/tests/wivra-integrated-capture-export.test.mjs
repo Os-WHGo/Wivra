@@ -79,6 +79,9 @@ test('iPhone direct Photos save is add-only and offered only for verified MP4 ex
   assert.match(bridge, /if op == "savePhotos"/);
   assert.match(bridge, /savedURL\(token: request\.token\)/);
   assert.match(bridge, /requestAuthorization\(for: \.addOnly\)/);
+  assert.match(bridge, /await WivraMp4Repair\.inspect\(url\)/);
+  assert.match(bridge, /media\.video, media\.durationMs > 0/);
+  assert.ok(bridge.indexOf('await WivraMp4Repair.inspect(url)') < bridge.indexOf('requestAuthorization(for: .addOnly)'));
   assert.match(bridge, /creationRequestForAssetFromVideo\(atFileURL: url\)/);
   assert.match(sink, /export function saveExportToPhotos\(host, token\)/);
   assert.match(template, /host\?\.platform === 'ios' && r\.ext === 'mp4'/);
