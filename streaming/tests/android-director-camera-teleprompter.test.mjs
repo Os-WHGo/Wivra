@@ -19,7 +19,8 @@ test('Director and native camera refer to same persisted local shot plan',()=>{
   assert.match(host,/s\.state==='todo'\|\|s\.state==='retry'/);
   assert.match(host,/s\.script\.slice\(0,2200\)/);
   assert.match(host,/launchPhoneCameraFromDirector\(\)/);
-  assert.match(host,/phone\.setOnClickListener\(v -> launchPhoneCameraFromDirector\(\)\)/);
+  assert.match(host,/cameraSources\.setOnClickListener\(v -> showCameraSourceChooser\(\)\)/);
+  assert.match(host,/else if \(hasPhoneCameraHardware\(\)\) \{\s*launchPhoneCameraFromDirector\(\)/);
 });
 test('User chooses a pending take or plain camera, never silent implicit capture',()=>{
   assert.match(host,/options\[0\] = getString\(R\.string\.phone_camera_without_script\)/);
