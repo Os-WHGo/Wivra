@@ -113,6 +113,9 @@ enum WivraPendingRecordingStore {
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: folder, includingPropertiesForKeys: nil
               ) else { return 0 }
+        // Raw directory names are authoritative for an undecided recording:
+        // malformed or symlinked ticket JSON must never be overwritten.
+        let rawMarkers = Set(urls.map(\.lastPathComponent))
         let claimed = Set(pending().flatMap(\.files))
         var usedByVideo = Set<String>()
         for json in urls where json.lastPathComponent.hasSuffix(".wivra.json") {
@@ -129,7 +132,8 @@ enum WivraPendingRecordingStore {
             guard name.range(
                 of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                 options: .regularExpression
-            ) != nil, !claimed.contains(name), !usedByVideo.contains(name),
+            ) != nil, !claimed.contains(name),
+            !rawMarkers.contains(name + suffix), !usedByVideo.contains(name),
             !FileManager.default.fileExists(atPath:
                 folder.appendingPathComponent(name + keptAudioSuffix).path),
             (try? checkedURL(url, in: folder)) != nil,
@@ -145,6 +149,9 @@ enum WivraPendingRecordingStore {
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: folder, includingPropertiesForKeys: nil
               ) else { return [] }
+        // An unreadable pending ticket still blocks sharing even if an
+        // earlier crash also left a kept-audio marker on disk.
+        let rawMarkers = Set(urls.map(\.lastPathComponent))
         let claimed = Set(pending().flatMap(\.files))
         let manifests = urls.compactMap { url -> WivraCaptureManifest? in
             guard url.lastPathComponent.hasSuffix(".wivra.json"),
@@ -158,7 +165,8 @@ enum WivraPendingRecordingStore {
             let name = url.lastPathComponent
             guard name.range(of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                              options: .regularExpression) != nil,
-                  !claimed.contains(name), !linked.contains(name),
+                  !claimed.contains(name),
+                  !rawMarkers.contains(name + suffix), !linked.contains(name),
                   FileManager.default.fileExists(atPath:
                     folder.appendingPathComponent(name + keptAudioSuffix).path),
                   (try? checkedURL(url, in: folder)) != nil,
@@ -190,12 +198,39 @@ enum WivraPendingRecordingStore {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
+    // Read raw ticket names, not only successfully decoded JSON. A damaged
+    // pending ticket must never be mistaken for explicit user consent to Keep.
+    // A grouped recovery ticket may belong to part0002 or later if earlier
+    // segments were lost before the process was interrupted.
+    private static func hasUndecidedTicket(
+        forVideo name: String, markerNames: Set<String>
+    ) -> Bool {
+        if markerNames.contains(name + suffix) { return true }
+        guard let part = name.range(of: #"_part[0-9]{4}\.mov$"#,
+                                    options: .regularExpression) else { return false }
+        let groupPrefix = String(name[..<part.lowerBound]) + "_part"
+        let ticketEnding = ".mov" + suffix
+        return markerNames.contains { ticket in
+            guard ticket.hasPrefix(groupPrefix), ticket.hasSuffix(ticketEnding) else {
+                return false
+            }
+            let index = ticket.dropFirst(groupPrefix.count).dropLast(ticketEnding.count)
+            return index.count == 4 && index.allSatisfy { $0 >= "0" && $0 <= "9" }
+        }
+    }
+
     static func isPendingVideo(_ videoURL: URL) -> Bool {
         guard let folder = try? directory(),
               let url = try? checkedURL(videoURL, in: folder) else { return false }
-        // Grouped checkpoints share ONE decision ticket. All video segments
-        // must remain hidden from the editor until that decision is resolved.
-        return pending().contains { $0.files.contains(url.lastPathComponent) }
+        // Valid tickets protect their explicitly listed files.
+        let name = url.lastPathComponent
+        if pending().contains(where: { $0.files.contains(name) }) { return true }
+
+        // Damaged JSON or a dangling ticket symlink still represents an
+        // undecided recording. Fail closed if the folder cannot be inspected.
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: folder.path)
+        else { return true }
+        return hasUndecidedTicket(forVideo: name, markerNames: Set(entries))
     }
 
     /**
@@ -215,6 +250,7 @@ enum WivraPendingRecordingStore {
             !((try? $0.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) ?? true)
         }
         let existing = pending()
+        let markerNames = Set(urls.map(\.lastPathComponent))
         let groups = Dictionary(grouping: candidates) {
             String($0.lastPathComponent.dropLast("_part0001.mov".count))
         }
@@ -222,7 +258,9 @@ enum WivraPendingRecordingStore {
         for (_, files) in groups {
             let sorted = files.sorted { $0.lastPathComponent < $1.lastPathComponent }
             guard let first = sorted.first,
-                  !existing.contains(where: { $0.files.contains(first.lastPathComponent) })
+                  !existing.contains(where: { $0.files.contains(first.lastPathComponent) }),
+                  // Do not overwrite an unreadable consent ticket on relaunch.
+                  !hasUndecidedTicket(forVideo: first.lastPathComponent, markerNames: markerNames)
             else { continue }
             // If every part already has its capture manifest, the user
             // previously chose Keep. Never start questioning it again.

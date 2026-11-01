@@ -189,11 +189,18 @@ struct WivraMetaB0App: App {
 struct MetaB0Screen: View {
     @Bindable var model: MetaB0Model
     @State private var photoGridEnabled = false
+    @State private var capturePhotosSaving = false
+    @State private var captureSavedToPhotosURL: URL?
+    @State private var captureSavedOriginalOnlyURL: URL?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Wivra · Meta B0")
+        // Recheck frame freshness while this screen is visible, without
+        // extending the Meta DAT stream or restarting a camera session.
+        TimelineView(.periodic(from: .now, by: 1)) { tick in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    let _ = tick.date
+                    Text("Wivra · Meta B0")
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
@@ -271,7 +278,9 @@ struct MetaB0Screen: View {
                     Text("Registro: \(model.isRegistered ? "autorizado" : "pendiente")")
                     Text("Sesión: \(String(describing: model.sessionState))")
                     Text("Cámara: \(String(describing: model.streamState))")
-                    Text("Fotogramas reales: \(model.framesReceived)")
+                    Text("Señal DAT observada: \(model.cameraSignalDiagnostic)")
+                    Text("Display/gestos: no habilitados en esta beta")
+                    Text("Fotogramas recibidos (no equivalen a MP4 grabado): \(model.framesReceived)")
                     Text(String(format: "FPS observados: %.1f", model.measuredFPS))
                     Text("Resolución recibida: \(model.frameWidth) × \(model.frameHeight)")
                     Text(String(format: "Tiempo con fotogramas: %.1f s", model.activeVideoSeconds))
@@ -436,7 +445,10 @@ struct MetaB0Screen: View {
                                     model.beginRecording()
                                 }
                             }
-                            .disabled(!model.canRecord)
+                            // Loss of DAT frames must never trap the user in REC.
+                            // A new take needs fresh frames; Stop must remain usable
+                            // during a stream pause so HEVC/CAF can be finalized.
+                            .disabled(model.recordingArmed ? model.recordingFinishing : !model.canRecord)
                             .buttonStyle(.borderedProminent)
                             .accessibilityIdentifier("meta_b1_record")
                             if model.recordingArmed {
@@ -484,10 +496,63 @@ struct MetaB0Screen: View {
                                 .font(.caption.monospacedDigit())
                         }
                         if let url = model.lastRecordedURL {
+                            if model.lastRecordedSegmentCount > 1 {
+                                // The original is the FIRST independently finalized MOV.
+                                // Do not misrepresent or add 30 seconds to Photos as the
+                                // complete long capture. Each part remains in Mis capturas.
+                                Label(
+                                    String(format: NSLocalizedString("ios.capture.segments_not_combined",
+                                                                      comment: ""),
+                                           model.lastRecordedSegmentCount),
+                                    systemImage: "square.stack"
+                                )
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("meta_b1_segmented_warning")
+                                Text("ios.capture.segments_in_library_instruction")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                ShareLink(item: url) {
+                                    Label("ios.capture.share_first_segment", systemImage: "square.and.arrow.up")
+                                }
+                                .accessibilityIdentifier("meta_b1_share_first_segment")
+                            } else {
                             ShareLink(item: url) {
                                 Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
                             }
                             .accessibilityIdentifier("meta_b1_export_mov")
+                            // When audio was separately recorded and successfully muxed,
+                            // prefer the finished MOV with audio for Photos.
+                            // Both the original and muxed files stay local in Wivra.
+                            let photosURL = model.lastCombinedVideoURL ?? url
+                            let originalFallbackURL = model.lastCombinedVideoURL == nil ? nil : url
+                            Button {
+                                capturePhotosSaving = true
+                                Task { @MainActor in
+                                    defer { capturePhotosSaving = false }
+                                    do {
+                                        let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
+                                            photosURL, fallback: originalFallbackURL
+                                        )
+                                        captureSavedToPhotosURL = photosURL
+                                        captureSavedOriginalOnlyURL = originalOnly ? photosURL : nil
+                                    } catch {
+                                        model.errorMessage = "Fotos: " + error.localizedDescription
+                                    }
+                                }
+                            } label: {
+                                Label(captureSavedToPhotosURL == photosURL
+                                      ? "Video guardado en Fotos" : "Guardar video en Fotos",
+                                      systemImage: "square.and.arrow.down")
+                            }
+                            .disabled(capturePhotosSaving || captureSavedToPhotosURL == photosURL)
+                            .accessibilityIdentifier("meta_b1_save_photos")
+                            if captureSavedOriginalOnlyURL == photosURL {
+                                Text("ios.library.photos_original_only")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                            }
                             Text("Archivo local: \(url.lastPathComponent). Verifica su reproducción antes de usarlo en el editor.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -518,6 +583,7 @@ struct MetaB0Screen: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
+            }
         }
         .onAppear {
             model.refreshPendingRecordingChoice()

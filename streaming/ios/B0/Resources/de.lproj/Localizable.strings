@@ -76,3 +76,10 @@
 "ios.app.background_capture_toggle" = "Ray-Ban bei gesperrtem Bildschirm (experimentell)";
 "ios.app.background_capture_off_warning" = "Wenn du das iPhone jetzt sperrst, beendet Wivra die Ray-Ban-Sitzung. Aktiviere zuvor den experimentellen Hintergrundmodus.";
 "ios.app.background_capture_experimental_warning" = "Experimentell: iOS oder Meta können den Stream beim Sperren unterbrechen. Abgeschlossene Segmente bleiben erhalten; prüfe sie danach.";
+"ios.library.photos_original_only" = "Originalvideo gespeichert, weil die Version mit Ton ungültig war.";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "Diese Aufnahme enthält %d separate MOV-Segmente. Das erste ist nicht das vollständige Video.";
+"ios.capture.segments_in_library_instruction" = "Beende die Sitzung und öffne Meine Aufnahmen, um Clips einzeln in Fotos zu sichern, oder füge sie in Director zusammen und exportiere ein vollständiges Video.";
+"ios.capture.share_first_segment" = "Nur erstes Segment teilen";
+"ios.capture.individual_segment" = "Teil %d dieser Aufnahme (MOV); weitere Teile prüfen.";

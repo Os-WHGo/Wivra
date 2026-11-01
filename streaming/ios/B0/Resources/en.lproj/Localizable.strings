@@ -76,3 +76,10 @@
 "ios.app.background_capture_toggle" = "Ray-Ban with screen locked (experimental)";
 "ios.app.background_capture_off_warning" = "Locking the iPhone now will end the Ray-Ban session. Enable experimental background capture before locking.";
 "ios.app.background_capture_experimental_warning" = "Experimental mode: iOS or Meta may still interrupt streaming while locked. Completed segments are kept; review them when you return.";
+"ios.library.photos_original_only" = "Saved the original video because the copy with audio was invalid.";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "This take contains %d separate MOV segments. The first is not the complete video.";
+"ios.capture.segments_in_library_instruction" = "End the session and open My Captures to save clips individually to Photos, or join them in Director and export a complete video.";
+"ios.capture.share_first_segment" = "Share first segment only";
+"ios.capture.individual_segment" = "Part %d of this take (MOV); check for other parts.";

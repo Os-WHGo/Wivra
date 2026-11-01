@@ -13,6 +13,16 @@ struct WivraStoredCapture: Identifiable {
     let alternateVideoURL: URL?
     let audioURLs: [URL]
     let missing: [String]
+
+    // Segment index is a filename fact, NOT evidence that more files exist.
+    // A short take can have only _part0001.mov and already be complete.
+    // Derive the index without changing or publishing the local media.
+    var segmentNumber: Int? {
+        guard let name = videoURL?.lastPathComponent,
+              name.range(of: #"_part[0-9]{4}\.mov$"#, options: .regularExpression) != nil
+        else { return nil }
+        return Int(String(name.dropLast(".mov".count).suffix(4)))
+    }
 }
 
 struct WivraStoredCaptureDay: Identifiable {
@@ -156,6 +166,10 @@ struct WivraNativeCaptureLibraryScreen: View {
     @State private var days: [WivraStoredCaptureDay] = []
     @State private var rejected = 0
     @State private var recoveredAudio: [URL] = []
+    @State private var photosSavingCaptureID: String?
+    @State private var photosSavedCaptureIDs = Set<String>()
+    @State private var photosSavedOriginalOnly = Set<String>()
+    @State private var photosError: String?
 
     private func refresh() {
         let result = WivraLocalCaptureScanner.read()
@@ -202,8 +216,49 @@ struct WivraNativeCaptureLibraryScreen: View {
                                 Text(item.source).font(.headline)
                                 Text(item.recordedAt.formatted(date: .omitted, time: .shortened))
                                     .font(.caption).foregroundStyle(.secondary)
+                                if let segmentNumber = item.segmentNumber {
+                                    Text(String(format: NSLocalizedString("ios.capture.individual_segment",
+                                                                          comment: ""),
+                                                segmentNumber))
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                        .accessibilityIdentifier("wivra_library_segment_number")
+                                }
                                 if let video = item.videoURL {
                                     ShareLink(item: video) { Label("ios.library.share_video", systemImage: "square.and.arrow.up") }
+                                    // The catalog survives relaunch. Offer the same add-only
+                                    // Photos action as the live capture screen for kept files.
+                                    // Prefer a finished muxed MOV when available; Photos
+                                    // validates readability and never removes Wivra originals.
+                                    let preferredPhotosURL = item.alternateVideoURL ?? video
+                                    Button {
+                                        photosSavingCaptureID = item.id
+                                        Task { @MainActor in
+                                            defer { photosSavingCaptureID = nil }
+                                            do {
+                                                let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
+                                                    preferredPhotosURL,
+                                                    fallback: item.alternateVideoURL == nil ? nil : video
+                                                )
+                                                photosSavedCaptureIDs.insert(item.id)
+                                                if originalOnly { photosSavedOriginalOnly.insert(item.id) }
+                                            } catch {
+                                                photosError = error.localizedDescription
+                                            }
+                                        }
+                                    } label: {
+                                        Label(photosSavedCaptureIDs.contains(item.id)
+                                              ? "ios.exports.saved_photos" : "ios.exports.save_photos",
+                                              systemImage: "square.and.arrow.down")
+                                    }
+                                    .disabled(photosSavingCaptureID != nil ||
+                                              photosSavedCaptureIDs.contains(item.id))
+                                    .accessibilityIdentifier("wivra_capture_library_save_photos")
+                                    if photosSavedOriginalOnly.contains(item.id) {
+                                        Text("ios.library.photos_original_only")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
+                                    }
                                 } else {
                                     Text("ios.library.video_missing")
                                         .font(.caption).foregroundStyle(.orange)
@@ -234,6 +289,14 @@ struct WivraNativeCaptureLibraryScreen: View {
                 }
             }
             .onAppear { refresh() }
+            .alert("ios.exports.photos_error", isPresented: Binding(
+                get: { photosError != nil },
+                set: { if !$0 { photosError = nil } }
+            )) {
+                Button("OK", role: .cancel) { photosError = nil }
+            } message: {
+                Text(photosError ?? "")
+            }
         }
     }
 }

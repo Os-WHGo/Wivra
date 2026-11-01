@@ -76,3 +76,10 @@
 "ios.app.background_capture_toggle" = "Ray-Ban com tela bloqueada (experimental)";
 "ios.app.background_capture_off_warning" = "Bloquear o iPhone agora encerrará a sessão Ray-Ban. Ative a captura experimental em segundo plano antes de bloquear.";
 "ios.app.background_capture_experimental_warning" = "Modo experimental: iOS ou Meta ainda podem interromper a transmissão. Os segmentos finalizados são preservados; revise-os ao voltar.";
+"ios.library.photos_original_only" = "Vídeo original salvo porque a versão com áudio não era válida.";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "Esta gravação contém %d segmentos MOV separados. O primeiro não é o vídeo completo.";
+"ios.capture.segments_in_library_instruction" = "Encerre a sessão e abra Minhas capturas para salvar os clipes separadamente em Fotos, ou una-os no Director e exporte um vídeo completo.";
+"ios.capture.share_first_segment" = "Compartilhar apenas o primeiro segmento";
+"ios.capture.individual_segment" = "Parte %d desta gravação (MOV); verifique se há outras partes.";

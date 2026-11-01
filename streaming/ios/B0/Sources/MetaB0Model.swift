@@ -31,6 +31,21 @@ final class MetaB0Model {
     var showCameraPermissionConfirm = false
     var errorMessage: String?
     var framesReceived = 0
+    // Capability evidence comes from real DAT frames, not marketing names,
+    // SDK registration or a connected LED. Gen 3/Display/new models may differ.
+    private var lastFrameUptime: CFTimeInterval?
+    private var hasFreshDATFrames: Bool {
+        guard camera != nil, streamState == .streaming,
+              framesReceived > 0, let lastFrameUptime else { return false }
+        return CACurrentMediaTime() - lastFrameUptime <= 4
+    }
+    var cameraSignalDiagnostic: String {
+        if !isRegistered { return "registro pendiente" }
+        if camera == nil { return "no iniciada" }
+        if framesReceived == 0 { return "esperando fotogramas" }
+        return hasFreshDATFrames ? "fotogramas DAT recientes" :
+            "fotogramas interrumpidos o sin confirmar"
+    }
     var measuredFPS: Double = 0
     var activeVideoSeconds: Double = 0
     var frameWidth = 0
@@ -50,6 +65,9 @@ final class MetaB0Model {
     }
 
     var lastRecordedURL: URL?
+    // A video-only take can contain several independent 30 s MOV files.
+    // Never present its first file as though it were the entire recording.
+    var lastRecordedSegmentCount = 0
     var recordingStatus = "B1D experimental: entrada de audio seleccionable, pista independiente y MOV."
     // Default to the lowest-risk Meta DAT path: uninterrupted HEVC-only
     // capture. Audio sidecar stays opt-in with explicit route preflight.
@@ -123,12 +141,13 @@ final class MetaB0Model {
     }
     var canStartPreview: Bool { sessionState == .started && camera == nil }
     var hasPreview: Bool { camera != nil && streamState != .stopped }
-    var canRecord: Bool { receiveCompressedHEVC && camera != nil && framesReceived > 0 && !recordingFinishing }
+    var canRecord: Bool {
+        receiveCompressedHEVC && hasFreshDATFrames && !recordingFinishing
+    }
     var canCapturePhoto: Bool {
         // The DAT still-photo API belongs to the active stream, even when our
         // HEVC writer is armed. Real HEVC+photo coexistence needs device tests.
-        camera != nil && streamState == .streaming && framesReceived > 0 &&
-        !photoCaptureInFlight && !recordingFinishing
+        hasFreshDATFrames && !photoCaptureInFlight && !recordingFinishing
     }
     var isCompressedMode: Bool { camera != nil && receiveCompressedHEVC }
 
@@ -198,6 +217,7 @@ final class MetaB0Model {
     func beginRecording() {
         guard canRecord && !recordingArmed else { return }
         lastRecordedURL = nil
+        lastRecordedSegmentCount = 0
         lastSeparateAudioURL = nil
         lastCombinedVideoURL = nil
         lastAudioSyncOffsetSeconds = nil
@@ -271,6 +291,7 @@ final class MetaB0Model {
                 break
             }
             lastRecordedURL = first
+            lastRecordedSegmentCount = urls.count
             do {
                 let manifests = urls.map {
                     $0.deletingPathExtension().appendingPathExtension("wivra.json")
@@ -286,6 +307,7 @@ final class MetaB0Model {
             }
         case .saved(let url, let frames, let dropped):
             lastRecordedURL = url
+            lastRecordedSegmentCount = 1
             recordingStatus = "Video original guardado (\(frames) cuadros; \(dropped) descartados)."
             if let sound {
                 lastSeparateAudioURL = sound.url
@@ -441,6 +463,7 @@ final class MetaB0Model {
             if lastRecordedURL?.lastPathComponent == entry.id ||
                lastSeparateAudioURL?.lastPathComponent == entry.id {
                 lastRecordedURL = nil
+                lastRecordedSegmentCount = 0
                 lastSeparateAudioURL = nil
                 lastCombinedVideoURL = nil
                 lastCaptureManifestURL = nil
@@ -659,6 +682,7 @@ final class MetaB0Model {
 
             streamState = .starting
             framesReceived = 0
+            lastFrameUptime = nil
             measuredFPS = 0
             activeVideoSeconds = 0
             lastErrorWasThermal = false
@@ -672,6 +696,9 @@ final class MetaB0Model {
     private func onFrame(_ image: UIImage?, compressedWidth: Int = 0, compressedHeight: Int = 0) {
         guard camera != nil, streamState != .stopped else { return }
         if !receiveCompressedHEVC && image == nil { return }
+        // A compressed header without image dimensions is not an observed
+        // playable frame. The HEVC writer still receives its original packet.
+        if image == nil && (compressedWidth <= 0 || compressedHeight <= 0) { return }
         if let image {
             previewImage = image
             frameWidth = Int(image.size.width * image.scale)
@@ -684,6 +711,7 @@ final class MetaB0Model {
         framesThisSecond += 1
 
         let now = CACurrentMediaTime()
+        lastFrameUptime = now
         if firstFrameTime == nil {
             firstFrameTime = now
             lastCountTime = now
@@ -743,6 +771,7 @@ final class MetaB0Model {
         camera = nil
         previewImage = nil
         firstFrameTime = nil
+        lastFrameUptime = nil
         lastCountTime = nil
         framesThisSecond = 0
         streamState = .stopped

@@ -175,6 +175,25 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
 /// It preserves the Wivra copy and never reads the user's photo library.
 @MainActor
 enum WivraPhotosLibrary {
+    /// Add only one video: if an optional muxed output is unreadable, select
+    /// the surviving original *before* requesting Photos permission.
+    /// Never retry a failed Photos transaction, which might create duplicates.
+    /// Returns true only if the original fallback was used.
+    static func savePreferredVideo(_ preferred: URL, fallback: URL?) async throws -> Bool {
+        guard let fallback,
+              fallback.standardizedFileURL != preferred.standardizedFileURL else {
+            try await saveVideo(preferred)
+            return false
+        }
+        if let media = await WivraMp4Repair.inspect(preferred),
+           media.video && media.durationMs > 0 {
+            try await saveVideo(preferred)
+            return false
+        }
+        try await saveVideo(fallback)
+        return true
+    }
+
     static func saveVideo(_ url: URL) async throws {
         guard url.isFileURL, ["mp4", "mov"].contains(url.pathExtension.lowercased()) else {
             throw WivraExportError.io("Fotos solo admite videos MP4 o MOV compatibles.")

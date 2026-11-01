@@ -61,3 +61,28 @@ test('Meta AI registration Activity survives orientation changes while awaiting 
   assert.match(manifest, /android:name="\.WivraMetaPreviewActivity" android:exported="false"\s+android:configChanges="orientation\|screenSize\|keyboardHidden"/);
   assert.match(activity, /override fun onStop\(\)[\s\S]*?super\.onStop\(\)/);
 });
+
+
+test('Android DAT capability readiness follows current devices and real frames instead of guessed glasses generations', () => {
+  assert.match(activity, /Wearables\.devices\.collect \{/);
+  assert.match(activity, /availableDevicesJob = scope\.launch/);
+  assert.match(activity, /connectButton\.isEnabled = sdkReady[\s\S]*?Wearables\.devices\.value\.isNotEmpty\(\)/);
+  assert.match(activity, /private fun updateDatCapabilityStatus\(\)/);
+  assert.match(activity, /val freshFrame = stream\?\.state\?\.value == StreamState\.STREAMING/);
+  assert.match(activity, /photoButton\.isEnabled = stream\?\.state\?\.value == StreamState\.STREAMING/);
+  assert.match(activity, /SystemClock\.elapsedRealtime\(\) - lastFrameReceivedMs <= 4_000L/);
+  assert.match(activity, /Servicio DAT grabando; verificar fragmentos MP4 al finalizar/);
+  assert.match(activity, /Display, gestos y generaciones nuevas: pendientes de validar/);
+  assert.doesNotMatch(activity, /if \(device\.name.*Gen ?3/);
+});
+
+test('Android stale frame guard refreshes while UI is visible, not as a background keepalive', () => {
+  const start = activity.split('override fun onStart() {')[1]?.split('override fun onStop() {')[0];
+  const stop = activity.split('override fun onStop() {')[1]?.split('private fun button(')[0];
+  assert.ok(start && stop, 'Activity visibility lifecycle must be explicit');
+  assert.match(start, /capabilityRefreshJob = scope\.launch \{/);
+  assert.match(start, /while \(true\) \{[\s\S]*?refreshButtons\(\)[\s\S]*?delay\(1_000L\)/);
+  assert.match(stop, /capabilityRefreshJob\?\.cancel\(\)/);
+  assert.match(stop, /capabilityRefreshJob = null/);
+  assert.match(activity, /SystemClock\.elapsedRealtime\(\) - lastFrameReceivedMs < 4_000L/);
+});

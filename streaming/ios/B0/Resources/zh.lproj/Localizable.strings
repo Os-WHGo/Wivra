@@ -76,3 +76,10 @@
 "ios.app.background_capture_toggle" = "锁屏时使用 Ray-Ban（实验性）";
 "ios.app.background_capture_off_warning" = "现在锁定 iPhone 将结束 Ray-Ban 会话。请在锁屏前启用实验性后台录制。";
 "ios.app.background_capture_experimental_warning" = "实验模式：锁屏后 iOS 或 Meta 仍可能中断视频流。已完成的片段会保留，返回后请检查。";
+"ios.library.photos_original_only" = "含音频的版本无效，因此已保存原始视频。";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "本次拍摄包含 %d 个独立的 MOV 片段。第一个文件并非完整视频。";
+"ios.capture.segments_in_library_instruction" = "结束会话后打开“我的拍摄”，将各片段分别保存到照片，或在 Director 中合并并导出完整视频。";
+"ios.capture.share_first_segment" = "仅分享第一个片段";
+"ios.capture.individual_segment" = "本次拍摄第 %d 部分（MOV），请确认是否还有其他部分。";

@@ -63,6 +63,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var stream: Stream? = null
     private var sessionJob: Job? = null
     private var metaRegistrationJob: Job? = null
+    private var availableDevicesJob: Job? = null
+    private var capabilityRefreshJob: Job? = null
     private var metaRegistrationWarningJob: Job? = null
     private var errorJob: Job? = null
     private var framesJob: Job? = null
@@ -94,6 +96,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private var sdkReady = false
     private var frames = 0L
     private lateinit var status: TextView
+    private lateinit var datCapabilityStatus: TextView
     private lateinit var phoneNetworkStatus: TextView
     private val connectivityManager by lazy {
         getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -184,6 +187,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             setPadding(0, 20, 0, 20)
         }
         root.addView(status)
+        datCapabilityStatus = TextView(this).apply {
+            text = "Meta DAT: comprobando capacidades..."
+            textSize = 12f
+            setPadding(0, 0, 0, 12)
+        }
+        root.addView(datCapabilityStatus)
         phoneNetworkStatus = TextView(this).apply {
             text = getString(R.string.mobile_network_checking)
             textSize = 13f
@@ -315,6 +324,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         refreshButtons()
+        // A halted DAT stream may stay STREAMING but stop producing frames.
+        // Re-evaluate the photo shutter and signal age only while UI is visible;
+        // the separate capture foreground service is unaffected.
+        if (capabilityRefreshJob == null) {
+            capabilityRefreshJob = scope.launch {
+                while (true) {
+                    refreshButtons()
+                    delay(1_000L)
+                }
+            }
+        }
         if (WivraCaptureForegroundService.isCaptureActive()) {
             show("Grabación Ray-Ban a cargo del servicio. Puedes bloquear la pantalla.")
         } else {
@@ -334,6 +354,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        capabilityRefreshJob?.cancel()
+        capabilityRefreshJob = null
         if (networkObserverRegistered) {
             connectivityManager.unregisterNetworkCallback(networkObserver)
             networkObserverRegistered = false
@@ -350,12 +372,64 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         }
 
     private fun show(message: String) { status.text = message }
+
+    // The Meta DAT selector can pick any supported model, including future
+    // models. Report only what this process actually observed: registration,
+    // device discovery, camera frames and native recording service state.
+    // A product name or lit camera LED never implies streaming or a saved MP4.
+    private fun updateDatCapabilityStatus() {
+        if (!::datCapabilityStatus.isInitialized) return
+        if (!sdkReady) {
+            datCapabilityStatus.text = "Meta DAT: SDK sin confirmar."
+            return
+        }
+        val registered = Wearables.registrationState.value == RegistrationState.REGISTERED
+        val detected = Wearables.devices.value.isNotEmpty()
+        val freshFrame = stream?.state?.value == StreamState.STREAMING &&
+            lastFrameReceivedMs > 0L &&
+            SystemClock.elapsedRealtime() - lastFrameReceivedMs <= 4_000L
+        val capture = WivraCaptureForegroundService.captureState
+        val signal = when {
+            !registered -> "Registro pendiente"
+            !detected && session == null && !WivraCaptureForegroundService.isCaptureActive() ->
+                "Gafas no detectadas"
+            capture == WivraCaptureForegroundService.CaptureState.RECORDING ->
+                "Servicio DAT grabando; verificar fragmentos MP4 al finalizar"
+            capture == WivraCaptureForegroundService.CaptureState.PAUSED ->
+                "DAT en pausa; continuidad sin confirmar"
+            capture == WivraCaptureForegroundService.CaptureState.FINALIZING ->
+                "Finalizando MP4; archivo aún sin validar"
+            freshFrame && stream != null -> "Fotogramas reales recibidos"
+            stream != null -> "Esperando fotogramas DAT"
+            session?.state?.value == DeviceSessionState.STARTED ->
+                "Sesión lista; cámara aún sin verificar"
+            detected -> "Gafas detectadas; cámara aún sin verificar"
+            else -> "Conexión DAT sin confirmar"
+        }
+        datCapabilityStatus.text = "Compatibilidad por capacidades: " + signal +
+            "\nDisplay, gestos y generaciones nuevas: pendientes de validar."
+    }
+
+    private fun observeAvailableDevices() {
+        if (availableDevicesJob != null) return
+        availableDevicesJob = scope.launch {
+            Wearables.devices.collect {
+                // A registered app does not guarantee a currently connected
+                // pair of glasses. The device Flow changes independently of
+                // registration when glasses are switched or power off.
+                refreshButtons()
+            }
+        }
+    }
+
     private fun refreshButtons() {
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
         registerButton.isEnabled = sdkReady && !serviceRecording &&
             Wearables.registrationState.value != RegistrationState.REGISTERING &&
             Wearables.registrationState.value != RegistrationState.REGISTERED
-        connectButton.isEnabled = sdkReady && session == null && !serviceRecording
+        connectButton.isEnabled = sdkReady && session == null && !serviceRecording &&
+            Wearables.registrationState.value == RegistrationState.REGISTERED &&
+            Wearables.devices.value.isNotEmpty()
         previewButton.isEnabled = !serviceRecording &&
             session?.state?.value == DeviceSessionState.STARTED && camera == null
         recordButton.isEnabled = !serviceRecording &&
@@ -365,9 +439,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             (serviceRecording && WivraCaptureForegroundService.captureState !=
                 WivraCaptureForegroundService.CaptureState.FINALIZING) ||
             (recordingMode && !recordingFinalizing)
-        photoButton.isEnabled = stream != null && !photoInProgress &&
-            lastFrameReceivedMs > 0L &&
+        photoButton.isEnabled = stream?.state?.value == StreamState.STREAMING &&
+            !photoInProgress && lastFrameReceivedMs > 0L &&
             SystemClock.elapsedRealtime() - lastFrameReceivedMs < 4_000L
+        updateDatCapabilityStatus()
     }
 
     private fun checkBluetooth() {
@@ -384,6 +459,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 sdkReady = true
                 show(getString(R.string.sdk_ready))
                 observeMetaRegistration()
+                observeAvailableDevices()
                 refreshButtons()
             }
             .onFailure { error, _ -> show(getString(R.string.sdk_error, error.description)) }
