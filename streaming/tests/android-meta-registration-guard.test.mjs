@@ -68,6 +68,8 @@ test('Android DAT capability readiness follows current devices and real frames i
   assert.match(activity, /availableDevicesJob = scope\.launch/);
   assert.match(activity, /connectButton\.isEnabled = sdkReady[\s\S]*?Wearables\.devices\.value\.isNotEmpty\(\)/);
   assert.match(activity, /private fun updateDatCapabilityStatus\(\)/);
+  assert.match(activity, /val freshFrame = stream\?\.state\?\.value == StreamState\.STREAMING/);
+  assert.match(activity, /photoButton\.isEnabled = stream\?\.state\?\.value == StreamState\.STREAMING/);
   assert.match(activity, /SystemClock\.elapsedRealtime\(\) - lastFrameReceivedMs <= 4_000L/);
   assert.match(activity, /Servicio DAT grabando; verificar fragmentos MP4 al finalizar/);
   assert.match(activity, /Display, gestos y generaciones nuevas: pendientes de validar/);
