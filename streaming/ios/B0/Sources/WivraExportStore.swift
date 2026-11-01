@@ -132,8 +132,9 @@ actor WivraExportStore {
         return WivraExportReply(token: token, displayName: name)
     }
 
-    func append(token: Int, seq: Int, data: Data) throws -> WivraExportReply {
+    func append(token: Int, seq: Int, data: Data, owner: String? = nil) throws -> WivraExportReply {
         guard var session = sessions[token] else { throw WivraExportError.unknownSession }
+        if let owner, session.owner != owner { throw WivraExportError.unknownSession }
         do {
             guard seq == session.seq else {
                 throw WivraExportError.integrity("Fragmento fuera de orden: llegó \(seq), se esperaba \(session.seq).")
@@ -158,7 +159,9 @@ actor WivraExportStore {
         }
     }
 
-    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true) async throws -> WivraExportReply {
+    func finish(token: Int, bytes: Int64, crc32: UInt32, chunks: Int, repair: Bool = true, owner: String? = nil) async throws -> WivraExportReply {
+        guard let existing = sessions[token] else { throw WivraExportError.unknownSession }
+        if let owner, existing.owner != owner { throw WivraExportError.unknownSession }
         guard let session = sessions.removeValue(forKey: token) else { throw WivraExportError.unknownSession }
         let diskBytes: Int64, diskCrc: UInt32
         do {
@@ -229,7 +232,9 @@ actor WivraExportStore {
     }
 
     /// Idempotent: closes and deletes the partial file.
-    func abort(token: Int) {
+    func abort(token: Int, owner: String? = nil) {
+        guard let existing = sessions[token] else { return }
+        if let owner, existing.owner != owner { return }
         guard let session = sessions.removeValue(forKey: token) else { return }
         try? session.handle.close()
         try? FileManager.default.removeItem(at: session.partialURL)
