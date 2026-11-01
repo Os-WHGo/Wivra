@@ -38,3 +38,17 @@ test('selected microphone capture declares audio background mode alongside Meta 
   assert.match(route, /setActive\(true\)/);
   assert.match(model, /var captureSelectedAudio = false/, 'microphone capture must remain opt-in');
 });
+
+
+test('iOS capture requires recent actual DAT video frames, never a device model claim or stale preview', () => {
+  const model = read('../ios/B0/Sources/MetaB0Model.swift');
+  assert.match(model, /private var lastFrameUptime: CFTimeInterval\?/);
+  assert.match(model, /private var hasFreshDATFrames: Bool/);
+  assert.match(model, /streamState == \.streaming/);
+  assert.match(model, /CACurrentMediaTime\(\) - lastFrameUptime <= 4/);
+  assert.match(model, /receiveCompressedHEVC && hasFreshDATFrames && !recordingFinishing/);
+  assert.match(model, /hasFreshDATFrames && !photoCaptureInFlight/);
+  assert.match(model, /lastFrameUptime = nil/);
+  assert.match(app, /model\.cameraSignalDiagnostic/);
+  assert.match(app, /Display\/gestos: no habilitados en esta beta/);
+});
