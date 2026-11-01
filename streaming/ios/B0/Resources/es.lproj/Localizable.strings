@@ -104,3 +104,4 @@
 /* Multipart MOV originals are kept in Wivra, not copied to Photos. */
 "ios.capture.parts_private_gallery" = "Los fragmentos quedan en Wivra. Guarda en Fotos solo el video completo, o vuelve a intentar unir la toma.";
 "ios.capture.share_segment_only" = "Compartir solo este fragmento";
+"ios.capture.take_not_finalized" = "No se pudo confirmar que la toma esté completa. Conservamos los fragmentos en Wivra, pero no los uniremos ni publicaremos en Fotos automáticamente.";
