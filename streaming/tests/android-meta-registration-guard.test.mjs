@@ -48,3 +48,10 @@ test('eight Android translations describe registration and no-glasses diagnostic
     }
   }
 });
+
+
+test('Meta AI registration Activity survives orientation changes while awaiting companion callback', () => {
+  const manifest = read('../android/app/src/main/AndroidManifest.xml');
+  assert.match(manifest, /android:name="\.WivraMetaPreviewActivity" android:exported="false"\s+android:configChanges="orientation\|screenSize\|keyboardHidden"/);
+  assert.match(activity, /override fun onStop\(\)[\s\S]*?super\.onStop\(\)/);
+});
