@@ -18,7 +18,10 @@ test('local catalog must hide undecided original recordings before offering Phot
 
 test('persistent capture catalog saves a preferred muxed video using the common add-only bridge', () => {
   assert.match(library, /let preferredPhotosURL = item\.alternateVideoURL \?\? video/);
-  assert.match(library, /try await WivraPhotosLibrary\.saveVideo\(preferredPhotosURL\)/);
+  assert.match(library, /try await WivraPhotosLibrary\.savePreferredVideo\(/);
+  assert.match(library, /fallback: item\.alternateVideoURL == nil \? nil : video/);
+  assert.match(library, /photosSavedOriginalOnly\.insert\(item\.id\)/);
+  assert.match(library, /Text\("ios\.library\.photos_original_only"\)/);
   assert.match(library, /photosSavedCaptureIDs\.insert\(item\.id\)/);
   assert.match(library, /photosSavingCaptureID != nil/);
   assert.match(library, /photosError = error\.localizedDescription/);
@@ -36,7 +39,7 @@ test('persistent capture catalog saves a preferred muxed video using the common 
 test('new catalog action reuses existing translations in all eight iOS languages', () => {
   for (const lang of ['es', 'en', 'fr', 'pt', 'de', 'it', 'ja', 'zh']) {
     const strings = read('../ios/B0/Resources/' + lang + '.lproj/Localizable.strings');
-    for (const key of ['ios.exports.save_photos','ios.exports.saved_photos','ios.exports.photos_error']) {
+    for (const key of ['ios.exports.save_photos','ios.exports.saved_photos','ios.exports.photos_error','ios.library.photos_original_only']) {
       assert.ok(strings.includes('"' + key + '" = "'), lang + ' missing ' + key);
     }
   }
@@ -58,4 +61,19 @@ test('undecided damaged video tickets cannot leak into Photos or native catalog'
   assert.match(matcher, /ticket\.hasPrefix\(groupPrefix\), ticket\.hasSuffix\(ticketEnding\)/);
   assert.match(matcher, /index\.count == 4 && index\.allSatisfy/);
   assert.match(pending, /!hasUndecidedTicket\(forVideo: first\.lastPathComponent, markerNames: markerNames\)/);
+});
+
+test('Photos fallback checks mux validity before doing a single add-only save', () => {
+  const method = bridge.split('static func savePreferredVideo(')[1]
+    ?.split('static func saveVideo(_ url: URL)')[0];
+  assert.ok(method, 'Photos fallback helper must exist');
+  assert.match(method, /WivraMp4Repair\.inspect\(preferred\)/);
+  assert.match(method, /media\.video && media\.durationMs > 0/);
+  assert.match(method, /try await saveVideo\(preferred\)/);
+  assert.match(method, /try await saveVideo\(fallback\)/);
+  assert.match(method, /return true/);
+  assert.doesNotMatch(method, /catch\s*\{|PHPhotoLibrary\.requestAuthorization/);
+  // No retry if Photos itself rejects the permission or change transaction.
+  assert.match(bridge, /PHPhotoLibrary\.requestAuthorization\(for: \.addOnly\)/);
+  assert.match(bridge, /PHAssetChangeRequest\.creationRequestForAssetFromVideo\(atFileURL: url\)/);
 });
