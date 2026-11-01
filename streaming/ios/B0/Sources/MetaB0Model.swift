@@ -52,6 +52,14 @@ final class MetaB0Model {
     var frameHeight = 0
     var lastErrorWasThermal = false
     var chosenProfile = "balanced" // chosen before a new camera session
+    var requestedDatProfileDescription: String {
+        switch chosenProfile {
+        case "economy": return "360 × 640, 15 FPS (ahorro)"
+        case "detail": return "720 × 1280, 15 FPS (detalle)"
+        case "motion": return "504 × 896, 30 FPS (movimiento)"
+        default: return "504 × 896, 24 FPS (equilibrado)"
+        }
+    }
     var receiveCompressedHEVC = false
     var recordingArmed = false
     var recordingFinishing = false
