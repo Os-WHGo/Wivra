@@ -529,10 +529,45 @@ struct MetaB0Screen: View {
                                 Text("ios.capture.segments_in_library_instruction")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
-                                ShareLink(item: url) {
-                                    Label("ios.capture.share_first_segment", systemImage: "square.and.arrow.up")
+                                if model.joiningSegments {
+                                    Label("ios.capture.joining", systemImage: "hourglass")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityIdentifier("meta_b1_join_in_progress")
                                 }
-                                .accessibilityIdentifier("meta_b1_share_first_segment")
+                                if let completed = model.lastJoinedVideoURL {
+                                    Label("ios.capture.join_success", systemImage: "checkmark.seal")
+                                        .foregroundStyle(.green)
+                                    ShareLink(item: completed) {
+                                        Label("ios.capture.joined_share", systemImage: "square.and.arrow.up")
+                                    }
+                                    Button {
+                                        capturePhotosSaving = true
+                                        Task { @MainActor in
+                                            defer { capturePhotosSaving = false }
+                                            do {
+                                                try await WivraPhotosLibrary.saveVideo(completed)
+                                                captureSavedToPhotosURL = completed
+                                            } catch {
+                                                model.errorMessage = "Fotos: " + error.localizedDescription
+                                            }
+                                        }
+                                    } label: {
+                                        Label(captureSavedToPhotosURL == completed
+                                              ? "ios.capture.joined_saved" : "ios.capture.joined_photos",
+                                              systemImage: "square.and.arrow.down")
+                                    }
+                                    .disabled(capturePhotosSaving || captureSavedToPhotosURL == completed)
+                                    .accessibilityIdentifier("meta_b1_save_joined_photos")
+                                } else {
+                                    if let failure = model.lastJoinError {
+                                        Text(failure).font(.caption).foregroundStyle(.orange)
+                                    }
+                                    ShareLink(item: url) {
+                                        Label("ios.capture.share_first_segment", systemImage: "square.and.arrow.up")
+                                    }
+                                    .accessibilityIdentifier("meta_b1_share_first_segment")
+                                }
                             } else {
                             ShareLink(item: url) {
                                 Label("Compartir / Guardar video MOV", systemImage: "square.and.arrow.up")
