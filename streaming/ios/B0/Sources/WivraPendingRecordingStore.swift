@@ -113,6 +113,9 @@ enum WivraPendingRecordingStore {
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: folder, includingPropertiesForKeys: nil
               ) else { return 0 }
+        // Raw directory names are authoritative for an undecided recording:
+        // malformed or symlinked ticket JSON must never be overwritten.
+        let rawMarkers = Set(urls.map(\.lastPathComponent))
         let claimed = Set(pending().flatMap(\.files))
         var usedByVideo = Set<String>()
         for json in urls where json.lastPathComponent.hasSuffix(".wivra.json") {
@@ -129,7 +132,8 @@ enum WivraPendingRecordingStore {
             guard name.range(
                 of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                 options: .regularExpression
-            ) != nil, !claimed.contains(name), !usedByVideo.contains(name),
+            ) != nil, !claimed.contains(name),
+            !rawMarkers.contains(name + suffix), !usedByVideo.contains(name),
             !FileManager.default.fileExists(atPath:
                 folder.appendingPathComponent(name + keptAudioSuffix).path),
             (try? checkedURL(url, in: folder)) != nil,
@@ -145,6 +149,9 @@ enum WivraPendingRecordingStore {
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: folder, includingPropertiesForKeys: nil
               ) else { return [] }
+        // An unreadable pending ticket still blocks sharing even if an
+        // earlier crash also left a kept-audio marker on disk.
+        let rawMarkers = Set(urls.map(\.lastPathComponent))
         let claimed = Set(pending().flatMap(\.files))
         let manifests = urls.compactMap { url -> WivraCaptureManifest? in
             guard url.lastPathComponent.hasSuffix(".wivra.json"),
@@ -158,7 +165,8 @@ enum WivraPendingRecordingStore {
             let name = url.lastPathComponent
             guard name.range(of: #"^Wivra_Audio_[0-9A-Fa-f-]{36}\.caf$"#,
                              options: .regularExpression) != nil,
-                  !claimed.contains(name), !linked.contains(name),
+                  !claimed.contains(name),
+                  !rawMarkers.contains(name + suffix), !linked.contains(name),
                   FileManager.default.fileExists(atPath:
                     folder.appendingPathComponent(name + keptAudioSuffix).path),
                   (try? checkedURL(url, in: folder)) != nil,
