@@ -178,3 +178,25 @@ Este sello demuestra la finalización de los escritores conocidos, **no** que el
 - Confirmar ajustes VOD del proveedor antes de emitir: esta ruta **no tiene MP4 local ni comprobación de VOD remoto**. No confundir un evento «Conectando» con emisión aceptada por servidor.
 
 Las pruebas GitHub Actions de API/Gradle/UI son software QA; la demostración de pantalla/proveedor sigue pendiente para el lote físico autorizado por el propietario.
+
+
+## P0-O · Pérdida de fotogramas DAT durante grabación Gen 2 (PR #150, unificada #151)
+
+**Estado: cierre y marcado parcial implementados y con contratos automáticos; no existe prueba física DAT prolongada aún.** La vista previa Meta DAT puede recibir estados `.paused` transitorios sin que haya terminado la sesión. El watchdog reutilizado consulta marcas de tiempo de fotogramas recibidos y solo cierra tras al menos 15 s sin cuadros.
+
+- Iniciar captura HEVC con prueba de fotogramas reales. Pausar DAT menos de 15 s y reanudar; comprobar que **no** se descartan segmentos ni se reinicia la toma sin consentimiento.
+- Simular ausencia de video por 15–25 s, forzar desconexión `.stopped` y `.thermalHot` en pruebas controladas. En cada escenario, comprobar cierre por finalizador existente y recibo de toma `fullyFinalized=false` en video sin audio. Todas las partes legibles quedan privadas y recuperables bajo Keep/Later/Discard.
+- Revisar que el aviso «Se interrumpió la señal» aparezca en la interfaz y en los ocho idiomas, que la copia completa y Fotos queden bloqueadas para recibo parcial y que el usuario pueda conservar originales.
+- Probar parada **voluntaria** del usuario: el grabador no debe marcar fallo de transporte cuando no lo hubo. Probar fallo de audio lateral y selección Bluetooth sin atribuir sincronía probada.
+- Probar pantalla apagada/suspensión: un `Task.sleep` iOS no garantiza ejecución continua; al reabrir, no afirmar recuperación de fotogramas que nunca fueron recibidos.
+- Comprobar cadencia y periodo de gracia según DAT/temperatura/movimiento deportivo con Ray-Ban Gen 2; el umbral 15 s es provisional y debe ajustarse si se pierden capturas válidas.
+
+## P0-P · Gate de cámara real para LIVE Android (PR #151)
+
+El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceView` válido y `RootEncoder.isOnPreview`; `prepareVideo()` por sí solo no demuestra cámara utilizable.
+
+- Preparar video, pero quitar permiso o destruir vista previa antes de confirmar emisión: el botón debe estar desactivado o la emisión rechazada sin `startRecord`, archivo privado ni RTMP.
+- Tras aceptar el diálogo de emisión, revocar permiso de cámara o destruir superficie antes del callback de inicio: volver a validar capacidad inmediatamente antes de cualquier escritura o `startStream`.
+- Restaurar la vista previa y permiso; permitir volver a intentar sin reiniciar la aplicación. Girar frontal/trasera y comprobar imagen, cuando el dispositivo lo soporte, sin declarar multicámara simultánea.
+- Probar pantalla MediaProjection por separado: esta puerta es SOLO de cámara nativa y no debe bloquear el servicio independiente de pantalla autorizado por el usuario.
+- Confirmar estado real del servidor RTMP y MP4 finalizado con dispositivo Android físico. Vista previa activa y callback de conexión no certifican VOD remoto.
