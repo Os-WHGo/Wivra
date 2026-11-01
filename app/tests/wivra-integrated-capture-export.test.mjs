@@ -32,7 +32,10 @@ test('native shells retain permission-safe export playback configuration', () =>
   assert.match(ios, /allowsInlineMediaPlayback = true/);
   assert.match(ios, /mediaTypesRequiringUserActionForPlayback = \[\]/);
   const share = read('../../streaming/ios/B0/Sources/WivraExportNativeBridge.swift');
-  assert.match(share, /excludedActivityTypes = \[\.saveToCameraRoll\]/);
+  assert.doesNotMatch(share, /excludedActivityTypes = \[\.saveToCameraRoll\]/);
+  const plist = read('../../streaming/ios/B0/Info.plist');
+  assert.match(plist, /NSPhotoLibraryAddUsageDescription/);
+  assert.match(share, /UIActivityViewController\(activityItems: \[url\]/);
 });
 
 test('container repair is shared by bundled editor and current JS module', () => {
