@@ -216,3 +216,12 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 8. **Sin filtración:** elegir destino LIVE solo dentro de la actividad correspondiente, nunca desde el selector ni pasando clave RTMP por `Intent` o WebView. Probar cancelación en cada etapa sin emisión accidental.
 
 **Criterio P0:** poder elegir las rutas de captura/LIVE básicas en Android con una interfaz compacta, compilación FULL/Capture sin regresiones, sin exponer opciones falsas ni permisos implícitos. La validación de transmisión y calidad física sigue pendiente.
+
+
+### P0-Q · Exportación Android: inspección de duración tras publicar MediaStore (sin cámara física)
+
+- Exportar en la app FULL un proyecto WebM real por el puente progresivo. Validar que el original queda privado mientras se escribe, CRC coincide, Cues y Duration están en el WebM reparado y el archivo visible sigue en Movies/Wivra.
+- Medir en Android/emulador cuándo MediaMetadataRetriever devuelve vídeo y duración después de IS_PENDING=0. La exportación reparada reintenta máximo 4 inspecciones en hilo de IO (esperas 100/200/300 ms), nunca en UI; el bruto/sin reparar no añade esperas. El campo androidMediaInspection=available indica metadatos expuestos, no reproducción de 60 minutos real.
+- Si las inspecciones fallan, el WebM verificado permanece recuperable y la respuesta indica androidMediaInspection=unverified sin fabricar media, duración o vídeo validado. El usuario puede recibir el archivo aunque el dispositivo no haya inspeccionado su contenido.
+- Repetir en emulador, otros API y móvil real cuando se haga QA por lotes. Contrastar codecs no soportados y ausencia transitoria de MediaMetadataRetriever. Comprobar cero filas pendientes huérfanas.
+- Fuentes oficiales: https://developer.android.com/reference/android/media/MediaMetadataRetriever ; https://developer.android.com/training/data-storage/shared/media . Sin nuevo SDK, coste ni permiso.
