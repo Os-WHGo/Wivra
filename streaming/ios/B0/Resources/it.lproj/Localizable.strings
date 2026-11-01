@@ -77,3 +77,8 @@
 "ios.app.background_capture_off_warning" = "Bloccando ora l’iPhone, Wivra terminerà la sessione Ray-Ban. Attiva prima la modalità sperimentale in background.";
 "ios.app.background_capture_experimental_warning" = "Modalità sperimentale: iOS o Meta possono interrompere lo streaming. I segmenti completati restano salvati; controllali al ritorno.";
 "ios.library.photos_original_only" = "Video originale salvato perché la versione con audio non era valida.";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "Questa ripresa contiene %d segmenti MOV separati. Il primo non è il video completo.";
+"ios.capture.segments_in_library_instruction" = "Termina la sessione e apri Le mie acquisizioni per salvare ogni clip in Foto, oppure uniscili in Director ed esporta un video completo.";
+"ios.capture.share_first_segment" = "Condividi solo il primo segmento";
