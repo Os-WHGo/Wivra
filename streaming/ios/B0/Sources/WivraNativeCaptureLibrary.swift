@@ -317,8 +317,11 @@ struct WivraNativeCaptureLibraryScreen: View {
                                         }
                                     }
                                     ShareLink(item: video) {
+                                        // A computed String is not an implicit
+                                        // LocalizedStringKey in SwiftUI.
                                         Label(item.segmentNumber == nil
-                                              ? "ios.library.share_video" : "ios.capture.share_segment_only",
+                                              ? NSLocalizedString("ios.library.share_video", comment: "")
+                                              : NSLocalizedString("ios.capture.share_segment_only", comment: ""),
                                               systemImage: "square.and.arrow.up")
                                     }
                                     if maySaveToPhotos(item, video: video) {
