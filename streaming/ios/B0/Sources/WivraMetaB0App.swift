@@ -191,6 +191,7 @@ struct MetaB0Screen: View {
     @State private var photoGridEnabled = false
     @State private var capturePhotosSaving = false
     @State private var captureSavedToPhotosURL: URL?
+    @State private var captureSavedOriginalOnlyURL: URL?
 
     var body: some View {
         // Recheck frame freshness while this screen is visible, without
@@ -503,13 +504,17 @@ struct MetaB0Screen: View {
                             // prefer the finished MOV with audio for Photos.
                             // Both the original and muxed files stay local in Wivra.
                             let photosURL = model.lastCombinedVideoURL ?? url
+                            let originalFallbackURL = model.lastCombinedVideoURL == nil ? nil : url
                             Button {
                                 capturePhotosSaving = true
                                 Task { @MainActor in
                                     defer { capturePhotosSaving = false }
                                     do {
-                                        try await WivraPhotosLibrary.saveVideo(photosURL)
+                                        let originalOnly = try await WivraPhotosLibrary.savePreferredVideo(
+                                            photosURL, fallback: originalFallbackURL
+                                        )
                                         captureSavedToPhotosURL = photosURL
+                                        captureSavedOriginalOnlyURL = originalOnly ? photosURL : nil
                                     } catch {
                                         model.errorMessage = "Fotos: " + error.localizedDescription
                                     }
@@ -521,6 +526,11 @@ struct MetaB0Screen: View {
                             }
                             .disabled(capturePhotosSaving || captureSavedToPhotosURL == photosURL)
                             .accessibilityIdentifier("meta_b1_save_photos")
+                            if captureSavedOriginalOnlyURL == photosURL {
+                                Text("ios.library.photos_original_only")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
                             Text("Archivo local: \(url.lastPathComponent). Verifica su reproducción antes de usarlo en el editor.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
