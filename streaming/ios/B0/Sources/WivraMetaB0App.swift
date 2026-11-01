@@ -517,18 +517,20 @@ struct MetaB0Screen: View {
                                 // The original is the FIRST independently finalized MOV.
                                 // Do not misrepresent or add 30 seconds to Photos as the
                                 // complete long capture. Each part remains in Mis capturas.
-                                Label(
-                                    String(format: NSLocalizedString("ios.capture.segments_not_combined",
-                                                                      comment: ""),
-                                           model.lastRecordedSegmentCount),
-                                    systemImage: "square.stack"
-                                )
-                                .font(.footnote)
-                                .foregroundStyle(.orange)
-                                .accessibilityIdentifier("meta_b1_segmented_warning")
-                                Text("ios.capture.segments_in_library_instruction")
+                                if model.lastJoinedVideoURL == nil {
+                                    Label(
+                                        String(format: NSLocalizedString("ios.capture.segments_not_combined",
+                                                                          comment: ""),
+                                               model.lastRecordedSegmentCount),
+                                        systemImage: "square.stack"
+                                    )
                                     .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.orange)
+                                    .accessibilityIdentifier("meta_b1_segmented_warning")
+                                    Text("ios.capture.segments_in_library_instruction")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
                                 if model.joiningSegments {
                                     Label("ios.capture.joining", systemImage: "hourglass")
                                         .font(.footnote)
