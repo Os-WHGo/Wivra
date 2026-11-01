@@ -89,6 +89,7 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
                     .put("recordedBytes", saved.recordedBytes).put("recordedCrc32", saved.recordedCrc32)
                     .put("displayName", saved.displayName).put("location", "Galería › Movies/Wivra")
                     .put("repair", saved.repair).put("repairNote", saved.repairNote)
+                    .put("androidMediaInspection", if (saved.media == null) "unverified" else "available")
                 saved.media?.let { m -> reply.put("media", JSONObject().put("container", m.container).put("durationMs", m.durationMs)
                     .put("video", m.video).put("audio", m.audio).put("declaresDuration", m.declaresDuration).put("seekIndex", m.seekIndex)) }
                 reply
