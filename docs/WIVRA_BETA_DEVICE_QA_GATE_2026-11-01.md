@@ -124,3 +124,32 @@ Pruebas físicas pendientes:
 6. **Error/fallback:** permisos de Fotos denegados, sin espacio y MOV completo corrupto deben producir error legible, conservar originales y no fingir una copia correcta. Google Fotos solo sincroniza cuando el usuario activa el backup en esa app.
 
 Resultado de CI y QA físico deben anotarse por SHA. Ninguna prueba automatizada acredita la calidad de la película de 30/60 min o que Google Fotos ya realizó el respaldo.
+
+
+## P0-L · Sello de finalización y recuento real por toma (PR #144)
+
+**Estado: código y pruebas de contrato implementados, hardware sin probar.** El recibo privado `Wivra_Meta_<session>_take.wivra.take.json` registra `expectedParts`, `savedFiles` y `fullyFinalized` tras completar los trabajos AVAssetWriter.
+
+1. **Cierre normal con un fragmento**: finalizar 10–20 s después de obtener fotogramas y confirmar que hay un recibo de 1 parte completo; Keep y Guardar en Fotos deben quedar disponibles únicamente tras verificación.
+2. **Cierre con varias partes**: 5/15/30/60 min, cada MOV debe coincidir con el recuento y su nombre ordenado; luego Keep, unión passthrough y UNA película final validada. Los originales no aparecen automáticamente en Fotos.
+3. **Interrupción a mitad de rotación**: simular fallo de `WivraHEVCRecorder.arm()` para la parte 2, un `.noFrames`, archivo MOV corrupto o error al finalizar; la parte 1 permanece privada/revisable, pero la toma NO debe ofrecerse como video completo ni permitir autounión.
+4. **App terminada antes del recibo**: puede recuperar MOV finalizados para revisión y Keep; sin recibo válido, permanece en estado INDETERMINADO, no en estado completo. No inventar segundos, cuadros ni archivos.
+5. **Prueba de integridad negativa**: eliminar `_part0002.mov`, modificar el JSON, convertirlo en symlink, duplicar nombre de parte o cambiar su `fullyFinalized`. No debe quedar permitido el guardado en Fotos ni el reintento de unión.
+6. **Consistencia de consentimiento**: Keep/Later/Discard controla MOV y recibo juntos. Descartar requiere la confirmación destructiva vigente; sin esa confirmación nunca eliminar.
+7. **Regresión legada**: las capturas previas sin recibo no son automáticamente completas; los originales recuperables pueden compartirse manualmente. Documentar límite de compatibilidad, no afirmar reparación automática de tomas que carecen de prueba de finalización.
+
+Este sello demuestra la finalización de los escritores conocidos, **no** que el SDK Meta entregó todos los fotogramas, ni garantiza duración de grabación con pantalla bloqueada.
+
+## P0-M · LIVE Android con respaldo MP4 opcional y seguridad de VOD (PR #145)
+
+**Estado: código Android FULL implementado y pendiente de QA física RTMP.**
+
+1. **Solo LIVE**: desactivar `Guardar también una copia MP4 local`, confirmar emisión; comprobar que se inicia `startStream` sin `startRecord`, no se crea MP4 local y al detener informa explícitamente que no existe copia. La plataforma puede NO conservar VOD.
+2. **LIVE y copia**: activar opción; con memoria libre comprobar que el MP4 se crea de forma privada, que al detener se cierra el muxer y que Guardar a Galería requiere video verificado y decisión explícita.
+3. **Disco lleno antes de LIVE**: con menos de 128 MiB libres, LIVE+MP4 no inicia; solo LIVE puede intentar conectarse, sin falsas garantías del servidor.
+4. **Disco crítico mientras LIVE continúa**: simular consumo hasta umbral con copia activa; comprobar que se solicita `stopRecord` y NO `stopStream` si RootEncoder lo permite, el MP4 pendiente permanece privado para revisión y la emisión RTMP sigue conectada. Si RootEncoder no admite separar el cierre y `isRecording` sigue activo, debe finalizar LIVE para no llenar el teléfono.
+5. **VOD externo**: verificar manualmente los ajustes de archivado del proveedor. Wivra no verifica YouTube/Twitch/Kick/TikTok ni promete retención o subida si no hay integración oficial autorizada. No publicar por accidente ni exponer claves RTMP en estados, logs o preferencias.
+6. **Pérdida de Internet**: al caer RTMP con copia local activa, el MP4 puede mantenerse para recuperación; con copia desactivada no inventar ningún MP4. Confirmar estado del callback de conexión realmente reportado.
+7. **Privacidad y ciclo de vida**: permiso micrófono opcional, `FLAG_SECURE`, confirmar emisión pública, emisión se detiene al salir de pantalla conforme a la implementación actual. Comprobar batería/temperatura y reproducibilidad del MP4.
+
+**No se presupone** LIVE en Ray-Ban, multicámara en directo ni LIVE iOS por disponer de LIVE Android con cámara del teléfono. El emulador/CI no prueban un destino RTMP externo.

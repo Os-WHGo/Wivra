@@ -53,11 +53,15 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var preview: SurfaceView
     private lateinit var endpointInput: EditText
     private lateinit var micOption: CheckBox
+    private lateinit var localCopyOption: CheckBox
+    private lateinit var storageHint: TextView
     private lateinit var status: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private var stream: RtmpStream? = null
     private var pendingFile: File? = null
+    private var saveLocalCopy = false
+    private var localCopyFinalized = false
     private var prepared = false
     private var stopping = false
     private var liveRequested = false
@@ -69,10 +73,13 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private val storageCheck = object : Runnable {
         override fun run() {
             if (!initiatedByUser || stopping) return
-            if (applicationContext.filesDir.usableSpace < minFreeBytes) {
-                setStatus("Espacio bajo. Deteniendo LIVE para conservar el MP4 local.")
-                stopAndReview()
-            } else storageHandler.postDelayed(this, 10_000L)
+            // A full phone must not end an otherwise healthy network LIVE.
+            // Stop ONLY the optional local muxer and leave RTMP untouched.
+            if (saveLocalCopy && stream?.isRecording == true &&
+                applicationContext.filesDir.usableSpace < minFreeBytes) {
+                finishLocalCopyForLowStorage()
+            }
+            storageHandler.postDelayed(this, 10_000L)
         }
     }
 
@@ -132,6 +139,21 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             isChecked = false
         }
         root.addView(micOption)
+        localCopyOption = CheckBox(this).apply {
+            text = "Guardar también una copia MP4 local (opcional)"
+            isChecked = true // Keep the previous safe default until user opts out.
+        }
+        root.addView(localCopyOption)
+        storageHint = TextView(this).apply { textSize = 13f }
+        root.addView(storageHint)
+        root.addView(TextView(this).apply {
+            text = "LIVE largo: comprueba que tu plataforma conserve el VOD. " +
+                "YouTube/Twitch/Kick/TikTok no garantizan un archivo automático. " +
+                "Grabar localmente consume espacio adicional para cerrar y exportar. " +
+                "Mantén batería suficiente y vigila la temperatura."
+        })
+        localCopyOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
+        micOption.setOnCheckedChangeListener { _, _ -> updateStorageHint() }
         status = TextView(this).apply {
             text = "LIVE desconectado. No se ha emitido ningún video."
             textSize = 15f
@@ -143,7 +165,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { requestLive() }
         }
         stopButton = Button(this).apply {
-            text = "Detener y revisar MP4"
+            text = "Detener LIVE y revisar copia opcional"
             isEnabled = false
             setOnClickListener { stopAndReview() }
         }
@@ -165,6 +187,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { finish() }
         })
         setContentView(root)
+        updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 if (prepared && !stopping && stream?.isOnPreview != true) {
@@ -191,6 +214,54 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun setStatus(message: String) {
         runOnUiThread { if (!isFinishing && !isDestroyed) status.text = message }
+    }
+
+    private fun updateStorageHint() {
+        if (!::storageHint.isInitialized) return
+        val free = applicationContext.filesDir.usableSpace
+        val mb = free / (1024 * 1024)
+        storageHint.text = if (localCopyOption.isChecked) {
+            val reserve = (free - minFreeBytes).coerceAtLeast(0L)
+            // Estimated from the configured 1.2 Mbps H264 stream + optional
+            // 64 kbps audio. VBR, mux indexes, exports and Photos need more.
+            val bitrate = 1_200_000.0 + (if (micOption.isChecked) 64_000.0 else 0.0)
+            val estimatedMinutes = (reserve.toDouble() * 8.0 / bitrate / 60.0).toLong()
+            "Espacio local: $mb MiB. Estimación para copia MP4: " +
+                "$estimatedMinutes min, no garantizados; la exportación requiere espacio extra."
+        } else {
+            "Solo LIVE: no se creará MP4 local. Comprueba antes el archivo/VOD " +
+                "de la plataforma; Wivra no puede garantizarlo. Espacio: $mb MiB."
+        }
+    }
+
+    private fun finishLocalCopyForLowStorage() {
+        val publisher = stream ?: return
+        if (!saveLocalCopy || !publisher.isRecording) return
+        // RootEncoder exposes independent recording and RTMP states.
+        // Never call stopStream() from the local-storage watchdog.
+        val closed = runCatching { publisher.stopRecord(); true }.getOrDefault(false)
+        localCopyFinalized = closed
+        if (publisher.isRecording) {
+            // RootEncoder may reject the split-stop for a particular device.
+            // Do not leave a writer running until the phone is full.
+            setStatus("No fue posible detener la copia MP4. " +
+                "Finalizando LIVE para proteger el teléfono y los archivos.")
+            stopAndReview()
+            return
+        }
+        saveLocalCopy = false
+        if (publisher.isStreaming) {
+            setStatus(if (closed)
+                "Espacio crítico: copia MP4 local cerrada. LIVE continúa. " +
+                    "Libera espacio y revisa el archivo al terminar."
+            else "Espacio crítico: cierre MP4 sin verificar. LIVE sigue si el " +
+                    "servidor continúa conectado; revisa el original privado."
+            )
+        } else {
+            setStatus("Espacio crítico: no hay RTMP activo. Revisa la copia MP4 " +
+                "y activa VOD en la plataforma antes de otra emisión.")
+        }
+        updateStorageHint()
     }
 
     private fun preparePreview() {
@@ -248,56 +319,71 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         if (!prepared || stopping || initiatedByUser || isFinishing) return
         val address = endpointInput.text.toString()
         if (!validEndpoint(address)) return
-        // Do not render the stream key or entire endpoint in the dialog.
+        val withAudio = micOption.isChecked
+        val saveCopy = localCopyOption.isChecked
+        updateStorageHint()
+        // A stream-only session does NOT require 128 MiB to reserve a video.
+        if (saveCopy && applicationContext.filesDir.usableSpace < minFreeBytes) {
+            setStatus("Espacio insuficiente para la copia MP4. " +
+                "Desactiva la copia local o libera al menos 128 MiB.")
+            return
+        }
+        val archiveWarning = if (saveCopy) {
+            "Wivra guardará una copia MP4 privada que también consume espacio. " +
+                "Comprueba que la plataforma archive el VOD. "
+        } else {
+            "Solo transmitir: NO se guardará copia en Wivra. Si la plataforma " +
+                "no archiva la transmisión, podrías perderla. Comprueba el VOD. "
+        }
+        // Never render the private endpoint or stream key in the dialog.
         AlertDialog.Builder(this)
             .setTitle("Confirmar emisión pública")
-            .setMessage("La cámara se transmitirá a la plataforma externa que " +
-                "configuraste. Wivra grabará simultáneamente un MP4 privado. " +
-                "¿Quieres iniciar LIVE ahora?")
+            .setMessage("La cámara se enviará a la plataforma configurada. " +
+                archiveWarning + "¿Quieres iniciar LIVE ahora?")
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Iniciar LIVE") { _, _ ->
-                startLive(address, micOption.isChecked)
+                startLive(address, withAudio, saveCopy)
             }
             .show()
     }
 
-    private fun startLive(address: String, withAudio: Boolean) {
+    private fun startLive(address: String, withAudio: Boolean, saveCopy: Boolean) {
         if (mediaBusy) return
         val publisher = stream ?: return
         if (!prepared || stopping || initiatedByUser || isFinishing) return
-        if (applicationContext.filesDir.usableSpace < minFreeBytes) {
-            setStatus("Faltan al menos 128 MB libres. LIVE no se inició.")
+        if (saveCopy && applicationContext.filesDir.usableSpace < minFreeBytes) {
+            setStatus("Espacio insuficiente para el MP4. Solo LIVE puede continuar sin copia.")
             return
         }
-        val pending = try {
-            // Set the requested source on EVERY attempt. Otherwise a user
-            // who enables microphone once then disables it could accidentally
-            // keep capturing microphone audio in the next session.
-            // Mic permission is checked before arriving here.
+        val pending: File? = try {
+            // The mic is opt-in and no PCM is captured in video-only mode.
             publisher.changeAudioSource(
                 if (withAudio) MicrophoneSource() else NoAudioSource()
             )
-            // Encoder must be prepared even for NoAudioSource, but no PCM
-            // samples are captured or transmitted in video-only mode.
             if (!publisher.prepareAudio(44_100, false, 64_000)) {
                 setStatus("No se pudo preparar el audio seleccionado.")
                 return
             }
-            WivraPhoneMediaStore.createPrivateVideo(applicationContext)
+            if (saveCopy) WivraPhoneMediaStore.createPrivateVideo(applicationContext)
+            else null
         } catch (_: Exception) {
-            setStatus("No fue posible reservar el MP4 local. LIVE no se inició.")
+            setStatus("No fue posible preparar LIVE o reservar el MP4 local.")
             return
         }
         try {
-            publisher.startRecord(
-                pending.absolutePath,
-                if (withAudio) RecordController.RecordTracks.ALL
-                    else RecordController.RecordTracks.VIDEO
-            ) { newStatus ->
-                if (newStatus == RecordController.Status.RECORDING) {
-                    setStatus("Grabación MP4 local activa. Conectando LIVE…")
+            if (saveCopy && pending != null) {
+                publisher.startRecord(
+                    pending.absolutePath,
+                    if (withAudio) RecordController.RecordTracks.ALL
+                        else RecordController.RecordTracks.VIDEO
+                ) { newStatus ->
+                    if (newStatus == RecordController.Status.RECORDING) {
+                        setStatus("Copia MP4 local activa. Conectando LIVE…")
+                    }
                 }
             }
+            saveLocalCopy = saveCopy && pending != null
+            localCopyFinalized = false
             pendingFile = pending
             initiatedByUser = true
             liveRequested = true
@@ -305,15 +391,19 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             startButton.isEnabled = false
             stopButton.isEnabled = true
             micOption.isEnabled = false
+            localCopyOption.isEnabled = false
             endpointInput.isEnabled = false
             publisher.startStream(address)
             storageHandler.removeCallbacks(storageCheck)
             storageHandler.postDelayed(storageCheck, 10_000L)
             // Never log or persist the URL, including on failure.
             endpointInput.text?.clear()
-            setStatus("Conectando LIVE… Grabación local en curso.")
+            setStatus(if (saveLocalCopy)
+                "Conectando LIVE… Guardando copia privada."
+                else "Conectando LIVE… Sin copia local; comprueba VOD externo."
+            )
         } catch (_: Exception) {
-            setStatus("No se pudo iniciar LIVE. Revisa el MP4 local.")
+            setStatus("No se pudo iniciar LIVE. Revisa el estado de la copia local.")
             liveRequested = false
             connected = false
             runCatching { if (publisher.isStreaming) publisher.stopStream() }
@@ -322,10 +412,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 pendingFile = pending
                 stopAndReview()
             } else {
-                // Only an empty file can be safely cleaned up after a
-                // failed start. A file with any bytes might contain media,
-                // and is never deleted without explicit user consent.
-                if (pending.length() == 0L) pending.delete()
+                // Only delete a zero-byte private file from a failed start.
+                if (pending?.length() == 0L) pending.delete()
+                pendingFile = null
+                saveLocalCopy = false
                 initiatedByUser = false
                 controlsIdle()
             }
@@ -337,7 +427,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             startButton.isEnabled = prepared && !isFinishing && !mediaBusy
             stopButton.isEnabled = false
             micOption.isEnabled = true
+            localCopyOption.isEnabled = true
             endpointInput.isEnabled = true
+            updateStorageHint()
         }
     }
 
@@ -350,26 +442,30 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val publisher = stream
         val file = pendingFile
         pendingFile = null
+        val alreadyFinalized = localCopyFinalized
+        localCopyFinalized = false
         runCatching { if (publisher?.isStreaming == true) publisher.stopStream() }
-        // MP4 is only usable after RootEncoder's MediaMuxer.stop().
-        val muxerClosed = runCatching {
-            if (publisher?.isRecording == true) {
-                // stopRecord() may return false when a SECOND encoder setup
-                // fails after MediaMuxer.stop() already finalized the file.
-                // Verify actual MP4 bytes separately before offering Save.
+        // A local muxer is optional. Never invent a recording for LIVE-only.
+        val muxerClosed = if (publisher?.isRecording == true) {
+            runCatching {
                 publisher.stopRecord()
                 true
-            } else false
-        }.getOrDefault(false)
+            }.getOrDefault(false)
+        } else alreadyFinalized
+        saveLocalCopy = false
         initiatedByUser = false
         stopping = false
         controlsIdle()
-        if (file != null && muxerClosed) {
-            reviewFile(file)
-        } else {
-            // Never silently discard a potentially salvageable video.
-            setStatus("LIVE detenido. El último archivo no se pudo certificar. " +
-                "Cualquier archivo parcial sigue privado.")
+        when {
+            file != null && muxerClosed -> reviewFile(file)
+            file != null -> setStatus(
+                "LIVE detenido. La copia local no pudo certificarse; " +
+                "el archivo parcial permanece privado para recuperarlo."
+            )
+            else -> setStatus(
+                "LIVE detenido. No se creó copia local. Verifica en la " +
+                "plataforma si la emisión quedó archivada como VOD."
+            )
         }
     }
 
@@ -458,7 +554,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onConnectionSuccess() {
         if (!liveRequested || !initiatedByUser || stopping) return
         connected = true
-        setStatus("EN VIVO. Grabando copia local mientras transmites.")
+        setStatus(if (saveLocalCopy)
+            "EN VIVO. También se está grabando una copia MP4 local."
+            else "EN VIVO. Sin copia MP4 local: comprueba el VOD del proveedor."
+        )
     }
     override fun onConnectionFailed(reason: String) {
         // Some servers embed the full key in error messages.
@@ -466,14 +565,20 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus("La conexión LIVE falló. La grabación local continúa. " +
-            "Pulsa Detener y revisar para conservarla.")
+        setStatus(when {
+            saveLocalCopy -> "LIVE falló, pero la copia MP4 local continúa. Detén para revisarla."
+            pendingFile != null -> "LIVE falló. Hay un MP4 local cerrado o parcial pendiente de revisión."
+            else -> "LIVE falló. No había copia local: revisa si existe un VOD remoto."
+        })
     }
     override fun onDisconnect() {
         if (!stopping && initiatedByUser) {
             liveRequested = false
             connected = false
-            setStatus("LIVE desconectado. La copia MP4 local continúa.")
+            setStatus(if (saveLocalCopy)
+                "LIVE desconectado. La copia MP4 local continúa."
+                else "LIVE desconectado sin copia local. Comprueba si hay VOD remoto."
+            )
         }
     }
     override fun onAuthError() {
@@ -481,7 +586,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus("El servidor rechazó la clave LIVE. MP4 local continúa.")
+        setStatus(if (saveLocalCopy)
+            "Clave LIVE rechazada. La copia MP4 local continúa."
+            else "Clave LIVE rechazada. No hay copia local para recuperar."
+        )
     }
     override fun onAuthSuccess() { /* Never expose credentials. */ }
 
