@@ -28,11 +28,7 @@ struct WivraSegmentedTakeReceipt: Codable {
     }
 
     static func fileURL(for video: URL) -> URL? {
-        guard let prefix = prefix(of: video),
-              video.deletingLastPathComponent().lastPathComponent == "WivraRecordings"
-        else { return nil }
-        return video.deletingLastPathComponent()
-            .appendingPathComponent(prefix + "_take.wivra.take.json")
+        WivraPendingRecordingStore.completionReceiptURL(for: video)
     }
 
     /// Called by recorder.stop() after ALL known writer tasks have completed.
