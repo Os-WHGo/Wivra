@@ -8,6 +8,7 @@ const build=code('../build.mjs');
 const qa=code('../accelerated-qa-export-ui.mjs');
 const swift=code('../../streaming/ios/B0/Sources/WivraAcceleratedExportNativeBridge.swift');
 const kotlin=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraAcceleratedExportBridge.kt');
+const store=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraRandomExportStore.kt');
 
 test('recovered private names are bounded and cannot select arbitrary phone files',()=>{
  const valid={name:'Wivra_Fast_11111111-1111-1111-1111-111111111111.mp4',
@@ -55,11 +56,11 @@ test('Android/iOS bridge can only restore verified app-private assets',()=>{
 });
 
 test('Android recovered copy is verified before reuse and UI distinguishes idempotent restore',()=>{
- assert.match(kotlin,/existingRecoveryCopy\(context, verified\)/);
- assert.match(kotlin,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
- assert.match(kotlin,/MediaStore\.QUERY_ARG_MATCH_PENDING/);
- assert.match(kotlin,/verifiedCopy|isVerifiedRecoveryCopy/);
- assert.match(kotlin,/alreadyPublished = true/);
+ assert.match(store,/existingRecoveryCopy\(context, verified\)/);
+ assert.match(store,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
+ assert.match(store,/MediaStore\.QUERY_ARG_MATCH_PENDING/);
+ assert.match(store,/verifiedCopy|isVerifiedRecoveryCopy/);
+ assert.match(store,/alreadyPublished = true/);
  assert.match(qa,/response\.alreadyPublished===true/);
  assert.match(qa,/No se creó ninguna copia duplicada/);
 });
