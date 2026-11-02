@@ -174,3 +174,38 @@ test('accelerator refuses truncated narration and captions before native file cr
  }),/captions continue/);
  assert.equal(M.events.some(x=>x[0]==='start'),false);
 });
+
+test('preflight rejects a source whose real decoded duration ends before the trim',async()=>{
+ const M=fakeM(),p=proj();
+ const original=M.Input;
+ M.Input=class extends original {
+  async getPrimaryVideoTrack(){
+   const track=await super.getPrimaryVideoTrack();
+   if(track)track.computeDuration=async()=>.8;
+   return track;
+  }
+ };
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:p,media,M,imageFactory,expectedAudio:true
+ }),/decoded source media shorter/);
+ assert.ok(M.events.some(event=>event[0]==='dispose'));
+ assert.ok(!M.events.some(event=>event[0]==='start'));
+});
+
+test('preflight rejects a source whose first decoded sample starts after the trim',async()=>{
+ const M=fakeM(),p=proj(),original=M.Input;
+ M.Input=class extends original {
+  async getPrimaryVideoTrack(){
+   const track=await super.getPrimaryVideoTrack();
+   if(track){
+    track.computeDuration=async()=>2.2;
+    track.getFirstTimestamp=async()=>.3;
+   }
+   return track;
+  }
+ };
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:p,media,M,imageFactory,expectedAudio:true
+ }),/first decodable sample/);
+ assert.ok(M.events.some(event=>event[0]==='dispose'));
+});
