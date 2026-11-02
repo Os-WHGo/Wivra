@@ -257,3 +257,11 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - En el lote físico (posterior a módulos básicos instalados): comprobar preview, RTMPS real, MP4 con audio y sin audio, reconexión/timeout, interrupción por llamada, tamaño de archivos y espacio, audio sync, temperatura, permisos, Fotos, validación externa de primer/último frame, 5/15/30/60 minutos por separado y limpieza/revisión después de matar app. Anotar SHA y build exactos, nunca claves ni medios privados.
 - Dependencia fijada HaishinKit 2.2.5 licencia BSD-3-Clause; requiere Xcode 26+, resolución/compilación iOS CI. Sus módulos Swift Package incluyen dependencias binarios SRT/WebRTC aunque esta ruta usa exclusivamente RTMP; revisar avisos de licencia y peso del IPA antes de distribuir.
 - Contrato: streaming/tests/ios-phone-live-native.test.mjs. Los contratos estáticos, simulador e IPA **sin firmar** no equivalen a emisión ni MP4 físico. Mantener main, pagos y publicación protegidos.
+
+
+### P0-U continuidad conciliada: cámaras frontal/trasera iPhone (base última #157)
+
+- Se transfirió la función de elección de cámara desde PR #159 a una nueva rama hija de la **última #157**, sin sustituir el flujo más reciente de video LIVE + MP4 privado y recuperación posterior. #158 y #159 permanecen como referencias paralelas, no presumir que alguna sea la rama final.
+- Antes de Preparar cámara, marcar «Usar cámara frontal» o dejarla desmarcada (trasera); sólo en estado idle. Se elige un dispositivo AVCaptureDevice realmente enumerado antes de MediaMixer.attachVideo. Ausencia o fallo de dispositivo cancela preparación y libera la sesión de audio opcional. No se cambia cámara durante LIVE, no PiP ni dos cámaras simultáneas.
+- Contrato de regresión: streaming/tests/ios-phone-live-native.test.mjs exige selección real + MP4 privado opcional + recuperación verificada después de relanzar + preview + única pantalla LIVE en el mismo árbol.
+- Comparar CI del HEAD consolidado, no reutilizar verde de #156 ni de PR #159 anterior. Sigue sin QA física autorizada, iOS firmado, prueba de RTMPS o VOD.
