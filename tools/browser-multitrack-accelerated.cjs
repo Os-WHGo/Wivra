@@ -8,7 +8,9 @@ catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
-const extended=process.argv.includes('--stress');
+const long=process.argv.includes('--long');
+const extended=long||process.argv.includes('--stress');
+const seconds=long?30:extended?10:1.2;
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
 const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
@@ -65,8 +67,9 @@ const server=http.createServer((req,res)=>{
   args:['--autoplay-policy=no-user-gesture-required']});
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
-  mediabunny:'pinned 1.61.6',projectSeconds:extended?10:1.2,
-  profile:extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
+  mediabunny:'pinned 1.61.6',projectSeconds:seconds,
+  profile:long?'30s 60-cut 15-mic audio soak':
+    extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
  try {
@@ -82,7 +85,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async(extended)=>{
+  report.browser=await page.evaluate(async({extended,long})=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -93,7 +96,7 @@ const server=http.createServer((req,res)=>{
     logo:{kind:'image',url:'/overlay.svg',w:48,h:48}
    };
    const project={
-    clips:extended?Array.from({length:20},(_,i)=>({
+    clips:extended?Array.from({length:long?60:20},(_,i)=>({
       id:'part'+i,asset_id:i%2?'second':'first',
       start:i*.5,in:0,out:.5
     })):[
@@ -102,9 +105,9 @@ const server=http.createServer((req,res)=>{
     ],
     overlayClips:[{id:'logo',asset_id:'logo',start:.18,in:0,out:1,
       x:.5,y:.5,scale:.18,track:1,opacity:.9}],
-    audioClips:extended?Array.from({length:5},(_,i)=>({
+    audioClips:extended?Array.from({length:long?15:5},(_,i)=>({
       id:'voice'+i,asset_id:'mic',start:.12+2*i,
-      in:0,out:i===4?1.88:2,role:'voice_primary',volume:.75
+      in:0,out:i===(long?14:4)?1.88:2,role:'voice_primary',volume:.75
     })):[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
       role:'voice_primary',volume:.75}],
     texts:[{id:'caption',text:'Wivra MULTITRACK',start:.35,end:.75,
@@ -139,7 +142,7 @@ const server=http.createServer((req,res)=>{
     CanvasRenderingContext2D.prototype.fillText=originalFillText;
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
-  },extended);
+  },{extended,long});
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -180,7 +183,7 @@ const server=http.createServer((req,res)=>{
    return Math.sqrt(energy/Math.max(1,end-start));
   };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
-   tailVoice:extended?rms(8.25,8.4):null,
+   tailVoice:extended?rms(long?28.25:8.25,long?28.4:8.4):null,
    recordedSeconds:pcm.length/2/16000};
   if(report.containerInspection?.video!==true ||
      report.containerInspection?.audio!==true ||
@@ -206,7 +209,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }
