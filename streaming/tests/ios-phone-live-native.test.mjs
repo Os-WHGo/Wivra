@@ -72,3 +72,19 @@ test('leaving foreground closes stream and stops native camera; real VOD still r
   assert.match(source,/Button\("DETENER LIVE"\)/);
   assert.match(source,/VOD remoto/);
 });
+
+
+test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publisher', () => {
+  assert.match(source, /func prepareCamera\(microphone: Bool, frontCamera: Bool\) async/);
+  assert.match(source, /let position: AVCaptureDevice\.Position = frontCamera \? \.front : \.back/);
+  assert.match(source, /for: \.video, position: position/);
+  assert.match(source, /Toggle\("Usar cámara frontal", isOn: \$frontCamera\)/);
+  assert.match(source, /accessibilityIdentifier\("wivra_ios_live_front_camera"\)/);
+  assert.match(source, /Task \{ await controller\.prepareCamera\(microphone: includeMicrophone,\s*frontCamera: frontCamera\) \}/);
+  assert.match(source, /\.disabled\(controller\.phase != \.idle\)/);
+  assert.match(source, /StreamRecorder\(\)/);
+  assert.match(source, /func reviewSavedVideos\(\) async/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source, /MTHKViewRepresentable\(previewSource: controller\)/);
+  assert.doesNotMatch(app, /showingIPhoneLive|WivraIOSPhoneLiveScreen/);
+});
