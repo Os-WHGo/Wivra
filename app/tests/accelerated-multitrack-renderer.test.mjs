@@ -297,3 +297,26 @@ test('GPU failure on filtered overlay also prevents an incomplete publication',a
   assert.equal(M.events.some(x=>x[0]==='finalize'),false);
  }finally{globalThis.document=oldDoc;globalThis.fxRender=oldFx;}
 });
+
+test('accelerated QA preflight accepts explicit voice ducking and rejects invalid depths',async()=>{
+ const M=fakeM(),valid=proj();
+ valid.audioClips[0].role='voice_primary';
+ valid.audioClips[0].ducking=.5;
+ const prepared=await prepareAcceleratedMultitrack({
+  project:valid,media,M,imageFactory,expectedAudio:true
+ });
+ assert.equal(prepared.audible[0].clip.ducking,.5);
+ assert.equal(prepared.ledger.rendererReady,false);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+ for(const value of [-.2,1.2,NaN,'0.5']){
+  const bad=structuredClone(valid);bad.audioClips[0].ducking=value;
+  await assert.rejects(prepareAcceleratedMultitrack({
+   project:bad,media,M,imageFactory,expectedAudio:true
+  }),/invalid or unsupported voice ducking/);
+ }
+ const wrong=structuredClone(valid);
+ wrong.audioClips[0].role='music';
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:wrong,media,M,imageFactory,expectedAudio:true
+ }),/invalid or unsupported voice ducking/);
+});
