@@ -1,5 +1,5 @@
 // Isolated browser QA: use the SAME offline editor HTML and v2 sidecar,
-// encode real local pixels, and verify protocol-2 writes with a mock host.
+// encode real local pixels via recordProject, and verify protocol-2 writes with a mock host.
 // Does NOT claim hardware, MediaStore, Photos or real phone permissions.
 const assert=require('node:assert/strict');
 const path=require('node:path');
@@ -68,10 +68,39 @@ const htmlPath=path.resolve(__dirname,'../app/dist/agentcut.html');
    try{
     const project={clips:[{id:'a',asset_id:'v',start:0,in:.2,out:.8}],
      overlayClips:[],audioClips:[],texts:[],format:{aspect:'original'}};
-    const saved=await qa.recordExperimentalNativeMultitrack({
-     project,media:{v:{kind:'video',url,w:320,h:180,duration:1.7}},
-     M,host,expectAudio:false,experimentalAccelerated:true
-    });
+    // Exercise the REAL recordProject entry instead of calling the sidecar
+    // directly. A mock of Android WebMessageListener transports v2 replies.
+    const listeners=[];
+    const bridge={
+     addEventListener(type,listener){if(type==='message')listeners.push(listener);},
+     postMessage(serialized){
+      const request=JSON.parse(serialized);
+      Promise.resolve().then(async()=>{
+       let reply;
+       if(request.op==='writeAt'){
+        const raw=atob(request.b64);
+        const bytes=Uint8Array.from(raw,ch=>ch.charCodeAt(0));
+        reply=await host.sendWriteAt({...request,bytes});
+       }else reply=await host.request(request);
+       const answer={rid:request.rid,ok:true,...reply};
+       for(const listener of listeners)
+        listener({data:JSON.stringify(answer)});
+      }).catch(error=>{
+       const answer={rid:request.rid,ok:false,error:String(error.message)};
+       for(const listener of listeners)
+        listener({data:JSON.stringify(answer)});
+      });
+     }
+    };
+    globalThis.WivraAcceleratedExportNative=bridge;
+    let saved;
+    try{
+     saved=await recordProject({
+      project,media:{v:{kind:'video',url,w:320,h:180,duration:1.7}},
+      saveMode:'auto',experimentalAccelerated:true,
+      acceleratedExpectAudio:false
+     });
+    }finally{delete globalThis.WivraAcceleratedExportNative;}
     const inspected=inspectExport(binary.subarray(0,end));
     return {skip:false,verified:saved.verifiedNative,device:saved.verifiedOnDevice,
      frames:saved.render.videoFrames,bytes:end,ops,
