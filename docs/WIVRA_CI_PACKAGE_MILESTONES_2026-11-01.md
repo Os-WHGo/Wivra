@@ -15,7 +15,7 @@ No producir un APK ni IPA por cada macrobloque. Mantener **pruebas de código po
 
 ## Cómo pedir la beta cuando esté completa
 
-La PR de la versión consolidada que se vaya a instalar recibirá la **etiqueta `wivra-package-beta`**; el evento `pull_request.labeled` ejecuta el flujo completo sobre ese commit, luego se revisan hashes y resultados de APK/IPA. El desarrollador puede crear esa etiqueta en GitHub si aún no existe. Mantenerla puesta durante desarrollo posterior podría generar paquetes adicionales con nuevos commits, por lo que **retirarla al terminar el hito** o colocarla únicamente sobre la PR congelada.
+La PR de la versión consolidada que se vaya a instalar recibirá la **etiqueta `wivra-package-beta`**; el evento `pull_request.labeled` ejecuta el flujo completo sobre ese commit, luego se revisan hashes y resultados de APK/IPA. El desarrollador puede crear esa etiqueta en GitHub si aún no existe. La condición exige exactamente el evento **`labeled`** con esa etiqueta: los commits posteriores no provocan paquetes adicionales aunque la etiqueta continúe aplicada. Para construir otra candidata, retirar y volver a aplicar la etiqueta sobre la PR congelada.
 
 `workflow_dispatch` se conserva como salida manual si el workflow llega a existir en la rama principal: **GitHub exige que el workflow exista en la rama default para dispararlo desde el botón**, y estos workflows todavía no están en `main`; por ahora la etiqueta PR es la opción operativa. No fusionar `main` solo para obtener el botón. Consulta oficial: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow
 
