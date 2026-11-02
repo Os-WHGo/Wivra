@@ -18,7 +18,9 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     output:typeof globalThis.Mediabunny?.Output,
     cut:typeof globalThis.renderAcceleratedCuts,
     random:typeof globalThis.createAcceleratedNativeSink,
+    qa:typeof globalThis.recordExperimentalAcceleratedProject,
+    api:typeof globalThis.recordProject,
   }));
-  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function'});
+  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function'});
   console.log('Wivra offline Mediabunny bundle smoke PASS: '+JSON.stringify(status));
 }finally{await browser.close()}})().catch(e=>{console.error(e);process.exitCode=1;});
