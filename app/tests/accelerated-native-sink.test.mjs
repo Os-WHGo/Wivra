@@ -100,3 +100,72 @@ test('one failed or canceled v2 session cannot claim a verified published video'
   assert.equal(host.removed,true);
   assert.equal(host.requests.some(x=>x.op==='finishRandom'),false);
 });
+
+test('native v2 rejects unwritten sparse ranges before committing; fully patched offsets pass', async () => {
+  const missing = memoryNative();
+  const sparse = createAcceleratedNativeSink(missing, {mime:'video/mp4',expectedDurationMs:1000});
+  await sparse.begin();
+  await sparse.writeAt(4,new Uint8Array([9,8]));
+  await assert.rejects(sparse.finish(),/rangos sin escribir/);
+  assert.equal(missing.requests.some(r=>r.op==='finishRandom'),false);
+  await sparse.abort();
+  assert.equal(missing.removed,true);
+
+  const filledHost = memoryNative();
+  const filled = createAcceleratedNativeSink(filledHost, {mime:'video/mp4',expectedDurationMs:1000});
+  await filled.begin();
+  await filled.writeAt(2,new Uint8Array([3,4]));
+  await filled.writeAt(0,new Uint8Array([1,2]));
+  await filled.writeAt(1,new Uint8Array([7]));
+  const result = await filled.finish();
+  assert.equal(result.verified,true);
+  assert.deepEqual(filledHost.contents,[1,7,3,4]);
+});
+
+test('cancellation while random writes drain cannot race a late native finish', async () => {
+  const host = memoryNative();
+  const send = host.sendWriteAt;
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const inFlight = new Promise(resolve => { entered = resolve; });
+  host.sendWriteAt = async message => {
+    entered();
+    await gate;
+    return send(message);
+  };
+  const sink = createAcceleratedNativeSink(host,{mime:'video/webm',expectedDurationMs:1000});
+  await sink.begin();
+  const write = sink.writeAt(0,new Uint8Array([1,2,3]));
+  await inFlight;
+  const finishing = sink.finish();
+  const aborting = sink.abort();
+  release();
+  await write;
+  await assert.rejects(finishing,/cancelada/);
+  await aborting;
+  assert.equal(sink.state,'aborted');
+  assert.equal(host.removed,true);
+  assert.equal(host.requests.some(r=>r.op==='finishRandom'),false);
+});
+
+test('abort during native atomic finalize does not delete a possibly published file', async () => {
+  const host = memoryNative();
+  const request = host.request;
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const inFlight = new Promise(resolve => { entered = resolve; });
+  host.request = async message => {
+    if (message.op === 'finishRandom') { entered(); await gate; }
+    return request(message);
+  };
+  const sink = createAcceleratedNativeSink(host,{mime:'video/mp4',expectedDurationMs:1000});
+  await sink.begin();
+  await sink.writeAt(0,new Uint8Array([1,2]));
+  const finishing = sink.finish();
+  await inFlight;
+  await sink.abort();
+  release();
+  await finishing;
+  assert.equal(sink.state,'done');
+  assert.equal(host.removed,false);
+});
