@@ -259,3 +259,26 @@ test('oversized explicit reservation does not create a temp native file',async()
   assert.deepEqual(host.ops,[]);
  }finally{globalThis.document=old;}
 });
+
+test('optimistic Mediabunny but missing WebCodecs encoder fails before any v2 native file is opened',async()=>{
+ const host=fakeHost(),M=fakeM([]),previous=globalThis.VideoEncoder;
+ globalThis.VideoEncoder={isConfigSupported:async()=>({supported:false})};
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true}),/Preflight WebCodecs móvil/);
+  assert.deepEqual(host.ops,[]);
+ }finally{globalThis.VideoEncoder=previous;}
+});
+test('native preflight explicitly returns codec capability evidence after verified render',async()=>{
+ const host=fakeHost(),M=fakeM([]),prior=globalThis.document;
+ globalThis.document=documentFake();
+ try{
+  const result=await run({project:project(),media,M,host,
+   expectAudio:false,experimentalAccelerated:true});
+  assert.deepEqual(result.codecCapabilities,{
+   supported:true,platform:'android',videoCodec:'avc',
+   audioCodec:null,container:'mp4',width:320,height:180,
+   fps:30,sampleRate:48000,audioChecked:false
+  });
+ }finally{globalThis.document=prior;}
+});
