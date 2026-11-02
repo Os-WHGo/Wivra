@@ -25,7 +25,8 @@ struct WivraAcceleratedRecoverySmoke {
             freeSpace: { _ in 8_000_000_000 })
         let first = await store.recovered()
         precondition(first.count == 1)
-        precondition(first[0].url == verified)
+        precondition(first[0].url.resolvingSymlinksInPath().standardizedFileURL ==
+                     verified.resolvingSymlinksInPath().standardizedFileURL)
         precondition(first[0].media.audio && first[0].media.video)
         precondition(first[0].bytes > 1_000 && first[0].sha256.count == 64)
 
@@ -42,7 +43,9 @@ struct WivraAcceleratedRecoverySmoke {
         let reloaded = WivraAcceleratedExportStore(directory: root,
             freeSpace: { _ in 8_000_000_000 })
         let second = await reloaded.recovered()
-        precondition(second.count == 1 && second[0].url == verified)
+        precondition(second.count == 1 &&
+                     second[0].url.resolvingSymlinksInPath().standardizedFileURL ==
+                     verified.resolvingSymlinksInPath().standardizedFileURL)
 
         let removed = try await reloaded.cleanupOrphans()
         precondition(removed == 1)
