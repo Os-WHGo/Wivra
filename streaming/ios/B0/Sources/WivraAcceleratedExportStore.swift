@@ -80,7 +80,7 @@ actor WivraAcceleratedExportStore {
         guard mime == "video/mp4" else {
             throw WivraExportError.io("Exportación acelerada iOS requiere MP4 compatible.")
         }
-        guard (0...WivraRandomAccessExportSession.maxOutputBytes).contains(estimatedBytes) else {
+        guard (1...WivraRandomAccessExportSession.maxOutputBytes).contains(estimatedBytes) else {
             throw WivraExportError.io("Tamaño aleatorio fuera de límites.")
         }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
