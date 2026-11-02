@@ -115,4 +115,22 @@ class WivraRandomAccessExportSessionTest {
         } finally { dir.deleteRecursively() }
     }
 
+
+    @Test fun sealedRecoveryNamesCannotEscapeAppPrivateFolder() {
+        assertTrue(WivraRandomExportStore.isRecoverableFilename("Wivra_Fast_1234567890.mp4"))
+        assertTrue(WivraRandomExportStore.isRecoverableFilename("Wivra_Fast_1234567890.webm"))
+        for (name in listOf(
+            "../Wivra_Fast_1234567890.mp4",
+            "Wivra_Fast_1234567890.mp4.partial",
+            "Wivra_Fast_1234567890.mp4/../sensitive.mp4",
+            "other.mp4",
+            "Wivra_Fast_a.mp4",
+            "Wivra_Fast_1234567890.mkv",
+            "Wivra_Fast_1234567890\\\\.mp4"
+        )) {
+            assertFalse("Recovery accepted unsafe filename: $name",
+                WivraRandomExportStore.isRecoverableFilename(name))
+        }
+    }
+
 }
