@@ -237,3 +237,10 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 6. Verificar las ocho traducciones (ES/EN/FR/PT/DE/IT/JA/ZH); LIVE está exclusivamente en Android FULL, Wivra Capture mantiene su compilación sin RootEncoder. Test de contrato `streaming/tests/android-live-microphone-choice.test.mjs` y compilaciones Gradle; resultados lógicos **no** certifican que un micrófono BT sea usado físicamente.
 
 **Alternativas comparadas:** `AudioManager.setCommunicationDevice` enruta principalmente llamadas/comunicación y no certifica el AudioRecord de RootEncoder; un segundo grabador de prueba puede competir por la entrada; usar `MicrophoneSource.setPreferredDevice` existente después de `prepareAudio` es el camino menos invasivo (Apache-2.0 ya en FULL). El API Android solo expresa una **preferencia**; el dispositivo realmente enrutado requiere inspección/muestras con hardware. Fuentes: https://github.com/pedroSG94/RootEncoder/blob/2.8.1/encoder/src/main/java/com/pedro/encoder/input/sources/audio/MicrophoneSource.kt ; https://developer.android.com/reference/android/media/AudioRouting ; https://developer.android.com/reference/android/media/AudioRecord .
+
+### P0-S · iPhone LIVE RTMP endpoint gate (software, no network)
+
+- UI must not publish anything merely because a URL is typed. Full RTMP/RTMPS input must include app path and stream key; reject HTTP(S), query/fragment, userinfo, whitespace/control chars and missing app/key. Keep raw key memory-only.
+- Swift smoke compiles the same WivraIOSLiveEndpoint.swift used by the app on macOS CI. No request, RTMP handshake or credential in test. Reject malformed URLs before asking for camera/microphone permission. Test cases in streaming/tests/WivraIOSLiveEndpointSmoke.swift.
+- Future iOS publisher requires separate public-confirmation gate, foreground-only camera ownership, OS permissions and explicit STOP. iPhone camera video only first; Meta DAT and screenshots are separate adapters, no false READY.
+- Manual test of actual stream key, provider VOD, audio and network will happen in the owner-approved device QA batch. Do NOT store real keys in CI or send logs/screenshots containing them.
