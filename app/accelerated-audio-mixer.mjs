@@ -26,10 +26,33 @@ function checkAudio({tracks, totalSeconds, sampleRate, blockFrames, channels}) {
     if (c.speed !== undefined && (!Number.isFinite(c.speed) ||
         c.speed < .25 || c.speed > 4))
       throw new Error('Audio speed outside editable range.');
+    // Ducking is authored on a voice only, not inferred from music/audio.
+    // Reject invalid values rather than silently changing an export mix.
+    if(c.ducking !== undefined &&
+      (typeof c.ducking !== 'number' || !Number.isFinite(c.ducking) ||
+       c.ducking < 0 || c.ducking > 1 || !VOICE_ROLES.has(c.role)))
+      throw new Error('Invalid voice ducking in accelerated audio.');
   }
 }
 
 const clamped = v => Math.max(-1, Math.min(1, v));
+const VOICE_ROLES = new Set(['voice_primary','voice_guest']);
+// Fade attenuation at voice boundaries to avoid PCM clicks.  A depth of 0
+// keeps original audio, 1 mutes the non-voice bed while the voice is active.
+// This is an explicit QA-only authoring knob, not automatic gain reduction.
+const DUCK_ATTACK_SECONDS = .04;
+const DUCK_RELEASE_SECONDS = .08;
+function duckMultiplierAt(time, voiceDucks) {
+  let multiplier=1;
+  for(const {clip,depth,end} of voiceDucks) {
+    if(time<clip.start || time>=end)continue;
+    const edge=Math.max(0,Math.min(1,
+      (time-clip.start)/DUCK_ATTACK_SECONDS,
+      (end-time)/DUCK_RELEASE_SECONDS));
+    multiplier=Math.min(multiplier,1-depth*edge);
+  }
+  return multiplier;
+}
 
 // Testable exact window mixer. Each entry has clip and buffers(from,to),
 // which returns Mediabunny AudioBufferSink.buffers() wrapped buffers.
@@ -48,6 +71,10 @@ export async function* mixAcceleratedAudioBlocks({
   const totalFrames=Math.round(totalSeconds*sampleRate);
   if (!Number.isSafeInteger(totalFrames) || totalFrames <= 0)
     throw new Error('Invalid accelerated audio duration.');
+  const voiceDucks=tracks.filter(({clip})=>VOICE_ROLES.has(clip.role) &&
+    clip.ducking>0 && clipGain(clip)>0).map(({clip})=>({
+    clip,depth:clip.ducking,end:clip.start+clipLength(clip)
+  }));
   for (let fromFrame=0;fromFrame<totalFrames;fromFrame+=blockFrames) {
     if (isCancelled()) throw new Error('Accelerated audio mixing cancelled.');
     const count=Math.min(blockFrames,totalFrames-fromFrame);
@@ -110,8 +137,10 @@ export async function* mixAcceleratedAudioBlocks({
         const ix2=Math.min(ix+1,source.length-1);
         const frac=Math.max(0,Math.min(1,sourceSample-ix));
         const offset=frame-fromFrame;
-        const l=(source.left[ix]*(1-frac)+source.left[ix2]*frac)*gain;
-        const r=(source.right[ix]*(1-frac)+source.right[ix2]*frac)*gain;
+        const bedGain=voiceDucks.length && !VOICE_ROLES.has(c.role)
+          ?duckMultiplierAt(timelineTime,voiceDucks):1;
+        const l=(source.left[ix]*(1-frac)+source.left[ix2]*frac)*gain*bedGain;
+        const r=(source.right[ix]*(1-frac)+source.right[ix2]*frac)*gain*bedGain;
         if (!Number.isFinite(l) || !Number.isFinite(r))
           throw new Error('Non-finite accelerated audio sample.');
         left[offset]+=l;right[offset]+=r;
