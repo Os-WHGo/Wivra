@@ -74,7 +74,7 @@ jobs:
   android-beta:
     name: Android APK · same unified editor
     needs: integrated-contracts
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'wivra-package-beta') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.action == 'labeled' && github.event.label.name == 'wivra-package-beta') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -143,7 +143,7 @@ jobs:
   ios-beta:
     name: iPhone arm64 IPA · UNSIGNED
     needs: integrated-contracts
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'wivra-package-beta') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.action == 'labeled' && github.event.label.name == 'wivra-package-beta') }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
