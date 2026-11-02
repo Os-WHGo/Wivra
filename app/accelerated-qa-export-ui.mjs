@@ -80,7 +80,9 @@ document.addEventListener('DOMContentLoaded',()=>{
               throw Error('Restauración no confirmada');
             target.textContent=host.platform==='ios'
               ?'Se abrió Compartir. La copia privada no se ha eliminado.'
-              :'Video recuperado en Movies/Wivra. Revisa la galería.';
+              :response.alreadyPublished===true
+                ?'Este video ya estaba en Movies/Wivra. No se creó ninguna copia duplicada.'
+                :'Video recuperado en Movies/Wivra. Revisa la galería.';
           }catch(error){
             // An uncertain native reply may mean the gallery copy succeeded.
             // Don't send the same request again without a user check.
