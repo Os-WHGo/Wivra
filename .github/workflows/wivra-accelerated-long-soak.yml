@@ -4,6 +4,8 @@ on:
     paths:
       - app/accelerated-multitrack-renderer.mjs
       - tools/browser-multitrack-accelerated.cjs
+      - tools/accelerated-resource-telemetry.cjs
+      - tools/accelerated-resource-telemetry.test.cjs
       - .github/workflows/wivra-accelerated-long-soak.yml
   workflow_dispatch:
 permissions:
@@ -35,6 +37,8 @@ jobs:
           sudo apt-get install -y ffmpeg
           command -v ffmpeg
           command -v ffprobe
+      - name: Validate resource monitoring counters and process-tree accounting
+        run: node --test tools/accelerated-resource-telemetry.test.cjs
       - name: Render and probe accelerated ${{ matrix.minutes }}-minute video and final voice
         env:
           WIVRA_LONG_QA_MINUTES: ${{ matrix.minutes }}

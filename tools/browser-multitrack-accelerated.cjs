@@ -8,6 +8,7 @@ catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
+const {createAcceleratedResourceMonitor}=require('./accelerated-resource-telemetry.cjs');
 const gap=process.argv.includes('--gap');
 const duck=process.argv.includes('--duck');
 const minute=process.argv.includes('--minute');
@@ -89,6 +90,12 @@ const server=http.createServer((req,res)=>{
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
+ // A separate sampler observes ALL Chromium descendants while the real
+ // WebCodecs render is running. This cannot be confused with native RAM.
+ const monitor=longSoak?createAcceleratedResourceMonitor({
+  browserPid:browser.process().pid,
+  getOutput:()=>({bytes:highWater,writes:writeCount})
+ }).start():null;
  try {
   fd=fs.openSync(target,'w+');
   const page=await browser.newPage();
@@ -168,6 +175,7 @@ const server=http.createServer((req,res)=>{
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
   },{extended,long,minute,twoMinute,threeMinute,gap,duck,longSoak,seconds});
+  if(monitor)report.resources=monitor.stop();
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -257,8 +265,19 @@ const server=http.createServer((req,res)=>{
      report.browser.result.verifiedOnDevice!==false ||
      highWater<1000 || writeCount<1)
     throw Error('Multitrack encoded video/audio/parity QA failed: '+JSON.stringify(report));
+  if(longSoak){
+   if(!report.resources||report.resources.samples.length<2||
+     report.resources.errors.length!==0||report.resources.overBudget||
+     report.resources.peakOutputBytes!==highWater||
+     report.browser.result.videoFrames!==seconds*30||
+     report.browser.result.audioBlocks!==seconds||
+     report.audio.tailVoice<=.015)
+    throw Error('Long accelerated resources/video/audio validation failed: '+
+     JSON.stringify(report));
+  }
   console.log(JSON.stringify(report,null,2));
  }finally{
+  if(monitor&&!report.resources)report.resources=monitor.stop();
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
