@@ -8,6 +8,7 @@ catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
+const extended=process.argv.includes('--stress');
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
 const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
@@ -64,7 +65,8 @@ const server=http.createServer((req,res)=>{
   args:['--autoplay-policy=no-user-gesture-required']});
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
-  mediabunny:'pinned 1.61.6',projectSeconds:1.2};
+  mediabunny:'pinned 1.61.6',projectSeconds:extended?10:1.2,
+  profile:extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
  try {
@@ -80,7 +82,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async()=>{
+  report.browser=await page.evaluate(async(extended)=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -91,13 +93,19 @@ const server=http.createServer((req,res)=>{
     logo:{kind:'image',url:'/overlay.svg',w:48,h:48}
    };
    const project={
-    clips:[
+    clips:extended?Array.from({length:20},(_,i)=>({
+      id:'part'+i,asset_id:i%2?'second':'first',
+      start:i*.5,in:0,out:.5
+    })):[
      {id:'a',asset_id:'first',start:0,in:0,out:.6},
      {id:'b',asset_id:'second',start:.6,in:.5,out:1.1}
     ],
     overlayClips:[{id:'logo',asset_id:'logo',start:.18,in:0,out:1,
       x:.5,y:.5,scale:.18,track:1,opacity:.9}],
-    audioClips:[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
+    audioClips:extended?Array.from({length:5},(_,i)=>({
+      id:'voice'+i,asset_id:'mic',start:.12+2*i,
+      in:0,out:i===4?1.88:2,role:'voice_primary',volume:.75
+    })):[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
       role:'voice_primary',volume:.75}],
     texts:[{id:'caption',text:'Wivra MULTITRACK',start:.35,end:.75,
       position:'middle'}],
@@ -118,7 +126,7 @@ const server=http.createServer((req,res)=>{
     writeAt:(position,bytes)=>window.__writeAt(position,toBase64(bytes))
    });
    return {result,renderSeconds:(performance.now()-started)/1000};
-  });
+  },extended);
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -156,7 +164,8 @@ const server=http.createServer((req,res)=>{
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
    recordedSeconds:pcm.length/2/16000};
   if(!report.ffprobe.video||!report.ffprobe.audio||
-     !(report.ffprobe.duration>1&&report.ffprobe.duration<1.5) ||
+     !(report.ffprobe.duration>report.projectSeconds-.2&&
+       report.ffprobe.duration<report.projectSeconds+.3) ||
      !report.scenes.firstOrange||!report.scenes.secondBlue||
      !(report.audio.beforeVoice<.02 && report.audio.afterVoice>.015) ||
      report.browser.result.audioBlocks<1||
@@ -170,7 +179,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }
