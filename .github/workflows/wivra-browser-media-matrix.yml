@@ -12,6 +12,9 @@ on:
       - tools/export-engine-benchmark.cjs
       - tools/verify-accelerated-offline-bundle.cjs
       - app/accelerated-cut-renderer.mjs
+      - app/accelerated-audio-mixer.mjs
+      - app/accelerated-multitrack-renderer.mjs
+      - tools/browser-multitrack-accelerated.cjs
       - app/accelerated-native-sink.mjs
       - app/build.mjs
       - app/media-container.mjs
@@ -82,6 +85,8 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs --minute
       - name: Verify exact 150ms video gap in accelerated multipista exported frames (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --gap
+      - name: Verify voice ducking survives actual WebCodecs mux and PCM decoding (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --duck
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,5 +105,6 @@ jobs:
             wivra-multitrack-long.json
             wivra-multitrack-minute.json
             wivra-multitrack-gap.json
+            wivra-multitrack-duck.json
           if-no-files-found: warn
           retention-days: 7
