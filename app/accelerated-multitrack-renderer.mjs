@@ -201,6 +201,28 @@ export async function renderAcceleratedMultitrack({
   canvas.width=width;canvas.height=height;
   const g=canvas.getContext('2d');
   if(!g)deny('2D compositor unavailable');
+  // The stable drawFrame intentionally swallows drawImage failures during
+  // interactive preview. An export MUST NOT silently omit a principal video
+  // frame or a requested overlay. Count successful draws and caught failures.
+  let draws=0,failedDraws=0;
+  const guardedG=new Proxy(g,{
+    get(target,property) {
+      if(property==='drawImage') return (...args)=>{
+        try {
+          target.drawImage(...args);
+          draws++;
+        } catch(error) {
+          failedDraws++;
+          throw error;
+        }
+      };
+      const value=Reflect.get(target,property,target);
+      return typeof value==='function'?value.bind(target):value;
+    },
+    set(target,property,value) {
+      return Reflect.set(target,property,value,target);
+    }
+  });
   const format=codec.container==='mp4'?
     new M.Mp4OutputFormat({fastStart:false}):new M.WebMOutputFormat();
   const writable=new WritableStream({write:chunk=>writer.write(chunk.position,chunk.data)});
@@ -250,7 +272,11 @@ export async function renderAcceleratedMultitrack({
       }
       // Reuse EXACT stable compositor for formatting, positions, shapes,
       // titles, fades and opacity, not a second visual semantics implementation.
-      drawFrame(g,width,height,frame,project,t,overlays);
+      const priorDraws=draws,priorFailures=failedDraws;
+      drawFrame(guardedG,width,height,frame,project,t,overlays);
+      if(failedDraws!==priorFailures ||
+         draws-priorDraws < (frame?1:0)+overlays.length)
+        throw new Error('A source frame or overlay could not be painted safely.');
       await videoSource.add(t,dt);
       videoFrames++;
       if(mixer&&((k+1)%fps===0||k===framesTotal-1)) {
