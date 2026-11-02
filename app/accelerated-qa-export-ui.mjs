@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.id='wivraAcceleratedQA';
   qaBox.style.cssText='border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0';
   const title=make('strong','Laboratorio acelerado (solo QA)');
-  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Duración máxima de 120 s y 160 elementos. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
+  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Duración máxima de 180 s y 160 elementos. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
   const consent=make('label','');
   consent.style.cssText='display:flex;align-items:center;gap:8px';
   const enable=document.createElement('input');enable.type='checkbox';
