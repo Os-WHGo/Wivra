@@ -16,6 +16,8 @@ final class WivraIPhoneLiveController {
     private(set) var status = "LIVE detenido. No se está emitiendo."
     private(set) var verifiedVideoURL: URL?
     private(set) var unverifiedVideoURL: URL?
+    private(set) var savedVideos: [URL] = []
+    private(set) var isReviewingSavedVideos = false
 
     private var mixer: MediaMixer?
     private var connection: RTMPConnection?
@@ -214,6 +216,33 @@ final class WivraIPhoneLiveController {
                 : "LIVE detenido. Sin copia local. Comprueba el VOD remoto.")
     }
 
+    // Re-discover verified clips after app relaunch, without automatic Photos
+    // publishing and without treating partial writers as finished recordings.
+    func reviewSavedVideos() async {
+        guard phase == .idle, !isReviewingSavedVideos else { return }
+        isReviewingSavedVideos = true
+        defer { isReviewingSavedVideos = false }
+        guard let folder = try? localFolder(),
+              let urls = try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: [.isRegularFileKey,
+                .isSymbolicLinkKey, .fileSizeKey], options: [.skipsHiddenFiles]) else {
+            status = "No se pudo abrir el catálogo privado de LIVE."
+            return
+        }
+        var approved: [URL] = []
+        for file in urls where file.pathExtension.lowercased() == "mp4" {
+            guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey,
+                .isSymbolicLinkKey, .fileSizeKey]),
+                values.isRegularFile == true, values.isSymbolicLink == false,
+                (values.fileSize ?? 0) > 0 else { continue }
+            if await WivraCaptureMediaVerifier.verifyFile(file, in: folder) {
+                approved.append(file)
+            }
+        }
+        savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
+        status = "Copias MP4 verificadas: \(savedVideos.count). Las demás permanecen privadas."
+    }
+
     private func localFolder() throws -> URL {
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraLive", isDirectory: true)
@@ -269,6 +298,17 @@ struct WivraIPhoneLiveScreen: View {
                     }.disabled(controller.phase == .idle || controller.phase == .stopping)
                 }
                 Section("Estado") {
+                    Button("Revisar copias locales de LIVE") {
+                        Task { await controller.reviewSavedVideos() }
+                    }.disabled(controller.isActive || controller.isReviewingSavedVideos)
+                    if controller.isReviewingSavedVideos {
+                        ProgressView("Comprobando MP4 privados…")
+                    }
+                    ForEach(controller.savedVideos, id: \.self) { file in
+                        ShareLink(item: file) {
+                            Label("Compartir MP4 recuperado", systemImage: "film.stack")
+                        }
+                    }
                     if controller.phase == .ready || controller.phase == .connecting ||
                        controller.phase == .live {
                         MTHKViewRepresentable(previewSource: controller)
