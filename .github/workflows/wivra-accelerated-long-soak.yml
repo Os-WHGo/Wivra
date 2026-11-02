@@ -4,6 +4,7 @@ on:
     paths:
       - app/accelerated-multitrack-renderer.mjs
       - tools/browser-multitrack-accelerated.cjs
+      - tools/browser-multitrack-accelerated.cjs
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
       - .github/workflows/wivra-accelerated-long-soak.yml
@@ -39,6 +40,9 @@ jobs:
           command -v ffprobe
       - name: Validate resource monitoring counters and process-tree accounting
         run: node --test tools/accelerated-resource-telemetry.test.cjs
+      - name: Smoke monitored Chromium PID, RSS and output counters (1.2 seconds)
+        timeout-minutes: 5
+        run: node tools/browser-multitrack-accelerated.cjs --telemetry-smoke
       - name: Render and probe accelerated ${{ matrix.minutes }}-minute video and final voice
         env:
           WIVRA_LONG_QA_MINUTES: ${{ matrix.minutes }}
