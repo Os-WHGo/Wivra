@@ -1,4 +1,7 @@
-# Delivers experimental artifacts from the SAME unified Wivra source tree.
+# Milestone-controlled installer artifacts from the SAME unified Wivra source tree.
+# By default PR changes run only contracts. To create APK/IPA explicitly,
+# apply the owner-controlled 'wivra-package-beta' PR label or use workflow_dispatch
+# once this workflow is available on the default branch. No secret credentials.
 # APK = sideloadable debug build; IPA = UNSIGNED, cannot be installed on iPhone
 # without a valid owner-provided signing process. Neither means "beta complete".
 name: Wivra Complete Beta Assembly (Mobile)
@@ -8,6 +11,7 @@ on:
       - chatgpt/wivra-beta-complete-assembly-20261016
       - chatgpt/wivra-unified-owner-20261016
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.github/workflows/wivra-complete-beta-assembly.yml'
       - 'streaming/**'
@@ -70,6 +74,7 @@ jobs:
   android-beta:
     name: Android APK · same unified editor
     needs: integrated-contracts
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'wivra-package-beta') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -138,6 +143,7 @@ jobs:
   ios-beta:
     name: iPhone arm64 IPA · UNSIGNED
     needs: integrated-contracts
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'wivra-package-beta') }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
