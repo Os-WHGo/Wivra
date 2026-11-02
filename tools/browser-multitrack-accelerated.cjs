@@ -8,7 +8,8 @@ catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
-const {createAcceleratedResourceMonitor}=require('./accelerated-resource-telemetry.cjs');
+const {createAcceleratedResourceMonitor,launchObservedChromium}=
+ require('./accelerated-resource-telemetry.cjs');
 const gap=process.argv.includes('--gap');
 const duck=process.argv.includes('--duck');
 const minute=process.argv.includes('--minute');
@@ -19,6 +20,10 @@ const longSoakMinutes=Number(process.env.WIVRA_LONG_QA_MINUTES||0);
 if(![0,10,20,30,60].includes(longSoakMinutes))
  throw Error('Long accelerated QA supports 10/20/30/60 minutes only.');
 const longSoak=longSoakMinutes>0;
+const telemetrySmoke=process.argv.includes('--telemetry-smoke');
+if(telemetrySmoke && (longSoak||gap||duck||minute||twoMinute||
+ threeMinute||hdCanary||process.argv.includes('--long')))
+ throw Error('Resource monitor smoke must use one isolated short sample.');
 const long=process.argv.includes('--long');
 const extended=hdCanary||longSoak||threeMinute||twoMinute||minute||long||process.argv.includes('--stress');
 const seconds=longSoak?longSoakMinutes*60:threeMinute?180:twoMinute?120:minute?60:long||hdCanary?30:extended?10:gap?1.25:1.2;
@@ -85,22 +90,25 @@ const server=http.createServer((req,res)=>{
 (async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const base='http://127.0.0.1:'+server.address().port;
- const browser=await chromium.launch({headless:true,
-  args:['--autoplay-policy=no-user-gesture-required']});
+ const options={headless:true,args:['--autoplay-policy=no-user-gesture-required']};
+ const observed=(longSoak||telemetrySmoke)
+  ?await launchObservedChromium(chromium,options):null;
+ const browser=observed?.browser??await chromium.launch(options);
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
   mediabunny:'pinned 1.61.6',projectSeconds:seconds,
-  profile:hdCanary?'720p 30s 60-cut 15-voice mobile-resolution canary':longSoak?(longSoakMinutes+'min 120-cut 30-voice long accelerated soak'):duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':threeMinute?'180s 120-cut 30-voice accelerated soak':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
+  profile:telemetrySmoke?'1.2s observed Chromium process-tree smoke':hdCanary?'720p 30s 60-cut 15-voice mobile-resolution canary':longSoak?(longSoakMinutes+'min 120-cut 30-voice long accelerated soak'):duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':threeMinute?'180s 120-cut 30-voice accelerated soak':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
  // A separate sampler observes ALL Chromium descendants while the real
  // WebCodecs render is running. This cannot be confused with native RAM.
- const monitor=longSoak?createAcceleratedResourceMonitor({
-  browserPid:browser.process().pid,
-  getOutput:()=>({bytes:highWater,writes:writeCount})
- }).start():null;
+ let monitor=null;
  try {
+  if(observed)monitor=createAcceleratedResourceMonitor({
+   browserPid:observed.browserPid,
+   getOutput:()=>({bytes:highWater,writes:writeCount})
+  }).start();
   fd=fs.openSync(target,'w+');
   const page=await browser.newPage();
   page.on('console',m=>{if(m.type()==='error')
@@ -315,6 +323,11 @@ const server=http.createServer((req,res)=>{
       !report.containerInspection.seekIndex)
     throw Error('720p mobile-resolution A/V canary failed: '+JSON.stringify(report));
   }
+  if(telemetrySmoke && (!report.resources ||
+     report.resources.samples.length<1 ||
+     report.resources.errors.length!==0 ||
+     report.resources.peakOutputBytes!==highWater))
+   throw Error('Short Chromium process-tree observability smoke failed.');
   if(longSoak){
    if(!report.resources||report.resources.samples.length<2||
      report.resources.errors.length!==0||report.resources.overBudget||
@@ -329,7 +342,8 @@ const server=http.createServer((req,res)=>{
  }finally{
   if(monitor&&!report.resources)report.resources=monitor.stop();
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
-  await browser.close();
+  if(observed)await observed.close();
+  else await browser.close();
   await new Promise(resolve=>server.close(resolve));
   fs.writeFileSync(path.join(root,longSoak?('wivra-accelerated-soak-'+longSoakMinutes+'min.json'):duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':threeMinute?'wivra-multitrack-three-minute.json':twoMinute?'wivra-multitrack-two-minute.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':hdCanary?'wivra-multitrack-hd-canary.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
