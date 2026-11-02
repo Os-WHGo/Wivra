@@ -254,6 +254,7 @@ object WivraRandomExportStore {
     }
 
     /** Read-only catalog. Never publishes, edits or deletes a saved original. */
+    @JvmStatic
     fun recovered(context: Context): List<Recovered> {
         return directory(context).listFiles().orEmpty()
             .filter { it.isFile && isRecoverableFilename(it.name) }
@@ -266,6 +267,7 @@ object WivraRandomExportStore {
      * A newly created MediaStore row is SHA-256 verified before it is visible;
      * the sealed source survives any failure. No arbitrary path or deletion API.
      */
+    @JvmStatic
     fun restore(context: Context, selectedName: String): Published {
         if (!isRecoverableFilename(selectedName)) throw IOException("Nombre de recuperación inválido.")
         val file = File(directory(context), selectedName)
