@@ -1,6 +1,6 @@
 import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accelerated-multitrack-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
-import {exportEstimatedBytes} from './export.mjs';
+import {planAcceleratedStorageReservation} from './accelerated-storage-budget.mjs';
 
 /**
  * W22: iOS private v2 files remain the authoritative recovery copy.
@@ -62,9 +62,11 @@ export async function recordExperimentalNativeMultitrack({
   try {
     // Keep estimation inside the same cleanup scope as codec/bridge setup.
     // Invalid space estimates must release every decoder before returning.
-    const expectedBytes=estimatedBytes??exportEstimatedBytes(
-      prepared.totalSeconds,{progressive:true,width:prepared.width,
-        height:prepared.height,fps});
+    const reservation=planAcceleratedStorageReservation({
+      seconds:prepared.totalSeconds,width:prepared.width,
+      height:prepared.height,fps,estimatedBytes
+    });
+    const expectedBytes=reservation.estimatedBytes;
     // Only mono and stereo are mixed today. A multi-channel source could
     // otherwise lose its center/dialogue channel unnoticed.
     for(const item of prepared.used.values()){
@@ -73,8 +75,6 @@ export async function recordExperimentalNativeMultitrack({
       if(channels!==1&&channels!==2)
         throw new Error('Canales de audio no admitidos por el motor acelerado.');
     }
-    if(!Number.isSafeInteger(expectedBytes)||expectedBytes<0)
-      throw new Error('Tamaño estimado de salida fuera de límites.');
     if(isCancelled())throw new Error('Exportación multipista cancelada antes de abrir archivo.');
     sink=createAcceleratedNativeSink(host,{
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
