@@ -35,3 +35,12 @@ test('main photo preflight resolves output dimensions without a video decoder',a
  assert.equal(prepared.used.get('photo').kind,'image');
  assert.equal(prepared.used.get('photo').input,undefined);
 });
+
+test('GIF frame-reader objects are not mistaken for still photos',async()=>{
+ const {prepareAcceleratedMultitrack}=await import('../accelerated-multitrack-renderer.mjs');
+ const M={Input:class{},UrlSource:class{},CanvasSink:class{},AudioBufferSink:class{}};
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:base(),media:{photo:{...media.photo,gif:{frames:12}}},
+  M,expectedAudio:false
+ }),/animated GIF/);
+});
