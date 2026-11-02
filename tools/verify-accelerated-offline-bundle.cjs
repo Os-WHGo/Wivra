@@ -45,7 +45,10 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
       native:globalThis.WivraAcceleratedQA?.nativeHost()?.platform};
   });
   assert.deepEqual(gated,{box:true,start:true,consent:false,native:'android'});
-  await simulated.click('#wivraQaStart');
+  // The export sheet is intentionally closed until a project is selected.
+  // Trigger the handler in DOM to check the consent gate without pretending
+  // the hidden button is visible/clickable to a user.
+  await simulated.evaluate(()=>document.getElementById('wivraQaStart').click());
   const denied=await simulated.locator('#wivraAcceleratedQA [role="status"]').first().textContent();
   assert.match(denied,/Marca primero la autorización experimental/);
   await simulated.close();
