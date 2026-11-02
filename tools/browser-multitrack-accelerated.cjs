@@ -141,6 +141,11 @@ const server=http.createServer((req,res)=>{
    video:(probe.streams||[]).some(s=>s.codec_type==='video'),
    audio:(probe.streams||[]).some(s=>s.codec_type==='audio'),
    codecs:probe.streams?.map(s=>s.codec_type+':'+s.codec_name)};
+  // A playable video is not sufficient for gallery/native recovery.
+  // Inspect the SAME disk bytes with Wivra's local container parser, which
+  // the native stores mirror with duration/seek-index gates.
+  const {inspectExport}=await import('file://'+path.join(root,'app/media-container.mjs'));
+  report.containerInspection=inspectExport(new Uint8Array(fs.readFileSync(actual)));
   const pixel=(time)=>{
    const data=execFileSync('ffmpeg',['-nostdin','-v','error','-ss',String(time),
     '-i',actual,'-frames:v','1','-vf','crop=20:20:10:10,scale=1:1',
@@ -163,6 +168,12 @@ const server=http.createServer((req,res)=>{
   };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
    recordedSeconds:pcm.length/2/16000};
+  if(report.containerInspection?.video!==true ||
+     report.containerInspection?.audio!==true ||
+     report.containerInspection?.declaresDuration!==true ||
+     report.containerInspection?.seekIndex!==true)
+    throw Error('Native gallery would reject media without duration/seek: '+
+      JSON.stringify(report.containerInspection));
   if(!report.ffprobe.video||!report.ffprobe.audio||
      !(report.ffprobe.duration>report.projectSeconds-.2&&
        report.ffprobe.duration<report.projectSeconds+.3) ||
