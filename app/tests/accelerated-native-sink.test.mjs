@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createAcceleratedNativeSink, ACCELERATED_NATIVE_PROTOCOL,
-  ACCELERATED_NATIVE_MAX_WRITE_BYTES} from '../accelerated-native-sink.mjs';
+  ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES} from '../accelerated-native-sink.mjs';
 
 function memoryNative({v2=true,badSha=false,hasAudio=true}={}) {
   let active=false, removed=false, maxEnd=0;
@@ -168,4 +168,27 @@ test('abort during native atomic finalize does not delete a possibly published f
   await finishing;
   assert.equal(sink.state,'done');
   assert.equal(host.removed,false);
+});
+
+
+test('native capacity is enforced before begin or random IO without exposing unsafe offsets', async () => {
+  const host = memoryNative();
+  assert.equal(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES, 16 * 1024 * 1024 * 1024);
+  assert.throws(() => createAcceleratedNativeSink(host, {
+    mime: 'video/mp4', expectedDurationMs: 1000,
+    estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES + 1
+  }), /estimado inválido/);
+  assert.equal(host.requests.length, 0);
+  const sink = createAcceleratedNativeSink(host, {
+    mime: 'video/mp4', expectedDurationMs: 1000,
+    estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES
+  });
+  await sink.begin();
+  await assert.rejects(sink.writeAt(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES,
+    Uint8Array.from([1])), /inválido/);
+  assert.equal(sink.maxEnd, 0);
+  assert.equal(sink.writeBytes, 0);
+  assert.equal(host.requests.filter(r => r.op === 'finishRandom').length, 0);
+  await sink.abort();
+  assert.equal(host.removed, true);
 });
