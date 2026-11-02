@@ -452,14 +452,29 @@ export function exportOverlayPreflight(project, loadedOverlayIds = []) {
   return { overlayBlocked: missingOverlay.length > 0, missingOverlay };
 }
 
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto', experimentalAccelerated = false }) {
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto', experimentalAccelerated = false, acceleratedExpectAudio }) {
   // Explicit QA-only path. Not reachable through ordinary editor UI and not
   // turned on by exportEngine=auto/webcodecs. This preserves ALL production
   // MediaRecorder behavior while the new native protocol/full timeline is built.
   if (experimentalAccelerated === true) {
-    if (saveMode !== 'memory') throw new Error('La exportación acelerada experimental todavía no dispone de guardado nativo.');
-    return recordExperimentalAcceleratedProject({
+    // Preserve Claude's original in-memory cut-only QA path unchanged.
+    if (saveMode === 'memory') return recordExperimentalAcceleratedProject({
       project, media, M: globalThis.Mediabunny, onProgress, isCancelled, loudnessGainDb
+    });
+    // Explicit QA native path: the standard editor contains no sidecar, so
+    // production never changes engines due to runtime flags or WebView APIs.
+    // Never silently disregard the stable editor's loudness/incomplete flags.
+    if (saveMode !== 'auto' || allowIncompleteAudio || allowIncompleteOverlay ||
+        !Number.isFinite(loudnessGainDb) || Math.abs(loudnessGainDb) > 0.001)
+      throw new Error('Acelerador experimental: mezcla de volumen, guardado o medios incompletos sin paridad.');
+    if (typeof acceleratedExpectAudio !== 'boolean')
+      throw new Error('Acelerador experimental: declarar explícitamente presencia de audio.');
+    const qa = globalThis.WivraAcceleratedQA;
+    if (typeof qa?.recordOnNative !== 'function')
+      throw new Error('Acelerador multipista QA no incluido en esta compilación.');
+    return qa.recordOnNative({
+      project, media, expectAudio: acceleratedExpectAudio,
+      experimentalAccelerated: true, fps, isCancelled, onProgress
     });
   }
   // The accelerated prototype has not yet been ported to the full timeline renderer.
