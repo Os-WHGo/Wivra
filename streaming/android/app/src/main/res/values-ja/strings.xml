@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">選択した入力が利用できません。配信前に選び直してください。</string>
     <string name="live_audio_limits_button">制限</string>
     <string name="live_audio_preference_only">Androidに入力の希望を伝えます。実際の音声経路と品質は録音テストが必要です。メガネのマイク対応を保証しません。</string>
+    <string name="accelerated_recovery_button">書き出した動画を復元</string>
+    <string name="accelerated_recovery_title">復元可能な高速書き出し動画</string>
+    <string name="accelerated_recovery_empty">復元待ちの検証済み高速書き出し動画はありません。</string>
+    <string name="accelerated_recovery_confirm">検証済みの動画をギャラリーに保存しますか？ エラー時は非公開のコピーが保持されます。</string>
+    <string name="accelerated_recovery_save">ギャラリーに保存</string>
+    <string name="accelerated_recovery_success">検証済み動画を Movies/Wivra に保存しました。</string>
+    <string name="accelerated_recovery_failed">保存できませんでした。非公開のコピーは残っています。</string>
 </resources>

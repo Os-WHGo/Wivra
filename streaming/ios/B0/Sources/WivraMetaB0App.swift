@@ -856,25 +856,39 @@ private struct WivraPendingRecordingReviewScreen: View {
 private struct WivraNativeExportLibraryScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exports: [WivraSavedExport] = []
+    @State private var recoveredAccelerated: [WivraSavedExport] = []
     @State private var savingPhoto: String?
     @State private var savedToPhotos = Set<String>()
     @State private var photosError: String?
 
     private func reload() async {
         exports = await WivraExportStore.shared.listSavedExports()
+        // The v2 private files remain intact if a gallery/Photos action failed.
+        // A native inspector must approve them before exposing Share/Photos.
+        let recovered = await WivraAcceleratedExportStore.shared.recovered()
+        recoveredAccelerated = recovered.map { item in
+            let date = (try? item.url.resourceValues(
+                forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            return WivraSavedExport(name: item.url.lastPathComponent,
+                url: item.url, bytes: item.bytes, modifiedAt: date)
+        }
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if exports.isEmpty {
+                if exports.isEmpty && recoveredAccelerated.isEmpty {
                     ContentUnavailableView("ios.exports.empty",
                                            systemImage: "square.stack",
                                            description: Text("ios.exports.empty_description"))
                 } else {
-                    List(exports) { video in
+                    List(exports + recoveredAccelerated) { video in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(video.name).font(.subheadline).lineLimit(2)
+                            if video.name.hasPrefix("Wivra_Fast_") {
+                                Text("Exportación acelerada verificada · copia privada recuperada")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                             HStack(spacing: 10) {
                                 Text(ByteCountFormatter.string(fromByteCount: video.bytes, countStyle: .file))
                                 Text(video.modifiedAt, style: .date)

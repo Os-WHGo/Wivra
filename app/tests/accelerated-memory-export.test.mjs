@@ -66,7 +66,9 @@ test('experimental method rejects unsupported edits before silently dropping tra
   await assert.rejects(recordExperimentalAcceleratedProject({project:project(),media,M:null}),/Mediabunny/);
   const source=readFileSync(new URL('../export.mjs',import.meta.url),'utf8');
   assert.match(source,/if \(experimentalAccelerated === true\)/);
-  assert.match(source,/saveMode !== 'memory'/);
+  assert.match(source,/saveMode === 'memory'/);
+  assert.match(source,/typeof qa\?\.recordOnNative !== 'function'/);
+  assert.match(source,/typeof acceleratedExpectAudio !== 'boolean'/);
   assert.match(source,/const engineSelection = selectExportEngine/);
   assert.doesNotMatch(source,/ACCELERATED_EXPORT_IMPLEMENTED = true/);
 });

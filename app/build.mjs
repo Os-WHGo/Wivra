@@ -25,11 +25,38 @@ if (acceleratedBundlePath) {
 const strip = (s) => s.replace(/^import .*$/gm, '').replace(/^export (?=async function|class|function|const|default)/gm, '');
 const core = ['../core/project.mjs', '../core/filters.mjs', '../core/text-style.mjs', '../core/operations.mjs', '../core/op-schemas.mjs', '../core/session.mjs', '../core/tools.mjs', '../core/creative-director.mjs', '../core/shoot-checklist.mjs', '../core/director-production-plan.mjs', '../core/in-app-agent.mjs', './prompt.mjs', './vision.mjs', './timeline.mjs', './export-sink.mjs', './media-container.mjs', './export-engine-policy.mjs', './accelerated-cut-renderer.mjs', './accelerated-native-sink.mjs', './accelerated-memory-export.mjs', './export.mjs', './capture-manifest.mjs', './director-parts.mjs', './persist.mjs', './gif.mjs', './filters-gl.mjs', './ai-client.mjs', './i18n.mjs', './describe-op.mjs', './channel-split.mjs', './subtitles.mjs', './ai/transcript-contract.mjs', './ai/whisper-adapter.mjs', './quick-assembly.mjs', './templates.mjs', './silence.mjs', './autocut-evidence.mjs', './autocut.mjs', './autocut-highlights.mjs', './teleprompter.mjs', './loudness.mjs', './rhythm.mjs', './speed.mjs', './transitions.mjs', './music-lib.mjs']
   .map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
+// QA-only bundled pipeline in the SAME editor HTML and its own lexical scope.
+// The ordinary beta/production build includes neither vendor nor this code.
+// Never enable this merely because a native bridge exists on a phone.
+const qaPipeline = acceleratedVendor ? [
+  './accelerated-multitrack-parity.mjs',
+  './accelerated-audio-mixer.mjs',
+  './accelerated-multitrack-renderer.mjs',
+  './accelerated-native-multitrack-export.mjs'
+].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
+const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';
+const qaIOSHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-ios-host.mjs', import.meta.url), 'utf8')) : '';
+const qaUI = qaPipeline ? strip(readFileSync(new URL('./accelerated-qa-export-ui.mjs', import.meta.url), 'utf8')) : '';
+const qaSidecar = qaPipeline ?
+  '\n;(() => {\n' + qaPipeline +
+  '\nconst findAndroid = (() => {\n' + qaAndroidHost + '\nreturn detectAcceleratedAndroidHost;\n})();' +
+  '\nconst findIOS = (() => {\n' + qaIOSHost + '\nreturn detectAcceleratedIOSHost;\n})();' +
+  '\nasync function recordOnNative(options) {' +
+  '\n if(options?.experimentalAccelerated !== true) throw new Error("La exportación acelerada requiere autorización experimental explícita.");' +
+  '\n const host = findAndroid() ?? findIOS();' +
+  '\n if(!host) throw new Error("No existe el puente nativo acelerado v2 en este dispositivo.");' +
+  '\n return recordExperimentalNativeMultitrack({...options,host,M:globalThis.Mediabunny});' +
+  '\n}' +
+  '\nconst nativeHost = () => findAndroid() ?? findIOS();' +
+  '\nconst saveToPhotos = ({saved,userConfirmed}) => saveVerifiedAcceleratedVideoToPhotos({host:nativeHost(),saved,userConfirmed});' +
+  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos};' +
+  '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n' + qaUI + '\n})();\n' : '';
+
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
 // Append Director helpers without replacing the Editor's core module list.
 // This keeps additions such as capture and project persistence merge-friendly.
 const directorIntake = strip(readFileSync(new URL('../core/director-intake.mjs', import.meta.url), 'utf8'));
 const captureNative = ['./capture-locked-session.mjs', './capture-journal-store.mjs', './capture-native-verifier.mjs', './capture-native-session.mjs']
   .map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
-writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
+writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + qaSidecar + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
 console.log('listo: app/dist/agentcut.html');

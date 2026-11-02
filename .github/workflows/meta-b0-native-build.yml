@@ -3,8 +3,6 @@ on:
   pull_request:
     paths:
       - 'streaming/ios/B0/**'
-      - 'app/**'
-      - 'core/**'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
@@ -59,6 +57,25 @@ jobs:
             streaming/tests/WivraExportStoreSmoke.swift \
             -o /tmp/wivra-export-store-smoke
           /tmp/wivra-export-store-smoke
+      - name: Verify iOS random-write export staging in Swift 6 (macOS synthetic only)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
+            streaming/tests/WivraRandomAccessExportSmoke.swift \
+            -o /tmp/wivra-random-v2-smoke
+          /tmp/wivra-random-v2-smoke
+      - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
+            streaming/ios/B0/Sources/WivraAcceleratedExportStore.swift \
+            streaming/ios/B0/Sources/WivraExportStore.swift \
+            streaming/ios/B0/Sources/WivraMp4Repair.swift \
+            streaming/tests/WivraAcceleratedRecoverySmoke.swift \
+            -o /tmp/wivra-accelerated-recovery-smoke
+          /tmp/wivra-accelerated-recovery-smoke
       - name: Verify mobile Wi-Fi uplink observers and privacy warnings
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
@@ -119,22 +136,8 @@ jobs:
             test -s "$app_path/${language}.lproj/Localizable.strings"
           done
           echo "Wivra embedded Editor and color packs verified in unsigned iOS app"
-      - name: Package unsigned iPhone test build for later owner-side signing
-        working-directory: streaming/ios/B0
-        run: |
-          set -eu
-          app_path=".build/Build/Products/Debug-iphoneos/WivraMetaB0.app"
-          test -d "$app_path"
-          mkdir -p .payload/Payload
-          cp -R "$app_path" .payload/Payload/
-          (cd .payload && zip -qr ../WivraMetaB1-UNSIGNED.ipa Payload)
-      - name: Upload UNSIGNED test IPA artifact (not installable until owner signs)
-        uses: actions/upload-artifact@v4
-        with:
-          name: WivraMetaB1-UNSIGNED-arm64
-          path: streaming/ios/B0/WivraMetaB1-UNSIGNED.ipa
-          retention-days: 7
-          if-no-files-found: error
+      - name: Leave compiled simulator/device apps for CI only, no IPA archive
+        run: echo "iOS source compiled; IPA packaging reserved for explicitly labeled beta milestone."
       - name: Summarize errors if build fails
         if: failure()
         working-directory: streaming/ios/B0

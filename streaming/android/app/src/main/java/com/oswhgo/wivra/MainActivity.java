@@ -47,6 +47,8 @@ public final class MainActivity extends Activity {
     private WebView editor;
     // Progressive export: editor chunks go straight to Movies/Wivra (AndroidX WebMessageListener).
     private WivraExportBridge exportBridge;
+    // Separate experimental random-write protocol; not part of Capture edition.
+    private WivraAcceleratedExportBridge acceleratedExportBridge;
     private WivraCaptureVerificationBridge captureVerificationBridge;
 
     @Override
@@ -209,6 +211,16 @@ public final class MainActivity extends Activity {
             shell.addView(liveSources, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT));
+            // Only the full editor offers recovery of isolated v2 sealed files.
+            // Never expose an accelerated writer or a recovery picker in Capture.
+            Button acceleratedRecovery = new Button(this);
+            acceleratedRecovery.setText(R.string.accelerated_recovery_button);
+            acceleratedRecovery.setContentDescription(
+                getString(R.string.accelerated_recovery_button));
+            acceleratedRecovery.setOnClickListener(v -> showAcceleratedRecovery());
+            shell.addView(acceleratedRecovery, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         }
         shell.addView(editor, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
@@ -217,6 +229,12 @@ public final class MainActivity extends Activity {
         // Without it (old WebView) the editor keeps its previous in-memory export.
         exportBridge = new WivraExportBridge(this, editor);
         if (!exportBridge.install()) exportBridge = null;
+        // Advertising a v2 storage bridge does not enable accelerated rendering:
+        // the Editor's experimental opt-in is still guarded separately.
+        if ("com.oswhgo.wivra".equals(getPackageName())) {
+            acceleratedExportBridge = new WivraAcceleratedExportBridge(this, editor);
+            if (!acceleratedExportBridge.install()) acceleratedExportBridge = null;
+        }
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
         editor.loadUrl("file:///android_asset/agentcut.html");
@@ -268,6 +286,80 @@ public final class MainActivity extends Activity {
             .setTitle(R.string.source_limits_title)
             .setMessage(explanation)
             .setPositiveButton(android.R.string.ok, null)
+            .show();
+    }
+
+    /**
+     * Recovery is a deliberate native-only action, separate from editor JS.
+     * Every listed private file is verified off the UI thread. A selected file
+     * is verified AGAIN immediately before creating a new pending MediaStore
+     * row. No path is accepted from WebView, and failures retain the source.
+     */
+    private void showAcceleratedRecovery() {
+        if (!"com.oswhgo.wivra".equals(getPackageName())) return;
+        try {
+            pickerValidator.execute(() -> {
+                final java.util.List<WivraRandomExportStore.Recovered> ready =
+                    WivraRandomExportStore.recovered(this);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (ready.isEmpty()) {
+                        new AlertDialog.Builder(this)
+                            .setTitle(R.string.accelerated_recovery_title)
+                            .setMessage(R.string.accelerated_recovery_empty)
+                            .setPositiveButton(android.R.string.ok, null).show();
+                        return;
+                    }
+                    final String[] names = new String[ready.size()];
+                    for (int i = 0; i < ready.size(); i++) {
+                        WivraRandomExportStore.Recovered item = ready.get(i);
+                        names[i] = item.getName() + " · " +
+                            android.text.format.Formatter.formatShortFileSize(this, item.getBytes());
+                    }
+                    new AlertDialog.Builder(this)
+                        .setTitle(R.string.accelerated_recovery_title)
+                        .setItems(names, (dialog, selected) ->
+                            confirmAcceleratedRecovery(ready.get(selected).getName()))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+                });
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Activity already closed; do not reopen a stale recovery sheet.
+        }
+    }
+
+    private void confirmAcceleratedRecovery(String selectedName) {
+        if (isFinishing() || isDestroyed()) return;
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.accelerated_recovery_title)
+            .setMessage(R.string.accelerated_recovery_confirm)
+            .setPositiveButton(R.string.accelerated_recovery_save, (dialog, which) -> {
+                try {
+                    pickerValidator.execute(() -> {
+                        boolean saved;
+                        try {
+                            WivraRandomExportStore.restore(this, selectedName);
+                            saved = true;
+                        } catch (Exception error) {
+                            saved = false;
+                        }
+                        final boolean verified = saved;
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            new AlertDialog.Builder(this)
+                                .setTitle(R.string.accelerated_recovery_title)
+                                .setMessage(verified ? R.string.accelerated_recovery_success :
+                                    R.string.accelerated_recovery_failed)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
+                        });
+                    });
+                } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                    // Screen destroyed; no user file was touched.
+                }
+            })
+            .setNegativeButton(android.R.string.cancel, null)
             .show();
     }
 
@@ -708,6 +800,10 @@ public final class MainActivity extends Activity {
             // Leaving the editor mid-export deletes the partial gallery item.
             exportBridge.dispose();
             exportBridge = null;
+        }
+        if (acceleratedExportBridge != null) {
+            acceleratedExportBridge.dispose();
+            acceleratedExportBridge = null;
         }
         if (captureVerificationBridge != null) {
             captureVerificationBridge.dispose();

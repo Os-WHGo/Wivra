@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createAcceleratedNativeSink, ACCELERATED_NATIVE_PROTOCOL,
-  ACCELERATED_NATIVE_MAX_WRITE_BYTES} from '../accelerated-native-sink.mjs';
+  ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES,
+  ACCELERATED_NATIVE_MAX_PENDING_BYTES} from '../accelerated-native-sink.mjs';
 
-function memoryNative({v2=true,badSha=false,hasAudio=true}={}) {
+function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
   let active=false, removed=false, maxEnd=0;
   let bytes=new Uint8Array(0);
   const requests=[];
@@ -19,7 +20,7 @@ function memoryNative({v2=true,badSha=false,hasAudio=true}={}) {
         if(!active)throw Error('session ended');
         const digest=createHash('sha256').update(bytes).digest('hex');
         return {verified:true,bytes:maxEnd,sha256:badSha?'x':digest,
-          media:{video:true,audio:hasAudio,durationMs:1000}};
+          media:{video:true,audio:hasAudio,durationMs}};
       }
       throw Error('unknown op');
     },
@@ -99,4 +100,176 @@ test('one failed or canceled v2 session cannot claim a verified published video'
   assert.equal(sink.state,'aborted');
   assert.equal(host.removed,true);
   assert.equal(host.requests.some(x=>x.op==='finishRandom'),false);
+});
+
+test('native v2 rejects unwritten sparse ranges before committing; fully patched offsets pass', async () => {
+  const missing = memoryNative();
+  const sparse = createAcceleratedNativeSink(missing, {mime:'video/mp4',expectedDurationMs:1000});
+  await sparse.begin();
+  await sparse.writeAt(4,new Uint8Array([9,8]));
+  await assert.rejects(sparse.finish(),/rangos sin escribir/);
+  assert.equal(missing.requests.some(r=>r.op==='finishRandom'),false);
+  await sparse.abort();
+  assert.equal(missing.removed,true);
+
+  const filledHost = memoryNative();
+  const filled = createAcceleratedNativeSink(filledHost, {mime:'video/mp4',expectedDurationMs:1000});
+  await filled.begin();
+  await filled.writeAt(2,new Uint8Array([3,4]));
+  await filled.writeAt(0,new Uint8Array([1,2]));
+  await filled.writeAt(1,new Uint8Array([7]));
+  const result = await filled.finish();
+  assert.equal(result.verified,true);
+  assert.deepEqual(filledHost.contents,[1,7,3,4]);
+});
+
+test('cancellation while random writes drain cannot race a late native finish', async () => {
+  const host = memoryNative();
+  const send = host.sendWriteAt;
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const inFlight = new Promise(resolve => { entered = resolve; });
+  host.sendWriteAt = async message => {
+    entered();
+    await gate;
+    return send(message);
+  };
+  const sink = createAcceleratedNativeSink(host,{mime:'video/webm',expectedDurationMs:1000});
+  await sink.begin();
+  const write = sink.writeAt(0,new Uint8Array([1,2,3]));
+  await inFlight;
+  const finishing = sink.finish();
+  const aborting = sink.abort();
+  release();
+  await write;
+  await assert.rejects(finishing,/cancelada/);
+  await aborting;
+  assert.equal(sink.state,'aborted');
+  assert.equal(host.removed,true);
+  assert.equal(host.requests.some(r=>r.op==='finishRandom'),false);
+});
+
+test('abort during native atomic finalize does not delete a possibly published file', async () => {
+  const host = memoryNative();
+  const request = host.request;
+  let release, entered;
+  const gate = new Promise(resolve => { release = resolve; });
+  const inFlight = new Promise(resolve => { entered = resolve; });
+  host.request = async message => {
+    if (message.op === 'finishRandom') { entered(); await gate; }
+    return request(message);
+  };
+  const sink = createAcceleratedNativeSink(host,{mime:'video/mp4',expectedDurationMs:1000});
+  await sink.begin();
+  await sink.writeAt(0,new Uint8Array([1,2]));
+  const finishing = sink.finish();
+  await inFlight;
+  await sink.abort();
+  release();
+  await finishing;
+  assert.equal(sink.state,'done');
+  assert.equal(host.removed,false);
+});
+
+
+test('native capacity is enforced before begin or random IO without exposing unsafe offsets', async () => {
+  const host = memoryNative();
+  assert.equal(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES, 16 * 1024 * 1024 * 1024);
+  assert.throws(() => createAcceleratedNativeSink(host, {
+    mime: 'video/mp4', expectedDurationMs: 1000,
+    estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES + 1
+  }), /estimado inválido/);
+  assert.equal(host.requests.length, 0);
+  const sink = createAcceleratedNativeSink(host, {
+    mime: 'video/mp4', expectedDurationMs: 1000,
+    estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES
+  });
+  await sink.begin();
+  await assert.rejects(sink.writeAt(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES,
+    Uint8Array.from([1])), /inválido/);
+  assert.equal(sink.maxEnd, 0);
+  assert.equal(sink.writeBytes, 0);
+  assert.equal(host.requests.filter(r => r.op === 'finishRandom').length, 0);
+  await sink.abort();
+  assert.equal(host.removed, true);
+});
+
+test('v2 rejects a valid-looking hash if the native duration differs from the authored timeline',async()=>{
+ const host=memoryNative({durationMs:3000});
+ const writer=createAcceleratedNativeSink(host,{
+   mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
+ });
+ await writer.begin();
+ await writer.writeAt(0,new Uint8Array([1,2,3]));
+ await assert.rejects(writer.finish(),/no superó integridad/);
+ assert.equal(writer.state,'failed');
+ await writer.abort();
+ assert.equal(host.removed,true);
+ const almost=memoryNative({durationMs:1999});
+ const ok=createAcceleratedNativeSink(almost,{
+   mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
+ });
+ await ok.begin();await ok.writeAt(0,new Uint8Array([9,8,7]));
+ assert.equal((await ok.finish()).media.durationMs,1999);
+});
+
+test('v2 long-form duration window is capped at five seconds and never trusts non-integer duration',async()=>{
+ for(const durationMs of [3594500,3605100,NaN,Infinity,0]){
+  const host=memoryNative({durationMs});
+  const writer=createAcceleratedNativeSink(host,{
+    mime:'video/mp4',expectedDurationMs:3600000,expectAudio:false
+  });
+  await writer.begin();
+  await writer.writeAt(0,new Uint8Array([1,2,3]));
+  await assert.rejects(writer.finish(),/no superó integridad/);
+  await writer.abort();
+  assert.equal(host.removed,true);
+ }
+});
+
+test('v2 bounds queued unacknowledged chunks and drains memory on cancel',async()=>{
+ const host=memoryNative();
+ const original=host.sendWriteAt;
+ let release,entered;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const seen=new Promise(resolve=>{entered=resolve;});
+ host.sendWriteAt=async message=>{
+  if(message.seq===0){entered();await gate;}
+  return original(message);
+ };
+ const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',
+  expectedDurationMs:1000,estimatedBytes:ACCELERATED_NATIVE_MAX_PENDING_BYTES});
+ await sink.begin();
+ assert.equal(ACCELERATED_NATIVE_MAX_PENDING_BYTES,8*1024*1024);
+ const writes=[];
+ for(let i=0;i<8;i++)
+  writes.push(sink.writeAt(i*1024*1024,new Uint8Array(1024*1024)));
+ await seen;
+ assert.equal(sink.pendingBytes,ACCELERATED_NATIVE_MAX_PENDING_BYTES);
+ await assert.rejects(sink.writeAt(8*1024*1024,
+  new Uint8Array(1)),/Cola de escritura acelerada/);
+ assert.equal(sink.pendingBytes,ACCELERATED_NATIVE_MAX_PENDING_BYTES);
+ release();
+ await Promise.all(writes);
+ assert.equal(sink.pendingBytes,0);
+ assert.equal(sink.writeBytes,8*1024*1024);
+ await sink.abort();
+ assert.equal(host.removed,true);
+ assert.equal(host.requests.some(x=>x.op==='finishRandom'),false);
+});
+
+test('a failed v2 acknowledgment returns pending memory budget to zero',async()=>{
+ const host=memoryNative();
+ host.sendWriteAt=async ()=>{throw Error('Native disk I/O failure');};
+ const sink=createAcceleratedNativeSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000
+ });
+ await sink.begin();
+ await assert.rejects(sink.writeAt(0,new Uint8Array(1024)),
+  /Native disk I\/O failure/);
+ assert.equal(sink.pendingBytes,0);
+ await assert.rejects(sink.finish(),/Native disk I\/O failure/);
+ await sink.abort();
+ assert.equal(sink.pendingBytes,0);
+ assert.equal(host.removed,true);
 });

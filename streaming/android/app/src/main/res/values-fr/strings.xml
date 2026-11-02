@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">Entrée choisie indisponible. Sélectionnez une autre entrée avant LIVE.</string>
     <string name="live_audio_limits_button">Limites</string>
     <string name="live_audio_preference_only">Android reçoit une préférence de micro. Le routage réel et la qualité exigent un essai audio. La disponibilité du micro des lunettes reste non vérifiée.</string>
+    <string name="accelerated_recovery_button">Récupérer les vidéos exportées</string>
+    <string name="accelerated_recovery_title">Vidéos accélérées récupérables</string>
+    <string name="accelerated_recovery_empty">Aucune exportation accélérée vérifiée en attente de récupération.</string>
+    <string name="accelerated_recovery_confirm">Enregistrer cette vidéo vérifiée dans la galerie ? La copie privée sera conservée en cas d’erreur.</string>
+    <string name="accelerated_recovery_save">Enregistrer dans la galerie</string>
+    <string name="accelerated_recovery_success">Vidéo vérifiée enregistrée dans Movies/Wivra.</string>
+    <string name="accelerated_recovery_failed">Enregistrement impossible. La copie privée reste disponible.</string>
 </resources>

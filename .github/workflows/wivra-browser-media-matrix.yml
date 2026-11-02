@@ -12,6 +12,9 @@ on:
       - tools/export-engine-benchmark.cjs
       - tools/verify-accelerated-offline-bundle.cjs
       - app/accelerated-cut-renderer.mjs
+      - app/accelerated-audio-mixer.mjs
+      - app/accelerated-multitrack-renderer.mjs
+      - tools/browser-multitrack-accelerated.cjs
       - app/accelerated-native-sink.mjs
       - app/build.mjs
       - app/media-container.mjs
@@ -37,8 +40,10 @@ jobs:
         run: |
           WIVRA_MEDIABUNNY_BUNDLE=/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles/mediabunny.cjs node app/build.mjs
           node tools/verify-accelerated-offline-bundle.cjs
+          node tools/verify-offline-native-multitrack.cjs
           # Restore production-default HTML (no accelerator SDK enabled).
           node app/build.mjs
+          node tools/verify-normal-export-safety.cjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Inspect synthetic media tracks using ffprobe
@@ -68,6 +73,26 @@ jobs:
         run: node tools/browser-container-playback.cjs
       - name: Compare export engines (MediaRecorder vs WebCodecs+Mediabunny), 30 s montage, A/V markers
         run: node tools/export-engine-benchmark.cjs 30 12
+      - name: Verify real accelerated multipista video overlay text and independent WAV via ffprobe (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs
+      - name: Soak 20 real accelerated cuts and 5 independent voice blocks for 10 seconds (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --stress
+      - name: Export 30 seconds of real accelerated multipista (60 cuts 15 voice segments, Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --long
+      - name: Verify actual still-photo main video export pixels and seek metadata (Linux only)
+        run: node tools/browser-accelerated-main-still.cjs
+      - name: Render 60-second accelerated multipista with 120 cuts and 30 independent voice segments (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --minute
+      - name: Render bounded 120-second accelerated multipista with 120 cuts and 30 voices (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --two-minute
+      - name: Canary 180-second accelerated multipista with 120 cuts and 30 voice blocks (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --three-minute
+      - name: Export 30-second real accelerated A/V at 1280x720 and probe mobile AVC/AAC capabilities (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --hd-canary
+      - name: Verify exact 150ms video gap in accelerated multipista exported frames (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --gap
+      - name: Verify voice ducking survives actual WebCodecs mux and PCM decoding (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --duck
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,5 +106,14 @@ jobs:
             wivra-progressive-export.json
             wivra-container-playback.json
             wivra-export-engine-benchmark.json
+            wivra-multitrack-accelerated.json
+            wivra-multitrack-stress.json
+            wivra-multitrack-long.json
+            wivra-multitrack-minute.json
+            wivra-multitrack-two-minute.json
+            wivra-multitrack-three-minute.json
+            wivra-multitrack-hd-canary.json
+            wivra-multitrack-gap.json
+            wivra-multitrack-duck.json
           if-no-files-found: warn
           retention-days: 7

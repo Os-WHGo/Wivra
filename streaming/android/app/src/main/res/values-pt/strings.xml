@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">Entrada escolhida indisponível. Selecione outra antes de transmitir.</string>
     <string name="live_audio_limits_button">Limitações</string>
     <string name="live_audio_preference_only">Android recebe uma preferência de entrada. Rota e qualidade reais exigem teste de áudio. Isso não confirma microfone dos óculos.</string>
+    <string name="accelerated_recovery_button">Recuperar vídeos exportados</string>
+    <string name="accelerated_recovery_title">Vídeos acelerados recuperáveis</string>
+    <string name="accelerated_recovery_empty">Não há exportações aceleradas verificadas pendentes de recuperação.</string>
+    <string name="accelerated_recovery_confirm">Guardar este vídeo verificado na galeria? A cópia privada será mantida se ocorrer um erro.</string>
+    <string name="accelerated_recovery_save">Guardar na galeria</string>
+    <string name="accelerated_recovery_success">Vídeo verificado guardado em Movies/Wivra.</string>
+    <string name="accelerated_recovery_failed">Não foi possível guardar o vídeo. A cópia privada continua disponível.</string>
 </resources>

@@ -1,4 +1,7 @@
-# Delivers experimental artifacts from the SAME unified Wivra source tree.
+# Milestone-controlled installer artifacts from the SAME unified Wivra source tree.
+# By default PR changes run only contracts. To create APK/IPA explicitly,
+# apply the owner-controlled 'wivra-package-beta' PR label or use workflow_dispatch
+# once this workflow is available on the default branch. No secret credentials.
 # APK = sideloadable debug build; IPA = UNSIGNED, cannot be installed on iPhone
 # without a valid owner-provided signing process. Neither means "beta complete".
 name: Wivra Complete Beta Assembly (Mobile)
@@ -8,6 +11,7 @@ on:
       - chatgpt/wivra-beta-complete-assembly-20261016
       - chatgpt/wivra-unified-owner-20261016
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.github/workflows/wivra-complete-beta-assembly.yml'
       - 'streaming/**'
@@ -70,6 +74,7 @@ jobs:
   android-beta:
     name: Android APK · same unified editor
     needs: integrated-contracts
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.action == 'labeled' && github.event.label.name == 'wivra-package-beta') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -94,7 +99,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
       - name: Build Wivra editor + native Ray-Ban Android debug APK
-        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
+        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleCaptureDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Verify bundled editor and filters, no second editor
         run: |
           set -eu
@@ -107,6 +112,9 @@ jobs:
           unzip -p "$apk" assets/agentcut.html | cmp -s - app/dist/agentcut.html
           unzip -p "$apk" assets/packs/catalog.json | cmp -s - app/packs/catalog.json
           test -s streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
+          # Capture remains an independent optional debug install; it is
+          # packaged only on the same explicitly requested beta milestone.
+          test -s streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
       - name: Generate Android APK SHA-256 verification manifest
         run: |
           set -eu
@@ -135,9 +143,30 @@ jobs:
           retention-days: 21
           if-no-files-found: error
 
+      - name: Generate independent Capture APK SHA-256 checksum
+        run: |
+          cd streaming/android/app/build/outputs/apk/capture/debug
+          sha256sum app-capture-debug.apk > app-capture-debug.apk.sha256
+          sha256sum -c app-capture-debug.apk.sha256
+      - name: Publish optional Capture debug APK only for selected beta milestone
+        uses: actions/upload-artifact@v4
+        with:
+          name: WivraCapture-RayBan-DEBUG
+          path: streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk
+          retention-days: 21
+          if-no-files-found: error
+      - name: Publish Capture debug APK checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: WivraCapture-RayBan-SHA256
+          path: streaming/android/app/build/outputs/apk/capture/debug/app-capture-debug.apk.sha256
+          retention-days: 21
+          if-no-files-found: error
+
   ios-beta:
     name: iPhone arm64 IPA · UNSIGNED
     needs: integrated-contracts
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.action == 'labeled' && github.event.label.name == 'wivra-package-beta') }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:

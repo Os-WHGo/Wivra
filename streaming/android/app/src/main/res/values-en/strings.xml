@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">Selected input is no longer available. Choose another before going live.</string>
     <string name="live_audio_limits_button">Limitations</string>
     <string name="live_audio_preference_only">Android receives a preferred input. The actual route and audio quality require a recording test. This does not prove a glasses microphone is available.</string>
+    <string name="accelerated_recovery_button">Recover exported videos</string>
+    <string name="accelerated_recovery_title">Recoverable accelerated videos</string>
+    <string name="accelerated_recovery_empty">No verified accelerated exports are awaiting recovery.</string>
+    <string name="accelerated_recovery_confirm">Save this verified video to your gallery? The private copy will be kept if an error occurs.</string>
+    <string name="accelerated_recovery_save">Save to gallery</string>
+    <string name="accelerated_recovery_success">Verified video saved to Movies/Wivra.</string>
+    <string name="accelerated_recovery_failed">Unable to save the video. The private copy remains available.</string>
 </resources>
