@@ -10,6 +10,10 @@ on:
       - tools/browser-progressive-export.cjs
       - tools/browser-container-playback.cjs
       - tools/export-engine-benchmark.cjs
+      - tools/verify-accelerated-offline-bundle.cjs
+      - app/accelerated-cut-renderer.mjs
+      - app/accelerated-native-sink.mjs
+      - app/build.mjs
       - app/media-container.mjs
       - app/tests/fixtures/mediarecorder/**
       - .github/workflows/wivra-browser-media-matrix.yml
@@ -29,6 +33,12 @@ jobs:
         run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
       - name: Install Linux test browser engines
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
+      - name: Smoke pinned Mediabunny 1.61.6 in an isolated fully offline editor HTML
+        run: |
+          WIVRA_MEDIABUNNY_BUNDLE=/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles/mediabunny.cjs node app/build.mjs
+          node tools/verify-accelerated-offline-bundle.cjs
+          # Restore production-default HTML (no accelerator SDK enabled).
+          node app/build.mjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Inspect synthetic media tracks using ffprobe

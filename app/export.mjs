@@ -3,6 +3,7 @@
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
 import { clipLength, speedOf, srcTime } from '../core/project.mjs';
 import { selectExportEngine } from './export-engine-policy.mjs';
+import { recordExperimentalAcceleratedProject } from './accelerated-memory-export.mjs';
 import { TEXT_POS, TEXT_SIZES, TEXT_ZONES, textZoneOf, textStyleOf, groupTextsByPos } from '../core/text-style.mjs';
 import { detectExportHost, createProgressiveExportSink } from './export-sink.mjs';
 import { finalizeExportBytes, inspectExport } from './media-container.mjs';
@@ -451,7 +452,16 @@ export function exportOverlayPreflight(project, loadedOverlayIds = []) {
   return { overlayBlocked: missingOverlay.length > 0, missingOverlay };
 }
 
-export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto' }) {
+export async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto', experimentalAccelerated = false }) {
+  // Explicit QA-only path. Not reachable through ordinary editor UI and not
+  // turned on by exportEngine=auto/webcodecs. This preserves ALL production
+  // MediaRecorder behavior while the new native protocol/full timeline is built.
+  if (experimentalAccelerated === true) {
+    if (saveMode !== 'memory') throw new Error('La exportación acelerada experimental todavía no dispone de guardado nativo.');
+    return recordExperimentalAcceleratedProject({
+      project, media, M: globalThis.Mediabunny, onProgress, isCancelled, loudnessGainDb
+    });
+  }
   // The accelerated prototype has not yet been ported to the full timeline renderer.
   // Keep the proven recorder until a device-validated implementation exists.
   const engineSelection = selectExportEngine({ requested: exportEngine });
