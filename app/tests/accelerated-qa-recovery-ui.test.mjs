@@ -53,3 +53,13 @@ test('Android/iOS bridge can only restore verified app-private assets',()=>{
  assert.match(qa,/host\.platform==='ios'\?'shareRecovered':'restoreRecovered'/);
  assert.match(qa,/window\.confirm\(message\)/);
 });
+
+test('Android recovered copy is verified before reuse and UI distinguishes idempotent restore',()=>{
+ assert.match(kotlin,/existingRecoveryCopy\(context, verified\)/);
+ assert.match(kotlin,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
+ assert.match(kotlin,/MediaStore\.QUERY_ARG_MATCH_PENDING/);
+ assert.match(kotlin,/verifiedCopy|isVerifiedRecoveryCopy/);
+ assert.match(kotlin,/alreadyPublished = true/);
+ assert.match(qa,/response\.alreadyPublished===true/);
+ assert.match(qa,/No se creó ninguna copia duplicada/);
+});
