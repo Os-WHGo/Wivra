@@ -8,6 +8,9 @@
 // container, not incrementally CRC chunks whose headers may be overwritten.
 export const ACCELERATED_NATIVE_PROTOCOL = 2;
 export const ACCELERATED_NATIVE_MAX_WRITE_BYTES = 1024 * 1024;
+// Must match Android v2's filesystem capacity ceiling; do not send offset
+// values that native must reject after potentially expensive encoding.
+export const ACCELERATED_NATIVE_MAX_OUTPUT_BYTES = 16 * 1024 * 1024 * 1024;
 
 export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
   expectAudio = false, estimatedBytes = 0 } = {}) {
@@ -16,7 +19,8 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
   }
   if (!['video/mp4', 'video/webm'].includes(mime)) throw new Error('Contenedor acelerado inválido.');
   if (!(expectedDurationMs > 0 && Number.isFinite(expectedDurationMs)) ||
-      !(estimatedBytes >= 0 && Number.isFinite(estimatedBytes)))
+      !(estimatedBytes >= 0 && Number.isSafeInteger(estimatedBytes) &&
+        estimatedBytes <= ACCELERATED_NATIVE_MAX_OUTPUT_BYTES))
     throw new Error('Duración/tamaño estimado inválido.');
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
   let pending = Promise.resolve(), failure = null, committing = false;
@@ -49,7 +53,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
         if (state === 'aborted') throw new Error('Inicio cancelado.');
         if (caps?.protocol !== ACCELERATED_NATIVE_PROTOCOL || caps?.randomWrite !== true)
           throw new Error('El puente no ofrece escritura aleatoria verificada.');
-        const result = await request('beginRandom', { mime, estimatedBytes: Math.round(estimatedBytes) });
+        const result = await request('beginRandom', { mime, estimatedBytes });
         if (!Number.isSafeInteger(result?.token) || result.token <= 0)
           throw new Error('Token de exportación acelerada inválido.');
         token = result.token;
@@ -69,7 +73,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       if (!Number.isSafeInteger(position) || position < 0 ||
           !(bytes instanceof Uint8Array) || bytes.length === 0 ||
           bytes.length > ACCELERATED_NATIVE_MAX_WRITE_BYTES ||
-          position + bytes.length > Number.MAX_SAFE_INTEGER)
+          position + bytes.length > ACCELERATED_NATIVE_MAX_OUTPUT_BYTES)
         throw new Error('Desplazamiento o bloque acelerado inválido.');
       // Copy once, since Mediabunny may recycle the chunk buffer after write.
       const data = new Uint8Array(bytes);
