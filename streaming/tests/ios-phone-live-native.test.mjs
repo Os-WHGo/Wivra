@@ -40,7 +40,8 @@ test('RTMP endpoint and public consent are validated before attempting publish, 
 });
 
 test('optional iPhone mic and local video-only MP4 have distinct privacy and validity gates',()=>{
-  assert.match(source,/guard await AVCaptureDevice\.requestAccess\(for: \.video\)/);
+  assert.match(source,/let allowed = await AVCaptureDevice\.requestAccess\(for: \.video\)/);
+  assert.match(source,/guard allowed else/);
   assert.match(source,/let allowedAudio = await AVCaptureDevice\.requestAccess\(for: \.audio\)/);
   assert.match(source,/try await capture\.attachAudio\(AVCaptureDevice\.default\(for: \.audio\)\)/);
   assert.match(source,/let writer = StreamRecorder\(\)/);
