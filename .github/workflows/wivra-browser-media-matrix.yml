@@ -78,6 +78,8 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs --long
       - name: Verify actual still-photo main video export pixels and seek metadata (Linux only)
         run: node tools/browser-accelerated-main-still.cjs
+      - name: Render 60-second accelerated multipista with 120 cuts and 30 independent voice segments (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --minute
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,5 +96,6 @@ jobs:
             wivra-multitrack-accelerated.json
             wivra-multitrack-stress.json
             wivra-multitrack-long.json
+            wivra-multitrack-minute.json
           if-no-files-found: warn
           retention-days: 7
