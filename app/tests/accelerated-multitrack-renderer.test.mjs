@@ -233,3 +233,50 @@ test('iPhone accelerated preflight rejects AVC if AAC voice encoder is missing',
  }),/preflight/);
  assert.equal(M.events.some(x=>x[0]==='start'),false);
 });
+
+test('GPU filter failure cannot silently export an unfiltered frame',async()=>{
+ const M=fakeM(),p=proj(),{document}=context();
+ p.clips[0].filter={sepia:.8};
+ p.audioClips=[];
+ const oldDocument=globalThis.document,oldFx=globalThis.fxRender;
+ globalThis.document=document;
+ const failedFilter=()=>null;
+ globalThis.fxRender=failedFilter;
+ try{
+  const prepared=await prepareAcceleratedMultitrack({
+   project:p,media,M,imageFactory,expectedAudio:false
+  });
+  await assert.rejects(renderAcceleratedMultitrack({
+   prepared,writeAt:async(_at,bytes)=>bytes.length
+  }),/GPU filter failed/);
+  assert.equal(globalThis.fxRender,failedFilter);
+  assert.equal(M.events.some(x=>x[0]==='finalize'),false);
+ }finally{
+  globalThis.document=oldDocument;
+  globalThis.fxRender=oldFx;
+ }
+});
+
+test('applied GPU color filter preserves exact frame count without changing global preview',async()=>{
+ const M=fakeM(),p=proj(),{document}=context();
+ p.clips[0].filter={warmth:.5};
+ p.audioClips=[];
+ const oldDocument=globalThis.document,oldFx=globalThis.fxRender;
+ let applications=0;
+ const filtered=(src)=>{applications++;return src;};
+ globalThis.document=document;globalThis.fxRender=filtered;
+ try{
+  const prepared=await prepareAcceleratedMultitrack({
+   project:p,media,M,imageFactory,expectedAudio:false
+  });
+  const result=await renderAcceleratedMultitrack({
+   prepared,writeAt:async(_at,bytes)=>bytes.length
+  });
+  assert.equal(result.videoFrames,18);
+  assert.equal(applications,6);
+  assert.equal(globalThis.fxRender,filtered);
+ }finally{
+  globalThis.document=oldDocument;
+  globalThis.fxRender=oldFx;
+ }
+});
