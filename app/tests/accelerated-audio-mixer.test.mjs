@@ -11,13 +11,14 @@ class PCM {
   getChannelData(i){return this.channels[i];}
 }
 function lane({start=0,sourceIn=0,sourceOut=1,speed=1,volume=1,
-   signal=()=>.5,rate=8000,muted=false,channels=1}={}) {
+   signal=()=>.5,rate=8000,muted=false,channels=1,role,ducking}={}) {
   const data=new PCM({length:Math.ceil(rate*5),sampleRate:rate,
     numberOfChannels:channels});
   for(let ch=0;ch<channels;ch++)
     for(let i=0;i<data.length;i++)data.channels[ch][i]=signal(i/rate,ch);
   return {
-    clip:{id:'test',asset_id:'mic',start,in:sourceIn,out:sourceOut,speed,volume,muted},
+    clip:{id:'test',asset_id:'mic',start,in:sourceIn,out:sourceOut,speed,volume,muted,
+      ...(role?{role}:{}),...(ducking!==undefined?{ducking}:{})},
     async *buffers(a,b){
       const from=Math.max(0,Math.floor(a*rate)),
         to=Math.min(data.length,Math.ceil(b*rate));
@@ -118,4 +119,47 @@ test('surround center-channel dialogue cannot silently disappear in a stereo mix
   await assert.rejects(collect({
     totalSeconds:.3,tracks:[surround]
   }),/Surround input requires a validated multichannel downmix/);
+});
+
+test('explicit narration ducking attenuates only the non-voice bed with smooth edges',async()=>{
+  const blocks=await collect({totalSeconds:.5,tracks:[
+    lane({sourceOut:.5,role:'music',signal:()=>.4}),
+    lane({start:.1,sourceOut:.2,role:'voice_primary',
+      ducking:.5,signal:()=>.25})
+  ]});
+  const sample=t=>{
+    const frame=Math.round(t*8000);
+    return blocks[Math.floor(frame/800)].buffer.channels[0][frame%800];
+  };
+  near(sample(.05),.4);   // original music before narration
+  near(sample(.10),.65);  // attack begins without a gain discontinuity
+  near(sample(.17),.45);  // music .4 -> .2, voice untouched at .25
+  near(sample(.29),.625);// release approaches original music level
+  near(sample(.35),.4);   // music restored after narration
+});
+
+test('muted narration never ducks music, and overlapping voices use strongest depth',async()=>{
+  const tracks=[
+    lane({sourceOut:.5,role:'music',signal:()=>.4}),
+    lane({start:.1,sourceOut:.3,role:'voice_primary',
+      ducking:.25,signal:()=>.1}),
+    lane({start:.15,sourceOut:.25,role:'voice_guest',
+      ducking:.75,signal:()=>.1}),
+    lane({start:.1,sourceOut:.3,role:'voice_guest',
+      ducking:1,muted:true,signal:()=>.8})
+  ];
+  const blocks=await collect({totalSeconds:.5,tracks});
+  near(blocks[2].buffer.channels[0][400],.3); // .4*(1-.75)+.1+.1
+  near(blocks[0].buffer.channels[0][400],.4);
+});
+
+test('invalid ducking configuration refuses direct audio rendering',async()=>{
+  for(const clip of [{role:'music',ducking:.3},
+    {role:'voice_primary',ducking:-.01},
+    {role:'voice_primary',ducking:1.01},
+    {role:'voice_guest',ducking:NaN},
+    {role:'voice_guest',ducking:'0.5'}]){
+    await assert.rejects(collect({totalSeconds:.3,
+      tracks:[lane({sourceOut:.3,...clip})]}),/Invalid voice ducking/);
+  }
 });
