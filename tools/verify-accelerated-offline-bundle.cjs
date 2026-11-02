@@ -22,8 +22,21 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     api:typeof globalThis.recordProject,
     multipista:typeof globalThis.WivraAcceleratedQA?.recordExperimentalNativeMultitrack,
     photoQA:typeof globalThis.WivraAcceleratedQA?.prepareAcceleratedMultitrack,
+    nativeLaunch:typeof globalThis.WivraAcceleratedQA?.recordOnNative,
   }));
-  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function'});
+  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function',nativeLaunch:'function'});
+  const hostSafety=await page.evaluate(async()=>{
+    const qa=globalThis.WivraAcceleratedQA;
+    let deniedWithoutConsent=false,deniedWithoutHost=false;
+    try { await qa.recordOnNative({}); } catch(e) {
+      deniedWithoutConsent=/autorización experimental/.test(e.message);
+    }
+    try { await qa.recordOnNative({experimentalAccelerated:true}); } catch(e) {
+      deniedWithoutHost=/puente nativo acelerado v2/.test(e.message);
+    }
+    return {deniedWithoutConsent,deniedWithoutHost};
+  });
+  assert.deepEqual(hostSafety,{deniedWithoutConsent:true,deniedWithoutHost:true});
   // End-to-end opt-in Wivra API with synthetic, local browser media. No
   // external CDN, no RTMP, no original user video, no native disk writer.
   const result=await page.evaluate(async()=>{
