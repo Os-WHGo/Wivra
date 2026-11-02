@@ -256,3 +256,9 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - En el lote físico (posterior a módulos básicos instalados): comprobar preview, RTMPS real, MP4 con audio y sin audio, reconexión/timeout, interrupción por llamada, tamaño de archivos y espacio, audio sync, temperatura, permisos, Fotos, validación externa de primer/último frame, 5/15/30/60 minutos por separado y limpieza/revisión después de matar app. Anotar SHA y build exactos, nunca claves ni medios privados.
 - Dependencia fijada HaishinKit 2.2.5 licencia BSD-3-Clause; requiere Xcode 26+, resolución/compilación iOS CI. Sus módulos Swift Package incluyen dependencias binarios SRT/WebRTC aunque esta ruta usa exclusivamente RTMP; revisar avisos de licencia y peso del IPA antes de distribuir.
 - Contrato: streaming/tests/ios-phone-live-native.test.mjs. Los contratos estáticos, simulador e IPA **sin firmar** no equivalen a emisión ni MP4 físico. Mantener main, pagos y publicación protegidos.
+
+### P0-U · Cámara iPhone LIVE frontal/trasera sobre publisher único
+
+- Elegir frontal o trasera ANTES de Preparar cámara. AVCaptureDevice selecciona la posición antes de MediaMixer.attachVideo; selección bloqueada al salir de idle. No hot-switch, PiP, dos cámaras, Ray-Ban LIVE ni otra app.
+- Conservar la vista previa real del publisher existente, confirmación pública RTMP, MP4 local opcional y privado, validación antes de Fotos, micrófono opt-in y STOP. QA física de orientación, audio y VOD pendiente para tanda autorizada.
+- Eliminar solamente el archivo de código antiguo WivraIOSPhoneLiveScreen.swift que duplicaba el publisher; la pantalla activa es WivraIPhoneLiveScreen.swift. Sin borrar medios del usuario.
