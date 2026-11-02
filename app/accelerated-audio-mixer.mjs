@@ -73,7 +73,7 @@ export async function* mixAcceleratedAudioBlocks({
         if (!b || !Number.isFinite(entry.timestamp) ||
             !Number.isSafeInteger(b.length) || b.length<=0 ||
             !Number.isFinite(b.sampleRate) || b.sampleRate<8000 ||
-            !(b.numberOfChannels>=1 && b.numberOfChannels<=8))
+            !(b.numberOfChannels>=1 && b.numberOfChannels<=2))
           throw new Error('Corrupt decoded audio buffer.');
         const first=b.getChannelData(0);
         if (!(first instanceof Float32Array) || first.length < b.length)
