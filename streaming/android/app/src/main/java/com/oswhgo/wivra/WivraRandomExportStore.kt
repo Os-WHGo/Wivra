@@ -215,6 +215,9 @@ object WivraRandomExportStore {
 
     /** Only stale, incomplete Wivra v2 temp files, never finalized private videos. */
     fun cleanupOrphanPartials(context: Context): Int {
+        // Another live editor Activity may own an active random-write session.
+        // Never mistake its partial file for a crash orphan.
+        if (active.isNotEmpty()) return 0
         val dir = directory(context)
         var count = 0
         for (file in dir.listFiles().orEmpty()) {
