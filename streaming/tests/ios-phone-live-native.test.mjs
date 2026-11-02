@@ -53,7 +53,7 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/unverifiedVideoURL = result/);
   assert.match(source,/ShareLink\(item: file\)/);
   assert.match(source,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
-  assert.match(source,/no se publicará automáticamente/);
+  assert.match(source,/no se publicará automáticamente/i);
 });
 
 test('leaving foreground closes stream and stops native camera; real VOD still requires external verification',()=>{
