@@ -109,6 +109,9 @@ final class WivraIPhoneLiveController {
         connection = liveConnection
         stream = liveStream
         await mixer.addOutput(liveStream)
+        // STOP may run while this actor hop is suspended. Never allocate or
+        // rearm a recorder for a session that was already dismissed.
+        guard generation == current, phase == .connecting else { return }
         if saveLocalCopy {
             do {
                 let folder = try localFolder()
@@ -122,6 +125,13 @@ final class WivraIPhoneLiveController {
                 let settings = includesMicrophone ? StreamRecorder.defaultSettings
                     : StreamRecorder.defaultSettings.filter { $0.key == .video }
                 try await writer.startRecording(file, settings: settings)
+                // If STOP arrived while the writer was starting, terminate it
+                // here as well. It stays private and never reaches Photos.
+                if generation != current || phase != .connecting {
+                    _ = try? await writer.stopRecording()
+                    await mixer.removeOutput(writer)
+                    return
+                }
             } catch {
                 // A requested archive is a precondition to network LIVE, not
                 // a best-effort checkbox that can silently fail.
