@@ -170,7 +170,7 @@ test('foreground notification opens Activity using mutable Intent API safely', (
 
 test('complete beta assembly and emulator use explicit full-flavor APKs', () => {
   const workflow = read('.github/workflows/wivra-complete-beta-assembly.yml');
-  assert.match(workflow, /:app:assembleFullDebug :app:assembleFullDebugAndroidTest/);
+  assert.match(workflow, /:app:assembleFullDebug :app:assembleCaptureDebug :app:assembleFullDebugAndroidTest/);
   assert.match(workflow, /outputs\/apk\/full\/debug\/app-full-debug\.apk/);
   assert.match(workflow, /outputs\/apk\/androidTest\/full\/debug\/app-full-debug-androidTest\.apk/);
   assert.match(workflow, /adb install -r \.ci\/media-app\/app-full-debug\.apk/);
