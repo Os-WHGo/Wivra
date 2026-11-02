@@ -52,3 +52,13 @@ test('leaving foreground closes RTMP and avoids claiming the provider verified t
   assert.match(source, /no crea MP4 local/);
   assert.doesNotMatch(source, /WivraSegmentedHEVCRecorder|startBackgroundCapture|isBroadcastReady\s*=\s*true/);
 });
+
+test('iOS LIVE offers front or back AVCaptureDevice before publishing and never hot-switches on air', () => {
+  assert.match(source, /var useFrontCamera = false/);
+  assert.match(source, /let position: AVCaptureDevice\.Position = useFrontCamera \? \.front : \.back/);
+  assert.match(source, /AVCaptureDevice\.default\(\.builtInWideAngleCamera,[\s\S]*?position: position/);
+  assert.match(source, /Toggle\("Usar cámara frontal", isOn: \$publisher\.useFrontCamera\)/);
+  assert.match(source, /\.disabled\(publisher\.isBusy \|\| publisher\.isBroadcastRequested\)/);
+  assert.match(source, /ios_live_front_camera_option/);
+  assert.doesNotMatch(source, /switchCamera\(|swapCamera\(|attachMultiCamera/);
+});
