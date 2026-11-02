@@ -26,10 +26,10 @@ const project=()=>({
  format:{aspect:'original',fit:'contain'}
 });
 const media={v:{url:'blob:test',kind:'video',w:320,h:180,duration:2}};
-function fakeM(log) {
+function fakeM(log,{audio=false}={}) {
  class Input {
   async getPrimaryVideoTrack(){return {};}
-  async getPrimaryAudioTrack(){return null;}
+  async getPrimaryAudioTrack(){return audio?{getNumberOfChannels:async()=>2}:null;}
   dispose(){log.push('input-dispose');}
  }
  class CanvasSink {
@@ -96,6 +96,28 @@ test('experimental native multitrack is opt-in and preflights before any native 
  await assert.rejects(run({project:absent,media,M,host,expectAudio:false,
    experimentalAccelerated:true}),/preflight/);
  assert.deepEqual(host.ops,[]);
+});
+test('unchecked audio requirement keeps authored audio; checked requirement rejects missing audio',async()=>{
+ const withAudio=project();
+ withAudio.audioClips=[{id:'a',asset_id:'a',start:0,in:0,out:.4,volume:1}];
+ const withAudioMedia={...media,a:{url:'blob:audio',kind:'audio',duration:2}};
+ const host=fakeHost(),M=fakeM([],{audio:true});
+ const native=host.request.bind(host);
+ host.request=async request=>{
+  if(request.op==='helloRandom'){
+   host.ops.push(request.op);
+   throw Error('audio-optional-preflight-passed');
+  }
+  return native(request);
+ };
+ await assert.rejects(run({project:withAudio,media:withAudioMedia,M,host,
+  expectAudio:false,experimentalAccelerated:true}),/audio-optional-preflight-passed/);
+ assert.deepEqual(host.ops,['helloRandom']);
+
+ const missingHost=fakeHost();
+ await assert.rejects(run({project:project(),media,M:fakeM([]),host:missingHost,
+  expectAudio:true,experimentalAccelerated:true}),/required timeline audio presence differs/);
+ assert.deepEqual(missingHost.ops,[]);
 });
 test('a real bounded video render travels through random v2 and verifies native final bytes',async()=>{
  const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;

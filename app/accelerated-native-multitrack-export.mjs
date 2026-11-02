@@ -63,7 +63,10 @@ export async function recordExperimentalNativeMultitrack({
   };
 
   const prepared=await prepareAcceleratedMultitrack({
-    project,media,M,platform:host.platform,expectedAudio:expectAudio,
+    project,media,M,platform:host.platform,
+    // The checkbox is a minimum-content requirement, not a mute switch:
+    // when unchecked, keep any authored audio and only make its presence optional.
+    expectedAudio:expectAudio ? true : null,
     isCancelled,...(imageFactory?{imageFactory}:{})
   });
   let sink;
