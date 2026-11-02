@@ -19,7 +19,19 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       !(estimatedBytes >= 0 && Number.isFinite(estimatedBytes)))
     throw new Error('Duración/tamaño estimado inválido.');
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
-  let pending = Promise.resolve(), failure = null;
+  let pending = Promise.resolve(), failure = null, committing = false;
+  // A large random write can leave an unwritten hole before the patched MP4
+  // footer. Native MUST independently check this same invariant before rename.
+  let covered = [];
+  const markCovered = (start, end) => {
+    const merged = [];
+    for (const [a, b] of [...covered, [start, end]].sort((x, y) => x[0] - y[0])) {
+      const last = merged[merged.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+      else merged.push([a, b]);
+    }
+    covered = merged;
+  };
   const request = (op, data = {}) => host.request({ protocol: ACCELERATED_NATIVE_PROTOCOL, op, ...data });
   const abortToken = async (id) => {
     if (!Number.isSafeInteger(id) || id <= 0) return;
@@ -72,6 +84,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
             r?.maxEnd !== Math.max(maxEnd, expectedEnd))
           throw new Error('El puente confirmó un bloque aleatorio diferente.');
         maxEnd = Math.max(maxEnd, expectedEnd);
+        markCovered(position, expectedEnd);
         writeBytes += data.byteLength;
         return data.byteLength;
       });
@@ -84,8 +97,18 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       if (state !== 'open') throw failure || new Error('La sesión no está abierta.');
       state = 'finishing';
       await pending;
+      // Cancellation can land while the pending writes are draining. An abort
+      // must NEVER be followed by a late finishRandom (which could publish).
+      if (state !== 'finishing') throw failure || new Error('Exportación acelerada cancelada.');
       if (failure) { state = 'failed'; throw failure; }
       if (!writeBytes || !maxEnd) { state = 'failed'; throw new Error('Archivo acelerado vacío.'); }
+      if (covered.length !== 1 || covered[0][0] !== 0 || covered[0][1] !== maxEnd) {
+        state = 'failed';
+        throw new Error('Archivo acelerado incompleto: existen rangos sin escribir.');
+      }
+      // From this point native may verify/rename. Abort must not race the
+      // atomic publish: the caller may abort only after failure is reported.
+      committing = true;
       let saved;
       try {
         saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
@@ -104,7 +127,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       } catch (e) { state = 'failed'; failure ||= e; throw e; }
     },
     async abort() {
-      if (state === 'done' || state === 'aborted') return;
+      if (state === 'done' || state === 'aborted' || committing) return;
       state = 'aborted';
       await pending;
       const id = token; token = null;
