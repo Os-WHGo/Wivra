@@ -3,6 +3,7 @@
 // Only verified MP4 is retained in app-private Application Support. Photos is
 // an explicit, separate add-only user action via WivraPhotosLibrary.
 import Foundation
+import CryptoKit
 
 actor WivraAcceleratedExportStore {
     static let shared = WivraAcceleratedExportStore()
@@ -110,6 +111,57 @@ actor WivraAcceleratedExportStore {
             sessions.removeValue(forKey: token)
             await session.writer.abort()
         }
+    }
+
+
+    /// Re-discover NEW sealed files after a process restart, without trusting
+    /// the name alone or exposing arbitrary app/user files. Only confirmed
+    /// non-symlink MP4 assets with real AVFoundation tracks are returned.
+    /// Explicitly called from the native export recovery library, not at boot.
+    func recovered() async -> [Completed] {
+        let root = directory.resolvingSymlinksInPath().standardizedFileURL
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+            ], options: [.skipsHiddenFiles]) else { return [] }
+        var result: [Completed] = []
+        for url in urls.prefix(200) {
+            let name = url.lastPathComponent
+            guard name.hasPrefix("Wivra_Fast_"), name.hasSuffix(".mp4"),
+                  UUID(uuidString: String(name.dropFirst(11).dropLast(4))) != nil,
+                  url.standardizedFileURL.deletingLastPathComponent() == root,
+                  url.resolvingSymlinksInPath().standardizedFileURL
+                    .deletingLastPathComponent() == root,
+                  let info = try? url.resourceValues(forKeys: [
+                    .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+                  ]),
+                  info.isRegularFile == true, info.isSymbolicLink == false,
+                  let size = info.fileSize, size > 0,
+                  Int64(size) <= WivraRandomAccessExportSession.maxOutputBytes
+            else { continue }
+            guard let metadata = await WivraMp4Repair.inspect(url),
+                  metadata.video, metadata.durationMs > 0, metadata.seekIndex else { continue }
+            do {
+                let input = try FileHandle(forReadingFrom: url)
+                defer { try? input.close() }
+                var digest = SHA256()
+                var actualBytes: Int64 = 0
+                while let bytes = try input.read(upToCount: 1024 * 1024), !bytes.isEmpty {
+                    digest.update(data: bytes)
+                    actualBytes += Int64(bytes.count)
+                }
+                guard actualBytes == Int64(size) else { continue }
+                let sha = digest.finalize().map { String(format: "%02x", $0) }.joined()
+                result.append(Completed(url: url, bytes: actualBytes, sha256: sha,
+                    media: WivraRandomAccessExportSession.Media(
+                        video: metadata.video, audio: metadata.audio,
+                        durationMs: metadata.durationMs)))
+            } catch {
+                // Never present an unreadable or changing private output.
+                continue
+            }
+        }
+        return result.sorted { $0.url.lastPathComponent > $1.url.lastPathComponent }
     }
 
     func saved(token: Int, owner: String) -> Completed? {
