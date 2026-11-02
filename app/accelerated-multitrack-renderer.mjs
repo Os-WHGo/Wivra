@@ -90,10 +90,13 @@ async function codecPlan(M,{width,height,hasAudio,platform}) {
     await M.getFirstEncodableVideoCodec(['vp9','vp8'],{width,height});
   if(!codec)deny('video/audio codec pair not supported');
   const container=avc?'mp4':'webm';
-  if(hasAudio && container==='webm' && !(await M.canEncodeAudio('opus')))
-    deny('audio codec Opus unavailable');
+  // Native iPhone has no general WebM Photos destination. Reject its
+  // container before probing Opus so the actionable platform restriction is
+  // never obscured by an unrelated codec capability error.
   if(platform==='ios' && container!=='mp4')
     deny('iOS accelerated export requires H264/AAC MP4');
+  if(hasAudio && container==='webm' && !(await M.canEncodeAudio('opus')))
+    deny('audio codec Opus unavailable');
   return {videoCodec:codec,audioCodec:!hasAudio?null:
     container==='mp4'?'aac':'opus',container,hasAudio};
 }
