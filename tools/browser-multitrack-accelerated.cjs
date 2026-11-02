@@ -165,6 +165,14 @@ const server=http.createServer((req,res)=>{
        codec:'mp4a.40.2',numberOfChannels:2,sampleRate:48000,
        bitrate:128000})).supported===true;
     }catch(e){result.aac=false;result.aacError=String(e);}
+    try{
+      result.mediabunnyAvc=(await M.getFirstEncodableVideoCodec(['avc'],{
+       width:videoWidth,height:videoHeight}))==='avc';
+    }catch(e){result.mediabunnyAvc=false;result.avcError=String(e);}
+    try{result.mediabunnyAac=(await M.canEncodeAudio('aac'))===true;}
+    catch(e){result.mediabunnyAac=false;result.aacError=String(e);}
+    result.mobileMp4ReadyInThisBrowser=
+      result.h264&&result.aac&&result.mediabunnyAvc&&result.mediabunnyAac;
     return result;
    })():null;
    const started=performance.now();
@@ -284,6 +292,20 @@ const server=http.createServer((req,res)=>{
      highWater<1000 || writeCount<1)
     throw Error('Multitrack encoded video/audio/parity QA failed: '+JSON.stringify(report));
   if(hdCanary){
+   const codec=report.browser.mobileCodecCapabilities;
+   if(!codec||typeof codec.h264!=='boolean'||typeof codec.aac!=='boolean'||
+      typeof codec.mediabunnyAvc!=='boolean'||
+      typeof codec.mediabunnyAac!=='boolean')
+    throw Error('Mobile WebCodecs AVC/AAC capability report unavailable');
+   // A 720p WebM success must NOT be labeled as native H264/AAC MP4.
+   if(codec.mobileMp4ReadyInThisBrowser){
+    if(report.browser.result.container!=='mp4'||
+       !report.ffprobe.codecs.includes('video:h264')||
+       !report.ffprobe.codecs.includes('audio:aac'))
+      throw Error('H264/AAC appears available but actual mux is not mobile MP4');
+   }else if(report.browser.result.container==='mp4'){
+    throw Error('MP4 returned despite an unsupported codec capability probe');
+   }
    if(report.browser.result.width!==1280||
       report.browser.result.height!==720||
       report.browser.result.videoFrames!==900||
