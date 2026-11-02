@@ -161,3 +161,16 @@ test('missing frame aborts rather than silently publishing black output',async()
   assert.equal(M.events.some(x=>x[0]==='finalize'),false);
  }finally{globalThis.document=prior;globalThis.AudioBuffer=oldAudio;}
 });
+
+test('accelerator refuses truncated narration and captions before native file creation',async()=>{
+ const M=fakeM();
+ const voice=proj();voice.audioClips[0].out=2;
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:voice,media,M,imageFactory,expectedAudio:true
+ }),/essential voice extends/);
+ const caption=proj();caption.texts[0].end=2;
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:caption,media,M,imageFactory,expectedAudio:true
+ }),/captions continue/);
+ assert.equal(M.events.some(x=>x[0]==='start'),false);
+});
