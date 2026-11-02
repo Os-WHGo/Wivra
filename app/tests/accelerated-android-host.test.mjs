@@ -6,7 +6,7 @@ import {createAcceleratedNativeSink} from '../accelerated-native-sink.mjs';
 
 function fakeWebMessage() {
   const seen = [];
-  let receiver;
+  let receiver, maxEnd = 0;
   const obj = {
     seen,
     addEventListener(type, cb) {assert.equal(type, 'message');receiver=cb;},
@@ -17,9 +17,10 @@ function fakeWebMessage() {
         const answer = {rid:msg.rid,ok:true};
         if(msg.op==='helloRandom') Object.assign(answer,{protocol:2,randomWrite:true});
         if(msg.op==='beginRandom') answer.token=45;
-        if(msg.op==='writeAt') Object.assign(answer,{
-          seq:msg.seq,writtenBytes:msg.size,maxEnd:msg.position+msg.size
-        });
+        if(msg.op==='writeAt') {
+          maxEnd = Math.max(maxEnd, msg.position + msg.size);
+          Object.assign(answer,{seq:msg.seq,writtenBytes:msg.size,maxEnd});
+        }
         if(msg.op==='finishRandom') Object.assign(answer,{
           verified:true,bytes:4,sha256:createHash('sha256')
             .update(Uint8Array.from([1,8,9,4])).digest('hex'),
