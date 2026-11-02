@@ -15,9 +15,9 @@ test('real mobile AVC/AAC capability uses exact output resolution, framerate, st
  const checks=[];
  const result=await verify(input(mp4,{
   videoEncoder:{isConfigSupported:async c=>{
-   checks.push(['video',c]);return {supported:true};}},
+   checks.push(['video',c]);return {supported:true,config:c};}},
   audioEncoder:{isConfigSupported:async c=>{
-   checks.push(['audio',c]);return {supported:true};}}
+   checks.push(['audio',c]);return {supported:true,config:c};}}
  }));
  assert.equal(result.container,'mp4');
  assert.equal(result.audioChecked,true);
@@ -35,7 +35,7 @@ test('mobile codec profile scales to full HD and 4K, not 720p AVC level',()=>{
  assert.equal(mobileCodecConfig({codec:mp4,width:1920,height:1080,
   fps:60,sampleRate:48000}).video.codec,'avc1.64002A');
  assert.equal(mobileCodecConfig({codec:mp4,width:3840,height:2160,
-  fps:30,sampleRate:48000}).video.codec,'avc1.640034');
+  fps:30,sampleRate:48000}).video.codec,'avc1.640033');
 });
 
 test('unsupported real mobile encoder cannot be overridden by optimistic Mediabunny codec family',async()=>{
@@ -80,4 +80,48 @@ test('no-audio timeline never requires AAC and forbids incoherent codec descript
   {...mute,audioCodec:'aac'}
  ]) assert.throws(()=>mobileCodecConfig({codec:bad,width:640,
   height:360,fps:30,sampleRate:48000}),/inconsistente/);
+});
+
+test('H264 Annex A AVC levels reflect macroblocks per second, not just pixels',()=>{
+ const config=(w,h,f)=>mobileCodecConfig({codec:mp4,width:w,height:h,
+  fps:f,sampleRate:48000}).video.codec;
+ assert.equal(config(1280,720,30),'avc1.42E01F');
+ assert.equal(config(1280,720,60),'avc1.42E020');
+ assert.equal(config(1920,1080,30),'avc1.640028');
+ assert.equal(config(1920,1080,60),'avc1.64002A');
+ assert.equal(config(3840,2160,30),'avc1.640033');
+ assert.equal(config(3840,2160,60),'avc1.640034');
+});
+
+test('WebCodecs supported=true is not enough when the browser drops encoder settings',async()=>{
+ for(const badVideo of [
+  c=>({supported:true}),
+  c=>({supported:true,config:{...c,width:640}}),
+  c=>({supported:true,config:{...c,framerate:24}}),
+  c=>({supported:true,config:{...c,bitrate:1000}}),
+  c=>({supported:true,config:{...c,avc:{format:'annexb'}}})
+ ]) {
+  await assert.rejects(verify(input(mp4,{videoEncoder:{
+   isConfigSupported:async c=>badVideo(c)
+  }})),/no confirmó resolución, FPS, perfil y bitrate exactos/);
+ }
+});
+
+test('WebCodecs audio confirmation must retain codec, stereo, rate and bitrate',async()=>{
+ for(const badAudio of [
+  c=>({supported:true}),
+  c=>({supported:true,config:{...c,codec:'opus'}}),
+  c=>({supported:true,config:{...c,numberOfChannels:1}}),
+  c=>({supported:true,config:{...c,sampleRate:44100}}),
+  c=>({supported:true,config:{...c,bitrate:32000}})
+ ]) {
+  await assert.rejects(verify(input(mp4,{audioEncoder:{
+   isConfigSupported:async c=>badAudio(c)
+  }})),/no confirmó audio estéreo y frecuencia exactos/);
+ }
+});
+
+test('ambiguous audio presence cannot silently skip AAC preflight',()=>{
+ assert.throws(()=>mobileCodecConfig({codec:{...mp4,hasAudio:undefined},
+  width:320,height:180,fps:30,sampleRate:48000}),/configuración inválida/);
 });
