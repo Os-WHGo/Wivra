@@ -111,3 +111,11 @@ test('rejects unsafe track counts, sample rates and output memory bounds',async(
   await assert.rejects(collect({totalSeconds:1,sampleRate:100000,tracks:[]}),/limits/);
   await assert.rejects(collect({totalSeconds:1,blockFrames:5,tracks:[]}),/limits/);
 });
+
+test('surround center-channel dialogue cannot silently disappear in a stereo mix',async()=>{
+  const surround=lane({sourceOut:.3,channels:6,
+    signal:(_t,ch)=>ch===2?.8:0});
+  await assert.rejects(collect({
+    totalSeconds:.3,tracks:[surround]
+  }),/Surround input requires a validated multichannel downmix/);
+});
