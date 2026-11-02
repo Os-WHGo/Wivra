@@ -313,6 +313,7 @@ object WivraRandomExportStore {
             MediaStore.MediaColumns._ID,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.SIZE,
+            MediaStore.MediaColumns.IS_PENDING,
             MediaStore.MediaColumns.MIME_TYPE,
             MediaStore.MediaColumns.RELATIVE_PATH,
             MediaStore.MediaColumns.OWNER_PACKAGE_NAME
@@ -339,6 +340,7 @@ object WivraRandomExportStore {
             val id = it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             val nameColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
             val size = it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+            val pendingColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_PENDING)
             val mime = it.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
             val folder = it.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
             val owner = it.getColumnIndexOrThrow(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
@@ -347,6 +349,7 @@ object WivraRandomExportStore {
                     throw IOException("Demasiados videos propios para comprobar recuperación.")
                 val name = it.getString(nameColumn) ?: continue
                 if (!name.startsWith(PREFIX) ||
+                    it.getInt(pendingColumn) != 0 ||
                     it.getString(owner) != context.packageName ||
                     it.getString(folder) != WivraExportStore.FOLDER ||
                     it.getString(mime) != expected.mime ||
