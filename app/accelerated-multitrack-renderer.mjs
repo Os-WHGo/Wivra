@@ -144,6 +144,9 @@ export async function prepareAcceleratedMultitrack({
     for(const asset of ledger.assets) {
       if(isCancelled())deny('cancelled while preparing media');
       const entry={kind:asset.kind,url:asset.url};
+      // Register ownership BEFORE any awaited decoder/track probe; a thrown
+      // getPrimary* call must still dispose the Input it already created.
+      used.set(asset.assetId,entry);
       if(asset.kind==='image') {
         const image=await imageFactory(asset.url);
         const w=image?.naturalWidth??image?.width;
@@ -165,7 +168,6 @@ export async function prepareAcceleratedMultitrack({
         }
         if(audio)entry.audioSink=new M.AudioBufferSink(audio);
       }
-      used.set(asset.assetId,entry);
     }
     const audible=[];
     for(const lane of ledger.tracks) {
