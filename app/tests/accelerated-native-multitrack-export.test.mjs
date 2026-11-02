@@ -299,3 +299,21 @@ test('WebCodecs claiming success with a changed AVC frame size never opens nativ
   globalThis.VideoEncoder=prior;
  }
 });
+
+test('UI progress callback failure cannot discard or mislabel a sealed native export',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),prior=globalThis.document;
+ globalThis.document=documentFake();
+ let notifications=0;
+ try {
+  const result=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,
+   onProgress:()=>{notifications++;throw Error('UI view was removed');}});
+  assert.ok(notifications>=2);
+  assert.equal(result.verifiedNative,true);
+  assert.equal(result.saved.verified,true);
+  assert.equal(result.rendererReadyForProduction,false);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
+  assert.equal(log.includes('finalize'),true);
+  assert.equal(log.includes('cancel'),false);
+ }finally{globalThis.document=prior;}
+});
