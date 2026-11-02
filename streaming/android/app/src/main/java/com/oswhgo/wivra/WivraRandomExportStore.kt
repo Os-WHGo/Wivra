@@ -1,7 +1,10 @@
 package com.oswhgo.wivra
 
+import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.os.Bundle
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -282,16 +285,128 @@ object WivraRandomExportStore {
     }
 
     /**
+     * Never republish the same sealed recording if a previous MediaStore
+     * publication completed but the app was killed before it acknowledged it.
+     * Query only this app's OWN completed exports in its own Movies folder.
+     * Never delete or modify existing rows and never trust their names as
+     * proof: read the bytes, SHA-256 and real media metadata again.
+     */
+    internal fun isVerifiedRecoveryCopy(
+        expectedBytes: Long, actualBytes: Long,
+        expectedSha: String, actualSha: String,
+        expectedDurationMs: Long, actualDurationMs: Long,
+        expectsAudio: Boolean, actualAudio: Boolean,
+        actualVideo: Boolean, isWebm: Boolean,
+        hasDuration: Boolean, seekIndex: Boolean
+    ): Boolean = expectedBytes > 0L && expectedBytes == actualBytes &&
+        expectedSha.length == 64 && expectedSha.equals(actualSha, ignoreCase = true) &&
+        actualVideo && actualDurationMs > 0L &&
+        kotlin.math.abs(actualDurationMs - expectedDurationMs) <= 1500L &&
+        (!expectsAudio || actualAudio) &&
+        (!isWebm || (hasDuration && seekIndex))
+
+    private fun existingRecoveryCopy(context: Context, expected: Recovered): Published? {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val columns = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.SIZE,
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.OWNER_PACKAGE_NAME
+        )
+        val query = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND " +
+                "${MediaStore.MediaColumns.SIZE} = ?")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                arrayOf(WivraExportStore.FOLDER, context.packageName,
+                    "${PREFIX}%", expected.bytes.toString()))
+        }
+        // Do not continue to produce a possibly duplicate gallery copy if
+        // ownership or completeness cannot be determined by the provider.
+        val cursor = try { resolver.query(collection, columns, query, null) }
+        catch (error: Exception) {
+            throw IOException("No se pudo comprobar duplicados de galería.", error)
+        } ?: throw IOException("Catálogo de galería no disponible para recuperación.")
+        cursor.use {
+            var inspected = 0
+            val id = it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val nameColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val size = it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+            val mime = it.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+            val folder = it.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+            val owner = it.getColumnIndexOrThrow(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
+            while (it.moveToNext()) {
+                if (++inspected > 250)
+                    throw IOException("Demasiados videos propios para comprobar recuperación.")
+                val name = it.getString(nameColumn) ?: continue
+                if (!name.startsWith(PREFIX) ||
+                    it.getString(owner) != context.packageName ||
+                    it.getString(folder) != WivraExportStore.FOLDER ||
+                    it.getString(mime) != expected.mime ||
+                    it.getLong(size) != expected.bytes) continue
+                val uri = ContentUris.withAppendedId(collection, it.getLong(id))
+                var actualBytes = 0L
+                val hash = digest()
+                try {
+                    (resolver.openInputStream(uri) ?:
+                        throw IOException("No se pudo releer video previo de Wivra.")).use { input ->
+                        val buffer = ByteArray(1024 * 1024)
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            actualBytes += n
+                            if (actualBytes > expected.bytes) break
+                            hash.update(buffer, 0, n)
+                        }
+                    }
+                } catch (error: Exception) {
+                    throw IOException("No se pudo comprobar copia previa; sin duplicar.", error)
+                }
+                if (actualBytes != expected.bytes ||
+                    !expected.sha256.equals(shaString(hash.digest()), ignoreCase = true))
+                    continue
+                // A matching hash with corrupt playback metadata is NOT a
+                // successful recovery; protect the sealed original.
+                val gallery = try { WivraExportFinalizer.inspect(context, uri, expected.mime) }
+                catch (error: Exception) {
+                    throw IOException("Copia previa inválida; privado conservado.", error)
+                }
+                if (!isVerifiedRecoveryCopy(
+                    expected.bytes, actualBytes, expected.sha256, expected.sha256,
+                    expected.media.durationMs, gallery.durationMs,
+                    expected.media.audio, gallery.audio, gallery.video,
+                    expected.mime == "video/webm",
+                    gallery.declaresDuration, gallery.seekIndex))
+                    throw IOException("Copia previa no reproduce correctamente; privado conservado.")
+                return Published(uri, name, expected.mime, expected.bytes,
+                    expected.sha256, expected.media)
+            }
+        }
+        return null
+    }
+
+    /**
      * An explicit native user action may republish ONE verified private file.
      * A newly created MediaStore row is SHA-256 verified before it is visible;
      * the sealed source survives any failure. No arbitrary path or deletion API.
      */
     @JvmStatic
+    @Synchronized
     fun restore(context: Context, selectedName: String): Published {
         if (!isRecoverableFilename(selectedName)) throw IOException("Nombre de recuperación inválido.")
         val file = File(directory(context), selectedName)
         val verified = validateSealed(context, file)
             ?: throw IOException("El archivo privado no supera la verificación.")
+        // Process-death replay safety: if a prior gallery copy was already
+        // published and verified, return it instead of creating a duplicate.
+        // The private sealed file remains recoverable until explicitly handled.
+        existingRecoveryCopy(context, verified)?.let { return it }
         val expected = WivraRandomAccessExportSession.Saved(
             file, verified.bytes, verified.sha256, verified.media)
         val owner = java.util.UUID.randomUUID().toString()
