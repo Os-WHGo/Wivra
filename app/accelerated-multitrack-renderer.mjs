@@ -319,10 +319,31 @@ export async function renderAcceleratedMultitrack({
       // Reuse EXACT stable compositor for formatting, positions, shapes,
       // titles, fades and opacity, not a second visual semantics implementation.
       const priorDraws=draws,priorFailures=failedDraws;
-      drawFrame(guardedG,width,height,frame,project,t,overlays);
-      if(failedDraws!==priorFailures ||
+      // The stable preview intentionally returns the ORIGINAL frame if its
+      // WebGL filter fails. In accelerated export this is data loss: a film
+      // must not silently lose the user's color edits on GPU context loss.
+      const requiredFilters=(main?.filter?1:0)+
+        overlays.reduce((n,o)=>n+(o.c.filter?1:0),0);
+      const originalFilter=globalThis.fxRender;
+      let renderedFilters=0;
+      if(requiredFilters){
+        if(typeof originalFilter!=='function')
+          throw new Error('GPU color filters unavailable for accelerated export.');
+        globalThis.fxRender=(...args)=>{
+          const filtered=originalFilter(...args);
+          if(!filtered)throw new Error('GPU filter failed: use the stable exporter.');
+          renderedFilters++;
+          return filtered;
+        };
+      }
+      try{
+        drawFrame(guardedG,width,height,frame,project,t,overlays);
+      }finally{
+        if(requiredFilters)globalThis.fxRender=originalFilter;
+      }
+      if(renderedFilters!==requiredFilters || failedDraws!==priorFailures ||
          draws-priorDraws < (frame?1:0)+overlays.length)
-        throw new Error('A source frame or overlay could not be painted safely.');
+        throw new Error('A source frame, filter or overlay could not be painted safely.');
       await videoSource.add(t,dt);
       videoFrames++;
       if(mixer&&((k+1)%fps===0||k===framesTotal-1)) {
