@@ -9,6 +9,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
 const gap=process.argv.includes('--gap');
+const duck=process.argv.includes('--duck');
 const minute=process.argv.includes('--minute');
 const long=process.argv.includes('--long');
 const extended=minute||long||process.argv.includes('--stress');
@@ -32,6 +33,14 @@ const wav=path.join(tmp,'mic.wav');
 ffmpeg(['-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=2',
   '-c:a','pcm_s16le',wav]);
 files['/mic.wav']=wav;
+// Isolated 220Hz bed plus silent authored narration: the final PCM must
+// show actual attenuation, not a changed wave amplitude from the speaker.
+const bed=path.join(tmp,'bed.wav'),silent=path.join(tmp,'silent-voice.wav');
+ffmpeg(['-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=2',
+  '-c:a','pcm_s16le',bed]);
+ffmpeg(['-f','lavfi','-i','anullsrc=r=48000:cl=mono:d=0.5',
+  '-c:a','pcm_s16le',silent]);
+files['/bed.wav']=bed;files['/silent-voice.wav']=silent;
 const still=path.join(tmp,'overlay.svg');
 fs.writeFileSync(still,
   '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#fef08a"/></svg>');
@@ -70,7 +79,7 @@ const server=http.createServer((req,res)=>{
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
   mediabunny:'pinned 1.61.6',projectSeconds:seconds,
-  profile:gap?'1.25s gap-preserving accelerated timeline':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
+  profile:duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
@@ -87,7 +96,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async({extended,long,minute,gap})=>{
+  report.browser=await page.evaluate(async({extended,long,minute,gap,duck})=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -95,6 +104,8 @@ const server=http.createServer((req,res)=>{
     first:{kind:'video',url:'/first.webm',w:320,h:240,duration:2.2},
     second:{kind:'video',url:'/second.webm',w:320,h:240,duration:2.2},
     mic:{kind:'audio',url:'/mic.wav',duration:2},
+    bed:{kind:'audio',url:'/bed.wav',duration:2},
+    silentVoice:{kind:'audio',url:'/silent-voice.wav',duration:.5},
     logo:{kind:'image',url:'/overlay.svg',w:48,h:48}
    };
    const project={
@@ -107,7 +118,12 @@ const server=http.createServer((req,res)=>{
     ],
     overlayClips:[{id:'logo',asset_id:'logo',start:.18,in:0,out:1,
       x:.5,y:.5,scale:.18,track:1,opacity:.9}],
-    audioClips:extended?Array.from({length:minute?30:long?15:5},(_,i)=>({
+    audioClips:duck?[
+      {id:'bed',asset_id:'bed',start:0,in:0,out:1.2,
+        role:'music',volume:1},
+      {id:'voice',asset_id:'silentVoice',start:.35,in:0,out:.45,
+        role:'voice_primary',ducking:.8,volume:1}
+    ]:extended?Array.from({length:minute?30:long?15:5},(_,i)=>({
       id:'voice'+i,asset_id:'mic',start:.12+2*i,
       in:0,out:i===(minute?29:long?14:4)?1.88:2,role:'voice_primary',volume:.75
     })):[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
@@ -144,7 +160,7 @@ const server=http.createServer((req,res)=>{
     CanvasRenderingContext2D.prototype.fillText=originalFillText;
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
-  },{extended,long,minute,gap});
+  },{extended,long,minute,gap,duck});
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -189,6 +205,16 @@ const server=http.createServer((req,res)=>{
    tailVoice:extended?rms(minute?58.25:long?28.25:8.25,
      minute?58.4:long?28.4:8.4):null,
    recordedSeconds:pcm.length/2/16000};
+  if(duck){
+    report.audio.musicBefore=rms(.15,.25);
+    report.audio.musicDucked=rms(.52,.65);
+    report.audio.musicAfter=rms(1.0,1.12);
+    if(!(report.audio.musicBefore>.04 &&
+         report.audio.musicDucked<report.audio.musicBefore*.4 &&
+         report.audio.musicAfter>report.audio.musicBefore*.7))
+      throw Error('Encoded audio did not preserve authored voice ducking: '+
+        JSON.stringify(report.audio));
+  }
   if(report.containerInspection?.video!==true ||
      report.containerInspection?.audio!==true ||
      report.containerInspection?.declaresDuration!==true ||
@@ -214,7 +240,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,gap?'wivra-multitrack-gap.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }
