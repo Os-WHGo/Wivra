@@ -119,10 +119,16 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
           expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
         // SHA-256 is computed by native from the ACTUAL final file after all
         // arbitrary header patches. A mere positive byte count is insufficient.
+        // Native Android and iOS also enforce this duration window. Re-check
+        // the reply in JS so a stale/incompatible v2 bridge cannot label a
+        // shortened or desynchronized recording as fully verified.
+        const durationToleranceMs = Math.max(1500,Math.min(5000,
+          Math.floor(expectedDurationMs / 100)));
         if (saved?.verified !== true || saved?.bytes !== maxEnd ||
             !/^[0-9a-f]{64}$/i.test(saved?.sha256 || '') ||
             saved?.media?.video !== true ||
-            !(saved.media.durationMs > 0) ||
+            !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
+            Math.abs(saved.media.durationMs - expectedDurationMs) > durationToleranceMs ||
             (expectAudio && saved.media.audio !== true)) {
           throw new Error('El archivo acelerado no superó integridad y decodificación.');
         }

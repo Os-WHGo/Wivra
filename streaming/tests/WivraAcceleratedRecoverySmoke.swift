@@ -20,6 +20,19 @@ struct WivraAcceleratedRecoverySmoke {
             preconditionFailure("Fixture cannot be inspected")
         }
         precondition(media.video && media.audio && media.durationMs > 1000 && media.seekIndex)
+        precondition(await WivraAcceleratedExportStore.compatibleNativeCodecs(
+            verified, expectAudio: true))
+        // Different codecs inside a .mp4 must NEVER be assumed playable
+        // in Photos merely because AVFoundation sees an MP4 container.
+        let testRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("app/tests/fixtures/mediarecorder")
+        let hevc = testRoot.appendingPathComponent("capture-hevc.mp4")
+        let opus = testRoot.appendingPathComponent("chromium-avc1-opus-fragmented.mp4")
+        precondition(!(await WivraAcceleratedExportStore.compatibleNativeCodecs(
+            hevc, expectAudio: false)))
+        precondition(!(await WivraAcceleratedExportStore.compatibleNativeCodecs(
+            opus, expectAudio: true)))
+
 
         let store = WivraAcceleratedExportStore(directory: root,
             freeSpace: { _ in 8_000_000_000 })

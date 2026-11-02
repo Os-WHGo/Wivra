@@ -4,6 +4,9 @@
 // an explicit, separate add-only user action via WivraPhotosLibrary.
 import Foundation
 import CryptoKit
+import AVFoundation
+import CoreMedia
+import AudioToolbox
 
 actor WivraAcceleratedExportStore {
     static let shared = WivraAcceleratedExportStore()
@@ -38,6 +41,32 @@ actor WivraAcceleratedExportStore {
     private var finished: [Int: (owner: String, result: Completed)] = [:]
 
     private func freeBytes() -> Int64 { freeSpace(directory) }
+
+    /// W21: A valid MP4 signature is not a Photos-compatible codec proof.
+    /// AVFoundation must identify H.264 video and AAC audio in the actual
+    /// bytes before the experimental v2 output is sealed or rediscovered.
+    /// Never infer codec from a filename, JavaScript's requested container,
+    /// or an unverified ffprobe result from Linux.
+    static func compatibleNativeCodecs(_ url: URL, expectAudio: Bool) async -> Bool {
+        let asset = AVURLAsset(url: url)
+        guard let videos = try? await asset.loadTracks(withMediaType: .video),
+              !videos.isEmpty else { return false }
+        for track in videos {
+            guard let formats = try? await track.load(.formatDescriptions),
+                  !formats.isEmpty,
+                  formats.allSatisfy({ CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_H264 })
+            else { return false }
+        }
+        guard let audios = try? await asset.loadTracks(withMediaType: .audio),
+              !expectAudio || !audios.isEmpty else { return false }
+        for track in audios {
+            guard let formats = try? await track.load(.formatDescriptions),
+                  !formats.isEmpty,
+                  formats.allSatisfy({ CMFormatDescriptionGetMediaSubType($0) == kAudioFormatMPEG4AAC })
+            else { return false }
+        }
+        return true
+    }
 
     func cleanupOrphans() throws -> Int {
         // Never delete an active writer even if an editor was opened quickly.
@@ -96,7 +125,9 @@ actor WivraAcceleratedExportStore {
             expectedWrites: writes, expectedDurationMs: expectedDurationMs,
             expectAudio: expectAudio) { url in
             guard let real = await WivraMp4Repair.inspect(url),
-                  real.video, real.durationMs > 0, real.seekIndex else { return nil }
+                  real.video, real.durationMs > 0, real.seekIndex,
+                  await Self.compatibleNativeCodecs(url, expectAudio: expectAudio)
+            else { return nil }
             return WivraRandomAccessExportSession.Media(
                 video: real.video, audio: real.audio, durationMs: real.durationMs)
         }
@@ -147,7 +178,9 @@ actor WivraAcceleratedExportStore {
                   Int64(size) <= WivraRandomAccessExportSession.maxOutputBytes
             else { continue }
             guard let metadata = await WivraMp4Repair.inspect(url),
-                  metadata.video, metadata.durationMs > 0, metadata.seekIndex else { continue }
+                  metadata.video, metadata.durationMs > 0, metadata.seekIndex,
+                  await Self.compatibleNativeCodecs(url, expectAudio: metadata.audio)
+            else { continue }
             do {
                 let input = try FileHandle(forReadingFrom: url)
                 defer { try? input.close() }

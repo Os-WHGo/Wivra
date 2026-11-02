@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {createAcceleratedNativeSink, ACCELERATED_NATIVE_PROTOCOL,
   ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES} from '../accelerated-native-sink.mjs';
 
-function memoryNative({v2=true,badSha=false,hasAudio=true}={}) {
+function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
   let active=false, removed=false, maxEnd=0;
   let bytes=new Uint8Array(0);
   const requests=[];
@@ -19,7 +19,7 @@ function memoryNative({v2=true,badSha=false,hasAudio=true}={}) {
         if(!active)throw Error('session ended');
         const digest=createHash('sha256').update(bytes).digest('hex');
         return {verified:true,bytes:maxEnd,sha256:badSha?'x':digest,
-          media:{video:true,audio:hasAudio,durationMs:1000}};
+          media:{video:true,audio:hasAudio,durationMs}};
       }
       throw Error('unknown op');
     },
@@ -191,4 +191,37 @@ test('native capacity is enforced before begin or random IO without exposing uns
   assert.equal(host.requests.filter(r => r.op === 'finishRandom').length, 0);
   await sink.abort();
   assert.equal(host.removed, true);
+});
+
+test('v2 rejects a valid-looking hash if the native duration differs from the authored timeline',async()=>{
+ const host=memoryNative({durationMs:3000});
+ const writer=createAcceleratedNativeSink(host,{
+   mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
+ });
+ await writer.begin();
+ await writer.writeAt(0,new Uint8Array([1,2,3]));
+ await assert.rejects(writer.finish(),/no superó integridad/);
+ assert.equal(writer.state,'failed');
+ await writer.abort();
+ assert.equal(host.removed,true);
+ const almost=memoryNative({durationMs:1999});
+ const ok=createAcceleratedNativeSink(almost,{
+   mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
+ });
+ await ok.begin();await ok.writeAt(0,new Uint8Array([9,8,7]));
+ assert.equal((await ok.finish()).media.durationMs,1999);
+});
+
+test('v2 long-form duration window is capped at five seconds and never trusts non-integer duration',async()=>{
+ for(const durationMs of [3594500,3605100,NaN,Infinity,0]){
+  const host=memoryNative({durationMs});
+  const writer=createAcceleratedNativeSink(host,{
+    mime:'video/mp4',expectedDurationMs:3600000,expectAudio:false
+  });
+  await writer.begin();
+  await writer.writeAt(0,new Uint8Array([1,2,3]));
+  await assert.rejects(writer.finish(),/no superó integridad/);
+  await writer.abort();
+  assert.equal(host.removed,true);
+ }
 });
