@@ -118,14 +118,17 @@ async function codecPlan(M,{width,height,hasAudio,platform}) {
 export async function prepareAcceleratedMultitrack({
   project,media,M,platform='android',maxSeconds=ACCELERATED_MULTITRACK_MAX_SECONDS,
   imageFactory=imageFactoryDefault,isCancelled=()=>false,
-  expectedAudio=null
+  expectedAudio=null,longSoakQA=false
 }={}) {
   if(!M || typeof M.Input!=='function'||typeof M.UrlSource!=='function' ||
      typeof M.CanvasSink!=='function'||typeof M.AudioBufferSink!=='function')
     deny('Mediabunny offline multipista decoder unavailable');
   if(!['android','ios','qa'].includes(platform))deny('unsupported native platform');
-  if(!(Number.isFinite(maxSeconds)&&maxSeconds>0&&
-       maxSeconds<=ACCELERATED_MULTITRACK_MAX_SECONDS))
+  if(typeof longSoakQA!=='boolean'||(longSoakQA&&platform!=='qa'))
+    deny('long-form QA is forbidden on native devices');
+  const horizon=longSoakQA?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS:
+    ACCELERATED_MULTITRACK_MAX_SECONDS;
+  if(!(Number.isSafeInteger(maxSeconds)&&maxSeconds>0&&maxSeconds<=horizon))
     deny('excessive render horizon');
   const ledger=analyzeAcceleratedMultitrackParity(project,media,{
     maxItems:ACCELERATED_MULTITRACK_MAX_ITEMS,maxTimelineSeconds:maxSeconds
@@ -217,7 +220,7 @@ export async function prepareAcceleratedMultitrack({
       width,height,hasAudio:audible.length>0,platform
     });
     return {ledger,project,media,M,used,audible,width,height,codec,
-      totalSeconds:ledger.totalSeconds,platform};
+      totalSeconds:ledger.totalSeconds,platform,longSoakQA};
   } catch(error) {
     for(const item of used.values()) {
       try{await item.input?.dispose?.();}catch{}
@@ -239,8 +242,10 @@ export async function renderAcceleratedMultitrack({
     deny('frame rate outside bounded QA range');
   const {M,codec,project,media,used,audible,width,height,totalSeconds}=prepared;
   const framesTotal=Math.ceil(totalSeconds*fps);
-  if(framesTotal>ACCELERATED_MULTITRACK_MAX_SECONDS*60+1)
-    deny('frame limit');
+  const maxFrames=(prepared.longSoakQA&&prepared.platform==='qa'
+    ?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS
+    :ACCELERATED_MULTITRACK_MAX_SECONDS)*60+1;
+  if(framesTotal>maxFrames)deny('frame limit');
   const writer=checkedRandomWrite(writeAt,{maxChunkBytes:1024*1024});
   const canvas=document.createElement('canvas');
   canvas.width=width;canvas.height=height;
