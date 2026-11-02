@@ -13,6 +13,7 @@ import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
 
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
 export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
+export const ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS = 3600;
 export const ACCELERATED_MULTITRACK_MAX_ITEMS = 160;
 
 // Explicit supported keys. Unknown future edits MUST NOT disappear silently.
