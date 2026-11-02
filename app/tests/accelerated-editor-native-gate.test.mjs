@@ -25,7 +25,7 @@ test('recordProject QA native bridge fails closed in ordinary builds',async()=>{
   const old=globalThis.WivraAcceleratedQA;
   globalThis.WivraAcceleratedQA=undefined;
   try{
-    await assert.rejects(recordProject(common()),/no incluido en esta compilación/);
+    await assert.rejects(recordProject(common()),/todavía no dispone de guardado nativo/);
   }finally{globalThis.WivraAcceleratedQA=old;}
 });
 
