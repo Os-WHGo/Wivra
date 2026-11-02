@@ -11,9 +11,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# A new PR commit supersedes old PR-only long-form telemetry. Preserve
+# manual milestone runs: each workflow_dispatch has an isolated run-id group.
 concurrency:
-  group: wivra-accelerated-soak-${{ github.ref }}
-  cancel-in-progress: false
+  group: wivra-accelerated-soak-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   accelerated-long-form:
     name: Real WebCodecs + Mediabunny ${{ matrix.minutes }} min
