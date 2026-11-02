@@ -20,7 +20,7 @@ if(![0,10,20,30,60].includes(longSoakMinutes))
  throw Error('Long accelerated QA supports 10/20/30/60 minutes only.');
 const longSoak=longSoakMinutes>0;
 const long=process.argv.includes('--long');
-const extended=longSoak||threeMinute||twoMinute||minute||long||process.argv.includes('--stress');
+const extended=hdCanary||longSoak||threeMinute||twoMinute||minute||long||process.argv.includes('--stress');
 const seconds=longSoak?longSoakMinutes*60:threeMinute?180:twoMinute?120:minute?60:long||hdCanary?30:extended?10:gap?1.25:1.2;
 if(hdCanary&&(longSoak||gap||duck||minute||twoMinute||threeMinute))
  throw Error('720p real A/V canary requires isolated 30s mode.');
