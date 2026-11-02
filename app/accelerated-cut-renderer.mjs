@@ -26,9 +26,14 @@ export function acceleratedCutEligibility(project, media, { maxSeconds = 120, ma
   if (!source || source.kind !== 'video' || !source.url ||
       !(source.w > 0 && source.h > 0) || !Number.isFinite(source.w * source.h)) return deny('source');
   const cuts = [];
+  // Whitelist only properties with understood semantics. A new clip effect,
+  // transform, composite, fade or look must NOT silently disappear in fast mode.
+  const safeClipKeys = new Set(['id', 'asset_id', 'start', 'in', 'out', 'volume', 'muted', 'speed']);
   let nextStart = 0;
   for (const clip of clips) {
     const len = clip.out - clip.in;
+    if (Object.keys(clip).some(key => !safeClipKeys.has(key) && clip[key] != null))
+      return deny('unsupported-clip-property');
     if (clip.asset_id !== first.asset_id || !(len > 0.001) || !Number.isFinite(len) ||
         !Number.isFinite(clip.start) || !Number.isFinite(clip.in) ||
         !Number.isFinite(clip.out) || clip.in < 0 ||
