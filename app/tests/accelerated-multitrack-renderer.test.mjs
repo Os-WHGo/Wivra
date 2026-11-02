@@ -280,3 +280,20 @@ test('applied GPU color filter preserves exact frame count without changing glob
   globalThis.fxRender=oldFx;
  }
 });
+
+test('GPU failure on filtered overlay also prevents an incomplete publication',async()=>{
+ const M=fakeM(),p=proj(),{document}=context();
+ p.overlayClips[0].filter={vignette:.6};
+ p.audioClips=[];
+ const oldDoc=globalThis.document,oldFx=globalThis.fxRender;
+ globalThis.document=document;globalThis.fxRender=()=>null;
+ try{
+  const prepared=await prepareAcceleratedMultitrack({
+   project:p,media,M,imageFactory,expectedAudio:false
+  });
+  await assert.rejects(renderAcceleratedMultitrack({
+   prepared,writeAt:async(_at,bytes)=>bytes.length
+  }),/GPU filter failed/);
+  assert.equal(M.events.some(x=>x[0]==='finalize'),false);
+ }finally{globalThis.document=oldDoc;globalThis.fxRender=oldFx;}
+});
