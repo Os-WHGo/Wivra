@@ -116,6 +116,7 @@ class WivraAcceleratedExportBridge(
                     context, request.getString("name"))
                 JSONObject().put("restored", true).put("name", saved.name)
                     .put("bytes", saved.bytes)
+                    .put("alreadyPublished", saved.alreadyPublished)
             }
             "share" -> {
                 val saved = WivraRandomExportStore.saved(request.optInt("token", 0), owner)
