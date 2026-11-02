@@ -36,6 +36,7 @@ const qaPipeline = acceleratedVendor ? [
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';
 const qaIOSHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-ios-host.mjs', import.meta.url), 'utf8')) : '';
+const qaUI = qaPipeline ? strip(readFileSync(new URL('./accelerated-qa-export-ui.mjs', import.meta.url), 'utf8')) : '';
 const qaSidecar = qaPipeline ?
   '\n;(() => {\n' + qaPipeline +
   '\nconst findAndroid = (() => {\n' + qaAndroidHost + '\nreturn detectAcceleratedAndroidHost;\n})();' +
@@ -49,7 +50,7 @@ const qaSidecar = qaPipeline ?
   '\nconst nativeHost = () => findAndroid() ?? findIOS();' +
   '\nconst saveToPhotos = ({saved,userConfirmed}) => saveVerifiedAcceleratedVideoToPhotos({host:nativeHost(),saved,userConfirmed});' +
   '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos};' +
-  '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n})();\n' : '';
+  '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n' + qaUI + '\n})();\n' : '';
 
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
 // Append Director helpers without replacing the Editor's core module list.
