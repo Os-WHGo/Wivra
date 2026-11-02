@@ -1,0 +1,47 @@
+name: Wivra Accelerated Long-Form Soak (QA only)
+on:
+  pull_request:
+    paths:
+      - app/accelerated-multitrack-renderer.mjs
+      - tools/browser-multitrack-accelerated.cjs
+      - .github/workflows/wivra-accelerated-long-soak.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wivra-accelerated-soak-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  accelerated-long-form:
+    name: Real WebCodecs + Mediabunny ${{ matrix.minutes }} min
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        minutes: [10, 20, 30, 60]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned isolated QA tools (not production dependencies)
+        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
+      - name: Install Chromium on Linux
+        run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Verify local media inspection tools
+        run: |
+          command -v ffmpeg
+          command -v ffprobe
+      - name: Render and probe accelerated ${{ matrix.minutes }}-minute video and final voice
+        env:
+          WIVRA_LONG_QA_MINUTES: ${{ matrix.minutes }}
+        run: node tools/browser-multitrack-accelerated.cjs
+      - name: Preserve each duration report even if the export fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-Accelerated-${{ matrix.minutes }}min-LinuxQA
+          path: wivra-accelerated-soak-${{ matrix.minutes }}min.json
+          if-no-files-found: warn
+          retention-days: 7
