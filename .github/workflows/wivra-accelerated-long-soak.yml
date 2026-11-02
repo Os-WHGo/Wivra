@@ -29,8 +29,10 @@ jobs:
         run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
       - name: Install Chromium on Linux
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium
-      - name: Verify local media inspection tools
+      - name: Install and verify ffmpeg/ffprobe on clean Ubuntu runner
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
           command -v ffmpeg
           command -v ffprobe
       - name: Render and probe accelerated ${{ matrix.minutes }}-minute video and final voice
