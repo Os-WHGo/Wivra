@@ -33,7 +33,7 @@ export function planAcceleratedStorageReservation({
     safetyMarginBytes:minimum-modeled,source:'automatic'};
  if(!Number.isSafeInteger(estimatedBytes)||estimatedBytes<minimum||
     estimatedBytes>ACCELERATED_STORAGE_MAX_BYTES)
-   throw new Error('Reserva manual insuficiente o inválida para exportación acelerada.');
+   throw new Error('Tamaño estimado inválido: Reserva manual insuficiente o inválida para exportación acelerada.');
  return {estimatedBytes,modeledBytes:modeled,
   safetyMarginBytes:estimatedBytes-modeled,source:'explicit'};
 }
