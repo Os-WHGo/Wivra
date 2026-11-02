@@ -467,11 +467,11 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     if (saveMode !== 'auto' || allowIncompleteAudio || allowIncompleteOverlay ||
         !Number.isFinite(loudnessGainDb) || Math.abs(loudnessGainDb) > 0.001)
       throw new Error('Acelerador experimental: mezcla de volumen, guardado o medios incompletos sin paridad.');
-    if (typeof acceleratedExpectAudio !== 'boolean')
-      throw new Error('Acelerador experimental: declarar explícitamente presencia de audio.');
     const qa = globalThis.WivraAcceleratedQA;
     if (typeof qa?.recordOnNative !== 'function')
-      throw new Error('Acelerador multipista QA no incluido en esta compilación.');
+      throw new Error('La exportación acelerada experimental todavía no dispone de guardado nativo en esta compilación: acelerador multipista QA no incluido.');
+    if (typeof acceleratedExpectAudio !== 'boolean')
+      throw new Error('Acelerador experimental: declarar explícitamente presencia de audio.');
     return qa.recordOnNative({
       project, media, expectAudio: acceleratedExpectAudio,
       experimentalAccelerated: true, fps, isCancelled, onProgress
