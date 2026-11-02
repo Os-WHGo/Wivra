@@ -1,6 +1,7 @@
 /* Banco comparativo AISLADO de motores de exportación (no es código de la app):
    A) motor actual: app/export.mjs recordProject (Canvas + MediaRecorder, tiempo real);
-   B) prototipo: WebCodecs + Mediabunny (decodifica, dibuja y codifica sin esperar al reloj).
+   B) motor compartido app/accelerated-cut-renderer.mjs + Mediabunny,
+      en ensayo AISLADO (no activo todavía en el editor móvil).
    Mismo montaje para ambos: cortes de una fuente con destello blanco + pitido cada 2 s
    (marcas de sincronía), texto encima y audio. Mide tiempo, memoria (heap JS y RSS de todo
    Chromium), tamaño, duración (ffprobe) y desfase audio/video en cada marca.
@@ -99,39 +100,20 @@ function analyse(file, planned) {
             return { ok: true, wall: (performance.now() - started) / 1000, heapPeak, mime: res.mime, repaired: res.container && res.container.fixed };
           }
           const M = await import('/mb/mediabunny.mjs');
-          const input = new M.Input({ source: new M.UrlSource('/source.webm'), formats: M.ALL_FORMATS });
-          const vt = await input.getPrimaryVideoTrack(), at = await input.getPrimaryAudioTrack();
-          const W = 640, H = 360, canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H; const g = canvas.getContext('2d');
-          const codec = await M.getFirstEncodableVideoCodec(['avc', 'vp9', 'vp8'], { width: W, height: H });
-          const writes = []; let pending = Promise.resolve();
-          const writable = new WritableStream({ write(chunk) { pending = pending.then(() => window.__writeAt(chunk.position, b64(chunk.data))); return pending; } });
-          // H.264 → MP4 (moov at the end, written by position); VP9/VP8 → WebM.
-          const mp4 = codec === 'avc', acodec = mp4 && await M.canEncodeAudio('aac') ? 'aac' : 'opus';
-          const output = new M.Output({ format: mp4 ? new M.Mp4OutputFormat({ fastStart: false }) : new M.WebMOutputFormat(), target: new M.StreamTarget(writable, { chunked: true, chunkSize: 1 << 20 }) });
-          const vs = new M.CanvasSource(canvas, { codec, bitrate: 2e6, keyFrameInterval: 1 }); output.addVideoTrack(vs, { frameRate: 30 });
-          const as = new M.AudioBufferSource({ codec: acodec, bitrate: 96e3 }); output.addAudioTrack(as);
-          await output.start();
-          const vsink = new M.CanvasSink(vt, { width: W, height: H, fit: 'contain' }), asink = new M.AudioBufferSink(at);
-          let outT = 0, frames = 0;
-          for (const cut of cuts) {
-            const len = cut.out - cut.in;
-            for await (const wc of vsink.canvases(cut.in, cut.out)) {
-              const s = Math.max(wc.timestamp, cut.in), e = Math.min(wc.timestamp + wc.duration, cut.out); if (e <= s) continue;
-              g.drawImage(wc.canvas, 0, 0, W, H); g.fillStyle = '#fff'; g.font = '700 28px sans-serif'; g.textAlign = 'center'; g.fillText('Wivra benchmark', W / 2, H - 30);
-              await vs.add(outT + (s - cut.in), e - s); frames++;
-            }
-            for await (const wb of asink.buffers(cut.in, cut.out)) {
-              const b = wb.buffer, s = Math.max(wb.timestamp, cut.in), e = Math.min(wb.timestamp + wb.duration, cut.out); if (e <= s) continue;
-              const from = Math.round((s - wb.timestamp) * b.sampleRate), n = Math.round((e - s) * b.sampleRate); if (n <= 0) continue;
-              const part = new AudioBuffer({ length: n, sampleRate: b.sampleRate, numberOfChannels: b.numberOfChannels });
-              for (let ch = 0; ch < b.numberOfChannels; ch++) part.copyToChannel(b.getChannelData(ch).subarray(from, from + n), ch);
-              await as.add(part);
-            }
-            outT += len;
-          }
-          await output.finalize(); await pending;
-          void writes;
-          return { ok: true, wall: (performance.now() - started) / 1000, heapPeak, codec, audioCodec: acodec, container: mp4 ? 'mp4' : 'webm', frames };
+          // SAME accelerated A/V cut renderer that Wivra is staging. No
+          // duplicate lab implementation: regressions now affect the bench.
+          const { renderAcceleratedCuts } = await import('/app/accelerated-cut-renderer.mjs');
+          const accelerated = await renderAcceleratedCuts({
+            M, sourceUrl: '/source.webm', cuts, width: 640, height: 360,
+            expectedAudio: true, label: 'Wivra benchmark',
+            writeAt: (position, data) => window.__writeAt(position, b64(data)),
+          });
+          return { ok: true, wall: (performance.now() - started) / 1000,
+            heapPeak, codec: accelerated.videoCodec,
+            audioCodec: accelerated.audioCodec, container: accelerated.container,
+            frames: accelerated.frames, audioBuffers: accelerated.audioBuffers,
+            writes: accelerated.writes };
+
         } catch (e) { return { ok: false, error: String(e && e.stack || e) }; } finally { clearInterval(heap); }
       }, { engine, cuts, total });
       clearInterval(sampler); fs.closeSync(fd);
