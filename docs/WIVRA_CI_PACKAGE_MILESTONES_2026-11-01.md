@@ -21,7 +21,7 @@ La PR de la versión consolidada que se vaya a instalar recibirá la **etiqueta 
 
 **Advertencia técnica:** compilar clases Android/iOS en CI puede crear carpetas intermedias o un `.app` de Xcode, pero no genera ni sube APK/IPA. Compilación sigue siendo esencial para detectar errores de SDK/Swift/Kotlin sin esperar a la beta final. Tests Node sobre editor JS no requieren compilaciones móviles en cada commit.
 
-**Criterios de cierre:** `app/tests/beta-milestone-package-gate.test.mjs` impide reactivar ensamblado accidental en flujos ordinarios; PR P0-X pasa App Tests, pruebas de contratos, y simulación sin marcador confirma los trabajos de empaquetado omitidos. Ante etiqueta explícita, full assembly incluye APK Android FULL+test, IPA unsigned, checksums, WebView y pruebas en emulador. La IPA sin firma **no** es instalable en iPhone, y una APK de depuración no demuestra grabación real Ray-Ban/RTMP. Las pruebas físicas se ejecutan juntas según autorización del propietario.
+**Criterios de cierre:** `app/tests/beta-milestone-package-gate.test.mjs` impide reactivar ensamblado accidental en flujos ordinarios; PR P0-X pasa App Tests, pruebas de contratos, y simulación sin marcador confirma los trabajos de empaquetado omitidos. Ante etiqueta explícita, full assembly incluye APK Android FULL, APK opcional WivraCapture, APK de instrumentación, IPA unsigned, sumas SHA-256, WebView y pruebas en emulador. La IPA sin firma **no** es instalable en iPhone, y una APK de depuración no demuestra grabación real Ray-Ban/RTMP. Las pruebas físicas se ejecutan juntas según autorización del propietario.
 
 ## Reversibilidad
 
