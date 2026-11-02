@@ -140,13 +140,13 @@ class WivraRandomAccessExportSession private constructor(
             output.close()
             if (partial.length() != maxEnd || !validHeader(partial, mime))
                 throw IntegrityException("Random output is incomplete or has an invalid header.")
+            val hash = digest(partial)
             val media = inspect(partial)
                 ?: throw IntegrityException("Final output is not decodable.")
             if (!media.video || media.durationMs <= 0L || (expectAudio && !media.audio))
                 throw IntegrityException("Required video/audio track is missing.")
             // Duration is deliberately not treated as proof of frame-perfect
             // alignment; browser and device QA must check A/V drift separately.
-            val hash = digest(partial)
             // Never allow the inspector to mutate the bytes after validation.
             // The sealed result must match the bytes verified above.
             if (partial.length() != maxEnd || digest(partial) != hash)
