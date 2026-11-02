@@ -1,3 +1,5 @@
+import { acceleratedCutEligibility, renderAcceleratedCuts } from './accelerated-cut-renderer.mjs';
+
 // Wivra P0-W: bounded in-memory random access adapter ONLY for controlled QA.
 // Not the native long-video exporter. No offline Mediabunny SDK without an
 // explicitly pinned build, and no automatic switch from MediaRecorder.
