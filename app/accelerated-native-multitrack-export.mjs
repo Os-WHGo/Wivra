@@ -35,6 +35,14 @@ export async function recordExperimentalNativeMultitrack({
       height:prepared.height,fps});
   let sink;
   try {
+    // Only mono and stereo are mixed today. A multi-channel source could
+    // otherwise lose its center/dialogue channel unnoticed.
+    for(const item of prepared.used.values()){
+      if(!item.audio)continue;
+      const channels=await item.audio.getNumberOfChannels?.();
+      if(channels!==1&&channels!==2)
+        throw new Error('Canales de audio no admitidos por el motor acelerado.');
+    }
     if(!Number.isSafeInteger(expectedBytes)||expectedBytes<0)
       throw new Error('Tamaño estimado de salida fuera de límites.');
     if(isCancelled())throw new Error('Exportación multipista cancelada antes de abrir archivo.');
