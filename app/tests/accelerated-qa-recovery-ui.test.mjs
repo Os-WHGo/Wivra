@@ -59,6 +59,7 @@ test('Android recovered copy is verified before reuse and UI distinguishes idemp
  assert.match(store,/existingRecoveryCopy\(context, verified\)/);
  assert.match(store,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
  assert.match(store,/MediaStore\.QUERY_ARG_MATCH_PENDING/);
+ assert.match(store,/it\.getInt\(pendingColumn\) != 0/);
  assert.match(store,/verifiedCopy|isVerifiedRecoveryCopy/);
  assert.match(store,/alreadyPublished = true/);
  assert.match(qa,/response\.alreadyPublished===true/);
