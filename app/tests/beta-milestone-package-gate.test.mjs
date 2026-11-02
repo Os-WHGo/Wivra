@@ -15,7 +15,7 @@ test('beta PRs still run integration contracts, but installers need explicit mil
     const start=beta.indexOf('  '+job+':');
     assert.ok(start>0, 'missing job '+job);
     const part=beta.slice(start,start+450);
-    assert.match(part,/if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| contains\(github\.event\.pull_request\.labels\.\*\.name, 'wivra-package-beta'\) \}\}/);
+    assert.match(part,/if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| \(github\.event\.action == 'labeled' && github\.event\.label\.name == 'wivra-package-beta'\) \}\}/);
   }
   assert.match(beta,/android-media-emulator:[\s\S]*?needs: android-beta/);
   assert.match(beta,/Package UNSIGNED IPA/);
