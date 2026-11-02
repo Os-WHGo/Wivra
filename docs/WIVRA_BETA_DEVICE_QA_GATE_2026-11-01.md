@@ -265,3 +265,10 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - Antes de Preparar cámara, marcar «Usar cámara frontal» o dejarla desmarcada (trasera); sólo en estado idle. Se elige un dispositivo AVCaptureDevice realmente enumerado antes de MediaMixer.attachVideo. Ausencia o fallo de dispositivo cancela preparación y libera la sesión de audio opcional. No se cambia cámara durante LIVE, no PiP ni dos cámaras simultáneas.
 - Contrato de regresión: streaming/tests/ios-phone-live-native.test.mjs exige selección real + MP4 privado opcional + recuperación verificada después de relanzar + preview + única pantalla LIVE en el mismo árbol.
 - Comparar CI del HEAD consolidado, no reutilizar verde de #156 ni de PR #159 anterior. Sigue sin QA física autorizada, iOS firmado, prueba de RTMPS o VOD.
+
+
+### P0-V · Reserva de disco LIVE iPhone en MP4 privado
+
+- Previo a StreamRecorder.startRecording, verificar al menos 256 MiB libres mediante FileManager.attributesOfFileSystem; si la consulta falla o no hay reserva, no iniciar stream público con copia prometida. En modo solo LIVE sin MP4 no exigir este espacio adicional.
+- Durante LIVE+MP4, vigilar cada 10 segundos el espacio libre. Al caer por debajo de 256 MiB cerrar LIVE y StreamRecorder, retener el archivo privado para revisión. No fingir que el contenedor que no se puede verificar ya está reproducible; reanálisis posterior es manual.
+- Pruebas negativas de reserva insuficiente y falta de acceso al volumen en la tanda física. La estimación de minutos es por bitrate real y overhead de muxer, no inferir 60 min garantizados solo por tener 256 MiB de reserva. Evitar capturar video de clientes en CI.
