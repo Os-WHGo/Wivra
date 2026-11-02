@@ -55,9 +55,12 @@ object WivraRandomExportStore {
         active[token]?.takeIf { it.owner == owner }
             ?: throw IOException("Sesión acelerada desconocida.")
 
+    internal fun validEstimatedBytes(estimatedBytes: Long): Boolean =
+        estimatedBytes > 0 && estimatedBytes <= WivraRandomAccessExportSession.MAX_OUTPUT_BYTES
+
     fun begin(context: Context, mime: String, estimatedBytes: Long, owner: String): Int {
         if (mime != "video/mp4" && mime != "video/webm") throw IOException("Contenedor inválido.")
-        if (estimatedBytes <= 0 || estimatedBytes > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
+        if (!validEstimatedBytes(estimatedBytes))
             throw IOException("Tamaño estimado fuera del límite seguro.")
         if (WivraExportStore.freeBytes(context) < estimatedBytes + MIN_FREE_BYTES)
             throw IOException("Espacio insuficiente para la exportación y reserva del sistema.")
