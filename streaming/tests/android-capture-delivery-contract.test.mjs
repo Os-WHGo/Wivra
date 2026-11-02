@@ -3,12 +3,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
 
-test('both Android flavors compile and publish their own APK', () => {
-  const workflow = read('.github/workflows/unified-android-build.yml');
-  assert.match(workflow, /:app:assembleFullDebug :app:assembleCaptureDebug/);
-  assert.match(workflow, /name: WivraCapture-RayBan-DEBUG[\s\S]*?path: streaming\/android\/app\/build\/outputs\/apk\/capture\/debug\/app-capture-debug\.apk/);
-  assert.match(workflow, /name: WivraUnifiedAndroid-DEBUG[\s\S]*?path: streaming\/android\/app\/build\/outputs\/apk\/full\/debug\/app-full-debug\.apk/);
-  assert.doesNotMatch(workflow, /outputs\/apk\/debug\/app-debug\.apk/);
+test('Android flavors compile in ordinary PRs; APK delivery is reserved for beta milestones', () => {
+  const normal = read('.github/workflows/unified-android-build.yml');
+  const milestone = read('.github/workflows/wivra-complete-beta-assembly.yml');
+  assert.match(normal, /:app:compileFullDebugKotlin :app:compileCaptureDebugKotlin/);
+  assert.match(normal, /:app:testFullDebugUnitTest :app:testCaptureDebugUnitTest/);
+  assert.doesNotMatch(normal, /:app:assemble(?:Full|Capture)Debug/);
+  assert.doesNotMatch(normal, /actions\/upload-artifact/);
+  assert.match(milestone, /:app:assembleFullDebug/);
+  assert.match(milestone, /:app:assembleCaptureDebug/);
+  assert.match(milestone, /wivra-package-beta/);
+  assert.match(milestone, /outputs\/apk\/capture\/debug\/app-capture-debug\.apk/);
+  assert.match(milestone, /outputs\/apk\/full\/debug\/app-full-debug\.apk/);
+  assert.doesNotMatch(milestone, /outputs\/apk\/debug\/app-debug\.apk/);
 });
 
 test('standalone Capture opens Meta camera rather than the editor', () => {
