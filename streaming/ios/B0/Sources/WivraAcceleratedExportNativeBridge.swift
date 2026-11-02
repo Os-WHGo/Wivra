@@ -32,6 +32,7 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
         let mime: String
         let estimatedBytes: Int64
         let data: Data?
+        let name: String
     }
 
     func userContentController(_ userContentController: WKUserContentController,
@@ -76,7 +77,8 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
             expectedDurationMs: number("expectedDurationMs"),
             expectAudio: body["expectAudio"] as? Bool ?? false,
             mime: body["mime"] as? String ?? "",
-            estimatedBytes: number("estimatedBytes"), data: data)
+            estimatedBytes: number("estimatedBytes"), data: data,
+            name: body["name"] as? String ?? "")
         let owner = owner
         let view = webView
         Task { @MainActor in
@@ -121,6 +123,23 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
                     }
                     try await WivraPhotosLibrary.saveVideo(saved.url)
                     replyHandler(["ok": true, "savedToPhotos": true], nil)
+                case "listRecovered":
+                    let recovered = await store.recovered()
+                    let files: [[String: Any]] = recovered.prefix(100).map {
+                        ["name": $0.url.lastPathComponent, "bytes": $0.bytes,
+                         "durationMs": $0.media.durationMs]
+                    }
+                    replyHandler(["ok": true, "files": files], nil)
+                case "shareRecovered":
+                    let recovered = await store.recovered()
+                    guard request.name.count <= 128,
+                          let match = recovered.first(where: {
+                              $0.url.lastPathComponent == request.name
+                          }),
+                          let view, Self.presentShare(match.url, from: view) else {
+                        throw WivraExportError.io("Archivo privado no verificado o no disponible.")
+                    }
+                    replyHandler(["ok": true, "shared": true], nil)
                 case "share":
                     guard let saved = await store.saved(token: request.token, owner: owner),
                           let view, Self.presentShare(saved.url, from: view) else {
