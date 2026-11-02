@@ -5,6 +5,21 @@ import {recordExperimentalNativeMultitrack as run,
   saveVerifiedAcceleratedVideoToPhotos}
   from '../accelerated-native-multitrack-export.mjs';
 
+// Test-only codec implementations. The real native workflow MUST use
+// WebView/WKWebView's VideoEncoder/AudioEncoder.isConfigSupported instead.
+const originalVideoEncoder=globalThis.VideoEncoder;
+const originalAudioEncoder=globalThis.AudioEncoder;
+test.before(()=>{
+ globalThis.VideoEncoder={isConfigSupported:async config=>({supported:true,config})};
+ globalThis.AudioEncoder={isConfigSupported:async config=>({supported:true,config})};
+});
+test.after(()=>{
+ if(originalVideoEncoder===undefined)delete globalThis.VideoEncoder;
+ else globalThis.VideoEncoder=originalVideoEncoder;
+ if(originalAudioEncoder===undefined)delete globalThis.AudioEncoder;
+ else globalThis.AudioEncoder=originalAudioEncoder;
+});
+
 const project=()=>({
  clips:[{id:'c',asset_id:'v',start:0,in:0,out:.4}],
  overlayClips:[],audioClips:[],texts:[],
