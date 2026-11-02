@@ -69,10 +69,10 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
         } else { data = nil }
         // Keep each token/sequence within Int32 so no NSNumber->Int overflow
         // can create a different addressable export on either platform.
-        let request = Request(op: op, token: token > 0 && token < Int32.max ? Int(token) : -1,
-            seq: seq >= 0 && seq < Int32.max ? Int(seq) : -1,
+        let request = Request(op: op, token: token > 0 && token < Int64(Int32.max) ? Int(token) : -1,
+            seq: seq >= 0 && seq < Int64(Int32.max) ? Int(seq) : -1,
             position: position, bytes: number("bytes"),
-            writes: writes >= 0 && writes < Int32.max ? Int(writes) : -1,
+            writes: writes >= 0 && writes < Int64(Int32.max) ? Int(writes) : -1,
             expectedDurationMs: number("expectedDurationMs"),
             expectAudio: body["expectAudio"] as? Bool ?? false,
             mime: body["mime"] as? String ?? "",
