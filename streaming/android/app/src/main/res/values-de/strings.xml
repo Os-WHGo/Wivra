@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">Gewählter Eingang nicht mehr verfügbar. Vor LIVE anderen auswählen.</string>
     <string name="live_audio_limits_button">Einschränkungen</string>
     <string name="live_audio_preference_only">Android erhält eine bevorzugte Audioquelle. Tatsächlicher Eingang und Qualität erfordern einen Audiotest. Brillenmikrofon nicht bestätigt.</string>
+    <string name="accelerated_recovery_button">Exportierte Videos wiederherstellen</string>
+    <string name="accelerated_recovery_title">Wiederherstellbare Schnell-Exporte</string>
+    <string name="accelerated_recovery_empty">Keine verifizierten Schnell-Exporte zur Wiederherstellung vorhanden.</string>
+    <string name="accelerated_recovery_confirm">Dieses geprüfte Video in der Galerie speichern? Bei einem Fehler bleibt die private Kopie erhalten.</string>
+    <string name="accelerated_recovery_save">In Galerie speichern</string>
+    <string name="accelerated_recovery_success">Geprüftes Video in Movies/Wivra gespeichert.</string>
+    <string name="accelerated_recovery_failed">Speichern fehlgeschlagen. Die private Kopie bleibt erhalten.</string>
 </resources>
