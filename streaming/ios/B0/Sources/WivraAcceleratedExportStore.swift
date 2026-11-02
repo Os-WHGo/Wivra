@@ -20,17 +20,24 @@ actor WivraAcceleratedExportStore {
         let owner: String
         let writer: WivraRandomAccessExportSession
     }
-    private let directory = FileManager.default
-        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("WivraAcceleratedExports", isDirectory: true)
+    private let directory: URL
+    private let freeSpace: @Sendable (URL) -> Int64
+
+    init(directory: URL? = nil, freeSpace: (@Sendable (URL) -> Int64)? = nil) {
+        self.directory = directory ?? FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WivraAcceleratedExports", isDirectory: true)
+        self.freeSpace = freeSpace ?? { url in
+            let values = try? url.resourceValues(
+                forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            return values?.volumeAvailableCapacityForImportantUsage ?? 0
+        }
+    }
+
     private var sessions: [Int: Session] = [:]
     private var finished: [Int: (owner: String, result: Completed)] = [:]
 
-    private func freeBytes() -> Int64 {
-        let values = try? directory.resourceValues(
-            forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-        return values?.volumeAvailableCapacityForImportantUsage ?? 0
-    }
+    private func freeBytes() -> Int64 { freeSpace(directory) }
 
     func cleanupOrphans() throws -> Int {
         // Never delete an active writer even if an editor was opened quickly.
