@@ -10,6 +10,7 @@ const sink = readFileSync(new URL('../accelerated-native-sink.mjs',import.meta.u
 test('offline editor build includes shared fast modules but does not enable unfinished exporter',()=>{
   assert.match(build, /'\.\/accelerated-cut-renderer\.mjs'/);
   assert.match(build, /'\.\/accelerated-native-sink\.mjs'/);
+  assert.match(build, /'\.\/accelerated-memory-export\.mjs'/);
   assert.equal(ACCELERATED_EXPORT_IMPLEMENTED,false);
   assert.equal(selectExportEngine({requested:'auto',webCodecs:true,mediabunny:true,
     fullTimelineRenderer:true,nativeRandomAccess:true,verifiedOnDevice:true}).engine,'mediarecorder');
