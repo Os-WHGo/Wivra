@@ -3,8 +3,8 @@
 // same drawFrame implementation as the stable exporter, including captions,
 // video overlays, image overlays, crop, shapes and fade transforms. Decoding
 // each frame by timestamp avoids cumulative seeking/MediaRecorder clock drift.
-// This still runs only in explicit QA, bounded to 120 s / 160 items / <=60 fps.
-// A 2-minute synthetic test is not a 30/60-minute or iPhone hardware proof.
+// This still runs only in explicit QA, bounded to 180 s / 160 items / <=60 fps.
+// A 3-minute synthetic test is not a 30/60-minute or iPhone hardware proof.
 import {clipLength,srcTime} from '../core/project.mjs';
 import {drawFrame,formatSize,exportBitrate,clipGain} from './export.mjs';
 import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parity.mjs';
@@ -12,7 +12,7 @@ import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
 
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
-export const ACCELERATED_MULTITRACK_MAX_SECONDS = 120;
+export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
 export const ACCELERATED_MULTITRACK_MAX_ITEMS = 160;
 
 // Explicit supported keys. Unknown future edits MUST NOT disappear silently.
