@@ -17,6 +17,7 @@ struct WivraMetaB0App: App {
     @State private var showingCaptureLibrary = false
     @State private var showingExportLibrary = false
     @State private var showingUnifiedEditor = false
+    @State private var showingIPhoneLive = false
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
     // to the destination until the current camera has released AVFoundation
@@ -83,6 +84,15 @@ struct WivraMetaB0App: App {
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
                     Button {
+                        showingIPhoneLive = true
+                    } label: {
+                        Label("LIVE iPhone", systemImage: "dot.radiowaves.left.and.right")
+                    }
+                    .disabled(!model.isReleasedForCameraHandoff ||
+                              !iPhoneCamera.isReleasedForCameraHandoff ||
+                              pendingCaptureTab != nil)
+                    .accessibilityIdentifier("ios_live_phone_entry")
+                    Button {
                         showingCaptureLibrary = true
                     } label: {
                         Label("ios.app.captures", systemImage: "folder")
@@ -134,6 +144,9 @@ struct WivraMetaB0App: App {
                 }
             }
             .onAppear { phoneNetwork.start() }
+            .sheet(isPresented: $showingIPhoneLive) {
+                WivraIOSPhoneLiveScreen()
+            }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
             }
