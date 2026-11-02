@@ -25,6 +25,9 @@ test('Mediabunny accelerated cuts accept only a same-source lossless-semantics s
     p => p.clips[1].volume = 0.6,
     p => p.clips[0].muted = true,
     p => p.clips[0].filters = ['cinematic'],
+    p => p.clips[0].opacity = 0.5,
+    p => p.clips[0].look = 'cinematic',
+    p => p.clips[0].newVisualEffect = 'future',
     p => p.clips[0].asset_id = 'other',
     p => p.format.aspect = '9:16'
   ]) {
