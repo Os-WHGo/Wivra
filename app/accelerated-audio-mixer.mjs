@@ -8,6 +8,11 @@ import {clipGain} from './export.mjs';
 export const ACCELERATED_AUDIO_SAMPLE_RATE = 48000;
 export const ACCELERATED_AUDIO_BLOCK_FRAMES = 48000;
 export const ACCELERATED_AUDIO_MAX_TRACKS = 32;
+// The decoder is queried by short windows, but one malformed response could
+// otherwise retain hours of decoded PCM before we reject an output. These are
+// per-window QA safety budgets, never a claim about whole-device RAM.
+export const ACCELERATED_AUDIO_MAX_DECODED_WINDOW_BYTES = 16 * 1024 * 1024;
+export const ACCELERATED_AUDIO_MAX_BUFFER_SECONDS = 4;
 
 function checkAudio({tracks, totalSeconds, sampleRate, blockFrames, channels}) {
   if (!Array.isArray(tracks) || tracks.length > ACCELERATED_AUDIO_MAX_TRACKS ||
@@ -83,7 +88,18 @@ export async function* mixAcceleratedAudioBlocks({
     if (!(left instanceof Float32Array) || !(right instanceof Float32Array))
       throw new Error('Missing output PCM channels.');
     const start=fromFrame/sampleRate,stop=(fromFrame+count)/sampleRate;
-    let mixedTracks=0, decodedBuffers=0, audibleFrames=0;
+    // Compute voice attenuation once per PCM output sample, not once for
+    // each active music/video source. With a 30-voice montage this avoids
+    // rescanning voices that are minutes away from the current output block.
+    const windowDucks=voiceDucks.filter(({clip,end})=>
+      clip.start<stop && end>start);
+    const needsDuck=windowDucks.length && tracks.some(({clip})=>
+      !VOICE_ROLES.has(clip.role) && clipGain(clip)>0 &&
+      clip.start<stop && clip.start+clipLength(clip)>start);
+    const duckGains=needsDuck?new Float32Array(count):null;
+    if(duckGains)for(let i=0;i<count;i++)
+      duckGains[i]=duckMultiplierAt((fromFrame+i)/sampleRate,windowDucks);
+    let mixedTracks=0, decodedBuffers=0, decodedPCMBytes=0, audibleFrames=0;
     for (const lane of tracks) {
       const c=lane.clip, gain=clipGain(c), speed=speedOf(c);
       const activeStart=Math.max(start,c.start);
@@ -104,6 +120,11 @@ export async function* mixAcceleratedAudioBlocks({
           throw new Error('Corrupt decoded audio buffer.');
         if(b.numberOfChannels>2)
           throw new Error('Surround input requires a validated multichannel downmix.');
+        if(b.length>b.sampleRate*ACCELERATED_AUDIO_MAX_BUFFER_SECONDS)
+          throw new Error('Decoded accelerated audio buffer exceeds safe window.');
+        decodedPCMBytes+=b.length*b.numberOfChannels*Float32Array.BYTES_PER_ELEMENT;
+        if(decodedPCMBytes>ACCELERATED_AUDIO_MAX_DECODED_WINDOW_BYTES)
+          throw new Error('Decoded accelerated audio window exceeds memory budget.');
         const first=b.getChannelData(0);
         if (!(first instanceof Float32Array) || first.length < b.length)
           throw new Error('Decoded PCM samples are missing.');
@@ -137,8 +158,8 @@ export async function* mixAcceleratedAudioBlocks({
         const ix2=Math.min(ix+1,source.length-1);
         const frac=Math.max(0,Math.min(1,sourceSample-ix));
         const offset=frame-fromFrame;
-        const bedGain=voiceDucks.length && !VOICE_ROLES.has(c.role)
-          ?duckMultiplierAt(timelineTime,voiceDucks):1;
+        const bedGain=duckGains && !VOICE_ROLES.has(c.role)
+          ?duckGains[offset]:1;
         const l=(source.left[ix]*(1-frac)+source.left[ix2]*frac)*gain*bedGain;
         const r=(source.right[ix]*(1-frac)+source.right[ix2]*frac)*gain*bedGain;
         if (!Number.isFinite(l) || !Number.isFinite(r))
