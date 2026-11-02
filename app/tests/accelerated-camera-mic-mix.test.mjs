@@ -50,7 +50,7 @@ test('camera original audio and delayed microphone are both mixed into exported 
   Mp4OutputFormat:class{},WebMOutputFormat:class{},ALL_FORMATS:[],
   getFirstEncodableVideoCodec:async()=> 'avc',canEncodeAudio:async()=>true};
  const project={clips:[{id:'camera',asset_id:'camera',start:0,in:0,out:.5}],
-  overlayClips:[],audioClips:[{id:'mic',asset_id:'mic',start:.2,in:0,out:.3}],
+  overlayClips:[],audioClips:[{id:'mic',asset_id:'mic',start:.2,in:0,out:.2}],
   texts:[],format:{aspect:'original'}};
  const media={camera:{url:'blob:camera',kind:'video',w:320,h:180,duration:2},
   mic:{url:'blob:mic',kind:'audio',duration:2}};
