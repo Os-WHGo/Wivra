@@ -12,6 +12,7 @@ import UIKit
 final class WivraIOSPhoneLivePublisher {
     var endpoint = ""
     var includeMicrophone = false
+    var useFrontCamera = false
     var status = "Sin emisión. Wivra no guarda una copia de este LIVE."
     private(set) var isBusy = false
     private(set) var isBroadcastRequested = false
@@ -46,10 +47,13 @@ final class WivraIOSPhoneLivePublisher {
                 return
             }
         }
+        // Choose the actual AVCaptureDevice before starting capture. Do not
+        // mutate the capture session while RTMP is active without real QA.
+        let position: AVCaptureDevice.Position = useFrontCamera ? .front : .back
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                  for: .video, position: .back) else {
+                                                  for: .video, position: position) else {
             isBusy = false
-            status = "No se encontró cámara trasera del iPhone."
+            status = "La cámara elegida no está disponible en este iPhone."
             return
         }
         do {
@@ -154,7 +158,7 @@ struct WivraIOSPhoneLiveScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("LIVE iPhone · cámara trasera")
+                    Text("LIVE iPhone · cámara del teléfono")
                         .font(.headline)
                     Text("RTMP/RTMPS de cámara del iPhone. No usa Ray-Ban, no captura otras apps, no continúa con la pantalla bloqueada y todavía no crea MP4 local.")
                         .font(.footnote)
@@ -164,6 +168,9 @@ struct WivraIOSPhoneLiveScreen: View {
                         .privacySensitive()
                         .accessibilityIdentifier("ios_live_private_endpoint")
                         .disabled(publisher.isBusy || publisher.isBroadcastRequested)
+                    Toggle("Usar cámara frontal", isOn: $publisher.useFrontCamera)
+                        .disabled(publisher.isBusy || publisher.isBroadcastRequested)
+                        .accessibilityIdentifier("ios_live_front_camera_option")
                     Toggle("Enviar audio del micrófono (opcional)", isOn: $publisher.includeMicrophone)
                         .disabled(publisher.isBusy || publisher.isBroadcastRequested)
                     Text("La clave no se guarda. La grabación remota/VOD depende de tu plataforma. El audio no incluye otras aplicaciones.")
