@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {recordExperimentalNativeMultitrack as run}
+import {recordExperimentalNativeMultitrack as run,
+  saveVerifiedAcceleratedVideoToPhotos}
   from '../accelerated-native-multitrack-export.mjs';
 
 const project=()=>({
@@ -135,4 +136,70 @@ test('a canvas paint error cannot silently drop frames or publish a partial',asy
   assert.ok(!host.ops.includes('finishRandom'));
   assert.ok(log.includes('cancel'));
  }finally{globalThis.document=old;}
+});
+
+test('verified iPhone QA can save a new Photos copy only with explicit opt-in',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ host.platform='ios';
+ const native=host.request.bind(host);
+ host.request=async message=>{
+  if(message.op==='finishRandom')return {...await native(message),token:101};
+  if(message.op==='savePhotos'){
+   assert.equal(message.token,101);
+   host.ops.push('savePhotos');
+   return {savedToPhotos:true};
+  }
+  return native(message);
+ };
+ globalThis.document=documentFake();
+ try {
+  const out=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,saveToPhotos:true});
+  assert.equal(out.saved.verified,true);
+  assert.equal(out.verifiedOnDevice,false);
+  assert.deepEqual(out.photos,{requested:true,saved:true,privateCopyPreserved:true});
+  assert.deepEqual(host.ops,
+   ['helloRandom','beginRandom','finishRandom','savePhotos']);
+ }finally{globalThis.document=old;}
+});
+
+test('Photos denial never deletes the verified private output or advertises gallery success',async()=>{
+ const host=fakeHost(),M=fakeM([]),old=globalThis.document;
+ host.platform='ios';
+ const native=host.request.bind(host);
+ host.request=async message=>{
+  if(message.op==='finishRandom')return {...await native(message),token:101};
+  if(message.op==='savePhotos'){
+   host.ops.push('savePhotos');
+   throw Error('Permiso de Fotos denegado');
+  }
+  return native(message);
+ };
+ globalThis.document=documentFake();
+ try {
+  const out=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,saveToPhotos:true});
+  assert.equal(out.verifiedNative,true);
+  assert.equal(out.photos.saved,false);
+  assert.equal(out.photos.privateCopyPreserved,true);
+  assert.match(out.photos.error,/denegado/);
+  assert.ok(!host.ops.includes('abortRandom'));
+ }finally{globalThis.document=old;}
+});
+
+test('Photos never runs on default, Android, forged receipts or unconfirmed requests',async()=>{
+ const host=fakeHost(),M=fakeM([]);
+ await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+  experimentalAccelerated:true,saveToPhotos:true}),/Fotos acelerado/);
+ await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+  experimentalAccelerated:true,saveToPhotos:'true'}),/Fotos acelerado/);
+ assert.deepEqual(host.ops,[]);
+ host.platform='ios';
+ const fake={verified:true,token:101,bytes:100,
+  sha256:'a'.repeat(64),media:{video:true,durationMs:400}};
+ await assert.rejects(saveVerifiedAcceleratedVideoToPhotos({
+  host,saved:fake}),/confirmación explícita/);
+ await assert.rejects(saveVerifiedAcceleratedVideoToPhotos({
+  host,saved:{...fake,sha256:'invalid'},userConfirmed:true}),/verificado/);
+ assert.deepEqual(host.ops,[]);
 });

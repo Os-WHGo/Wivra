@@ -2,6 +2,33 @@ import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accele
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 import {exportEstimatedBytes} from './export.mjs';
 
+/**
+ * W22: iOS private v2 files remain the authoritative recovery copy.
+ * Only an explicit user's Photos action may add a copy to the Photos library.
+ * Never turn a simulated/missing native verification into "saved to Photos".
+ * The existing iOS native handler checks ownership and invokes the system
+ * permission flow independently. Neither this helper nor the QA renderer
+ * can read other photos, delete media, or use the v1 bridge.
+ */
+export async function saveVerifiedAcceleratedVideoToPhotos({
+  host,saved,userConfirmed=false
+}={}) {
+  if(userConfirmed!==true)
+    throw new Error('Guardar en Fotos requiere confirmación explícita.');
+  if(host?.platform!=='ios'||typeof host.request!=='function')
+    throw new Error('Fotos acelerado solo está disponible en iPhone.');
+  if(saved?.verified!==true || !Number.isSafeInteger(saved.token) ||
+     saved.token<=0 || !Number.isSafeInteger(saved.bytes) || saved.bytes<=0 ||
+     !/^[0-9a-f]{64}$/i.test(saved.sha256||'') ||
+     saved.media?.video!==true ||
+     !Number.isSafeInteger(saved.media.durationMs) || saved.media.durationMs<=0)
+    throw new Error('Fotos exige un archivo nativo acelerado verificado.');
+  const receipt=await host.request({op:'savePhotos',token:saved.token});
+  if(receipt?.savedToPhotos!==true)
+    throw new Error('Fotos no confirmó el guardado; archivo privado conservado.');
+  return {saved:true,privateCopyPreserved:true};
+}
+
 // The experimental v2 transport is NEVER selected by the production export
 // engine. The caller must explicitly request this QA path, and the stable
 // MediaRecorder path is untouched. Native file is not opened until ALL assets,
@@ -9,12 +36,14 @@ import {exportEstimatedBytes} from './export.mjs';
 export async function recordExperimentalNativeMultitrack({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
   isCancelled=()=>false,onProgress=()=>{},imageFactory,
-  fps=30,sampleRate=48000,estimatedBytes
+  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false
 }={}) {
   if(experimentalAccelerated!==true)
     throw new Error('La exportación multipista nativa requiere modo experimental explícito.');
   if(typeof expectAudio!=='boolean')
     throw new Error('La presencia de audio multipista debe declararse explícitamente.');
+  if(typeof saveToPhotos!=='boolean' || (saveToPhotos && host?.platform!=='ios'))
+    throw new Error('Fotos acelerado requiere iPhone y autorización explícita.');
   if(!host || !['android','ios'].includes(host.platform) ||
      typeof host.request!=='function' ||typeof host.sendWriteAt!=='function')
     throw new Error('El puente nativo multipista v2 no está disponible.');
@@ -65,11 +94,25 @@ export async function recordExperimentalNativeMultitrack({
     const saved=await sink.finish();
     if(saved.verified!==true||saved.bytes!==stats.outputBytes)
       throw new Error('El archivo multipista nativo no se pudo verificar.');
+    // A Photos denial, interruption or missing permission cannot discard the
+    // already verified private video. Report actual state; never fake success.
+    let photos={requested:saveToPhotos,saved:false,privateCopyPreserved:true};
+    if(saveToPhotos) {
+      try {
+        const receipt=await saveVerifiedAcceleratedVideoToPhotos({
+          host,saved,userConfirmed:true
+        });
+        photos={requested:true,...receipt};
+      } catch(error) {
+        photos={requested:true,saved:false,privateCopyPreserved:true,
+          error: error instanceof Error ? error.message : 'Fotos no disponible.'};
+      }
+    }
     onProgress({t:prepared.totalSeconds,total:prepared.totalSeconds,pct:1});
     return {experimental:true,verifiedNative:true,verifiedOnDevice:false,
       rendererReadyForProduction:false,
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
-      saved,render:stats};
+      saved,render:stats,photos};
   }catch(error){
     if(sink) {
       try{await sink.abort();}catch{}

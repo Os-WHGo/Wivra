@@ -352,3 +352,23 @@ test('120-second accelerator canary preserves 120 cuts and 30 independent voices
  }),/item-count/);
  assert.equal(M.events.some(x=>x[0]==='start'),false);
 });
+
+test('main source lookup preserves original sequence when timeline array is unsorted',async()=>{
+ const M=fakeM(),p=proj(),{document}=context();
+ p.clips=[...p.clips].reverse();
+ p.audioClips=[];p.overlayClips=[];
+ const prior=globalThis.document;
+ globalThis.document=document;
+ try {
+  const prepared=await prepareAcceleratedMultitrack({
+   project:p,media,M,imageFactory,expectedAudio:false
+  });
+  const result=await renderAcceleratedMultitrack({
+   prepared,fps:30,writeAt:async(_pos,b)=>b.length
+  });
+  assert.equal(result.videoFrames,18);
+  const decoded=M.events.filter(e=>e[0]==='decode-video');
+  assert.equal(decoded[0][1],'blob:main');
+  assert.equal(decoded.at(-1)[1],'blob:guest');
+ }finally{globalThis.document=prior;}
+});

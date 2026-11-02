@@ -283,6 +283,13 @@ export async function renderAcceleratedMultitrack({
     tracks:audible,totalSeconds,sampleRate,
     blockFrames:sampleRate,channels:2,isCancelled
   })[Symbol.asyncIterator]():null;
+  // Sort the same authored lanes ONCE, not once per encoded frame.
+  // The original compositor still receives the unchanged project and applies
+  // its existing filters, captions and fades. Only source lookup is indexed.
+  const mainTimeline=[...project.clips].sort((a,b)=>a.start-b.start);
+  const overlayTimeline=[...(project.overlayClips??[])].sort(
+    (a,b)=>(a.track??0)-(b.track??0)||a.start-b.start);
+  let mainIndex=0;
   let videoFrames=0,audioBlocks=0,overlaysRendered=0,finalized=false;
   try {
     await output.start();
@@ -290,7 +297,12 @@ export async function renderAcceleratedMultitrack({
       if(isCancelled())throw new Error('Accelerated multi-lane render cancelled.');
       const t=k/fps,dt=Math.min((k+1)/fps,totalSeconds)-t;
       if(dt<=0)continue;
-      const main=project.clips.find(c=>t>=c.start&&t<c.start+clipLength(c));
+      while(mainIndex<mainTimeline.length &&
+            t>=mainTimeline[mainIndex].start+clipLength(mainTimeline[mainIndex]))
+        mainIndex++;
+      const candidate=mainTimeline[mainIndex];
+      const main=candidate && t>=candidate.start &&
+        t<candidate.start+clipLength(candidate) ? candidate : null;
       let frame=null;
       if(main){
         const asset=used.get(main.asset_id);
@@ -305,8 +317,7 @@ export async function renderAcceleratedMultitrack({
         }
       }
       const overlays=[];
-      for(const c of [...(project.overlayClips??[])].sort(
-        (a,b)=>(a.track??0)-(b.track??0)||a.start-b.start)) {
+      for(const c of overlayTimeline) {
         if(!(t>=c.start&&t<c.start+clipLength(c)))continue;
         const source=used.get(c.asset_id);
         let visual=source.image;
