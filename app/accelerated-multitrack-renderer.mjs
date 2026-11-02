@@ -47,7 +47,7 @@ function validateAuthoring(project, ledger, media) {
     if (lane.lane==='main' && !['video','image'].includes(media[c.asset_id]?.kind))
       deny('main lane requires video or still image');
     if (media[c.asset_id]?.kind==='image' &&
-        (media[c.asset_id].gif===true || media[c.asset_id].animated===true ||
+        (Boolean(media[c.asset_id].gif) || media[c.asset_id].animated===true ||
          /^image\/gif(?:;|$)/i.test(media[c.asset_id].mime||'')))
       deny('animated GIF source requires frame-accurate decoder');
   }
