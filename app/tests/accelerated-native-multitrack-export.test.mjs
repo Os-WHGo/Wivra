@@ -121,3 +121,18 @@ test('iOS codec refusal never opens a native file and leaves v1 untouched',async
   experimentalAccelerated:true}),/requires H264/);
  assert.deepEqual(host.ops,[]);
 });
+
+test('a canvas paint error cannot silently drop frames or publish a partial',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ globalThis.document={createElement(){return {getContext(){
+  return {fillRect(){},drawImage(){throw Error('GPU lost');},
+   save(){},restore(){},set fillStyle(v){}};
+ }};}};
+ try{
+  await assert.rejects(run({project:project(),media,M,host,
+   experimentalAccelerated:true,expectAudio:false}),/could not be painted/);
+  assert.ok(host.ops.includes('abortRandom'));
+  assert.ok(!host.ops.includes('finishRandom'));
+  assert.ok(log.includes('cancel'));
+ }finally{globalThis.document=old;}
+});
