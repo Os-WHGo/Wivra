@@ -30,3 +30,13 @@ El propietario APROBÓ integrar la alternativa más rápida descubierta por Clau
 4. Al pasar CI real en Chromium, WebView Android, WKWebView iOS y QA hardware, habilitar selección automática inteligente y fallback seguro sólo antes de comenzar a escribir (sin archivos parciales reutilizados).
 
 **Este documento registra avance técnico, no proclama la función completa disponible.**
+
+
+## Segundo macrobloque: exportación experimental REAL desde recordProject (sin activar beta)
+
+- `app/accelerated-memory-export.mjs`: escritor temporal **solo en memoria** y con límite de 96 MiB, escrituras `writeAt` verificadas por rango y comprobación de cobertura completa sin huecos. Cada modificación de cabecera sobrescribe bytes ya escritos; si quedan zonas no escritas, aborta sin producir Blob. Es la ruta de QA corta, no alternativa a disco nativo para videos largos.
+- `app/export.mjs recordProject` admite un parámetro exclusivo **`experimentalAccelerated: true`** para pruebas controladas, con `saveMode:'memory'`; llama al motor común WebCodecs+Mediabunny. El editor normal NO establece este parámetro y no activa esta ruta con `exportEngine:'auto'`. La respuesta marca explícitamente `experimental: true` y `verifiedOnDevice:false`, no verificación ni publicación.
+- `app/build.mjs` empaqueta la lógica experimental en un solo HTML sin conexión. Para la prueba aislada se incluye el CJS local de Mediabunny 1.61.6 mediante `WIVRA_MEDIABUNNY_BUNDLE`; el script confirma nombre, versión exacta y licencia MPL-2.0. GitHub Actions ejecuta prueba de HTML/navegador y restaura después el HTML normal sin SDK. Nunca se utiliza CDN en runtime.
+- `app/tests/accelerated-memory-export.test.mjs` ejecuta el verdadero API `recordProject` con un SDK simulado, incluye verificación de parche de bytes, detección de huecos y denegación de montajes incompatibles. Esto prueba integración del código, NO la reproducción real en Safari/Android ni los efectos multipista.
+- `acceleratedCutEligibility` usa lista permitida de propiedades de clip: cualquier atributo visual desconocido hace fallar la vía rápida y evita perder filtros o efectos en futuras versiones del editor. El código rápido aún no es motor de producción aunque ya haya un API de QA.
+- El adaptador nativo v2 `app/accelerated-native-sink.mjs` valida capacidades, offset, bytes, hash SHA-256 e información de pistas después de las correcciones MP4. Sin implementaciones de host Android/iOS sigue deshabilitado.
