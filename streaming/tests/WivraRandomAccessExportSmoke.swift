@@ -43,7 +43,8 @@ struct WivraRandomAccessExportSmoke {
                                               expectedDurationMs: 1000, expectAudio: true) { _ in media() }
         var expected = source()
         expected.replaceSubrange(12..<14, with: [9,10])
-        assert(try Data(contentsOf: saved.url) == expected)
+        let savedData = try Data(contentsOf: saved.url)
+        assert(savedData == expected)
         let sha = SHA256.hash(data: expected).map { String(format: "%02x", $0) }.joined()
         assert(saved.sha256 == sha)
         await session.abort()
