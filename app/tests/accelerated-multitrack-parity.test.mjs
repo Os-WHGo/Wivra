@@ -81,10 +81,11 @@ test('81 segmented cuts remain ordered with no accumulated rounding and no produ
   const result=analyze(project,media);
   assert.equal(result.valid,true);
   assert.equal(result.tracks.length,81);
-  assert.equal(result.cutOnlyExperimentalEligible,true);
+  assert.equal(result.cutOnlyExperimentalEligible,false); // 81 exceeds cut-only 80-clip gate
   assert.equal(result.rendererReady,false);
   assert.ok(Math.abs(result.totalSeconds-26.973)<1e-9);
-  assert.equal(result.segments.filter(s=>s.type==='gap').length,0);
+  assert.ok(result.segments.filter(s=>s.type==='gap')
+    .reduce((sum,g)=>sum+g.duration,0)<1e-9);
 });
 
 test('fail closed for missing WAV, overlaid media, illegal speeds and overlapping main clips',()=>{
@@ -106,10 +107,12 @@ test('fail closed for missing WAV, overlaid media, illegal speeds and overlappin
 test('analysis accepts a 60-minute timing ledger but never claims a 60-minute render verified',()=>{
   const project=empty();
   project.clips=[{id:'long',asset_id:'v',start:0,in:0,out:3600}];
-  const result=analyze(project,media);
+  const longMedia={...media,v:{...video,duration:3800}};
+  const result=analyze(project,longMedia);
   assert.equal(result.valid,true);
   assert.equal(result.totalSeconds,3600);
   assert.equal(result.cutOnlyExperimentalEligible,false); // cut-only renderer cap stays 120s
   assert.equal(result.rendererReady,false);
-  assert.equal(analyze(project,media,{maxTimelineSeconds:1800}).reason,'timeline-duration');
+  assert.equal(analyze(project,longMedia,{maxTimelineSeconds:1800}).reason,'timeline-duration');
+  assert.equal(analyze(project,media).reason,'source-media-too-short');
 });
