@@ -44,8 +44,12 @@ function validateAuthoring(project, ledger, media) {
           c.zoom??1,c.px??.5,c.py??.5].every(Number.isFinite) ||
         (c.scale??.35)<=0 || (c.opacity??1)<0 || (c.opacity??1)>1))
       deny('invalid overlay transform');
-    if (lane.lane==='main' && media[c.asset_id]?.kind!=='video')
-      deny('main lane requires video');
+    if (lane.lane==='main' && !['video','image'].includes(media[c.asset_id]?.kind))
+      deny('main lane requires video or still image');
+    if (media[c.asset_id]?.kind==='image' &&
+        (media[c.asset_id].gif===true || media[c.asset_id].animated===true ||
+         /^image\/gif(?:;|$)/i.test(media[c.asset_id].mime||'')))
+      deny('animated GIF source requires frame-accurate decoder');
   }
   for(const t of project.texts??[]) {
     if(typeof t.text!=='string')deny('caption must contain a text string');
@@ -132,8 +136,11 @@ export async function prepareAcceleratedMultitrack({
     deny('essential voice extends beyond final video');
   if(ledger.needsParity.textsBeyondEnd)
     deny('authored captions continue beyond final picture');
-  const first=media[project.clips[0].asset_id];
-  if(!(first?.w>0 && first?.h>0))deny('first video dimensions unavailable');
+  // Match the stable exporter's aspect-source rule: use the first main
+  // VIDEO, only falling back to a still photo when there is no video.
+  const firstVideo=project.clips.find(c=>media[c.asset_id]?.kind==='video');
+  const first=media[(firstVideo??project.clips[0]).asset_id];
+  if(!(first?.w>0 && first?.h>0))deny('main video/image dimensions unavailable');
   const {w:width,h:height}=formatSize(project.format,first.w,first.h);
   if(width>3840||height>3840||width*height>3840*2160)
     deny('output video exceeds memory-safe dimensions');
@@ -284,10 +291,15 @@ export async function renderAcceleratedMultitrack({
       let frame=null;
       if(main){
         const asset=used.get(main.asset_id);
-        const wrapped=await asset.canvas.getCanvas(srcTime(main,t));
-        const surface=wrapped?.canvas;
-        if(!surface)throw new Error('Missing decoded main video at timeline '+t);
-        frame=asVisual(surface,surface.width,surface.height);
+        if(asset.kind==='image'){
+          frame=asset.image;
+          if(!frame)throw new Error('Missing decoded main still image at timeline '+t);
+        }else{
+          const wrapped=await asset.canvas.getCanvas(srcTime(main,t));
+          const surface=wrapped?.canvas;
+          if(!surface)throw new Error('Missing decoded main video at timeline '+t);
+          frame=asVisual(surface,surface.width,surface.height);
+        }
       }
       const overlays=[];
       for(const c of [...(project.overlayClips??[])].sort(
