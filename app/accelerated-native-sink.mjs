@@ -124,7 +124,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
         }
         state = 'done'; token = null;
         return saved;
-      } catch (e) { state = 'failed'; failure ||= e; throw e; }
+      } catch (e) { committing = false; state = 'failed'; failure ||= e; throw e; }
     },
     async abort() {
       if (state === 'done' || state === 'aborted' || committing) return;
