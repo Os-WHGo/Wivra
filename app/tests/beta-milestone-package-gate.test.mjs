@@ -6,6 +6,7 @@ const workflow = path => readFileSync(new URL('../../.github/workflows/'+path, i
 const beta=workflow('wivra-complete-beta-assembly.yml');
 const android=workflow('unified-android-build.yml');
 const ios=workflow('meta-b0-native-build.yml');
+const acceleratedSoak=workflow('wivra-accelerated-long-soak.yml');
 
 test('beta PRs still run integration contracts, but installers need explicit milestone label',()=>{
   assert.match(beta,/  pull_request:\s+types: \[opened, synchronize, reopened, labeled\]/);
@@ -45,4 +46,14 @@ test('normal iOS source workflow validates simulator and arm64, no IPA archive',
   assert.match(ios,/CODE_SIGNING_ALLOWED=NO/);
   assert.doesNotMatch(ios,/zip -qr .*\.ipa/);
   assert.doesNotMatch(ios,/actions\/upload-artifact/);
+});
+
+test('heavy long-form QA supersedes obsolete PR commits but never interrupts manual milestones',()=>{
+  assert.match(acceleratedSoak,/group: wivra-accelerated-soak-\$\{\{ github\.event_name == 'workflow_dispatch' && github\.run_id \|\| github\.ref \}\}/);
+  assert.match(acceleratedSoak,/cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(acceleratedSoak,/workflow_dispatch:/);
+  assert.match(acceleratedSoak,/minutes: \[10, 20, 30, 60\]/);
+  assert.match(acceleratedSoak,/node tools\/browser-multitrack-accelerated\.cjs --telemetry-smoke/);
+  assert.match(acceleratedSoak,/node tools\/accelerated-resource-telemetry\.test\.cjs/);
+  assert.doesNotMatch(acceleratedSoak,/pull_request_target:/);
 });
