@@ -8,10 +8,11 @@ catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
+const gap=process.argv.includes('--gap');
 const minute=process.argv.includes('--minute');
 const long=process.argv.includes('--long');
 const extended=minute||long||process.argv.includes('--stress');
-const seconds=minute?60:long?30:extended?10:1.2;
+const seconds=minute?60:long?30:extended?10:gap?1.25:1.2;
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
 const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
@@ -69,7 +70,7 @@ const server=http.createServer((req,res)=>{
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
   mediabunny:'pinned 1.61.6',projectSeconds:seconds,
-  profile:minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
+  profile:gap?'1.25s gap-preserving accelerated timeline':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
@@ -86,7 +87,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async({extended,long,minute})=>{
+  report.browser=await page.evaluate(async({extended,long,minute,gap})=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -102,7 +103,7 @@ const server=http.createServer((req,res)=>{
       start:i*.5,in:0,out:.5
     })):[
      {id:'a',asset_id:'first',start:0,in:0,out:.6},
-     {id:'b',asset_id:'second',start:.6,in:.5,out:1.1}
+     {id:'b',asset_id:'second',start:gap?.75:.6,in:.5,out:gap?1:1.1}
     ],
     overlayClips:[{id:'logo',asset_id:'logo',start:.18,in:0,out:1,
       x:.5,y:.5,scale:.18,track:1,opacity:.9}],
@@ -143,7 +144,7 @@ const server=http.createServer((req,res)=>{
     CanvasRenderingContext2D.prototype.fillText=originalFillText;
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
-  },{extended,long,minute});
+  },{extended,long,minute,gap});
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -170,8 +171,9 @@ const server=http.createServer((req,res)=>{
    if(data.length<3)throw Error('A frame could not be decoded at '+time);
    return [data[0],data[1],data[2]];
   };
-  const first=pixel(.2),second=pixel(.95);
-  report.scenes={firstRGB:first,secondRGB:second,
+  const first=pixel(.2),second=pixel(.95),gapRgb=gap?pixel(.68):null;
+  report.scenes={firstRGB:first,secondRGB:second,gapRGB:gapRgb,
+   preservedBlackGap:!gap||gapRgb.every(x=>x<30),
    firstOrange:first[0]>first[2]+25,
    secondBlue:second[2]>second[0]+25};
   const pcm=execFileSync('ffmpeg',['-nostdin','-v','error','-i',actual,
@@ -197,6 +199,7 @@ const server=http.createServer((req,res)=>{
      !(report.ffprobe.duration>report.projectSeconds-.2&&
        report.ffprobe.duration<report.projectSeconds+.3) ||
      !report.scenes.firstOrange||!report.scenes.secondBlue||
+     !report.scenes.preservedBlackGap||
      !(report.audio.beforeVoice<.02 && report.audio.afterVoice>.015) ||
      (extended && !(report.audio.tailVoice>.015)) ||
      !(report.browser.drawnTitles>0) ||
@@ -211,7 +214,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,gap?'wivra-multitrack-gap.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }
