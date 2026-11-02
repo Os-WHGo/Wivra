@@ -88,3 +88,18 @@ test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publis
   assert.match(source, /MTHKViewRepresentable\(previewSource: controller\)/);
   assert.doesNotMatch(app, /showingIPhoneLive|WivraIOSPhoneLiveScreen/);
 });
+
+
+test('long iPhone LIVE copy protects disk and preserves private MP4 under low storage', () => {
+  assert.match(source, /minimumRecordingFreeBytes: Int64 = 256 \* 1024 \* 1024/);
+  assert.match(source, /guard hasRecordingReserve\(\) else \{/);
+  assert.ok(source.indexOf('guard hasRecordingReserve() else {') < source.indexOf('try await writer.startRecording(file, settings: settings)'));
+  assert.match(source, /FileManager\.default\.attributesOfFileSystem\(forPath: root\.path\)/);
+  assert.match(source, /size\[\.systemFreeSize\] as\? NSNumber/);
+  assert.match(source, /storageMonitor = Task \{ \[weak self\] in/);
+  assert.match(source, /Task\.sleep\(nanoseconds: 10_000_000_000\)/);
+  assert.match(source, /self\.status = "Espacio crítico\./);
+  assert.match(source, /await self\.stop\(\)/);
+  assert.match(source, /storageMonitor\?\.cancel\(\)/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+});
