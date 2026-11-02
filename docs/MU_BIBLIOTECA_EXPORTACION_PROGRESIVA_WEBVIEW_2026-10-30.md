@@ -1,6 +1,6 @@
 # Biblioteca tecnológica MU · Entrada: guardar archivos grandes desde un WebView sin agotar la memoria
 
-Origen: Wivra, PR #132 (30-10-2026), escrito por Claude. Está aquí porque esta sesión no tuvo acceso al repositorio de la biblioteca central (`Os-WHGo/Proyecto-Cero`). **Copiar a la biblioteca central** cuando el propietario lo autorice.
+Origen: Wivra, PR #132 (30-10-2026, Claude) y PR #164 (02-11-2026, integración y validación v2). Este archivo es un espejo técnico reutilizable; la sincronización con la biblioteca central MU se realiza por separado.
 
 ## Problema reutilizable
 Una app híbrida (HTML en WebView, en Android e iOS) genera un archivo grande en JavaScript: un video de `MediaRecorder`, una exportación o un ZIP. Si se junta todo en un `Blob`, la memoria crece con el tamaño del archivo y el sistema puede cerrar la app. Además, en Android el WebView no guarda `<a download>` con URL `blob:` sin código nativo, y no tiene `navigator.share`.
@@ -36,3 +36,35 @@ Marco binario usado: cabecera de 16 bytes en little-endian (`'WVX1'`, rid, token
 - Puente simulado en Playwright (`page.exposeFunction`) que escribe a disco: prueba el flujo real de `MediaRecorder` sin teléfono (`tools/browser-progressive-export.cjs`).
 - Instrumentación Android que abre el WebView real del APK y escribe en el MediaStore real (`WivraExportBridgeWebViewTest`).
 - Prueba de humo de un actor Swift en macOS con `xcrun swiftc -swift-version 6` (`streaming/tests/WivraExportStoreSmoke.swift`).
+
+
+## Extensión reutilizable: protocolo nativo v2 de escritura aleatoria y mezcla PCM acotada
+
+### Cuándo usar v2
+
+`MediaRecorder` entrega fragmentos que se agregan en orden. El `StreamTarget` de un muxer como Mediabunny puede modificar posiciones anteriores del archivo al escribir cabeceras, tablas e índices. **No conectar una salida de escritura aleatoria al contrato append-only v1.** Mantener ambos protocolos separados.
+
+### Contrato de escritura aleatoria
+
+1. `begin`: validar MIME, duración estimada, espacio libre y límites antes de crear un archivo temporal.
+2. `writeAt(offset, bytes)`: aceptar escrituras fuera de orden solo dentro del rango declarado. Rechazar offsets inválidos, longitudes excesivas, secuencias repetidas y escrituras fuera del archivo.
+3. `finish`: exigir cobertura completa sin huecos ni solapamientos, total de bytes y escrituras esperado, SHA-256 leído del archivo final e inspección nativa de pistas, duración y seek.
+4. Publicar solo después de verificar: Android termina la fila MediaStore pendiente; iOS mantiene el original privado y comparte o copia a Fotos por acción explícita.
+5. `abort`: cerrar y limpiar parciales no verificados. Si el cierre se interrumpe, conservar solo archivos privados recuperables y volver a verificarlos antes de ofrecerlos.
+
+### Puentes y límites de confianza
+
+- Android: `WebViewCompat.addWebMessageListener`, ArrayBuffer, mensaje de marco principal y URL local exacta. El nativo decide la ruta de almacenamiento; JavaScript nunca entrega una ruta arbitraria.
+- iOS: `WKScriptMessageHandlerWithReply`, base64 y E/S dentro de un actor. Mantener staging privado, inspección AVFoundation y recuperación nativa.
+- El puente v2 no activa el renderer. El motor estable permanece disponible y cualquier preflight fallido debe detenerse antes de abrir el archivo final.
+
+### Mezcla de audio por ventanas
+
+- 48 kHz, bloques de salida de 1 s y mezcla estéreo.
+- Máximo 32 pistas, 4 s por buffer decodificado y 16 MiB de PCM decodificado por ventana.
+- Solicitar únicamente la región fuente necesaria para el bloque actual y liberar el PCM al terminar; no conservar el audio decodificado de todo el montaje.
+- Rechazar muestras corruptas, audio activo sin decodificar y entradas multicanal sin downmix validado. No sustituir silenciosamente una pista perdida por silencio.
+
+### Evidencia y límites
+
+El ensayo W39–W41 de Wivra usa Chromium/Linux, 320×240, VP9/Opus y timelines sintéticos de 10/20/30/60 min. El canario adicional es 720p durante 30 s. En Linux H.264/AAC no estuvo disponible y el fallback WebM se eligió correctamente. Esta evidencia no certifica iPhone, Android físico ni Ray-Ban; la activación automática sigue bloqueada hasta completar esas pruebas.

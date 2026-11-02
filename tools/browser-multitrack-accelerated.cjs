@@ -57,6 +57,13 @@ ffmpeg(['-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=2',
 ffmpeg(['-f','lavfi','-i','anullsrc=r=48000:cl=mono:d=0.5',
   '-c:a','pcm_s16le',silent]);
 files['/bed.wav']=bed;files['/silent-voice.wav']=silent;
+if(longSoak){
+ const bedLong=path.join(tmp,'bed-long.webm');
+ ffmpeg(['-f','lavfi','-i','sine=frequency=200:sample_rate=48000:duration='+seconds,
+  '-c:a','libopus','-b:a','24k','-ac','1','-f','webm',
+  '-cluster_time_limit','1000','-cluster_size_limit','1000000',bedLong]);
+ files['/bed-long.webm']=bedLong;
+}
 const still=path.join(tmp,'overlay.svg');
 fs.writeFileSync(still,
   '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#fef08a"/></svg>');
@@ -97,7 +104,7 @@ const server=http.createServer((req,res)=>{
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
   mediabunny:'pinned 1.61.6',projectSeconds:seconds,
-  profile:telemetrySmoke?'1.2s observed Chromium process-tree smoke':hdCanary?'720p 30s 60-cut 15-voice mobile-resolution canary':longSoak?(longSoakMinutes+'min 120-cut 30-voice long accelerated soak'):duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':threeMinute?'180s 120-cut 30-voice accelerated soak':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
+  profile:telemetrySmoke?'1.2s observed Chromium process-tree smoke':hdCanary?'720p 30s 60-cut 15-voice mobile-resolution canary':longSoak?(longSoakMinutes+'min 120-cut 30-voice continuous music-bed accelerated soak'):duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':threeMinute?'180s 120-cut 30-voice accelerated soak':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
@@ -129,7 +136,7 @@ const server=http.createServer((req,res)=>{
     first:{kind:'video',url:'/first.webm',w:videoWidth,h:videoHeight,duration:longSoak?seconds/120+1:2.2},
     second:{kind:'video',url:'/second.webm',w:videoWidth,h:videoHeight,duration:longSoak?seconds/120+1:2.2},
     mic:{kind:'audio',url:'/mic.wav',duration:2},
-    bed:{kind:'audio',url:'/bed.wav',duration:2},
+    bed:{kind:'audio',url:longSoak?'/bed-long.webm':'/bed.wav',duration:longSoak?seconds:2},
     silentVoice:{kind:'audio',url:'/silent-voice.wav',duration:.5},
     logo:{kind:'image',url:'/overlay.svg',w:48,h:48}
    };
@@ -148,6 +155,13 @@ const server=http.createServer((req,res)=>{
         role:'music',volume:1},
       {id:'voice',asset_id:'silentVoice',start:.35,in:0,out:.45,
         role:'voice_primary',ducking:.8,volume:1}
+    ]:longSoak?[
+      {id:'bed',asset_id:'bed',start:0,in:0,out:seconds,
+        role:'music',volume:.25},
+      ...Array.from({length:30},(_,i)=>({
+        id:'voice'+i,asset_id:'mic',start:.12+(seconds/30)*i,
+        in:0,out:i===29?1.88:2,role:'voice_primary',volume:.75
+      }))
     ]:extended||hdCanary?Array.from({length:longSoak||threeMinute||twoMinute||minute?30:long||hdCanary?15:5},(_,i)=>({
       id:'voice'+i,asset_id:'mic',start:.12+(longSoak?seconds/30:threeMinute?6:twoMinute?4:2)*i,
       in:0,out:i===(longSoak||threeMinute||twoMinute||minute?29:long||hdCanary?14:4)?1.88:2,role:'voice_primary',volume:.75
@@ -259,10 +273,32 @@ const server=http.createServer((req,res)=>{
    for(let i=start;i<end;i++){const x=pcm.readInt16LE(i*2)/32768;energy+=x*x;}
    return Math.sqrt(energy/Math.max(1,end-start));
   };
+  const rmsBand=(a,b,low,high)=>{
+   const short=execFileSync('ffmpeg',['-nostdin','-v','error',
+    '-ss',String(a),'-i',actual,'-t',String(b-a),
+    '-map','0:a:0','-af',`highpass=f=${low},lowpass=f=${high}`,
+    '-ac','1','-ar','16000','-f','s16le','pipe:1'],
+    {timeout:20000,maxBuffer:65536});
+   let sum=0;
+   for(let i=0;i+1<short.length;i+=2){
+    const v=short.readInt16LE(i)/32768;sum+=v*v;
+   }
+   return Math.sqrt(sum/Math.max(1,Math.floor(short.length/2)));
+  };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
    tailVoice:extended?rms(longSoak?seconds*29/30+.25:threeMinute?175.25:twoMinute?116.25:minute?58.25:long||hdCanary?28.25:8.25,
      longSoak?seconds*29/30+.4:threeMinute?175.4:twoMinute?116.4:minute?58.4:long||hdCanary?28.4:8.4):null,
    recordedSeconds:longSoak?report.ffprobe.duration:pcm.length/2/16000};
+  if(longSoak){
+   const lastVoiceStart=.12+(seconds/30)*29;
+   // Separate synthetic 440 Hz narration from the continuous 200 Hz music bed.
+   report.audio.voiceGap=rmsBand(5,5.4,350,550);
+   report.audio.voiceAfter=rmsBand(.4,.8,350,550);
+   report.audio.voiceTail=rmsBand(lastVoiceStart+.3,lastVoiceStart+.7,350,550);
+   report.audio.musicStart=rmsBand(5,5.4,150,260);
+   report.audio.musicMid=rmsBand(seconds/2+5,seconds/2+5.4,150,260);
+   report.audio.musicTail=rmsBand(seconds-5,seconds-4.6,150,260);
+  }
   if(duck){
     report.audio.musicBefore=rms(.15,.25);
     report.audio.musicDucked=rms(.52,.65);
@@ -284,14 +320,18 @@ const server=http.createServer((req,res)=>{
   // encoded ducked file does not trip a pre-voice silence assertion.
   const audioEnvelopeOk=duck
     ? report.audio.beforeVoice>.04 && report.audio.afterVoice>.04
-    : report.audio.beforeVoice<.02 && report.audio.afterVoice>.015;
+    : longSoak
+      ? report.audio.voiceGap<.02 && report.audio.voiceAfter>.015 &&
+        report.audio.voiceTail>.015 && report.audio.musicStart>.015 &&
+        report.audio.musicMid>.015 && report.audio.musicTail>.015
+      : report.audio.beforeVoice<.02 && report.audio.afterVoice>.015;
   if(!report.ffprobe.video||!report.ffprobe.audio||
      !(report.ffprobe.duration>report.projectSeconds-.2&&
        report.ffprobe.duration<report.projectSeconds+.3) ||
      !report.scenes.firstOrange||!report.scenes.secondBlue||
      !report.scenes.preservedBlackGap||
      !audioEnvelopeOk ||
-     (extended && !(report.audio.tailVoice>.015)) ||
+     (extended && !((longSoak?report.audio.voiceTail:report.audio.tailVoice)>.015)) ||
      !(report.browser.drawnTitles>0) ||
      report.browser.result.audioBlocks<1||
      report.browser.result.videoFrames<30||

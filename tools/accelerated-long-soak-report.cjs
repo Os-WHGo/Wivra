@@ -34,9 +34,15 @@ function validateAcceleratedSoakReport(report,minutes){
    Math.abs(report.containerInspection.durationMs-seconds*1000)<=300,'container/seek');
  requireQA(report.scenes?.firstOrange===true&&report.scenes.secondBlue===true&&
    report.scenes.preservedBlackGap===true,'visual parity');
- requireQA(finite(report.audio?.beforeVoice)&&report.audio.beforeVoice<.02&&
-   finite(report.audio.afterVoice)&&report.audio.afterVoice>.015&&
-   finite(report.audio.tailVoice)&&report.audio.tailVoice>.015,'voice continuity');
+ requireQA(finite(report.audio?.voiceGap)&&report.audio.voiceGap<.02&&
+   finite(report.audio.voiceAfter)&&report.audio.voiceAfter>.015&&
+   finite(report.audio.voiceTail)&&report.audio.voiceTail>.015&&
+   finite(report.audio.musicStart)&&report.audio.musicStart>.015&&
+   finite(report.audio.musicMid)&&report.audio.musicMid>.015&&
+   finite(report.audio.musicTail)&&report.audio.musicTail>.015&&
+   finite(report.audio.recordedSeconds)&&
+   Math.abs(report.audio.recordedSeconds-seconds)<=.3,
+   'continuous music and voice continuity');
  requireQA(res&&Array.isArray(res.samples)&&res.samples.length>=2&&
    Array.isArray(res.errors)&&res.errors.length===0&&res.overBudget===false,'resource telemetry');
  requireQA(finite(res.rssBudgetMiB)&&res.rssBudgetMiB>0&&res.rssBudgetMiB<=4096&&
@@ -60,6 +66,8 @@ function validateAcceleratedSoakReport(report,minutes){
    peakRssMiB:res.peakRssMiB,cpuLifetimePct:res.peakCpuLifetimePct,
    samples:res.samples.length,frames:result.videoFrames,
    audioBlocks:result.audioBlocks,outputBytes:result.outputBytes,
+   voiceRmsMin:Number(Math.min(report.audio.voiceAfter,report.audio.voiceTail).toFixed(4)),
+   musicRmsMin:Number(Math.min(report.audio.musicStart,report.audio.musicMid,report.audio.musicTail).toFixed(4)),
    ffprobeSeconds:report.ffprobe.duration};
 }
 function validateAcceleratedSoakDirectory(directory){
@@ -71,11 +79,11 @@ if(require.main===module){
  try{
   const rows=validateAcceleratedSoakDirectory(process.argv[2]||'.');
   const summary=['### Wivra Linux QA: four validated long-form evidence files',
-   '| Video | Render (s) | Peak RSS (MiB) | CPU lifetime % | Samples | Frames | Audio blocks | Bytes |',
-   '|---|---:|---:|---:|---:|---:|---:|---:|',
+   '| Video | Render (s) | Peak RSS (MiB) | CPU lifetime % | Samples | Frames | Audio blocks | Bytes | Voice RMS min | Music RMS min |',
+   '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
    ...rows.map(x=>'| '+x.minutes+' min | '+x.renderSeconds+' | '+x.peakRssMiB+
     ' | '+x.cpuLifetimePct+' | '+x.samples+' | '+x.frames+' | '+x.audioBlocks+
-    ' | '+x.outputBytes+' |'),
+    ' | '+x.outputBytes+' | '+x.voiceRmsMin+' | '+x.musicRmsMin+' |'),
    '',
    'Chromium/Linux WebM VP9/Opus, NOT mobile H264/AAC MP4, physical Ray-Ban, iOS or Android.',''].join('\n');
   process.stdout.write(summary+'\n');

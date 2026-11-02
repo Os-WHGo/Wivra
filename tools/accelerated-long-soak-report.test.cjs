@@ -20,7 +20,7 @@ function report(minutes=10){
   containerInspection:{video:true,audio:true,declaresDuration:true,
    seekIndex:true,container:'webm',durationMs:seconds*1000+20},
   scenes:{firstOrange:true,secondBlue:true,preservedBlackGap:true},
-  audio:{beforeVoice:0,afterVoice:.06,tailVoice:.06}
+  audio:{beforeVoice:0,afterVoice:.06,tailVoice:.06,recordedSeconds:seconds+.02,voiceGap:0,voiceAfter:.06,voiceTail:.06,musicStart:.06,musicMid:.06,musicTail:.06}
  };
 }
 test('requires all 10/20/30/60min reports with exact frames, audio and measured resources',()=>{
@@ -32,7 +32,10 @@ test('requires all 10/20/30/60min reports with exact frames, audio and measured 
 });
 for(const [name,mutate] of [
  ['fake phone validation',r=>{r.browser.result.verifiedOnDevice=true;}],
- ['incomplete voice',r=>{r.audio.tailVoice=0;}],
+ ['incomplete voice',r=>{r.audio.voiceTail=0;}],
+ ['missing continuous music tail',r=>{r.audio.musicTail=0;}],
+ ['missing continuous music mid',r=>{r.audio.musicMid=0;}],
+ ['audio duration mismatch',r=>{r.audio.recordedSeconds++;}],
  ['missing seek index',r=>{r.containerInspection.seekIndex=false;}],
  ['lost frames',r=>{r.browser.result.videoFrames--;}],
  ['lost audio blocks',r=>{r.browser.result.audioBlocks--;}],
