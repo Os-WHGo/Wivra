@@ -147,6 +147,10 @@ class WivraRandomAccessExportSession private constructor(
             // Duration is deliberately not treated as proof of frame-perfect
             // alignment; browser and device QA must check A/V drift separately.
             val hash = digest(partial)
+            // Never allow the inspector to mutate the bytes after validation.
+            // The sealed result must match the bytes verified above.
+            if (partial.length() != maxEnd || digest(partial) != hash)
+                throw IntegrityException("Output changed during native media inspection.")
             val completed = File(partial.parentFile, partial.name.removeSuffix(".partial"))
             if (completed.exists() || !partial.renameTo(completed))
                 throw IOException("Could not atomically seal private accelerated output.")
