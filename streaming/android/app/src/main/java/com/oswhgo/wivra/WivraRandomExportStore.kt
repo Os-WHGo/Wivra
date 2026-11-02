@@ -12,6 +12,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
 import java.security.MessageDigest
+import java.nio.file.Files
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
@@ -212,6 +213,70 @@ object WivraRandomExportStore {
 
     fun saved(token: Int, owner: String): Published? =
         finished[token]?.takeIf { it.first == owner }?.second
+
+
+    /**
+     * Files left sealed when gallery publication failed survive process death.
+     * Inspect on the device, reject symlinks/path escapes, and never mistake a
+     * filename or extension for evidence that a recording is playable.
+     */
+    data class Recovered(val name: String, val mime: String, val bytes: Long,
+                         val sha256: String, val media: WivraRandomAccessExportSession.Media)
+
+    private val sealedName = Regex("""^Wivra_Fast_[A-Za-z0-9_-]{6,80}\\.(mp4|webm)$""")
+
+    private fun validateSealed(context: Context, file: File): Recovered? {
+        val root = directory(context).canonicalFile
+        if (!file.name.matches(sealedName) || !file.isFile ||
+            Files.isSymbolicLink(file.toPath()) || file.canonicalFile.parentFile != root ||
+            file.length() <= 0 || file.length() > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
+            return null
+        val mime = if (file.name.endsWith(".mp4")) "video/mp4" else "video/webm"
+        return try {
+            val media = inspect(file, mime) ?: return null
+            if (!media.video || media.durationMs <= 0) return null
+            val hash = digest()
+            var actual = 0L
+            FileInputStream(file).use { input ->
+                val chunk = ByteArray(1024 * 1024)
+                while (true) {
+                    val count = input.read(chunk)
+                    if (count < 0) break
+                    hash.update(chunk, 0, count)
+                    actual += count
+                }
+            }
+            if (actual != file.length()) return null
+            Recovered(file.name, mime, actual, shaString(hash.digest()), media)
+        } catch (_: Exception) { null }
+    }
+
+    /** Read-only catalog. Never publishes, edits or deletes a saved original. */
+    fun recovered(context: Context): List<Recovered> {
+        return directory(context).listFiles().orEmpty()
+            .filter { it.isFile && it.name.matches(sealedName) }
+            .sortedByDescending { it.lastModified() }.take(100)
+            .mapNotNull { validateSealed(context, it) }
+    }
+
+    /**
+     * An explicit native user action may republish ONE verified private file.
+     * A newly created MediaStore row is SHA-256 verified before it is visible;
+     * the sealed source survives any failure. No arbitrary path or deletion API.
+     */
+    fun restore(context: Context, selectedName: String): Published {
+        if (!selectedName.matches(sealedName)) throw IOException("Nombre de recuperación inválido.")
+        val file = File(directory(context), selectedName)
+        val verified = validateSealed(context, file)
+            ?: throw IOException("El archivo privado no supera la verificación.")
+        val expected = WivraRandomAccessExportSession.Saved(
+            file, verified.bytes, verified.sha256, verified.media)
+        val owner = java.util.UUID.randomUUID().toString()
+        var token: Int
+        do { token = random.nextInt(Int.MAX_VALUE - 1) + 1 }
+        while (active.containsKey(token) || finished.containsKey(token))
+        return publish(context, token, owner, verified.mime, expected)
+    }
 
     /** Only stale, incomplete Wivra v2 temp files, never finalized private videos. */
     fun cleanupOrphanPartials(context: Context): Int {
