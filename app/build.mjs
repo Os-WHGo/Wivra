@@ -34,9 +34,19 @@ const qaPipeline = acceleratedVendor ? [
   './accelerated-multitrack-renderer.mjs',
   './accelerated-native-multitrack-export.mjs'
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
+const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';
+const qaIOSHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-ios-host.mjs', import.meta.url), 'utf8')) : '';
 const qaSidecar = qaPipeline ?
   '\n;(() => {\n' + qaPipeline +
-  '\nconst api = {recordExperimentalNativeMultitrack, prepareAcceleratedMultitrack, renderAcceleratedMultitrack};' +
+  '\nconst findAndroid = (() => {\n' + qaAndroidHost + '\nreturn detectAcceleratedAndroidHost;\n})();' +
+  '\nconst findIOS = (() => {\n' + qaIOSHost + '\nreturn detectAcceleratedIOSHost;\n})();' +
+  '\nasync function recordOnNative(options) {' +
+  '\n if(options?.experimentalAccelerated !== true) throw new Error("La exportación acelerada requiere autorización experimental explícita.");' +
+  '\n const host = findAndroid() ?? findIOS();' +
+  '\n if(!host) throw new Error("No existe el puente nativo acelerado v2 en este dispositivo.");' +
+  '\n return recordExperimentalNativeMultitrack({...options,host,M:globalThis.Mediabunny});' +
+  '\n}' +
+  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack};' +
   '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n})();\n' : '';
 
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
