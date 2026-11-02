@@ -189,4 +189,11 @@
     <string name="live_audio_unavailable">所选输入已不可用。请在开播前重新选择。</string>
     <string name="live_audio_limits_button">限制</string>
     <string name="live_audio_preference_only">Android 只接收首选输入请求。实际音频路由和质量仍需录音测试。不代表眼镜麦克风已可用。</string>
+    <string name="accelerated_recovery_button">恢复已导出的视频</string>
+    <string name="accelerated_recovery_title">可恢复的加速导出视频</string>
+    <string name="accelerated_recovery_empty">没有等待恢复的已验证加速导出视频。</string>
+    <string name="accelerated_recovery_confirm">将此已验证视频保存到相册？如果发生错误，将保留私人副本。</string>
+    <string name="accelerated_recovery_save">保存到相册</string>
+    <string name="accelerated_recovery_success">已验证的视频已保存到 Movies/Wivra。</string>
+    <string name="accelerated_recovery_failed">无法保存视频，私人副本仍然保留。</string>
 </resources>
