@@ -99,4 +99,20 @@ class WivraRandomAccessExportSessionTest {
             assertEquals(1, dir.listFiles()?.size)
         } finally { dir.deleteRecursively() }
     }
+    @Test fun mediaInspectorCannotChangeFileBeforePublication() {
+        val dir = folder()
+        try {
+            val session = WivraRandomAccessExportSession.create(dir, "video/mp4")
+            session.writeAt(0, 0, mp4())
+            try {
+                session.finish(16, 1, 1000, false) { file ->
+                    file.writeBytes(ByteArray(16))
+                    WivraRandomAccessExportSession.Media(true, true, 1000)
+                }
+                fail("Mutated output must not be published")
+            } catch (_: WivraRandomAccessExportSession.IntegrityException) { }
+            assertEquals(0, dir.listFiles()?.size)
+        } finally { dir.deleteRecursively() }
+    }
+
 }
