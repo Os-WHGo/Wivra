@@ -164,7 +164,7 @@ test('missing frame aborts rather than silently publishing black output',async()
 
 test('accelerator refuses truncated narration and captions before native file creation',async()=>{
  const M=fakeM();
- const voice=proj();voice.audioClips[0].out=2;
+ const voice=proj();voice.audioClips[0].role='voice_primary';voice.audioClips[0].out=2;
  await assert.rejects(prepareAcceleratedMultitrack({
   project:voice,media,M,imageFactory,expectedAudio:true
  }),/essential voice extends/);
