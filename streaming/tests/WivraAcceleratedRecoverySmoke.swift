@@ -76,9 +76,10 @@ struct WivraAcceleratedRecoverySmoke {
             .map { String(format: "%02x", $0) }.joined()
         precondition(finished.bytes == Int64(sourceBytes.count))
         precondition(finished.sha256 == sha)
-        precondition(try Data(contentsOf: finished.url) == sourceBytes)
-        precondition(await WivraAcceleratedExportStore.compatibleNativeCodecs(
-            finished.url, expectAudio: true))
+        let onDiskBytes = try Data(contentsOf: finished.url)
+        let codecsVerified = await WivraAcceleratedExportStore.compatibleNativeCodecs(
+            finished.url, expectAudio: true)
+        precondition(onDiskBytes == sourceBytes && codecsVerified)
         let recoveredWriter = WivraAcceleratedExportStore(directory: writerRoot,
             freeSpace: { _ in 8_000_000_000 })
         let recoveredWriterFiles = await recoveredWriter.recovered()
