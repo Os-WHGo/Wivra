@@ -160,6 +160,27 @@ export async function prepareAcceleratedMultitrack({
         entry.video=video;entry.audio=audio;
         if(asset.kind==='video' && !video)deny('source video track disappeared');
         if(asset.kind==='audio' && !audio)deny('independent microphone WAV not decodable');
+        // A canvas can return its last decoded picture when asked for a time
+        // after EOF. Do not mistake frozen frames (or missing final syllables)
+        // for a valid complete export. Prefer the actual decoder track duration
+        // over untrusted metadata saved in the project.
+        const relevant=ledger.tracks.filter(l=>l.assetId===asset.assetId);
+        const latestSourceOut=Math.max(...relevant.map(l=>l.sourceOut));
+        const earliestSourceIn=Math.min(...relevant.map(l=>l.sourceIn));
+        const checkedTrack=asset.kind==='audio'?audio:video;
+        let actualDuration=Number(asset.duration);
+        if(typeof checkedTrack?.computeDuration==='function'){
+          actualDuration=await checkedTrack.computeDuration();
+        }
+        if(!Number.isFinite(actualDuration)||actualDuration<=0 ||
+           latestSourceOut>actualDuration+.08)
+          deny('decoded source media shorter than selected timeline trim');
+        if(typeof checkedTrack?.getFirstTimestamp==='function'){
+          const firstTimestamp=await checkedTrack.getFirstTimestamp();
+          if(!Number.isFinite(firstTimestamp)||
+             earliestSourceIn<firstTimestamp-.08)
+            deny('source trim begins before first decodable sample');
+        }
         if(video){
           entry.canvas=new M.CanvasSink(video,{
             poolSize:1,width:Math.min(1920,Math.max(2,asset.width||width)),
