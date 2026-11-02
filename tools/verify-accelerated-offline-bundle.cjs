@@ -20,8 +20,10 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     random:typeof globalThis.createAcceleratedNativeSink,
     qa:typeof globalThis.recordExperimentalAcceleratedProject,
     api:typeof globalThis.recordProject,
+    multipista:typeof globalThis.WivraAcceleratedQA?.recordExperimentalNativeMultitrack,
+    photoQA:typeof globalThis.WivraAcceleratedQA?.prepareAcceleratedMultitrack,
   }));
-  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function'});
+  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function'});
   // End-to-end opt-in Wivra API with synthetic, local browser media. No
   // external CDN, no RTMP, no original user video, no native disk writer.
   const result=await page.evaluate(async()=>{
