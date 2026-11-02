@@ -203,6 +203,15 @@ const server=http.createServer((req,res)=>{
    '-map','0:a:0','-ac','1','-ar','16000','-f','s16le','pipe:1'],
    {timeout:20000,maxBuffer:Math.ceil(seconds*16000*2+262144)});
   const rms=(a,b)=>{
+   if(longSoak){
+    const short=execFileSync('ffmpeg',['-nostdin','-v','error',
+     '-ss',String(a),'-i',actual,'-t',String(b-a),
+     '-map','0:a:0','-ac','1','-ar','16000','-f','s16le','pipe:1'],
+     {timeout:20000,maxBuffer:65536});
+    let sum=0;
+    for(let i=0;i<short.length;i+=2){const v=short.readInt16LE(i)/32768;sum+=v*v;}
+    return Math.sqrt(sum/Math.max(1,short.length/2));
+   }
    const start=Math.round(a*16000),end=Math.min(pcm.length/2,Math.round(b*16000));
    let energy=0;
    for(let i=start;i<end;i++){const x=pcm.readInt16LE(i*2)/32768;energy+=x*x;}
