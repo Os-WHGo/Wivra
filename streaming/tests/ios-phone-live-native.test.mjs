@@ -54,6 +54,13 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/ShareLink\(item: file\)/);
   assert.match(source,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
   assert.match(source,/no se publicará automáticamente/i);
+  assert.match(source,/func reviewSavedVideos\(\) async/);
+  assert.match(source,/FileManager\.default\.contentsOfDirectory/);
+  assert.match(source,/values\.isRegularFile == true, values\.isSymbolicLink == false/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source,/Button\("Revisar copias locales de LIVE"\)/);
+  assert.match(source,/ForEach\(controller\.savedVideos, id:/);
+  assert.doesNotMatch(source,/try\? FileManager\.default\.removeItem\(at: file\)/);
 });
 
 test('leaving foreground closes stream and stops native camera; real VOD still requires external verification',()=>{
