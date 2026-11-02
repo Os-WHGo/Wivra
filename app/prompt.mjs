@@ -10,7 +10,9 @@ Operaciones permitidas (tiempos en segundos):
 - {"op":"set_clip_audio","clip_id":"c1","muted":true}  (o "volume": 0.5; 0 a 2, 1 = original)
 - {"op":"add_clip","asset_id":"a1","start":0}
 - {"op":"add_photo_clip","asset_id":"a2","start":0,"duration":3}  (foto o GIF en la línea principal; add_clip es solo para videos)
-- {"op":"add_text","text":"Hola","start":0,"duration":3}  (texto máx. 120 caracteres)
+- {"op":"add_text","text":"Hola","start":0,"duration":3}  (texto máx. 120 caracteres; opcional: "pos":"top|middle|bottom","size":"s|m|l|xl","color":"#ffffff","box":"#000000" o "none")
+- {"op":"set_text","text_id":"t1","text":"Hola","start":1,"duration":2}  (cambia un texto o subtítulo: texto, tiempos y/o estilo pos/size/color/box; todo opcional menos text_id)
+- {"op":"delete_text","text_id":"t1"}
 
 Si algo es imposible, responde [] y nada más.
 

@@ -1,5 +1,5 @@
 // Wivra · filtros de color en la tarjeta gráfica (WebGL). Un solo contexto compartido: se dibuja el fotograma con el filtro y se copia donde haga falta.
-// Misma fórmula que filterRGB() de core/filters.mjs; el grano usa un ruido que cambia 24 veces por segundo (igual en vista previa y exportación). — Claude
+// Misma fórmula que filterRGB() de core/filters.mjs; el grano usa un ruido que cambia 24 veces por segundo y de tamaño RELATIVO al cuadro (540 celdas en el lado corto), así se ve igual en la vista previa (≤1280 px) y en la exportación (hasta 1920 px). — Claude
 // Solo navegador. Si WebGL no está disponible, fxRender devuelve null y el clip se ve sin filtro.
 let fxS = null, fxDead = false;
 const FX_VS = 'attribute vec2 p; varying vec2 uv; void main(){ uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }';
@@ -20,7 +20,7 @@ void main(){
   c += vec3(W * 0.08, W * 0.02, -W * 0.08);
   c = c * (1.0 - 0.18 * Fd) + 0.12 * Fd;
   if (V > 0.0) { float d = distance(uv, vec2(0.5)) * 1.4142; float t = clamp((d - 0.35) / 0.65, 0.0, 1.0); c *= 1.0 - V * (t * t * (3.0 - 2.0 * t)) * 0.8; }
-  if (G > 0.0) { float n = fract(sin(dot(floor(uv * res) + seed, vec2(12.9898, 78.233))) * 43758.5453) - 0.5; float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c += n * G * 0.35 * (1.0 - 0.6 * abs(lm * 2.0 - 1.0)); }
+  if (G > 0.0) { float n = fract(sin(dot(floor(uv * res * (540.0 / min(res.x, res.y))) + seed, vec2(12.9898, 78.233))) * 43758.5453) - 0.5; float lm = dot(c, vec3(0.2126, 0.7152, 0.0722)); c += n * G * 0.35 * (1.0 - 0.6 * abs(lm * 2.0 - 1.0)); }
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), px.a);
 }`;
 function fxInit() {
@@ -43,11 +43,11 @@ function fxInit() {
   } catch { fxDead = true; return null; }
 }
 const fxDims = (s) => s.videoWidth ? [s.videoWidth, s.videoHeight] : s.naturalWidth ? [s.naturalWidth, s.naturalHeight] : [s.width || 0, s.height || 0];
-/** Dibuja `src` (video, imagen o canvas) con el filtro `f` en el instante `t` (s). → canvas compartido (úsalo enseguida: el siguiente fxRender lo reemplaza), o null si no se puede. */
-function fxRender(src, f, t) {
+/** Dibuja `src` (video, imagen o canvas) con el filtro `f` en el instante `t` (s). → canvas compartido (de hasta `maxSide` px de lado largo; úsalo enseguida: el siguiente fxRender lo reemplaza), o null si no se puede. */
+function fxRender(src, f, t, maxSide = 1280) {      // maxSide: 1280 basta para la vista previa; al exportar se pasa el lado largo del video de salida
   const S = fxInit(); if (!S || !src) return null;
   const [w0, h0] = fxDims(src); if (!(w0 > 0 && h0 > 0)) return null;
-  const k = Math.min(1, 1280 / Math.max(w0, h0)), w = Math.max(2, Math.round(w0 * k)), h = Math.max(2, Math.round(h0 * k)), { cv, gl, u } = S;
+  const k = Math.min(1, Math.min(4096, maxSide) / Math.max(w0, h0)), w = Math.max(2, Math.round(w0 * k)), h = Math.max(2, Math.round(h0 * k)), { cv, gl, u } = S;
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { return null; }
   const F = (n) => (f && f[n]) || 0;
