@@ -37,8 +37,11 @@ function validateAuthoring(project, ledger, media) {
       deny('unsupported '+lane.lane+' clip edit');
     if (c.filter && typeof globalThis.fxRender !== 'function')
       deny('missing GPU color filter integration');
-    if(c.ducking && c.ducking!==0)
-      deny('voice ducking is not mixed yet');
+    if(c.ducking !== undefined &&
+       (lane.lane!=='audio' || !['voice_primary','voice_guest'].includes(c.role) ||
+        typeof c.ducking!=='number' || !Number.isFinite(c.ducking) ||
+        c.ducking<0 || c.ducking>1))
+      deny('invalid or unsupported voice ducking');
     if(lane.lane==='overlay' &&
        (![c.x??.5,c.y??.5,c.scale??.35,c.opacity??1,
           c.zoom??1,c.px??.5,c.py??.5].every(Number.isFinite) ||
