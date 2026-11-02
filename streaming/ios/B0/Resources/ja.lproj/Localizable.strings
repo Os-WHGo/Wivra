@@ -1,0 +1,108 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "Wivra に読み込む";
+"ios.picker.message" = "ファイルまたは完了したローカル録画を選択してください。";
+"ios.picker.browse" = "ファイルを参照";
+"ios.picker.cancel" = "キャンセル";
+"ios.editor.missing" = "エディターが含まれていません";
+"ios.editor.missing_description" = "アプリ内に app/dist/agentcut.html がありません。";
+"ios.editor.title" = "Wivra エディター";
+"ios.editor.back" = "カメラに戻る";
+"ios.app.editor" = "エディター";
+"ios.app.captures" = "マイキャプチャ";
+"ios.app.handoff" = "録画を終了し、カメラを解放しています…";
+"ios.library.intro" = "ローカル録画を日付別に表示します。元ファイルは保持されます。エディターへの自動読み込みは開発中です。";
+"ios.library.rejected" = "%d 件のマニフェストを安全に読み込めませんでした。";
+"ios.library.empty" = "録画がありません";
+"ios.library.empty_description" = "録画が完了し、Wivra がマニフェストを保存するとここに表示されます。";
+"ios.library.day" = "%d 日目 · %s";
+"ios.library.share_video" = "動画を共有";
+"ios.library.video_missing" = "動画を利用できません。録画を確認してください。";
+"ios.library.share_audio" = "%s を共有";
+"ios.library.share_manifest" = "マニフェストを共有";
+"ios.library.pending_files" = "不足しているファイル: %s";
+"ios.library.title" = "マイキャプチャ";
+"ios.library.close" = "閉じる";
+"ios.library.refresh" = "更新";
+"ios.record.pending_title" = "この録画を保存しますか？";
+"ios.record.pending_description" = "動画と音声トラックは、選択するまで Wivra 内に保存されます。この画面を閉じても削除されません。";
+"ios.record.keep" = "Wivra に保存";
+"ios.record.dont_save" = "保存しない";
+"ios.record.later" = "後で決める";
+"ios.record.delete_confirm_title" = "この録画を削除しますか？";
+"ios.record.delete_confirm_description" = "確認した場合のみ関連するローカルファイルを削除します。配信プラットフォーム上のコピーは Wivra から削除できません。";
+"ios.record.delete_confirm" = "録画を削除";
+"ios.record.pending_notice" = "録画は保存確認待ちのため、エディターで利用できません。";
+"ios.record.review_pending" = "保留中の録画を確認";
+"ios.record.review_video" = "動画を確認";
+"ios.record.preview_title" = "保留中の録画を確認";
+"ios.record.preview_unavailable" = "一時動画を再生できません。";
+"ios.record.preview_part" = "セグメント %1$d / %2$d";
+"ios.record.preview_close" = "確認を終了";
+"ios.record.preview_disclaimer" = "確認は非公開です。保存または削除を選択するまで動画は変更されません。";
+"ios.record.preview_previous" = "前へ";
+"ios.record.preview_next" = "次へ";
+"ios.record.audio_only_notice" = "映像なしで音声を復元しました。聴いてから保存するか決められます。";
+"ios.record.audio_play" = "音声を再生";
+"ios.record.audio_pause" = "音声を一時停止";
+"ios.library.recovered_audio_title" = "復元した音声";
+"ios.library.recovered_audio_note" = "映像なしで保存した音声です。Wivra から共有できます。";
+"ios.library.share_recovered_audio" = "復元した CAF を共有";
+"ios.network.unknown" = "確認中";
+"ios.network.offline" = "経路なし";
+"ios.network.wifi" = "Wi-Fi";
+"ios.network.cellular" = "モバイル通信";
+"ios.network.ethernet" = "Ethernet";
+"ios.network.other" = "その他";
+"ios.network.route" = "スマートフォンの回線: %@";
+"ios.network.no_verified_uplink" = "iOS がネットワーク経路を確認できません。";
+"ios.network.constrained" = "省データモード。速度は測定していません。";
+"ios.network.expensive" = "データ料金が発生する可能性があります。";
+"ios.network.disclaimer" = "スマートフォンの診断です。Ray-Ban 接続や LIVE の動作保証ではありません。";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "書き出し";
+"ios.exports.title" = "Wivraの書き出し";
+"ios.exports.empty" = "保存済みの書き出しはありません";
+"ios.exports.empty_description" = "書き出しと検証が完了した動画は、Wivraを終了した後もここに表示されます。";
+"ios.exports.share" = "共有または保存";
+"ios.exports.close" = "閉じる";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "写真に保存";
+"ios.exports.saved_photos" = "写真に保存しました";
+"ios.exports.photos_error" = "写真に保存できませんでした";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "画面ロック中のRay-Ban録画（実験的）";
+"ios.app.background_capture_off_warning" = "今iPhoneをロックするとRay-Banのセッションが終了します。先に実験的なバックグラウンド録画を有効にしてください。";
+"ios.app.background_capture_experimental_warning" = "実験的な機能です。ロック中にiOSやMetaが配信を停止する場合があります。保存済みの動画断片は残ります。戻ったら確認してください。";
+"ios.library.photos_original_only" = "音声付きの動画が無効だったため、元の動画を保存しました。";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "この撮影には %d 個の別々のMOVセグメントがあります。最初のファイルだけでは動画全体になりません。";
+"ios.capture.segments_in_library_instruction" = "セッションを終了して「マイキャプチャ」を開き、各クリップを個別に写真へ保存するか、Directorで結合して動画全体を書き出してください。";
+"ios.capture.share_first_segment" = "最初のセグメントのみ共有";
+"ios.capture.individual_segment" = "撮影のパート %d（MOV）。ほかのパートがあるか確認してください。";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "利用可能な容量: %@。";
+"ios.capture.storage_unknown" = "空き容量を確認できません。録画前にストレージを確認してください。";
+"ios.capture.storage_insufficient_start" = "安全な録画に必要な容量が不足しています。少なくとも512 MBを空けてください。";
+"ios.capture.storage_minutes_estimate" = "観測HEVCレートで約%d分。音声、画質変化、コピーは含みません。";
+"ios.capture.storage_export_reserve" = "結合、書き出し、写真への保存には追加容量が必要です。この推定は書き出し成功を保証しません。";
+"ios.capture.storage_stopped" = "空き容量不足のため端末内の録画を停止しました。復旧可能なパートを残し、空きを増やしてください。";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "元のセグメントを保持したまま、動画全体を1つに結合しています。";
+"ios.capture.join_success" = "動画全体を結合、検証して端末に保存しました。";
+"ios.capture.join_failed" = "動画を結合できませんでした。元のセグメントは残されています。";
+"ios.capture.joined_share" = "動画全体を共有";
+"ios.capture.joined_photos" = "動画全体を写真に保存";
+"ios.capture.joined_saved" = "動画全体を写真に保存しました";
+"ios.capture.retry_join" = "この撮影を1つの動画に結合";
+
+/* Multipart MOV originals are kept in Wivra, not copied to Photos. */
+"ios.capture.parts_private_gallery" = "元のセグメントはWivraに残ります。写真には完成した動画だけを保存するか、再結合を試してください。";
+"ios.capture.share_segment_only" = "このセグメントのみ共有";
+"ios.capture.take_not_finalized" = "撮影全体の完了を確認できません。セグメントはWivraに保持され、自動結合や写真への公開は行いません。";
+"ios.capture.dat_signal_interrupted" = "Ray-Banの映像信号が途切れたため、ファイル保護のため録画を終了しました。セグメントが不完全な場合があります。書き出し前に確認してください。";

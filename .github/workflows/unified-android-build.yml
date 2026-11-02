@@ -1,0 +1,87 @@
+name: Wivra Unified Android Native Build
+on:
+  pull_request:
+    paths:
+      - 'streaming/android/**'
+      - '.github/workflows/unified-android-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-editor-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # Ubuntu GitHub runners already include Android SDK command-line tools.
+      # Avoid setup-android action's legacy 'sdkmanager tools' request.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install free Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Guard standalone Capture APK and pocket-mode lifecycle contracts
+        run: node --test streaming/tests/android-capture-delivery-contract.test.mjs
+      - name: Check Android and iOS Meta SDK parity and privacy defaults
+        run: node --test streaming/tests/android-meta-parity.test.mjs
+      - name: Check local Ray-Ban preview bounds and permissions
+        run: node --test streaming/tests/android-meta-visual-preview.test.mjs
+      - name: Verify mobile Wi-Fi uplink observers and privacy warnings
+        run: node --test streaming/tests/mobile-phone-network-status.test.mjs
+      - name: Verify shared Director teleprompter handoff into Ray-Ban preview
+        run: node --test streaming/tests/android-director-meta-handoff.test.mjs
+      - name: Verify native RTMP phone LIVE safety and local MP4 contracts
+        run: node --test streaming/tests/android-phone-live-native.test.mjs
+      - name: Check progressive export bridge contracts (JS, Kotlin, Swift)
+        run: node --test streaming/tests/progressive-export-native-contract.test.mjs
+      - name: Check Android six-language translation parity
+        run: node --test streaming/tests/android-native-i18n.test.mjs
+      - name: Validate native phone camera and audio capture contracts
+        run: |
+          set -eu
+          node --test streaming/tests/android-phone-camera-native.test.mjs
+          node --test streaming/tests/android-phone-wav-sidecar.test.mjs
+          node --test streaming/tests/android-capture-editor-bundle.test.mjs
+      - name: Generate current Wivra editor before native packaging
+        run: |
+          set -eu
+          node app/build.mjs
+          test -s app/dist/agentcut.html
+          # Checked-in file synchronization is handled by audit workflow.
+      - name: Check Ray-Ban photo to Claude Editor import and MediaStore privacy
+        run: node --test streaming/tests/android-rayban-photo-import.test.mjs
+      - name: Check offline HEVC MP4 video-only recording contract
+        run: node --test streaming/tests/android-rayban-mp4-recording.test.mjs
+      - name: Verify pending video decisions and explicit delete consent
+        run: node --test streaming/tests/android-rayban-pending-video.test.mjs
+      - name: Verify Ray-Ban recoverable HEVC checkpoint contracts
+        run: node --test streaming/tests/android-rayban-checkpoint-recovery.test.mjs
+      - name: Verify Android local MP4 review cannot delete pending videos
+        run: node --test streaming/tests/android-rayban-pending-review.test.mjs
+      - name: Check first-recording audio choice and preserve partial files
+        run: |
+          set -eu
+          grep -q 'recordingAudioChoiceMade = false' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
+          grep -q 'startAfterAudioPermission = true' streaming/android/app/src/main/java/com/oswhgo/wivra/WivraPhoneCameraActivity.kt
+      - name: Compile both Android native variants WITHOUT generating APK installers
+        run: |
+          gradle -p streaming/android \
+            :app:compileFullDebugKotlin :app:compileCaptureDebugKotlin \
+            :app:compileFullDebugJavaWithJavac :app:compileCaptureDebugJavaWithJavac \
+            --no-daemon --stacktrace
+      - name: Check Android native unit tests, no emulator or installer
+        run: gradle -p streaming/android :app:testFullDebugUnitTest :app:testCaptureDebugUnitTest --no-daemon --stacktrace
+      - name: Verify editor and filter source assets for future milestone packaging
+        run: |
+          test -s app/dist/agentcut.html
+          test -s app/packs/catalog.json
+          echo "Android source compiled; APK assembly deferred to explicitly labeled beta milestone."

@@ -1,0 +1,150 @@
+name: Meta B0 iOS Native Build
+on:
+  pull_request:
+    paths:
+      - 'streaming/ios/B0/**'
+      - '.github/workflows/meta-b0-native-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-ios:
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Check unified Claude editor bridge and local capture picker
+        run: node --test streaming/tests/unified-ios-bridge-source.test.mjs streaming/tests/unified-ios-capture-picker.test.mjs streaming/tests/unified-ios-locale-bootstrap.test.mjs
+      - name: Verify Ray-Ban pending video consent and private editor gating
+        run: node --test streaming/tests/unified-ios-rayban-pending-decision.test.mjs
+      - name: Verify iPhone Ray-Ban HEVC MOV checkpoint recovery
+        run: node --test streaming/tests/unified-ios-rayban-checkpoint-recovery.test.mjs
+      - name: Check read-only pending MOV review with strict file validation
+        run: node --test streaming/tests/unified-ios-pending-video-review.test.mjs
+      - name: Verify recoverable CAF-only recording and consent contracts
+        run: node --test streaming/tests/unified-ios-audio-orphan-recovery.test.mjs
+      - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraPendingRecordingStore.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraAudioRecoverySmoke.swift \
+            -o /tmp/wivra-audio-recovery-smoke
+          /tmp/wivra-audio-recovery-smoke
+      - name: Verify capture samples, decoded boundaries and grouped keep recovery (macOS)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraPendingRecordingStore.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraCaptureVerificationSmoke.swift \
+            -o /tmp/wivra-capture-verification-smoke
+          /tmp/wivra-capture-verification-smoke
+      - name: Run macOS synthetic progressive export store lifecycle (order, CRC, re-read, cleanup)
+        run: |
+          set -eu
+          node --test streaming/tests/progressive-export-native-contract.test.mjs
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraExportStore.swift \
+            streaming/ios/B0/Sources/WivraMp4Repair.swift \
+            streaming/tests/WivraExportStoreSmoke.swift \
+            -o /tmp/wivra-export-store-smoke
+          /tmp/wivra-export-store-smoke
+      - name: Verify iOS random-write export staging in Swift 6 (macOS synthetic only)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
+            streaming/tests/WivraRandomAccessExportSmoke.swift \
+            -o /tmp/wivra-random-v2-smoke
+          /tmp/wivra-random-v2-smoke
+      - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
+            streaming/ios/B0/Sources/WivraAcceleratedExportStore.swift \
+            streaming/ios/B0/Sources/WivraExportStore.swift \
+            streaming/ios/B0/Sources/WivraMp4Repair.swift \
+            streaming/tests/WivraAcceleratedRecoverySmoke.swift \
+            -o /tmp/wivra-accelerated-recovery-smoke
+          /tmp/wivra-accelerated-recovery-smoke
+      - name: Verify mobile Wi-Fi uplink observers and privacy warnings
+        run: node --test streaming/tests/mobile-phone-network-status.test.mjs
+      - name: Verify iOS native translations and placeholders
+        run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
+      - name: Validate iOS RTMP endpoint gate with native Swift 6 (no network)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraIOSLiveEndpoint.swift \
+            streaming/tests/WivraIOSLiveEndpointSmoke.swift \
+            -o /tmp/wivra-ios-live-endpoint-smoke
+          /tmp/wivra-ios-live-endpoint-smoke
+      - name: Generate current Wivra editor before native packaging
+        run: |
+          set -eu
+          node app/build.mjs
+          test -s app/dist/agentcut.html
+          # Checked-in file synchronization is handled by audit workflow.
+      - name: Generate iOS test application
+        working-directory: streaming/ios/B0
+        run: xcodegen generate
+      - name: Resolve Meta DAT 1.0.1 packages
+        working-directory: streaming/ios/B0
+        run: xcodebuild -resolvePackageDependencies -project WivraMetaB0.xcodeproj -scheme WivraMetaB0
+      - name: Compile iOS Simulator — no signing or hardware claims
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj \
+            -scheme WivraMetaB0 \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee build.log
+      - name: Compile generic iPhone device (arm64), NO signing or install
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj \
+            -scheme WivraMetaB0 \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$PWD/.build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee device-build.log
+      - name: Verify combined native app includes Claude Editor and offline filter pack
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          app_path=".build/Build/Products/Debug-iphoneos/WivraMetaB0.app"
+          test -s "$app_path/agentcut.html"
+          grep -q 'id="sAI"' "$app_path/agentcut.html"
+          test -s "$app_path/packs/catalog.json"
+          # Confirm all six localized UI dictionaries are in the app bundle.
+          for language in es en fr de it ja; do
+            test -s "$app_path/${language}.lproj/Localizable.strings"
+          done
+          echo "Wivra embedded Editor and color packs verified in unsigned iOS app"
+      - name: Leave compiled simulator/device apps for CI only, no IPA archive
+        run: echo "iOS source compiled; IPA packaging reserved for explicitly labeled beta milestone."
+      - name: Summarize errors if build fails
+        if: failure()
+        working-directory: streaming/ios/B0
+        run: |
+          for logfile in build.log device-build.log; do
+            if test -f "$logfile"; then
+              echo "== $logfile errors =="
+              grep -E '(error:|BUILD FAILED|fatal error:)' "$logfile" | tail -40 || true
+            fi
+          done

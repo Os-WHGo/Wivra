@@ -1,0 +1,201 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import { exportPlan, outputSize, pickMime, extFor, wrapLines, textsAt, exportBitrate, exportEstimatedBytes, exportMemoryRisk, exportOverlayPreflight } from '../export.mjs';
+
+const P = (clips, texts = []) => ({ clips, texts });
+test('plan: clips en orden y hueco negro entre clips', () => {
+  const p = exportPlan(P([{ id: 'b', asset_id: 'a', in: 0, out: 2, start: 5 }, { id: 'a', asset_id: 'a', in: 1, out: 4, start: 0 }]));
+  assert.deepEqual(p.segments.map((s) => s.type + ':' + (s.clip?.id ?? s.dur)), ['clip:a', 'gap:2', 'clip:b']);
+  assert.equal(p.total, 7);
+});
+test('plan: aviso si hay texto después del final', () => {
+  assert.equal(exportPlan(P([{ id: 'a', asset_id: 'a', in: 0, out: 2, start: 0 }], [{ text: 'x', start: 1, end: 9 }])).textBeyondEnd, true);
+  assert.equal(exportPlan(P([{ id: 'a', asset_id: 'a', in: 0, out: 2, start: 0 }], [{ text: 'x', start: 0, end: 2 }])).textBeyondEnd, false);
+});
+test('tamaño: respeta la forma, máx 1080 lado corto, pares', () => {
+  assert.deepEqual(outputSize(2160, 3840), { w: 1080, h: 1920 });
+  assert.deepEqual(outputSize(720, 1281), { w: 720, h: 1282 });
+  assert.deepEqual(outputSize(0, 0), { w: 1080, h: 1920 });
+});
+test('formato: prefiere MP4 (Safari) y cae a WebM', () => {
+  assert.match(pickMime((t) => t.startsWith('video/mp4')), /mp4/);
+  assert.match(pickMime((t) => t.startsWith('video/webm')), /webm/);
+  assert.equal(pickMime(() => false), '');
+  assert.equal(pickMime(() => { throw new Error('x'); }), '');
+  assert.equal(extFor('video/mp4;codecs=avc1'), 'mp4'); assert.equal(extFor('video/webm'), 'webm');
+  // Avoid mislabeled VP9-in-MP4 when a browser only supports generic MP4.
+  assert.match(pickMime((t) => t === 'video/mp4' || t === 'video/webm;codecs=vp9,opus'), /webm;codecs=vp9/);
+  assert.match(pickMime((t) => t.includes('video/webm;codecs=vp8') || t.includes('video/webm;codecs=vp9')), /vp8/);
+  assert.equal(pickMime((t) => t === 'video/mp4'), 'video/mp4');
+  assert.match(pickMime((t) => t.includes('avc1.42E01E') || t === 'video/webm'), /video\/mp4;codecs=avc1/);
+});
+test('texto: activo solo dentro de su intervalo y se parte en líneas', () => {
+  const p = P([], [{ text: 'hola', start: 1, end: 3 }]);
+  assert.equal(textsAt(p, 0.9).length, 0); assert.equal(textsAt(p, 1).length, 1); assert.equal(textsAt(p, 3).length, 0);
+  assert.deepEqual(wrapLines('uno dos tres cuatro', 8, (s) => s.length), ['uno dos', 'tres', 'cuatro']);
+});
+
+import { contentRect, solveContent } from '../export.mjs';
+test('contentRect cubre la ventana y solveContent es su inverso (con zoom y desplazamiento en ambos ejes)', () => {
+  const win = { left: 10, top: 20, w: 200, h: 200 }, vw = 1920, vh = 1080;
+  for (const zoom of [1, 1.7, 3.2]) for (const px of [0, 0.3, 1]) for (const py of [0, 0.5, 1]) {
+    const r = contentRect(win.w, win.h, vw, vh, zoom, px, py);
+    assert.ok(r.x <= 1e-9 && r.y <= 1e-9 && r.x + r.w >= win.w - 1e-9 && r.y + r.h >= win.h - 1e-9, 'siempre cubre la ventana');
+    const s = solveContent(win, { X: win.left + r.x, Y: win.top + r.y, W: r.w, H: r.h }, vw, vh);
+    assert.ok(Math.abs(s.zoom - zoom) < 1e-9);
+    if (zoom > 1 || r.w > win.w) assert.ok(Math.abs(s.px - px) < 1e-9, `px ${px} zoom ${zoom}`);
+    assert.ok(Math.abs(s.py - py) < 1e-9 || r.h <= win.h + 1e-9);
+  }
+});
+test('solveContent limita zoom a 1..4 y deja el contenido cubriendo la ventana aunque se arrastre de más', () => {
+  const win = { left: 0, top: 0, w: 100, h: 100 };
+  assert.equal(solveContent(win, { X: 0, Y: 0, W: 10, H: 10 }, 100, 100).zoom, 1);
+  assert.equal(solveContent(win, { X: 0, Y: 0, W: 9999, H: 9999 }, 100, 100).zoom, 4);
+  const s = solveContent(win, { X: 500, Y: -500, W: 200, H: 200 }, 100, 100); assert.ok(s.px >= 0 && s.px <= 1 && s.py >= 0 && s.py <= 1);
+  assert.equal(contentRect(100, 100, 100, 100, 1, 0.2, 0.9).x, 0, 'sin sobrante a este zoom, px no mueve nada');
+});
+
+test('regresión: 9 s de video + 30 s de música exportan 9 s, sin negro al final', () => {
+  const p = { clips: [{ id: 'v1', asset_id: 'v', start: 0, in: 0, out: 9 }],
+    audioClips: [{ id: 'm1', asset_id: 'music', role: 'music', start: 0, in: 0, out: 30 }],
+    overlayClips: [], texts: [] };
+  const plan = exportPlan(p);
+  assert.equal(plan.total, 9);
+  assert.deepEqual(plan.segments.map(x => x.type), ['clip']);
+  assert.equal(plan.segments[0].dur, 9);
+});
+test('regresión: superposición visual más larga no añade negro tras el video', () => {
+  const p = { clips: [{ id: 'v', asset_id: 'v', start: 0, in: 0, out: 5 }],
+    audioClips: [], overlayClips: [{ id: 'o', start: 2, in: 0, out: 20 }], texts: [] };
+  assert.equal(exportPlan(p).total, 5);
+});
+test('el plan sin video principal mantiene la duración de audio/capas para diagnóstico', () => {
+  const p = { clips: [], audioClips: [{ id: 'a', start: 0, in: 0, out: 7 }], overlayClips: [], texts: [] };
+  assert.equal(exportPlan(p).total, 7);
+});
+
+
+import { validateMainVideoExport, recordProject } from '../export.mjs';
+test('normal montage and gaps validate without changing main timeline or audio overlays',()=>{
+ const project={clips:[{id:'a',start:0,in:1,out:3},{id:'b',start:2,in:8,out:10}],
+   overlayClips:[{id:'ol',start:0,in:0,out:99}],
+   audioClips:[{id:'mic',start:1,in:0,out:9}]};
+ assert.deepEqual(validateMainVideoExport(project),{ok:true});
+ assert.deepEqual(project.clips.map(c=>c.start),[0,2]);
+ assert.equal(validateMainVideoExport({clips:[{id:'x',start:0,in:0,out:3},{id:'y',start:5,in:0,out:1}]}).ok,true);
+});
+test('main picture overlap rejects before MediaRecorder and without mutating project',async()=>{
+ const p={clips:[{id:'a',start:0,in:0,out:4},{id:'b',start:3,in:0,out:3}],
+   audioClips:[{id:'mic',start:0,in:0,out:7}],overlayClips:[]};
+ const previous=structuredClone(p);
+ assert.deepEqual(validateMainVideoExport(p),{ok:false,reason:'overlap',clipId:'b',seconds:1});
+ await assert.rejects(recordProject({project:p,media:{}}),/clips de video principales se superponen/);
+ assert.deepEqual(p,previous);
+});
+test('invalid main positions and ranges are rejected before media capture',async()=>{
+ for(const bad of [
+  {id:'negative',start:-1,in:0,out:2},
+  {id:'backwards',start:0,in:3,out:1},
+  {id:'zero',start:0,in:2,out:2},
+  {id:'nan',start:NaN,in:0,out:2},
+  {id:'infinite',start:0,in:0,out:Infinity}
+ ]) {
+  const p={clips:[bad]};
+  assert.equal(validateMainVideoExport(p).reason,'invalid',bad.id);
+  await assert.rejects(recordProject({project:p,media:{}}),/posición o duración inválida/,bad.id);
+ }
+});
+test('rounded boundary jitter under five milliseconds remains exportable',()=>{
+ assert.deepEqual(validateMainVideoExport({clips:[
+  {id:'a',start:0,in:0,out:2.0},{id:'b',start:1.997,in:0,out:1}
+ ]}),{ok:true});
+});
+
+
+test('exportPlan preserves short audible pauses and millisecond clip precision',()=>{
+ const clips=[
+  {id:'one',asset_id:'v',start:0,in:0,out:0.333},
+  {id:'two',asset_id:'v',start:0.340,in:0.5,out:0.833},
+  {id:'three',asset_id:'v',start:0.713,in:0.9,out:1.233}
+ ];
+ const copy=structuredClone(clips);
+ const plan=exportPlan({clips,audioClips:[{start:0,in:0,out:2}]});
+ assert.deepEqual(plan.segments.map(x=>x.type),['clip','gap','clip','gap','clip']);
+ assert.ok(Math.abs(plan.segments[1].dur-0.007)<1e-9);
+ assert.ok(Math.abs(plan.segments[3].dur-0.04)<1e-9);
+ assert.ok(Math.abs(plan.total-1.046)<1e-9);
+ assert.ok(Math.abs(plan.segments.reduce((t,s)=>t+s.dur,0)-plan.total)<1e-9);
+ assert.deepEqual(clips,copy,'planning must not mutate source media');
+});
+test('200 quick montage cuts retain cumulative timeline, not centisecond truncation',()=>{
+ const clips=Array.from({length:200},(_,i)=>({
+   id:'f'+i,asset_id:'source',start:i*0.340,in:i*0.333,out:(i+1)*0.333
+ }));
+ const plan=exportPlan({clips});
+ const expected=199*0.340+0.333;
+ const planned=plan.segments.reduce((t,s)=>t+s.dur,0);
+ assert.equal(plan.segments.filter(s=>s.type==='clip').length,200);
+ assert.equal(plan.segments.filter(s=>s.type==='gap').length,199);
+ assert.ok(Math.abs(plan.total-expected)<1e-8,'video total duration should track source timeline');
+ assert.ok(Math.abs(planned-expected)<1e-8,'scheduled export time must match audio timeline');
+ assert.ok(Math.abs(planned-66)>1,'old two-decimal scheduler lost seconds');
+});
+test('visual gaps from fractional starts survive even in audio/overlay-only projects',()=>{
+ const empty=exportPlan({clips:[],audioClips:[{start:0,in:0,out:0.337}],overlayClips:[]});
+ assert.ok(Math.abs(empty.segments[0].dur-0.337)<1e-9);
+ assert.ok(Math.abs(empty.total-0.337)<1e-9);
+ const delayed=exportPlan({clips:[{id:'v',start:0.009,in:0,out:0.12}]});
+ assert.equal(delayed.segments[0].type,'gap');
+ assert.ok(Math.abs(delayed.segments[0].dur-0.009)<1e-9);
+});
+
+test('hundreds of accepted sub-5ms overlaps must not accumulate audible A/V drift',async()=>{
+ const clips=Array.from({length:200},(_,i)=>({
+  id:'jitter'+i,asset_id:'v',start:i*0.330,in:i*0.333,out:(i+1)*0.333
+ }));
+ const p={clips};
+ const verdict=validateMainVideoExport(p);
+ assert.equal(verdict.ok,false);
+ assert.equal(verdict.reason,'overlap');
+ assert.ok(verdict.seconds >= 0.05,'cumulative lost time must be reported');
+ await assert.rejects(recordProject({project:p,media:{}}),/se superponen/);
+});
+
+
+test('quality auto: progressive disk estimate matches bitrate and memory mode retains cap', () => {
+  const seconds = 3600;
+  assert.equal(exportBitrate(seconds, { progressive: true }), 8_000_000);
+  assert.equal(exportBitrate(seconds), 3_000_000);
+  assert.equal(exportEstimatedBytes(seconds, { progressive: true }), 3_657_600_000);
+  const disk = exportMemoryRisk(seconds, { progressive: true });
+  assert.equal(disk.bufferedUntilComplete, false);
+  assert.equal(disk.storageMB, 3600);
+  assert.equal(exportMemoryRisk(seconds).bufferedUntilComplete, true);
+});
+
+
+test('native auto quality follows output pixels and frame rate, never video duration', () => {
+  const hd = { progressive: true, width: 1280, height: 720, fps: 30 };
+  const fullHd = { progressive: true, width: 1920, height: 1080, fps: 30 };
+  const highFps = { ...fullHd, fps: 60 };
+  assert.equal(exportBitrate(60, fullHd), 8_000_000);
+  assert.equal(exportBitrate(3600, fullHd), 8_000_000);
+  assert.ok(exportBitrate(3600, hd) < exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, highFps) > exportBitrate(3600, fullHd));
+  assert.ok(exportBitrate(3600, { progressive: true, width: 0, height: 0 }) === 8_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: 4096, height: 4096, fps: 120 }) <= 24_000_000);
+  assert.ok(exportBitrate(3600, { progressive: true, width: Infinity, height: 1080 }) === 8_000_000);
+  // Legacy in-memory path must retain its duration-based memory protection.
+  assert.equal(exportBitrate(3600, { progressive: false, width: 1920, height: 1080, fps: 60 }), 3_000_000);
+  const bytes = exportEstimatedBytes(3600, fullHd);
+  assert.equal(bytes, Math.round((exportBitrate(3600, fullHd) + 128_000) * 3600 / 8));
+});
+
+
+test('overlay preflight refuses a montage with missing videos, images, or GIF layers', () => {
+  const project = { overlayClips: [{ id: 'v', asset_id: 'a' }, { id: 'gif', asset_id: 'b' }, { id: 'logo', asset_id: 'c' }] };
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'logo']), { overlayBlocked: true, missingOverlay: ['gif'] });
+  assert.deepEqual(exportOverlayPreflight(project, ['v', 'gif', 'logo']), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [] }, []), { overlayBlocked: false, missingOverlay: [] });
+  assert.deepEqual(exportOverlayPreflight({ overlayClips: [{ id: 'v' }, { id: 'v' }] }, []),
+    { overlayBlocked: true, missingOverlay: ['v'] });
+});

@@ -1,0 +1,108 @@
+/* Wivra iOS native shell. Claude editor uses its own existing i18n. */
+"ios.picker.title" = "Importer dans Wivra";
+"ios.picker.message" = "Choisissez des fichiers ou un enregistrement local terminé.";
+"ios.picker.browse" = "Parcourir les fichiers";
+"ios.picker.cancel" = "Annuler";
+"ios.editor.missing" = "Éditeur non inclus";
+"ios.editor.missing_description" = "Le fichier app/dist/agentcut.html manque dans l’application.";
+"ios.editor.title" = "Éditeur Wivra";
+"ios.editor.back" = "Retour à la caméra";
+"ios.app.editor" = "Éditeur";
+"ios.app.captures" = "Mes captures";
+"ios.app.handoff" = "Finalisation de l’enregistrement et libération de la caméra…";
+"ios.library.intro" = "Enregistrements locaux classés par jour. Les originaux sont conservés ; l’import automatique dans l’éditeur est encore en développement.";
+"ios.library.rejected" = "Impossible de lire %d manifeste(s) en toute sécurité.";
+"ios.library.empty" = "Aucun enregistrement indexé";
+"ios.library.empty_description" = "Les enregistrements terminés apparaîtront ici après l’enregistrement de leur manifeste.";
+"ios.library.day" = "Jour %d · %s";
+"ios.library.share_video" = "Partager la vidéo";
+"ios.library.video_missing" = "Vidéo indisponible : cette capture doit être vérifiée.";
+"ios.library.share_audio" = "Partager %s";
+"ios.library.share_manifest" = "Partager le manifeste";
+"ios.library.pending_files" = "Fichiers manquants : %s";
+"ios.library.title" = "Mes captures";
+"ios.library.close" = "Fermer";
+"ios.library.refresh" = "Actualiser";
+"ios.record.pending_title" = "Conserver cet enregistrement ?";
+"ios.record.pending_description" = "La vidéo et ses pistes restent dans Wivra en attendant votre choix. Fermer cette fenêtre ne les supprime pas.";
+"ios.record.keep" = "Conserver dans Wivra";
+"ios.record.dont_save" = "Ne pas enregistrer";
+"ios.record.later" = "Décider plus tard";
+"ios.record.delete_confirm_title" = "Supprimer cet enregistrement ?";
+"ios.record.delete_confirm_description" = "Les fichiers locaux associés ne seront supprimés qu'après votre confirmation. Wivra ne peut pas effacer la copie d'une plateforme LIVE.";
+"ios.record.delete_confirm" = "Oui, supprimer";
+"ios.record.pending_notice" = "Enregistrement en attente de votre décision. Non disponible dans l'éditeur.";
+"ios.record.review_pending" = "Examiner les enregistrements en attente";
+"ios.record.review_video" = "Voir la vidéo";
+"ios.record.preview_title" = "Consulter l’enregistrement en attente";
+"ios.record.preview_unavailable" = "La vidéo temporaire n’est pas disponible pour la lecture.";
+"ios.record.preview_part" = "Segment %1$d sur %2$d";
+"ios.record.preview_close" = "Fermer l’aperçu";
+"ios.record.preview_disclaimer" = "L’aperçu est privé. Aucune vidéo n’est conservée ou supprimée sans votre choix.";
+"ios.record.preview_previous" = "Précédent";
+"ios.record.preview_next" = "Suivant";
+"ios.record.audio_only_notice" = "Audio récupéré sans vidéo. Écoutez-le avant de décider de le garder.";
+"ios.record.audio_play" = "Lire l’audio";
+"ios.record.audio_pause" = "Mettre en pause";
+"ios.library.recovered_audio_title" = "Audio récupéré";
+"ios.library.recovered_audio_note" = "Pistes audio conservées sans vidéo. Vous pouvez les partager depuis Wivra.";
+"ios.library.share_recovered_audio" = "Partager le CAF récupéré";
+"ios.network.unknown" = "Vérification";
+"ios.network.offline" = "Aucun chemin";
+"ios.network.wifi" = "Wi-Fi";
+"ios.network.cellular" = "Données mobiles";
+"ios.network.ethernet" = "Ethernet";
+"ios.network.other" = "Autre réseau";
+"ios.network.route" = "Réseau du téléphone : %@";
+"ios.network.no_verified_uplink" = "iOS ne confirme aucun chemin réseau.";
+"ios.network.constrained" = "Mode données réduites ; débit non mesuré.";
+"ios.network.expensive" = "Le réseau peut entraîner des frais de données.";
+"ios.network.disclaimer" = "Diagnostic du téléphone, pas de la liaison Ray-Ban ni du LIVE vérifié.";
+
+/* Completed local export library (survives app restarts). */
+"ios.app.exports" = "Exportations";
+"ios.exports.title" = "Exportations Wivra";
+"ios.exports.empty" = "Aucune exportation enregistrée";
+"ios.exports.empty_description" = "Les vidéos exportées et vérifiées apparaîtront ici, même après avoir fermé Wivra.";
+"ios.exports.share" = "Partager ou enregistrer";
+"ios.exports.close" = "Fermer";
+
+/* Explicit add-only Photos save from recovered export library. */
+"ios.exports.save_photos" = "Enregistrer dans Photos";
+"ios.exports.saved_photos" = "Enregistré dans Photos";
+"ios.exports.photos_error" = "Impossible d’enregistrer dans Photos";
+
+/* Ray-Ban lock-screen consent and truthful experimental limitations. */
+"ios.app.background_capture_toggle" = "Ray-Ban écran verrouillé (expérimental)";
+"ios.app.background_capture_off_warning" = "Verrouiller l’iPhone maintenant mettra fin à la session Ray-Ban. Activez le mode expérimental avant de verrouiller.";
+"ios.app.background_capture_experimental_warning" = "Mode expérimental : iOS ou Meta peut interrompre la transmission. Les segments terminés sont conservés ; vérifiez-les au retour.";
+"ios.library.photos_original_only" = "Vidéo originale enregistrée, car la version avec audio était invalide.";
+
+/* Never confuse first 30-second MOV with an entire segmented Meta recording. */
+"ios.capture.segments_not_combined" = "Cette prise contient %d segments MOV distincts. Le premier n'est pas la vidéo complète.";
+"ios.capture.segments_in_library_instruction" = "Terminez la session et ouvrez Mes captures pour enregistrer les clips séparément dans Photos, ou assemblez-les dans Director et exportez une vidéo complète.";
+"ios.capture.share_first_segment" = "Partager uniquement le premier segment";
+"ios.capture.individual_segment" = "Partie %d de la prise (MOV) ; vérifiez si d'autres parties existent.";
+
+/* Gen2 local capture capacity guard: estimate only, never a promise. */
+"ios.capture.storage_available" = "Stockage disponible : %@.";
+"ios.capture.storage_unknown" = "Espace disponible non vérifiable. Vérifiez le stockage avant d'enregistrer.";
+"ios.capture.storage_insufficient_start" = "Espace insuffisant pour enregistrer : libérez au moins 512 Mo.";
+"ios.capture.storage_minutes_estimate" = "Environ %d min au débit HEVC observé, hors audio, changements de qualité et copies.";
+"ios.capture.storage_export_reserve" = "Fusionner, exporter ou enregistrer dans Photos exige de l'espace supplémentaire ; cette estimation ne garantit pas l'export.";
+"ios.capture.storage_stopped" = "Enregistrement local arrêté faute d'espace. Conservez les segments récupérables et libérez de la place.";
+
+/* Confirmed Meta HEVC segmented-take automatic join and Photos consent. */
+"ios.capture.joining" = "Assemblage des segments en une seule vidéo. Originaux conservés.";
+"ios.capture.join_success" = "Vidéo complète assemblée, vérifiée et enregistrée localement.";
+"ios.capture.join_failed" = "Assemblage impossible ; les segments originaux restent disponibles.";
+"ios.capture.joined_share" = "Partager la vidéo complète";
+"ios.capture.joined_photos" = "Enregistrer la vidéo complète dans Photos";
+"ios.capture.joined_saved" = "Vidéo complète enregistrée dans Photos";
+"ios.capture.retry_join" = "Assembler cette prise complète";
+
+/* Multipart MOV originals are kept in Wivra, not copied to Photos. */
+"ios.capture.parts_private_gallery" = "Les segments restent dans Wivra. Enregistrez seulement la vidéo complète dans Photos ou réessayez de les assembler.";
+"ios.capture.share_segment_only" = "Partager seulement ce segment";
+"ios.capture.take_not_finalized" = "Impossible de confirmer que cette prise est complète. Les segments restent dans Wivra, sans assemblage ni publication automatique dans Photos.";
+"ios.capture.dat_signal_interrupted" = "Le signal vidéo Ray-Ban a été interrompu. L'enregistrement a été clôturé pour protéger les fichiers. Les segments peuvent être incomplets.";

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Os-WHGo/Wivra/blob/chatgpt/meta-b1c-tracks-manifest-20261013/streaming/contracts/wivra-manifest-v2.schema.json",
+  "title": "Wivra capture manifest v2 (experimental contract)",
+  "description": "Wire format written by WivraCaptureManifest.swift; files and channels must be observed, not invented. Does not validate physical device support.",
+  "type": "object",
+  "required": ["schemaVersion","captureID","cameraSource","audioSource","originalVideoFile","createdAtISO8601","tracks","muxedFromTrackIDs"],
+  "properties": {
+    "schemaVersion":{"const":2},
+    "captureID":{"type":"string","minLength":1},
+    "cameraSource":{"type":"string","minLength":1},
+    "audioSource":{"type":"string","minLength":1},
+    "selectedInputName":{"type":["string","null"]},
+    "originalVideoFile":{"$ref":"#/$defs/fileName"},
+    "originalAudioFile":{"anyOf":[{"$ref":"#/$defs/fileName"},{"type":"null"}]},
+    "muxedVideoFile":{"anyOf":[{"$ref":"#/$defs/fileName"},{"type":"null"}]},
+    "audioStartOffsetSeconds":{"type":["number","null"],"description":"Estimated seconds from first accepted video frame to first written audio sample: positive means audio started later; negative means earlier; null means unmeasurable. DAT transport latency is not calibrated."},
+    "createdAtISO8601":{"type":"string","minLength":1},
+    "tracks":{"type":"array","items":{"$ref":"#/$defs/track"}},
+    "muxedFromTrackIDs":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true}
+  },
+  "additionalProperties":false,
+  "$defs":{
+    "fileName":{"type":"string","minLength":1,"maxLength":255,"pattern":"^(?!\\.\\.?$)[^/\\\\\\u0000\\r\\n]+$"},
+    "track":{
+      "type":"object",
+      "required":["id","kind","role","source","file"],
+      "properties":{
+        "id":{"type":"string","minLength":1},
+        "kind":{"const":"audio"},
+        "role":{"enum":["voice_primary","voice_guest","music","scratch","ambience","other"]},
+        "source":{"type":"string","minLength":1},
+        "file":{"$ref":"#/$defs/fileName"},
+        "channelIndex":{"type":["integer","null"],"minimum":0},
+        "sampleRateHz":{"type":["number","null"],"exclusiveMinimum":0},
+        "channelCount":{"type":["integer","null"],"minimum":1},
+        "inputName":{"type":["string","null"]},
+        "startOffsetSeconds":{"type":["number","null"],"description":"Audio beginning relative to first accepted video frame, seconds: positive is audio later, negative is audio earlier; null means unknown. Based on audio host timestamp and video receipt estimate; not device-calibrated."}
+      },
+      "additionalProperties":false
+    }
+  }
+}

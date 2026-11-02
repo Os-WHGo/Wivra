@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Wivra · prueba del teléfono</title>
+<style>
+:root{color-scheme:dark;--bg:#0e1015;--fg:#e8eaf0;--mut:#98a0b3;--ok:#52d29a;--bad:#ff7b7b;--warn:#ffc53d;--card:#171a22;--line:#2a2f3b}
+:root[data-theme=light]{color-scheme:light;--bg:#f6f7fa;--fg:#14171f;--mut:#5b6377;--card:#fff;--line:#dde1ea}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;padding:16px max(16px,env(safe-area-inset-left))}
+h1{font-size:20px;margin:0 0 4px}p{color:var(--mut);margin:6px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}
+button,label.btn{display:inline-block;background:#8aa4ff;color:#0b1020;border:0;border-radius:10px;padding:12px 16px;font:600 16px inherit;margin:4px 6px 4px 0;cursor:pointer}
+button.sec,label.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button:disabled{opacity:.5}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:5px 4px;border-top:1px solid var(--line);vertical-align:top}td:last-child{text-align:right;white-space:nowrap}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+pre{white-space:pre-wrap;word-break:break-word;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto}
+video{width:48%;max-height:120px;background:#000;border-radius:6px}
+</style></head><body>
+<h1>Wivra · prueba de tu teléfono</h1>
+<p>Mide qué puede hacer este navegador para varias pistas de video y audio. <b>No sube nada</b>: todo se queda en tu teléfono. Al final puedes copiar el resultado y mandárselo a Claude.</p>
+
+<div class="card"><b>1 · Capacidades (sin archivos)</b>
+  <p>Comprueba si existen las herramientas del navegador. Que existan no prueba que funcionen bien.</p>
+  <button id="b1">Probar capacidades</button><table id="t1"></table></div>
+
+<div class="card"><b>2 · Dos videos a la vez (con tus videos)</b>
+  <p>Elige <b>2 videos</b> de tu teléfono (cortos, de 5 a 20 s). Se reproducen juntos 4 s, se dibujan en un lienzo y se graba el resultado. Mide si aguanta.</p>
+  <label class="btn sec" for="f2">Elegir 2 videos</label><input id="f2" type="file" accept="video/*" multiple hidden>
+  <button id="b2" disabled>Probar dos videos</button>
+  <div id="vids"></div><canvas id="cv" width="360" height="640" style="display:none"></canvas><table id="t2"></table></div>
+
+<div class="card"><b>Resultado para copiar</b>
+  <button id="bc" class="sec">Copiar resultado</button><pre id="out">(aún no hay resultados)</pre></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const R = { when: new Date().toISOString(), ua: navigator.userAgent, platform: navigator.platform, checks: {}, twoVideos: null };
+try { if (matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.dataset.theme = 'light'; } catch {}
+function row(t, label, value, cls) { const tr = document.createElement('tr'); tr.innerHTML = `<td>${label}</td><td class="${cls || ''}"></td>`; tr.lastChild.textContent = value; t.appendChild(tr); }
+function show() { $('out').textContent = JSON.stringify(R, null, 2); }
+
+$('b1').onclick = async () => {
+  const t = $('t1'); t.replaceChildren(); const has = (n, v) => { const ok = typeof v !== 'undefined'; R.checks[n] = ok; row(t, n, ok ? 'existe' : 'NO existe', ok ? 'ok' : 'bad'); };
+  has('VideoDecoder (WebCodecs)', window.VideoDecoder); has('VideoEncoder (WebCodecs)', window.VideoEncoder);
+  has('AudioDecoder (WebCodecs)', window.AudioDecoder); has('AudioEncoder (WebCodecs)', window.AudioEncoder);
+  has('MediaRecorder', window.MediaRecorder); has('AudioContext', window.AudioContext || window.webkitAudioContext); has('OfflineAudioContext', window.OfflineAudioContext || window.webkitOfflineAudioContext);
+  has('OffscreenCanvas', window.OffscreenCanvas); has('createImageBitmap', window.createImageBitmap); has('WebGL2', document.createElement('canvas').getContext('webgl2') || undefined); has('WebGPU (navigator.gpu)', navigator.gpu);
+  has('getUserMedia (micrófono)', navigator.mediaDevices && navigator.mediaDevices.getUserMedia); has('Compartir archivos (navigator.share)', navigator.share);
+  const cfg = async (name, C, list) => { if (!C || !C.isConfigSupported) return; for (const c of list) { try { const r = await C.isConfigSupported(c); R.checks[name + ' ' + c.codec] = !!r.supported; row(t, `${name}: ${c.codec}`, r.supported ? 'sí' : 'no', r.supported ? 'ok' : 'warn'); } catch (e) { R.checks[name + ' ' + c.codec] = 'error'; row(t, `${name}: ${c.codec}`, 'error', 'bad'); } } };
+  const v = { width: 1280, height: 720, bitrate: 4e6, framerate: 30 };
+  await cfg('VideoEncoder', window.VideoEncoder, ['avc1.42E01E', 'avc1.640028', 'hvc1.1.6.L93.B0', 'vp09.00.10.08', 'av01.0.04M.08'].map((codec) => ({ codec, ...v })));
+  await cfg('AudioEncoder', window.AudioEncoder, ['mp4a.40.2', 'opus'].map((codec) => ({ codec, sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 })));
+  if (window.MediaRecorder) for (const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm']) { let ok = false; try { ok = MediaRecorder.isTypeSupported(m); } catch {} R.checks['MediaRecorder ' + m] = ok; row(t, 'MediaRecorder ' + m, ok ? 'sí' : 'no', ok ? 'ok' : 'warn'); }
+  show();
+};
+
+let files = [];
+$('f2').onchange = (e) => { files = [...e.target.files].slice(0, 2); $('b2').disabled = files.length < 2; $('vids').textContent = files.length < 2 ? 'Elige 2 videos (mantén pulsado para elegir dos).' : files.map((f) => f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB)').join(' · '); };
+
+$('b2').onclick = async () => {
+  const t = $('t2'); t.replaceChildren(); $('b2').disabled = true; const res = { files: files.map((f) => ({ name: f.name, type: f.type, mb: +(f.size / 1048576).toFixed(1) })) };
+  const mk = (f) => { const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = URL.createObjectURL(f); return v; };
+  const vs = files.map(mk); const box = $('vids'); box.replaceChildren(...vs);
+  try {
+    await Promise.all(vs.map((v) => new Promise((ok, no) => { v.onloadeddata = ok; v.onerror = () => no(new Error('No se pudo leer ' + (v.error && v.error.message || 'el video'))); setTimeout(() => no(new Error('Tardó demasiado en cargar')), 12000); })));
+    res.sizes = vs.map((v) => v.videoWidth + 'x' + v.videoHeight); row(t, 'Medidas', res.sizes.join(' y '));
+    const cv = $('cv'), g = cv.getContext('2d'); const stream = cv.captureStream ? cv.captureStream(30) : null;
+    let rec = null, chunks = [];
+    if (stream && window.MediaRecorder) { try { rec = new MediaRecorder(stream); rec.ondataavailable = (e) => e.data && e.data.size && chunks.push(e.data); rec.start(500); res.recorderMime = rec.mimeType; } catch (e) { res.recorderError = String(e.message || e); } }
+    const plays = await Promise.all(vs.map((v) => v.play().then(() => true, (e) => String(e.name || e))));
+    res.playStarted = plays; row(t, 'Los dos empezaron a reproducir', plays.every((p) => p === true) ? 'sí' : 'NO: ' + plays.join(','), plays.every((p) => p === true) ? 'ok' : 'bad');
+    const t0 = performance.now(); let frames = 0, last = t0, worst = 0; const c0 = vs.map((v) => v.currentTime);
+    await new Promise((done) => { const tick = () => { const now = performance.now(); worst = Math.max(worst, now - last); last = now; g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
+      try { g.drawImage(vs[0], 0, 0, cv.width, cv.height); const w = cv.width * 0.45, h = w * 16 / 9; g.drawImage(vs[1], cv.width - w - 8, 8, w, h); } catch {} frames++; if (now - t0 < 4000) requestAnimationFrame(tick); else done(); }; requestAnimationFrame(tick); });
+    const secs = (performance.now() - t0) / 1000; vs.forEach((v) => v.pause());
+    const adv = vs.map((v, i) => +(v.currentTime - c0[i]).toFixed(2)); res.advanced = adv; res.fps = +(frames / secs).toFixed(1); res.worstFrameMs = Math.round(worst);
+    row(t, 'Avance de cada video en ~4 s', adv.join(' s y ') + ' s', adv.every((a) => a > 2.5) ? 'ok' : 'bad'); row(t, 'Fotogramas dibujados por segundo', String(res.fps), res.fps >= 24 ? 'ok' : 'warn'); row(t, 'Peor tirón entre fotogramas', res.worstFrameMs + ' ms', res.worstFrameMs < 120 ? 'ok' : 'warn');
+    if (rec && rec.state !== 'inactive') { const stopped = new Promise((r) => (rec.onstop = r)); rec.stop(); await stopped; const blob = new Blob(chunks, { type: rec.mimeType }); res.recordedMB = +(blob.size / 1048576).toFixed(2); res.recordedTracks = { video: stream.getVideoTracks().length, audio: stream.getAudioTracks().length };
+      row(t, 'Grabó el lienzo con las 2 capas', res.recordedMB + ' MB (' + (rec.mimeType || '?') + ')', blob.size > 5000 ? 'ok' : 'bad'); }
+    else row(t, 'Grabación del lienzo', res.recorderError || 'no disponible', 'bad');
+  } catch (e) { res.error = String(e.message || e); row(t, 'Error', res.error, 'bad'); }
+  R.twoVideos = res; $('b2').disabled = false; show();
+};
+
+$('bc').onclick = async () => { show(); try { await navigator.clipboard.writeText($('out').textContent); $('bc').textContent = 'Copiado ✓'; } catch { const r = document.createRange(); r.selectNodeContents($('out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('bc').textContent = 'Selecciona y copia a mano'; } };
+</script></body></html>

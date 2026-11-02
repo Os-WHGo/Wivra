@@ -1,0 +1,290 @@
+{
+ "schema": "wivra-packs",
+ "version": 1,
+ "license": "Creado por Wivra para Wivra (parámetros propios, uso libre y gratis; sin material de terceros).",
+ "packs": [
+  {
+   "id": "cine",
+   "name": "Cine",
+   "desc": "Colores de película: contraste, tonos y viñeta.",
+   "looks": [
+    {
+     "id": "teal",
+     "name": "Azul y naranja",
+     "p": {
+      "contrast": 0.25,
+      "saturation": 0.2,
+      "warmth": 0.25,
+      "vignette": 0.3
+     }
+    },
+    {
+     "id": "noche",
+     "name": "Noche azul",
+     "p": {
+      "brightness": -0.12,
+      "contrast": 0.2,
+      "warmth": -0.4,
+      "saturation": -0.1,
+      "vignette": 0.45
+     }
+    },
+    {
+     "id": "dorada",
+     "name": "Película dorada",
+     "p": {
+      "warmth": 0.4,
+      "sepia": 0.2,
+      "contrast": 0.15,
+      "fade": 0.15,
+      "vignette": 0.3,
+      "grain": 0.25
+     }
+    },
+    {
+     "id": "seco",
+     "name": "Western seco",
+     "p": {
+      "warmth": 0.35,
+      "saturation": -0.3,
+      "contrast": 0.3,
+      "sepia": 0.25,
+      "vignette": 0.35,
+      "grain": 0.2
+     }
+    },
+    {
+     "id": "neon",
+     "name": "Neón oscuro",
+     "p": {
+      "brightness": -0.15,
+      "contrast": 0.4,
+      "saturation": 0.5,
+      "warmth": -0.2,
+      "vignette": 0.4
+     }
+    },
+    {
+     "id": "docu",
+     "name": "Documental",
+     "p": {
+      "saturation": -0.2,
+      "contrast": 0.15,
+      "fade": 0.1,
+      "grain": 0.15
+     }
+    }
+   ]
+  },
+  {
+   "id": "retro",
+   "name": "Retro",
+   "desc": "Fotos y cintas de otra época.",
+   "looks": [
+    {
+     "id": "vhs",
+     "name": "Cinta suave",
+     "p": {
+      "saturation": -0.1,
+      "contrast": -0.1,
+      "fade": 0.3,
+      "warmth": 0.1,
+      "grain": 0.45,
+      "vignette": 0.2
+     }
+    },
+    {
+     "id": "instantanea",
+     "name": "Instantánea",
+     "p": {
+      "warmth": 0.25,
+      "fade": 0.3,
+      "contrast": -0.05,
+      "saturation": -0.1,
+      "vignette": 0.35,
+      "brightness": 0.05
+     }
+    },
+    {
+     "id": "diapositiva",
+     "name": "Diapositiva",
+     "p": {
+      "saturation": 0.35,
+      "contrast": 0.2,
+      "warmth": 0.1,
+      "vignette": 0.2
+     }
+    },
+    {
+     "id": "foto70",
+     "name": "Foto de 1970",
+     "p": {
+      "sepia": 0.35,
+      "warmth": 0.3,
+      "fade": 0.35,
+      "saturation": -0.2,
+      "grain": 0.35,
+      "vignette": 0.4
+     }
+    },
+    {
+     "id": "postal",
+     "name": "Postal antigua",
+     "p": {
+      "sepia": 0.5,
+      "fade": 0.4,
+      "contrast": -0.1,
+      "vignette": 0.5,
+      "grain": 0.3
+     }
+    },
+    {
+     "id": "verano85",
+     "name": "Verano 85",
+     "p": {
+      "warmth": 0.3,
+      "saturation": 0.25,
+      "fade": 0.2,
+      "brightness": 0.05,
+      "grain": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "deportes",
+   "name": "Deportes",
+   "desc": "Acción, nieve y aire libre.",
+   "looks": [
+    {
+     "id": "accion",
+     "name": "Acción intensa",
+     "p": {
+      "contrast": 0.35,
+      "saturation": 0.35,
+      "vignette": 0.15
+     }
+    },
+    {
+     "id": "nieve",
+     "name": "Nieve brillante",
+     "p": {
+      "brightness": 0.1,
+      "contrast": 0.2,
+      "warmth": -0.2,
+      "saturation": 0.1
+     }
+    },
+    {
+     "id": "cancha",
+     "name": "Cancha",
+     "p": {
+      "contrast": 0.25,
+      "saturation": 0.3,
+      "warmth": 0.1
+     }
+    },
+    {
+     "id": "playa",
+     "name": "Playa",
+     "p": {
+      "warmth": 0.25,
+      "saturation": 0.3,
+      "brightness": 0.05,
+      "contrast": 0.1
+     }
+    },
+    {
+     "id": "montana",
+     "name": "Montaña",
+     "p": {
+      "contrast": 0.3,
+      "saturation": 0.15,
+      "warmth": -0.1,
+      "vignette": 0.3,
+      "grain": 0.1
+     }
+    },
+    {
+     "id": "skate",
+     "name": "Calle y skate",
+     "p": {
+      "saturation": -0.15,
+      "contrast": 0.35,
+      "fade": 0.15,
+      "grain": 0.4,
+      "vignette": 0.25
+     }
+    }
+   ]
+  },
+  {
+   "id": "retrato",
+   "name": "Retrato",
+   "desc": "Tonos suaves para personas.",
+   "looks": [
+    {
+     "id": "piel",
+     "name": "Piel suave",
+     "p": {
+      "brightness": 0.05,
+      "contrast": -0.1,
+      "saturation": -0.05,
+      "warmth": 0.1,
+      "fade": 0.1
+     }
+    },
+    {
+     "id": "dorado",
+     "name": "Cálido dorado",
+     "p": {
+      "warmth": 0.35,
+      "brightness": 0.05,
+      "saturation": 0.1,
+      "vignette": 0.2
+     }
+    },
+    {
+     "id": "frio",
+     "name": "Tonos fríos",
+     "p": {
+      "warmth": -0.3,
+      "saturation": -0.1,
+      "contrast": 0.1,
+      "vignette": 0.15
+     }
+    },
+    {
+     "id": "mate",
+     "name": "Mate elegante",
+     "p": {
+      "contrast": -0.05,
+      "saturation": -0.2,
+      "fade": 0.35,
+      "vignette": 0.2
+     }
+    },
+    {
+     "id": "suave",
+     "name": "Contraste suave",
+     "p": {
+      "contrast": 0.15,
+      "saturation": 0.1,
+      "fade": 0.1,
+      "vignette": 0.2
+     }
+    },
+    {
+     "id": "atardecer",
+     "name": "Atardecer",
+     "p": {
+      "warmth": 0.45,
+      "saturation": 0.2,
+      "brightness": -0.05,
+      "vignette": 0.35
+     }
+    }
+   ]
+  }
+ ]
+}

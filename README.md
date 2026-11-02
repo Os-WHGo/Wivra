@@ -1,10 +1,20 @@
-# AgentCut (working name)
+# Wivra
+
+## Estado operativo reciente · 01-11-2026 (para retomar desde cualquier chat)
+
+- **Rama de continuidad propuesta**: PR apilada a partir de [#157](https://github.com/Os-WHGo/Wivra/pull/157). Confirmar siempre el SHA/CI más reciente antes de codificar, nunca asumir que otro chat/agente terminó una tarea. Claude y Codex no están trabajando actualmente; ChatGPT mantiene la integración dentro de las autorizaciones.
+- **Historia conservada, no `main`**: [#136](https://github.com/Os-WHGo/Wivra/pull/136) incorporó captura recuperable + exportación de Claude; la línea posterior sumó Meta DAT, editor/Director, LIVE Android, pantalla autorizada y [#155](https://github.com/Os-WHGo/Wivra/pull/155) (micrófonos). [#156](https://github.com/Os-WHGo/Wivra/pull/156) validó direcciones LIVE iPhone y [#157](https://github.com/Os-WHGo/Wivra/pull/157) añade RTMP iPhone + MP4 privado.
+- **No confundir pruebas**: exportación 10/20/30/60 min de Claude medida en Chromium/Linux y build/emulador son evidencia de software, **NO** grabación física Ray-Ban de 60 min, transmisión RTMP/VOD a servidor real ni uso de micrófono Bluetooth físico. La IPA iOS sigue **sin firmar**; el APK es de depuración.
+- **Motor rápido pendiente**: WebCodecs + Mediabunny fue comparado (~8,5× en prueba Linux de 60 s), pero no integra el editor. Ver `app/export-engine-policy.mjs`; MediaRecorder sigue siendo la ruta activa.
+- **Ramas paralelas**: [#158](https://github.com/Os-WHGo/Wivra/pull/158) y [#159](https://github.com/Os-WHGo/Wivra/pull/159) propusieron elección frontal/trasera iPhone; reconciliar sobre el código reciente de #157 sin resucitar la pantalla duplicada ni perder MP4/recuperación.
+- **Fuente canónica privada y QA**: leer instrucciones MU, checkpoint Wivra existente en Drive y biblioteca tecnológica MU; gates públicos en [QA beta](docs/WIVRA_BETA_DEVICE_QA_GATE_2026-11-01.md). No guardar en GitHub enlaces privados, datos personales, claves RTMP ni diseños físicos confidenciales. Objetivo beta instalable **19-11-2026**. No fusionar `main`, pagar, publicar ni declarar QA física sin autorización.
+
 
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
-> Estado / Status: **idea stage, looking for contributors.** Nothing here is built yet.
-> Nombre provisional / working name. Revisar que no choque con marcas existentes antes de publicar.
+> Estado / Status (16-10-2026): **beta en ensamblaje, no es una app publicada y nada está verificado en un iPhone ni en un Android reales.** El editor (importar, línea de tiempo multipista, filtros, texto, subtítulos .srt/.vtt, plantillas, quitar silencios, volumen parejo, exportación 9:16, Director, 8 idiomas con traducciones automáticas sin revisar por nativos) está en la rama de integración y pasa sus pruebas automáticas y la CI; la **captura de cámara/Ray-Ban, el audio nativo y LIVE** son trabajo nativo de iPhone y Android con builds de prueba (APK de depuración, IPA **sin firmar**). Estado por función, con lo que falta (transcripción automática, AutoCut, teleprompter, transiciones…): [`docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md`](docs/WIVRA_BETA_STATUS_MATRIX_2026-10-16.md). Política: Wivra es **100 % gratuita para el usuario** ([`docs/WIVRA_FREE_FOREVER_PRODUCT_POLICY_2026-10-16.md`](docs/WIVRA_FREE_FOREVER_PRODUCT_POLICY_2026-10-16.md)). Detalles técnicos del editor en [`app/README.md`](app/README.md). / Beta being assembled, not a released app, nothing verified on real iPhone or Android yet; status per feature in the matrix above; Wivra is 100% free for users.
+> Nombre: **Wivra** (antes "AgentCut"; renombrado el 13-10-2026 por decisión del propietario; el repositorio se renombra en GitHub a `wivra`). Pendiente: comprobar que no choque con marcas existentes antes de publicar.
 
 ---
 
@@ -12,11 +22,11 @@
 
 **ES.** Hoy los agentes de IA que manejan aplicaciones lo hacen casi siempre en computadoras de escritorio. Hasta donde sabemos, no hay un editor de video pensado para el teléfono que una IA pueda controlar así (no verificado de forma exhaustiva; si conoces uno, abre un issue). AgentCut quiere aprovechar la potencia que ya tienen los teléfonos: tú escribes "quita los silencios, ponle subtítulos y exporta vertical", la IA decide los pasos y el editor los ejecuta **en tu teléfono**. Sin computadora, sin instalar nada.
 
-**EN.** AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
+**EN.** (Architecture is open: web-first is only a proposal, see `docs/ARCHITECTURE.md`.) AI agents that operate apps today mostly do it on desktop computers. As far as we know, there is no phone-first video editor that an AI can drive this way (not exhaustively verified; open an issue if you know one). AgentCut wants to use the power phones already have: you type "remove the silences, add captions, export vertical", the AI plans the steps and the editor runs them **on your phone**. No computer, no install.
 
 ## Cómo funciona / How it works
 
-- **App web (PWA):** se abre desde un enlace en Safari o Chrome del teléfono. Editor propio y simple: importar video de la galería, cortar, poner texto y exportar. Visual y táctil desde el primer día.
+- **Arquitectura: en discusión.** El propietario no ha decidido que sea solo web. La propuesta técnica (web primero, cápsula nativa después para gafas y transmisión en vivo, comparada con las otras opciones) está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Hoy lo más fácil de probar desde un iPhone, sin computadora, es una página web: importar video de la galería, cortar, poner texto y exportar.
 - **Chat dentro de la app:** la app llama a la IA y la IA responde con llamadas a herramientas (tool calls) que la app ejecuta localmente. Una IA en la nube no puede "entrar" a una página de tu teléfono, así que invertimos la dirección.
 - **El video no se sube.** Solo viajan texto y resultados de herramientas. Enviar fotogramas para que la IA "vea" sería opcional y avisado.
 
@@ -38,14 +48,14 @@ Reutilizamos todo lo que sea posible y legal (código abierto, gratis, APIs), ve
 
 ## Enfoque: crear reels y contenido / Focus: creator content
 
-**ES.** AgentCut está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
+**ES.** Wivra está pensado para que crear reels y contenido sea mucho más fácil, usando todas las herramientas de IA que sea posible:
 - **Reconocer:** texto en pantalla (carteles, nombres de calles), lugares (apoyándose en el GPS del video cuando exista), momentos clave y silencios. Los modelos con visión leen texto en los fotogramas, pero la precisión varía y hay que verificarla. No identificamos personas por su cara.
 - **Sugerir ideas:** ganchos de apertura, títulos, estructura del reel, guiones y hashtags a partir de lo que aparece en los videos.
 - **Teleprompter:** el guion se desplaza en pantalla mientras grabas, con velocidad ajustable.
-- **Cualquier IA:** una capa de proveedores intercambiable (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros). Cada persona trae su propia clave.
+- **IA opcional:** el editor y los comandos básicos funcionan en local, sin cuenta ni pago. Opcionalmente se puede conectar una IA externa (Claude, ChatGPT/OpenAI y compatibles, Gemini, Meta y otros) con la clave propia de cada persona; **no es obligatoria y no forma parte de la promesa gratuita** (la paga cada quien a su proveedor).
 - **Privacidad y costo:** el video queda en el teléfono; solo se envían unos fotogramas y texto, con permiso, y se muestra una estimación del costo antes de analizar.
 
-**EN.** AgentCut aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
+**EN.** Wivra aims to make creating reels and content much easier by using as many AI tools as possible: recognizing on-screen text and places (verified, never faces), suggesting hooks, titles and scripts, a teleprompter for recording, and an interchangeable provider layer (Claude, OpenAI-compatible, Gemini, Meta, others). Video stays on the phone; only a few frames and text are sent, with permission and a cost estimate.
 
 ## Herramientas que ve la IA / Tools the AI sees
 
@@ -65,7 +75,9 @@ Reglas del bucle del agente / agent-loop rules:
 3. Pedir confirmación al usuario antes de borrar, sobrescribir o exportar sobre un archivo existente.
 4. Las herramientas solo tocan el proyecto actual.
 
-## Proveedores de IA / AI providers
+## Proveedores de IA opcionales / Optional AI providers
+
+> Solo para quien **elija** traer su propia clave. Wivra no exige ninguno y no cobra nada: el costo, si lo hay, es entre la persona y el proveedor. / Optional, bring-your-own-key; Wivra requires none and charges nothing.
 
 | Proveedor | Cómo se conecta | Notas |
 | --- | --- | --- |
@@ -109,6 +121,8 @@ Reglas del bucle del agente / agent-loop rules:
 - Los comentarios y commits se firman con el nombre de quien los escribe (Claude, ChatGPT, etc.), porque todos usan la misma cuenta de GitHub.
 
 ## Se buscan manos / Help wanted
+
+Lista de tareas detenidas y qué falta en cada una: [`docs/HELP_WANTED.md`](docs/HELP_WANTED.md).
 
 JavaScript/TypeScript y APIs de video del navegador (WebCodecs, WebAssembly), diseño táctil móvil, agentes con herramientas, pruebas en iPhone y Android reales, traducciones.
 

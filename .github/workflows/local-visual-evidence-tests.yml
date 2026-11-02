@@ -1,0 +1,31 @@
+name: Local Visual Evidence Tests
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - '.github/workflows/local-visual-evidence-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check visual module and basic safeguards
+        run: node --test app/tests/vision.test.mjs
+      - name: Timeline logic (cut, delete, ripple)
+        run: node --test app/tests/timeline.test.mjs
+      - name: Export logic (plan, size, format, text)
+        run: node --test app/tests/export.test.mjs
+      - name: AI client (mock provider)
+        run: node --test app/tests/ai-client.test.mjs
+      - name: Capture manifest reader (v1 real, v2 proposal)
+        run: node --test app/tests/capture-manifest.test.mjs
+      - name: Verify existing core is still valid
+        run: cd core && npm test
+      - name: Rebuild editor from source for this test commit
+        run: node app/build.mjs && test -s app/dist/agentcut.html

@@ -1,0 +1,33 @@
+name: Wivra Sherpa Moonshine CPU ASR comparison (isolated)
+on:
+  push:
+    branches:
+      - chatgpt/wivra-unified-owner-20261016
+    paths:
+      - tools/ai_benchmark_sherpa_moonshine.py
+      - .github/workflows/wivra-sherpa-moonshine-cpu-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sherpa-moonshine-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install isolated ASR runtime (never app binaries)
+        run: python -m pip install --disable-pip-version-check sherpa-onnx==1.13.8 numpy==2.2.6
+      - name: Test sherpa-onnx Moonshine with same pinned public JFK WAV as Whisper
+        run: python tools/ai_benchmark_sherpa_moonshine.py
+      - name: Upload only JSON metrics, not copyrighted model or audio
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-Sherpa-Moonshine-English-CPU-Smoke
+          path: wivra-sherpa-moonshine-results.json
+          retention-days: 7

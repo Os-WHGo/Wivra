@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Used only if the user explicitly connects an external AI provider. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Phone camera permissions are requested only when the native activity opens.
+         Microphone permission is optional, asked only when enabling sound. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Read default network type and OS validation; never inspect SSIDs or credentials. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Short renewable CPU lease only during user-initiated external HEVC capture. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 13+: optional permission for visible recording controls in notifications. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <application android:allowBackup="false" android:label="Wivra Dev"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:usesCleartextTraffic="false">
+        <!-- Privacy-first defaults documented by Meta DAT Android. -->
+        <meta-data android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT" android:value="true" />
+        <meta-data android:name="com.meta.wearable.mwdat.CRASH_REPORTING_OPT_OUT" android:value="true" />
+        <!-- Zero placeholders only for Developer Mode. Release requires Meta-assigned values. -->
+        <meta-data android:name="com.meta.wearable.mwdat.APPLICATION_ID" android:value="${mwdat_application_id}" />
+        <meta-data android:name="com.meta.wearable.mwdat.CLIENT_TOKEN" android:value="${mwdat_client_token}" />
+        <!-- Not exported: WebView receives only user-selected, read-only cache JSON. -->
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.captureimports"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/wivra_import_paths" />
+        </provider>
+        <service android:name=".WivraCaptureForegroundService"
+            android:exported="false" android:foregroundServiceType="connectedDevice" />
+        <activity android:name=".WivraPhoneCameraActivity"
+            android:exported="false" android:screenOrientation="unspecified" />
+        <!-- Keep the registration-callback Activity alive across orientation/size changes;
+             Meta AI returns an Activity result, not a transferable foreground token.
+             Process death still requires explicit DAT re-registration if needed. -->
+        <activity android:name=".WivraMetaPreviewActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".MainActivity" android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
