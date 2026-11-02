@@ -73,7 +73,7 @@ test('speed maps timeline time back into source samples with interpolation',asyn
   ]});
   near(blocks[0].buffer.channels[0][0],.2);
   near(blocks[2].buffer.channels[0][400],(1+.25*2)/5,.0002);
-  near(blocks[4].buffer.channels[0][799],(1+(4799/8000)*2)/5,.0002);
+  near(blocks[4].buffer.channels[0][799],(1+(3999/8000)*2)/5,.0002);
 });
 
 test('mutes disabled lanes, adds silence windows, preserves stereo and clamps peaks',async()=>{
