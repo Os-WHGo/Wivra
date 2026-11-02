@@ -12,9 +12,10 @@ const gap=process.argv.includes('--gap');
 const duck=process.argv.includes('--duck');
 const minute=process.argv.includes('--minute');
 const twoMinute=process.argv.includes('--two-minute');
+const threeMinute=process.argv.includes('--three-minute');
 const long=process.argv.includes('--long');
-const extended=twoMinute||minute||long||process.argv.includes('--stress');
-const seconds=twoMinute?120:minute?60:long?30:extended?10:gap?1.25:1.2;
+const extended=threeMinute||twoMinute||minute||long||process.argv.includes('--stress');
+const seconds=threeMinute?180:twoMinute?120:minute?60:long?30:extended?10:gap?1.25:1.2;
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
 const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
@@ -80,7 +81,7 @@ const server=http.createServer((req,res)=>{
  const report={type:'Wivra synthetic multitrack accelerated QA',
   scope:'Chromium Linux software media, not physical Android/iOS/Meta',
   mediabunny:'pinned 1.61.6',projectSeconds:seconds,
-  profile:duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
+  profile:duck?'1.2s sample-accurate authored voice ducking':gap?'1.25s gap-preserving accelerated timeline':threeMinute?'180s 120-cut 30-voice accelerated soak':twoMinute?'120s 120-cut 30-voice accelerated soak':minute?'60s 120-cut 30-voice accelerated soak':long?'30s 60-cut 15-mic audio soak':
     extended?'10s repeated-cut multitrack soak':'1.2s scene-mix parity'};
  const target=path.join(tmp,'multitrack.mp4');
  let fd,writeCount=0,highWater=0;
@@ -97,7 +98,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async({extended,long,minute,twoMinute,gap,duck})=>{
+  report.browser=await page.evaluate(async({extended,long,minute,twoMinute,threeMinute,gap,duck})=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -110,9 +111,9 @@ const server=http.createServer((req,res)=>{
     logo:{kind:'image',url:'/overlay.svg',w:48,h:48}
    };
    const project={
-    clips:extended?Array.from({length:twoMinute?120:minute?120:long?60:20},(_,i)=>({
+    clips:extended?Array.from({length:threeMinute||twoMinute?120:minute?120:long?60:20},(_,i)=>({
       id:'part'+i,asset_id:i%2?'second':'first',
-      start:i*(twoMinute?1:.5),in:0,out:twoMinute?1:.5
+      start:i*(threeMinute?1.5:twoMinute?1:.5),in:0,out:threeMinute?1.5:twoMinute?1:.5
     })):[
      {id:'a',asset_id:'first',start:0,in:0,out:.6},
      {id:'b',asset_id:'second',start:gap?.75:.6,in:.5,out:gap?1:1.1}
@@ -124,9 +125,9 @@ const server=http.createServer((req,res)=>{
         role:'music',volume:1},
       {id:'voice',asset_id:'silentVoice',start:.35,in:0,out:.45,
         role:'voice_primary',ducking:.8,volume:1}
-    ]:extended?Array.from({length:twoMinute||minute?30:long?15:5},(_,i)=>({
-      id:'voice'+i,asset_id:'mic',start:.12+(twoMinute?4:2)*i,
-      in:0,out:i===(twoMinute||minute?29:long?14:4)?1.88:2,role:'voice_primary',volume:.75
+    ]:extended?Array.from({length:threeMinute||twoMinute||minute?30:long?15:5},(_,i)=>({
+      id:'voice'+i,asset_id:'mic',start:.12+(threeMinute?6:twoMinute?4:2)*i,
+      in:0,out:i===(threeMinute||twoMinute||minute?29:long?14:4)?1.88:2,role:'voice_primary',volume:.75
     })):[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
       role:'voice_primary',volume:.75}],
     texts:[{id:'caption',text:'Wivra MULTITRACK',start:.35,end:.75,
@@ -161,7 +162,7 @@ const server=http.createServer((req,res)=>{
     CanvasRenderingContext2D.prototype.fillText=originalFillText;
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
-  },{extended,long,minute,twoMinute,gap,duck});
+  },{extended,long,minute,twoMinute,threeMinute,gap,duck});
   await page.close();
   fs.closeSync(fd);fd=null;
   report.nativeSimulated={writes:writeCount,bytes:highWater};
@@ -188,7 +189,7 @@ const server=http.createServer((req,res)=>{
    if(data.length<3)throw Error('A frame could not be decoded at '+time);
    return [data[0],data[1],data[2]];
   };
-  const first=pixel(.2),second=pixel(twoMinute?1.2:.95),gapRgb=gap?pixel(.68):null;
+  const first=pixel(.2),second=pixel(threeMinute?1.7:twoMinute?1.2:.95),gapRgb=gap?pixel(.68):null;
   report.scenes={firstRGB:first,secondRGB:second,gapRGB:gapRgb,
    preservedBlackGap:!gap||gapRgb.every(x=>x<30),
    firstOrange:first[0]>first[2]+25,
@@ -203,8 +204,8 @@ const server=http.createServer((req,res)=>{
    return Math.sqrt(energy/Math.max(1,end-start));
   };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
-   tailVoice:extended?rms(twoMinute?116.25:minute?58.25:long?28.25:8.25,
-     twoMinute?116.4:minute?58.4:long?28.4:8.4):null,
+   tailVoice:extended?rms(threeMinute?175.25:twoMinute?116.25:minute?58.25:long?28.25:8.25,
+     threeMinute?175.4:twoMinute?116.4:minute?58.4:long?28.4:8.4):null,
    recordedSeconds:pcm.length/2/16000};
   if(duck){
     report.audio.musicBefore=rms(.15,.25);
@@ -247,7 +248,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==null&&fd!==undefined)fs.closeSync(fd);
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':twoMinute?'wivra-multitrack-two-minute.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':threeMinute?'wivra-multitrack-three-minute.json':twoMinute?'wivra-multitrack-two-minute.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }
