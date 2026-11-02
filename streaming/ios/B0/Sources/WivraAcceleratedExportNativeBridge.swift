@@ -105,7 +105,7 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
                         expectedBytes: request.bytes, writes: request.writes,
                         expectedDurationMs: request.expectedDurationMs,
                         expectAudio: request.expectAudio, owner: owner)
-                    replyHandler(["ok": true, "verified": true, "bytes": saved.bytes,
+                    replyHandler(["ok": true, "verified": true, "token": request.token, "bytes": saved.bytes,
                                   "sha256": saved.sha256, "platform": "ios",
                                   "displayName": saved.url.lastPathComponent,
                                   "location": "Wivra (archivo privado recuperable)",
