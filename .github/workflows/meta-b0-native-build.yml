@@ -57,6 +57,14 @@ jobs:
             streaming/tests/WivraExportStoreSmoke.swift \
             -o /tmp/wivra-export-store-smoke
           /tmp/wivra-export-store-smoke
+      - name: Verify iOS random-write export staging in Swift 6 (macOS synthetic only)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
+            streaming/tests/WivraRandomAccessExportSmoke.swift \
+            -o /tmp/wivra-random-v2-smoke
+          /tmp/wivra-random-v2-smoke
       - name: Verify mobile Wi-Fi uplink observers and privacy warnings
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
