@@ -72,6 +72,8 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs
       - name: Soak 20 real accelerated cuts and 5 independent voice blocks for 10 seconds (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --stress
+      - name: Export 30 seconds of real accelerated multipista (60 cuts 15 voice segments, Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --long
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,5 +89,6 @@ jobs:
             wivra-export-engine-benchmark.json
             wivra-multitrack-accelerated.json
             wivra-multitrack-stress.json
+            wivra-multitrack-long.json
           if-no-files-found: warn
           retention-days: 7
