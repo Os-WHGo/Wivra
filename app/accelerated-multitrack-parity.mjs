@@ -60,6 +60,14 @@ export function analyzeAcceleratedMultitrackParity(project, media, {
           (type==='audio' && source.kind!=='audio') ||
           (type==='overlay' && source.kind!=='video' && source.kind!=='image'))
         return reject('missing-or-unsupported-asset',{lane:type,index,assetId:c.asset_id});
+      // If source metadata has a finite duration, a source trim beyond its
+      // real end is not a renderable promise. Unknown/infinite camera source
+      // durations remain subject to decode-end rejection in the renderer.
+      const knownDuration=Number(source.duration);
+      if (Number.isFinite(knownDuration) && knownDuration>0 &&
+          source.kind!=='image' && c.out>knownDuration+0.08)
+        return reject('source-media-too-short',{lane:type,index,assetId:c.asset_id,
+          secondsLost:c.out-knownDuration});
       // Do not silently truncate overlays or independent microphone tracks.
       // The v1 export duration is video-led; every later lane must be preserved
       // and explicitly clipped at that same output boundary.
