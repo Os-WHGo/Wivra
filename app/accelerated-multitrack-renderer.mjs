@@ -242,7 +242,7 @@ export async function renderAcceleratedMultitrack({
     tracks:audible,totalSeconds,sampleRate,
     blockFrames:sampleRate,channels:2,isCancelled
   })[Symbol.asyncIterator]():null;
-  let videoFrames=0,audioBlocks=0,overlaysRendered=0;
+  let videoFrames=0,audioBlocks=0,overlaysRendered=0,finalized=false;
   try {
     await output.start();
     for(let k=0;k<framesTotal;k++) {
@@ -294,6 +294,7 @@ export async function renderAcceleratedMultitrack({
       throw new Error('Audio mix duration exceeds rendered video.');
     if(isCancelled())throw new Error('Accelerated multi-lane render cancelled.');
     await output.finalize();
+    finalized=true;
     return {engine:'webcodecs-mediabunny-multitrack-experimental',
       rendererVersion:ACCELERATED_MULTITRACK_RENDERER_VERSION,
       videoCodec:codec.videoCodec,audioCodec:codec.audioCodec,
@@ -302,6 +303,11 @@ export async function renderAcceleratedMultitrack({
       writes:writer.writes,outputBytes:writer.highWaterBytes,
       verifiedOnDevice:false,rendererReadyForProduction:false};
   } finally {
+    // Aborting the native partial is not enough: free active encoders and
+    // release StreamTarget's writer even when a renderer/decoder fails.
+    if(!finalized && typeof output.cancel==='function'){
+      try{await output.cancel();}catch{}
+    }
     for(const item of used.values()){
       try{await item.input?.dispose?.();}catch{}
     }
