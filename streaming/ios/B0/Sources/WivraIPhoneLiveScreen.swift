@@ -27,6 +27,8 @@ final class WivraIPhoneLiveController {
     private var includesMicrophone = false
     private var generation = UUID()
     private var preview: MTHKView?
+    private var storageMonitor: Task<Void, Never>?
+    private let minimumRecordingFreeBytes: Int64 = 256 * 1024 * 1024
 
     var canPrepare: Bool { phase == .idle }
     var canStart: Bool { phase == .ready }
@@ -122,6 +124,13 @@ final class WivraIPhoneLiveController {
         // rearm a recorder for a session that was already dismissed.
         guard generation == current, phase == .connecting else { return }
         if saveLocalCopy {
+            // Keep enough room for the MP4 index, filesystem journal and UI.
+            // A completed local archive is never silently replaced by LIVE-only.
+            guard hasRecordingReserve() else {
+                status = "Espacio insuficiente para MP4 local: libera al menos 256 MiB."
+                await stop()
+                return
+            }
             do {
                 let folder = try localFolder()
                 let file = folder.appendingPathComponent(UUID().uuidString)
@@ -160,6 +169,21 @@ final class WivraIPhoneLiveController {
                 return
             }
             phase = .live
+            if saveLocalCopy {
+                storageMonitor?.cancel()
+                storageMonitor = Task { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 10_000_000_000)
+                        guard let self, !Task.isCancelled else { return }
+                        guard self.phase == .live else { return }
+                        guard self.hasRecordingReserve() else {
+                            self.status = "Espacio crítico. Deteniendo LIVE para proteger la copia privada."
+                            await self.stop()
+                            return
+                        }
+                    }
+                }
+            }
             status = saveLocalCopy
                 ? "LIVE activo. MP4 privado en grabación."
                 : "LIVE activo sin copia local. Verifica el VOD de tu plataforma."
@@ -173,6 +197,8 @@ final class WivraIPhoneLiveController {
     func stop() async {
         guard phase != .idle && phase != .stopping else { return }
         phase = .stopping
+        storageMonitor?.cancel()
+        storageMonitor = nil
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = "Cerrando LIVE y verificando archivos…"
         let localStream = stream
@@ -248,6 +274,13 @@ final class WivraIPhoneLiveController {
         }
         savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
         status = "Copias MP4 verificadas: \(savedVideos.count). Las demás permanecen privadas."
+    }
+
+    private func hasRecordingReserve() -> Bool {
+        guard let root = try? localFolder(),
+              let size = try? FileManager.default.attributesOfFileSystem(forPath: root.path),
+              let free = size[.systemFreeSize] as? NSNumber else { return false }
+        return free.int64Value >= minimumRecordingFreeBytes
     }
 
     private func localFolder() throws -> URL {
