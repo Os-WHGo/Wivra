@@ -39,6 +39,7 @@ jobs:
           node tools/verify-accelerated-offline-bundle.cjs
           # Restore production-default HTML (no accelerator SDK enabled).
           node app/build.mjs
+          node tools/verify-normal-export-safety.cjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Inspect synthetic media tracks using ffprobe
