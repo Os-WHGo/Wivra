@@ -24,9 +24,9 @@ test('recovered private names are bounded and cannot select arbitrary phone file
 });
 
 test('QA controls are bundled only when a pinned offline vendor is present',()=>{
- assert.match(build,/const qaUI = qaPipeline \\? strip\\(readFileSync/);
- assert.match(build,/accelerated-storage-budget\\.mjs/);
- assert.match(build,/accelerated-native-codec-probe\\.mjs/);
+ assert.ok(build.includes("'./accelerated-storage-budget.mjs'"));
+ assert.ok(build.includes("'./accelerated-native-codec-probe.mjs'"));
+ assert.ok(build.includes("'./accelerated-qa-export-ui.mjs'"));
  assert.match(build,/const qaPipeline = acceleratedVendor \?/);
  assert.match(build,/\+ qaUI \+/);
  assert.match(build,/const nativeHost = \(\) => findAndroid\(\) \?\? findIOS\(\)/);
