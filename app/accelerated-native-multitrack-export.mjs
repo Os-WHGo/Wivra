@@ -55,6 +55,12 @@ export async function recordExperimentalNativeMultitrack({
      !Number.isSafeInteger(sampleRate)||sampleRate<8000||sampleRate>96000)
     throw new Error('Frecuencia de video/audio acelerado inválida.');
   if(isCancelled())throw new Error('Exportación multipista cancelada antes de comenzar.');
+  // Progress is advisory UI output, never part of encoder correctness.
+  // Throwing in an observer must not discard valid media or claim that an
+  // already sealed private file failed after native finishRandom committed.
+  const safeProgress=progress=>{
+    try { onProgress(progress); } catch { /* optional UI observer */ }
+  };
 
   const prepared=await prepareAcceleratedMultitrack({
     project,media,M,platform:host.platform,expectedAudio:expectAudio,
@@ -96,7 +102,7 @@ export async function recordExperimentalNativeMultitrack({
     });
     await sink.begin();
     const stats=await renderAcceleratedMultitrack({prepared,
-      fps,sampleRate,isCancelled,onProgress,
+      fps,sampleRate,isCancelled,onProgress:safeProgress,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
     if(stats.container!==prepared.codec.container ||
        stats.audioCodec!==prepared.codec.audioCodec ||
@@ -121,7 +127,7 @@ export async function recordExperimentalNativeMultitrack({
           error: error instanceof Error ? error.message : 'Fotos no disponible.'};
       }
     }
-    onProgress({t:prepared.totalSeconds,total:prepared.totalSeconds,pct:1});
+    safeProgress({t:prepared.totalSeconds,total:prepared.totalSeconds,pct:1});
     return {experimental:true,verifiedNative:true,verifiedOnDevice:false,
       rendererReadyForProduction:false,
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
