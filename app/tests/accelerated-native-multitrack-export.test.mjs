@@ -203,3 +203,44 @@ test('Photos never runs on default, Android, forged receipts or unconfirmed requ
   host,saved:{...fake,sha256:'invalid'},userConfirmed:true}),/verificado/);
  assert.deepEqual(host.ops,[]);
 });
+
+test('native v2 rejects misleading tiny storage estimates before opening or claiming success',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ globalThis.document=documentFake();
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,estimatedBytes:1
+  }),/Reserva manual insuficiente/);
+  assert.deepEqual(host.ops,[]);
+  assert.ok(log.includes('input-dispose'));
+ }finally{globalThis.document=old;}
+});
+
+test('native v2 sends automatic conservative reservation and preserves exact output-byte verification',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ const original=host.request.bind(host);let estimated=null;
+ host.request=async request=>{
+  if(request.op==='beginRandom')estimated=request.estimatedBytes;
+  return original(request);
+ };
+ globalThis.document=documentFake();
+ try {
+  const res=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true});
+  assert.ok(Number.isSafeInteger(estimated) && estimated>=16*1024*1024);
+  assert.equal(res.verifiedNative,true);
+  assert.equal(res.saved.bytes,res.render.outputBytes);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
+ }finally{globalThis.document=old;}
+});
+
+test('oversized explicit reservation does not create a temp native file',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ globalThis.document=documentFake();
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,estimatedBytes:17*1024**3
+  }),/Reserva manual insuficiente/);
+  assert.deepEqual(host.ops,[]);
+ }finally{globalThis.document=old;}
+});
