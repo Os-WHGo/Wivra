@@ -223,7 +223,7 @@ object WivraRandomExportStore {
     data class Recovered(val name: String, val mime: String, val bytes: Long,
                          val sha256: String, val media: WivraRandomAccessExportSession.Media)
 
-    private val sealedName = Regex("""^Wivra_Fast_[A-Za-z0-9_-]{6,80}\\.(mp4|webm)$""")
+    private val sealedName = Regex("""^Wivra_Fast_[A-Za-z0-9_-]{6,80}\.(mp4|webm)$""")
 
     private fun validateSealed(context: Context, file: File): Recovered? {
         val root = directory(context).canonicalFile
