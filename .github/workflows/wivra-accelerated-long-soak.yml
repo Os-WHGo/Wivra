@@ -7,6 +7,8 @@ on:
       - tools/browser-multitrack-accelerated.cjs
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
+      - tools/accelerated-long-soak-report.cjs
+      - tools/accelerated-long-soak-report.test.cjs
       - .github/workflows/wivra-accelerated-long-soak.yml
   workflow_dispatch:
 permissions:
@@ -57,3 +59,24 @@ jobs:
           path: wivra-accelerated-soak-${{ matrix.minutes }}min.json
           if-no-files-found: warn
           retention-days: 7
+
+  validate-complete-long-form-evidence:
+    name: Validate all four long-form reports and publish metrics summary
+    runs-on: ubuntu-24.04
+    needs: accelerated-long-form
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download every available duration report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Wivra-Accelerated-*min-LinuxQA
+          path: /tmp/wivra-soak-reports
+          merge-multiple: true
+      - name: Validate auditor contract tests
+        run: node --test tools/accelerated-long-soak-report.test.cjs
+      - name: Require valid 10, 20, 30 and 60 minute reports
+        run: node tools/accelerated-long-soak-report.cjs /tmp/wivra-soak-reports
