@@ -117,8 +117,8 @@ final class WivraIOSPhoneLivePublisher {
         stream = nil
         connection = nil
         mixer = nil
-        await oldStream?.close()
-        await oldConnection?.close()
+        try? await oldStream?.close()
+        try? await oldConnection?.close()
         if let oldMixer {
             try? await oldMixer.attachVideo(nil)
             try? await oldMixer.attachAudio(nil)
