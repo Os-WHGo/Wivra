@@ -8,6 +8,9 @@
 // container, not incrementally CRC chunks whose headers may be overwritten.
 export const ACCELERATED_NATIVE_PROTOCOL = 2;
 export const ACCELERATED_NATIVE_MAX_WRITE_BYTES = 1024 * 1024;
+// Back-pressure on unsent v2 chunks. Without this, an impatient WebCodecs
+// producer could retain an unbounded queue of full-sized JS Uint8Arrays.
+export const ACCELERATED_NATIVE_MAX_PENDING_BYTES = 8 * 1024 * 1024;
 // Must match Android v2's filesystem capacity ceiling; do not send offset
 // values that native must reject after potentially expensive encoding.
 export const ACCELERATED_NATIVE_MAX_OUTPUT_BYTES = 16 * 1024 * 1024 * 1024;
@@ -24,6 +27,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
     throw new Error('Duración/tamaño estimado inválido.');
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
   let pending = Promise.resolve(), failure = null, committing = false;
+  let pendingBytes = 0;
   // A large random write can leave an unwritten hole before the patched MP4
   // footer. Native MUST independently check this same invariant before rename.
   let covered = [];
@@ -45,6 +49,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
     get state() { return state; },
     get maxEnd() { return maxEnd; },
     get writeBytes() { return writeBytes; },
+    get pendingBytes() { return pendingBytes; },
     async begin() {
       if (state !== 'idle') throw new Error('La sesión acelerada ya se inició.');
       state = 'starting';
@@ -75,8 +80,12 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
           bytes.length > ACCELERATED_NATIVE_MAX_WRITE_BYTES ||
           position + bytes.length > ACCELERATED_NATIVE_MAX_OUTPUT_BYTES)
         throw new Error('Desplazamiento o bloque acelerado inválido.');
+      if (pendingBytes + bytes.byteLength > ACCELERATED_NATIVE_MAX_PENDING_BYTES)
+        throw new Error('Cola de escritura acelerada excede memoria segura.');
       // Copy once, since Mediabunny may recycle the chunk buffer after write.
+      // The counter includes in-flight and queued chunks until the native ack.
       const data = new Uint8Array(bytes);
+      pendingBytes += data.byteLength;
       const id = seq++;
       const expectedEnd = position + data.byteLength;
       const action = pending.then(async () => {
@@ -91,7 +100,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
         markCovered(position, expectedEnd);
         writeBytes += data.byteLength;
         return data.byteLength;
-      });
+      }).finally(() => { pendingBytes -= data.byteLength; });
       // Prevent unhandled rejection on next chained write, but still notify
       // this caller and make subsequent operations fail closed.
       pending = action.catch(e => { failure ||= e; });

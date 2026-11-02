@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createAcceleratedNativeSink, ACCELERATED_NATIVE_PROTOCOL,
-  ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES} from '../accelerated-native-sink.mjs';
+  ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES,
+  ACCELERATED_NATIVE_MAX_PENDING_BYTES} from '../accelerated-native-sink.mjs';
 
 function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
   let active=false, removed=false, maxEnd=0;
@@ -224,4 +225,51 @@ test('v2 long-form duration window is capped at five seconds and never trusts no
   await writer.abort();
   assert.equal(host.removed,true);
  }
+});
+
+test('v2 bounds queued unacknowledged chunks and drains memory on cancel',async()=>{
+ const host=memoryNative();
+ const original=host.sendWriteAt;
+ let release,entered;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const seen=new Promise(resolve=>{entered=resolve;});
+ host.sendWriteAt=async message=>{
+  if(message.seq===0){entered();await gate;}
+  return original(message);
+ };
+ const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',
+  expectedDurationMs:1000,estimatedBytes:ACCELERATED_NATIVE_MAX_PENDING_BYTES});
+ await sink.begin();
+ assert.equal(ACCELERATED_NATIVE_MAX_PENDING_BYTES,8*1024*1024);
+ const writes=[];
+ for(let i=0;i<8;i++)
+  writes.push(sink.writeAt(i*1024*1024,new Uint8Array(1024*1024)));
+ await seen;
+ assert.equal(sink.pendingBytes,ACCELERATED_NATIVE_MAX_PENDING_BYTES);
+ await assert.rejects(sink.writeAt(8*1024*1024,
+  new Uint8Array(1)),/Cola de escritura acelerada/);
+ assert.equal(sink.pendingBytes,ACCELERATED_NATIVE_MAX_PENDING_BYTES);
+ release();
+ await Promise.all(writes);
+ assert.equal(sink.pendingBytes,0);
+ assert.equal(sink.writeBytes,8*1024*1024);
+ await sink.abort();
+ assert.equal(host.removed,true);
+ assert.equal(host.requests.some(x=>x.op==='finishRandom'),false);
+});
+
+test('a failed v2 acknowledgment returns pending memory budget to zero',async()=>{
+ const host=memoryNative();
+ host.sendWriteAt=async ()=>{throw Error('Native disk I/O failure');};
+ const sink=createAcceleratedNativeSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000
+ });
+ await sink.begin();
+ await assert.rejects(sink.writeAt(0,new Uint8Array(1024)),
+  /Native disk I\/O failure/);
+ assert.equal(sink.pendingBytes,0);
+ await assert.rejects(sink.finish(),/Native disk I\/O failure/);
+ await sink.abort();
+ assert.equal(sink.pendingBytes,0);
+ assert.equal(host.removed,true);
 });
