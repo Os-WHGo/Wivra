@@ -124,9 +124,18 @@ actor WivraAcceleratedExportStore {
         let saved = try await item.writer.finish(expectedBytes: expectedBytes,
             expectedWrites: writes, expectedDurationMs: expectedDurationMs,
             expectAudio: expectAudio) { url in
-            guard let real = await WivraMp4Repair.inspect(url),
+            // AVFoundation may refuse .mp4.partial despite a real ftyp box.
+            // Hard-link within the SAME private directory (zero copied bytes)
+            // under a hidden .mp4 alias so the inspector sees the true media
+            // type. The original partial stays the sole writer authority;
+            // its SHA256 is checked before and after the inspection.
+            let alias = url.deletingLastPathComponent().appendingPathComponent(
+                ".Wivra_Fast_Verify_\(UUID().uuidString).mp4")
+            try FileManager.default.linkItem(at: url, to: alias)
+            defer { try? FileManager.default.removeItem(at: alias) }
+            guard let real = await WivraMp4Repair.inspect(alias),
                   real.video, real.durationMs > 0, real.seekIndex,
-                  await Self.compatibleNativeCodecs(url, expectAudio: expectAudio)
+                  await Self.compatibleNativeCodecs(alias, expectAudio: expectAudio)
             else { return nil }
             return WivraRandomAccessExportSession.Media(
                 video: real.video, audio: real.audio, durationMs: real.durationMs)
