@@ -115,17 +115,30 @@ const server=http.createServer((req,res)=>{
     project,media:assets,M,platform:'qa',expectedAudio:true
    });
    const started=performance.now();
+   // Verify the editor's real text compositor drew at least one title.
+   // No OCR or image screenshots; count actual Canvas2D operations.
+   let drawnTitles=0;
+   const originalFillText=CanvasRenderingContext2D.prototype.fillText;
+   CanvasRenderingContext2D.prototype.fillText=function(...args){
+    if(/Wivra|MULTITRACK/.test(String(args[0])))drawnTitles++;
+    return originalFillText.apply(this,args);
+   };
    const toBase64=(bytes)=>{
     let s='';
     for(let i=0;i<bytes.length;i+=16384)
      s+=String.fromCharCode(...bytes.subarray(i,i+16384));
     return btoa(s);
    };
-   const result=await renderAcceleratedMultitrack({
-    prepared,fps:30,sampleRate:48000,
-    writeAt:(position,bytes)=>window.__writeAt(position,toBase64(bytes))
-   });
-   return {result,renderSeconds:(performance.now()-started)/1000};
+   let result;
+   try{
+    result=await renderAcceleratedMultitrack({
+     prepared,fps:30,sampleRate:48000,
+     writeAt:(position,bytes)=>window.__writeAt(position,toBase64(bytes))
+    });
+   }finally{
+    CanvasRenderingContext2D.prototype.fillText=originalFillText;
+   }
+   return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000};
   },extended);
   await page.close();
   fs.closeSync(fd);fd=null;
@@ -167,6 +180,7 @@ const server=http.createServer((req,res)=>{
    return Math.sqrt(energy/Math.max(1,end-start));
   };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
+   tailVoice:extended?rms(8.25,8.4):null,
    recordedSeconds:pcm.length/2/16000};
   if(report.containerInspection?.video!==true ||
      report.containerInspection?.audio!==true ||
@@ -179,6 +193,8 @@ const server=http.createServer((req,res)=>{
        report.ffprobe.duration<report.projectSeconds+.3) ||
      !report.scenes.firstOrange||!report.scenes.secondBlue||
      !(report.audio.beforeVoice<.02 && report.audio.afterVoice>.015) ||
+     (extended && !(report.audio.tailVoice>.015)) ||
+     !(report.browser.drawnTitles>0) ||
      report.browser.result.audioBlocks<1||
      report.browser.result.videoFrames<30||
      report.browser.result.overlaysRendered<1||
