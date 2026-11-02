@@ -45,7 +45,8 @@ object WivraRandomExportStore {
         val mime: String,
         val bytes: Long,
         val sha256: String,
-        val media: WivraRandomAccessExportSession.Media
+        val media: WivraRandomAccessExportSession.Media,
+        val alreadyPublished: Boolean = false
     )
     private val active = ConcurrentHashMap<Int, Active>()
     private val finished = ConcurrentHashMap<Int, Pair<String, Published>>()
@@ -368,8 +369,9 @@ object WivraRandomExportStore {
                 } catch (error: Exception) {
                     throw IOException("No se pudo comprobar copia previa; sin duplicar.", error)
                 }
+                val actualSha = shaString(hash.digest())
                 if (actualBytes != expected.bytes ||
-                    !expected.sha256.equals(shaString(hash.digest()), ignoreCase = true))
+                    !expected.sha256.equals(actualSha, ignoreCase = true))
                     continue
                 // A matching hash with corrupt playback metadata is NOT a
                 // successful recovery; protect the sealed original.
@@ -378,14 +380,14 @@ object WivraRandomExportStore {
                     throw IOException("Copia previa inválida; privado conservado.", error)
                 }
                 if (!isVerifiedRecoveryCopy(
-                    expected.bytes, actualBytes, expected.sha256, expected.sha256,
+                    expected.bytes, actualBytes, expected.sha256, actualSha,
                     expected.media.durationMs, gallery.durationMs,
                     expected.media.audio, gallery.audio, gallery.video,
                     expected.mime == "video/webm",
                     gallery.declaresDuration, gallery.seekIndex))
                     throw IOException("Copia previa no reproduce correctamente; privado conservado.")
                 return Published(uri, name, expected.mime, expected.bytes,
-                    expected.sha256, expected.media)
+                    expected.sha256, expected.media, alreadyPublished = true)
             }
         }
         return null
