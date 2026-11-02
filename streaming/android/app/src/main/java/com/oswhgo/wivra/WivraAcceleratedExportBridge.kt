@@ -12,6 +12,7 @@ import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -99,6 +100,22 @@ class WivraAcceleratedExportBridge(
             "abortRandom" -> enqueue(reply, rid) {
                 WivraRandomExportStore.abort(request.getInt("token"), owner)
                 JSONObject()
+            }
+            "listRecovered" -> enqueue(reply, rid) {
+                val files = JSONArray()
+                for (item in WivraRandomExportStore.recovered(context).take(100))
+                    files.put(JSONObject().put("name", item.name)
+                        .put("bytes", item.bytes)
+                        .put("durationMs", item.media.durationMs))
+                JSONObject().put("files", files)
+            }
+            "restoreRecovered" -> enqueue(reply, rid) {
+                // Existing store verifies a sealed private file and copies to
+                // a new MediaStore row; it never accepts arbitrary file paths.
+                val saved = WivraRandomExportStore.restore(
+                    context, request.getString("name"))
+                JSONObject().put("restored", true).put("name", saved.name)
+                    .put("bytes", saved.bytes)
             }
             "share" -> {
                 val saved = WivraRandomExportStore.saved(request.optInt("token", 0), owner)
