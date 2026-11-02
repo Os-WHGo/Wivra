@@ -37,6 +37,7 @@ jobs:
         run: |
           WIVRA_MEDIABUNNY_BUNDLE=/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles/mediabunny.cjs node app/build.mjs
           node tools/verify-accelerated-offline-bundle.cjs
+          node tools/verify-offline-native-multitrack.cjs
           # Restore production-default HTML (no accelerator SDK enabled).
           node app/build.mjs
           node tools/verify-normal-export-safety.cjs
