@@ -8,7 +8,8 @@
 const rejectMobileCodec=message=>{throw new Error('Preflight WebCodecs móvil: '+message);};
 export function mobileCodecConfig({codec,width,height,fps,sampleRate,
  audioBitrate=128000,videoBitrate=3000000}={}) {
- if(!codec || !['avc','vp8','vp9'].includes(codec.videoCodec) ||
+ if(!codec || typeof codec.hasAudio!=='boolean' ||
+    !['avc','vp8','vp9'].includes(codec.videoCodec) ||
     !['mp4','webm'].includes(codec.container) ||
     !Number.isSafeInteger(width)||width<=0||width>3840 ||
     !Number.isSafeInteger(height)||height<=0||height>3840 ||
@@ -22,11 +23,29 @@ export function mobileCodecConfig({codec,width,height,fps,sampleRate,
     (codec.hasAudio && codec.audioCodec!==(codec.container==='mp4'?'aac':'opus')) ||
     (!codec.hasAudio && codec.audioCodec!=null))
   rejectMobileCodec('par de códecs y contenedor inconsistente');
- // H264 level must scale to the output area. A baseline 3.1 probe would
- // wrongly label a 4K output as supported (or reject a supported high profile).
- const pixels=width*height;
+ // H.264 Annex A constrains BOTH macroblocks/frame and macroblocks/second.
+ // Resolution-only levels reject valid 4K30 phones while 720p60 may exceed
+ // baseline 3.1 even though its frame dimensions fit.
+ const mbFrame=Math.ceil(width/16)*Math.ceil(height/16);
+ const mbSecond=mbFrame*fps;
+ const highProfile=width*height>1280*720;
+ const avcLevels=highProfile?[
+   [8192,245760,'28'],    // High 4.0: 1080p30
+   [8704,522240,'2A'],    // High 4.2: 1080p60
+   [36864,983040,'33'],   // High 5.1: 4K30
+   [36864,2073600,'34']  // High 5.2: 4K60
+  ]:[
+   [3600,108000,'1F'],    // Constrained baseline 3.1: 720p30
+   [5120,216000,'20'],    // Constrained baseline 3.2: 720p60
+   [8192,245760,'28'],[8704,522240,'2A'],
+   [36864,983040,'33'],[36864,2073600,'34']
+  ];
+ const matchingLevel=avcLevels.find(([maxFrame,maxSecond])=>
+  mbFrame<=maxFrame && mbSecond<=maxSecond);
+ if(codec.videoCodec==='avc'&&!matchingLevel)
+  rejectMobileCodec('nivel AVC insuficiente para dimensiones/FPS');
  const codecName=codec.videoCodec==='avc'
-  ? (pixels>1920*1080?'avc1.640034':pixels>1280*720?'avc1.64002A':'avc1.42E01F')
+  ? 'avc1.'+(highProfile?'6400':'42E0')+matchingLevel[2]
   :codec.videoCodec==='vp9'?'vp09.00.51.08':'vp8';
  return {video:{
    codec:codecName,width,height,framerate:fps,bitrate:videoBitrate,
@@ -35,6 +54,14 @@ export function mobileCodecConfig({codec,width,height,fps,sampleRate,
    codec:codec.audioCodec==='aac'?'mp4a.40.2':'opus',
    sampleRate,numberOfChannels:2,bitrate:audioBitrate
   }:null};
+}
+// WebCodecs specifies isConfigSupported() returns the *recognized* config.
+// If a browser discards a critical field, "supported" alone is not evidence
+// that it honored the requested frames, bitrate or stereo audio. Fail closed.
+function supportsExactFields(result,requested,keys){
+ return result?.supported===true &&
+  !!result.config && typeof result.config==='object' &&
+  keys.every(key=>result.config[key]===requested[key]);
 }
 export async function verifyAcceleratedMobileCodecSupport({
  codec,width,height,fps,sampleRate,videoBitrate,videoEncoder=globalThis.VideoEncoder,
@@ -51,14 +78,20 @@ export async function verifyAcceleratedMobileCodecSupport({
  let video;
  try{video=await videoEncoder.isConfigSupported(requested.video);}
  catch{rejectMobileCodec('VideoEncoder no acepta la configuración seleccionada');}
- if(video?.supported!==true)rejectMobileCodec('H264/VP8/VP9 no disponible a esta resolución y FPS');
+ if(!supportsExactFields(video,requested.video,
+     ['codec','width','height','framerate','bitrate']) ||
+    (requested.video.avc &&
+     video.config.avc?.format!==requested.video.avc.format))
+  rejectMobileCodec('H264/VP8/VP9 no confirmó resolución, FPS, perfil y bitrate exactos');
  if(requested.audio){
   if(typeof audioEncoder?.isConfigSupported!=='function')
    rejectMobileCodec('AudioEncoder no disponible en este teléfono');
   let audio;
   try{audio=await audioEncoder.isConfigSupported(requested.audio);}
   catch{rejectMobileCodec('AudioEncoder no acepta la configuración seleccionada');}
-  if(audio?.supported!==true)rejectMobileCodec('AAC/Opus no disponible con audio estéreo');
+  if(!supportsExactFields(audio,requested.audio,
+      ['codec','sampleRate','numberOfChannels','bitrate']))
+   rejectMobileCodec('AAC/Opus no confirmó audio estéreo y frecuencia exactos');
  }
  return {supported:true,platform,videoCodec:codec.videoCodec,
   audioCodec:codec.audioCodec,container:codec.container,
