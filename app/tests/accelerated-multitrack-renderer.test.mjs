@@ -209,3 +209,27 @@ test('preflight rejects a source whose first decoded sample starts after the tri
  }),/first decodable sample/);
  assert.ok(M.events.some(event=>event[0]==='dispose'));
 });
+
+test('iPhone accelerated preflight selects only H264/AAC MP4 with independent voice',async()=>{
+ const M=fakeM();
+ const prepared=await prepareAcceleratedMultitrack({
+  project:proj(),media,M,imageFactory,platform:'ios',expectedAudio:true
+ });
+ assert.equal(prepared.codec.container,'mp4');
+ assert.equal(prepared.codec.videoCodec,'avc');
+ assert.equal(prepared.codec.audioCodec,'aac');
+ assert.equal(prepared.audible.length,1);
+ assert.equal(prepared.ledger.rendererReady,false);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+});
+
+test('iPhone accelerated preflight rejects AVC if AAC voice encoder is missing',async()=>{
+ const M=fakeM();
+ M.canEncodeAudio=async()=>false;
+ M.getFirstEncodableVideoCodec=async list=>
+  list.includes('avc')?'avc':null;
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:proj(),media,M,imageFactory,platform:'ios',expectedAudio:true
+ }),/preflight/);
+ assert.equal(M.events.some(x=>x[0]==='start'),false);
+});
