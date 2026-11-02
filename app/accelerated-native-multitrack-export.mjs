@@ -33,7 +33,7 @@ export async function recordExperimentalNativeMultitrack({
   const expectedBytes=estimatedBytes??exportEstimatedBytes(
     prepared.totalSeconds,{progressive:true,width:prepared.width,
       height:prepared.height,fps});
-  let sink,startedRender=false;
+  let sink;
   try {
     if(!Number.isSafeInteger(expectedBytes)||expectedBytes<0)
       throw new Error('Tamaño estimado de salida fuera de límites.');
@@ -44,7 +44,6 @@ export async function recordExperimentalNativeMultitrack({
       expectAudio,estimatedBytes:expectedBytes
     });
     await sink.begin();
-    startedRender=true;
     const stats=await renderAcceleratedMultitrack({prepared,
       fps,sampleRate,isCancelled,onProgress,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
@@ -68,9 +67,11 @@ export async function recordExperimentalNativeMultitrack({
     }
     throw error;
   } finally {
-    // renderAcceleratedMultitrack releases input decoder resources, including
-    // when cancelled. Preflight itself must be released if no render started.
-    if(!startedRender) for(const item of prepared.used.values()){
+    // Guarantee decoder disposal even if output setup fails before the
+    // renderer reaches its own try/finally (e.g. unavailable canvas or
+    // encoder constructor). The renderer also closes inputs on its path;
+    // dispose may be called twice and must not suppress the original error.
+    for(const item of prepared.used.values()){
       try{await item.input?.dispose?.();}catch{}
     }
   }
