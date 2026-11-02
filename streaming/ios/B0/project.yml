@@ -15,6 +15,9 @@ packages:
   MetaDAT:
     url: https://github.com/facebook/meta-wearables-dat-ios
     exactVersion: 1.0.1
+  HaishinKit:
+    url: https://github.com/HaishinKit/HaishinKit.swift
+    exactVersion: 2.2.5
 targets:
   WivraMetaB0:
     type: application
@@ -47,3 +50,7 @@ targets:
         product: MWDATCore
       - package: MetaDAT
         product: MWDATCamera
+      - package: HaishinKit
+        product: HaishinKit
+      - package: HaishinKit
+        product: RTMPHaishinKit

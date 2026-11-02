@@ -17,6 +17,7 @@ struct WivraMetaB0App: App {
     @State private var showingCaptureLibrary = false
     @State private var showingExportLibrary = false
     @State private var showingUnifiedEditor = false
+    @State private var showingPhoneLive = false
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
     // to the destination until the current camera has released AVFoundation
@@ -75,6 +76,15 @@ struct WivraMetaB0App: App {
                     HStack {
                         Spacer()
                     Button {
+                        showingPhoneLive = true
+                    } label: {
+                        Label("LIVE iPhone", systemImage: "dot.radiowaves.left.and.right")
+                    }
+                    .disabled(!model.isReleasedForCameraHandoff ||
+                              !iPhoneCamera.isReleasedForCameraHandoff ||
+                              pendingCaptureTab != nil)
+                    .accessibilityIdentifier("wivra_ios_phone_live_button")
+                    Button {
                         showingUnifiedEditor = true
                     } label: {
                         Label("ios.app.editor", systemImage: "film.stack")
@@ -82,6 +92,7 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
+                    .accessibilityIdentifier("ios_live_phone_entry")
                     Button {
                         showingCaptureLibrary = true
                     } label: {
@@ -142,6 +153,9 @@ struct WivraMetaB0App: App {
             }
             .fullScreenCover(isPresented: $showingUnifiedEditor) {
                 WivraEmbeddedEditorScreen()
+            }
+            .fullScreenCover(isPresented: $showingPhoneLive) {
+                WivraIPhoneLiveScreen()
             }
             .overlay(alignment: .top) {
                 if pendingCaptureTab != nil {
