@@ -87,6 +87,35 @@ struct WivraAcceleratedRecoverySmoke {
         precondition(recoveredWriterFiles[0].sha256 == sha)
         precondition(recoveredWriterFiles[0].media.video && recoveredWriterFiles[0].media.audio)
 
+        // A crashed inspector's hidden hard link may be reclaimed only
+        // after its age threshold. Do not touch a new inspection, a symlink,
+        // an unrelated app-private file or the actual sealed H264/AAC video.
+        let oldAlias = writerRoot.appendingPathComponent(
+            ".Wivra_Fast_Verify_\(UUID().uuidString).mp4")
+        let newAlias = writerRoot.appendingPathComponent(
+            ".Wivra_Fast_Verify_\(UUID().uuidString).mp4")
+        let foreignAlias = writerRoot.appendingPathComponent("foreign-video.mp4")
+        let linkedAlias = writerRoot.appendingPathComponent(
+            ".Wivra_Fast_Verify_\(UUID().uuidString).mp4")
+        try Data("old inspection".utf8).write(to: oldAlias)
+        try Data("active inspection".utf8).write(to: newAlias)
+        try Data("KEEP".utf8).write(to: foreignAlias)
+        try FileManager.default.createSymbolicLink(at: linkedAlias,
+            withDestinationURL: oldAlias)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-7200)],
+            ofItemAtPath: oldAlias.path)
+        let cleanedAliases = try WivraAcceleratedExportStore
+            .cleanupOldVerificationAliases(directory: writerRoot)
+        precondition(cleanedAliases == 1)
+        precondition(!FileManager.default.fileExists(atPath: oldAlias.path))
+        precondition(FileManager.default.fileExists(atPath: newAlias.path))
+        precondition(FileManager.default.fileExists(atPath: foreignAlias.path))
+        precondition(FileManager.default.fileExists(atPath: linkedAlias.path)
+                     || (try? FileManager.default.destinationOfSymbolicLink(
+                        atPath: linkedAlias.path)) != nil)
+        precondition(FileManager.default.fileExists(atPath: finished.url.path))
+
         let store = WivraAcceleratedExportStore(directory: root,
             freeSpace: { _ in 8_000_000_000 })
         let first = await store.recovered()
