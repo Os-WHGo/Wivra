@@ -87,6 +87,8 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs --two-minute
       - name: Canary 180-second accelerated multipista with 120 cuts and 30 voice blocks (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --three-minute
+      - name: Export 30-second real accelerated A/V at 1280x720 and probe mobile AVC/AAC capabilities (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --hd-canary
       - name: Verify exact 150ms video gap in accelerated multipista exported frames (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --gap
       - name: Verify voice ducking survives actual WebCodecs mux and PCM decoding (Linux only)
@@ -110,6 +112,7 @@ jobs:
             wivra-multitrack-minute.json
             wivra-multitrack-two-minute.json
             wivra-multitrack-three-minute.json
+            wivra-multitrack-hd-canary.json
             wivra-multitrack-gap.json
             wivra-multitrack-duck.json
           if-no-files-found: warn
