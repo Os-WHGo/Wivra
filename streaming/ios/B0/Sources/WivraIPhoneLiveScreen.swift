@@ -27,12 +27,14 @@ final class WivraIPhoneLiveController {
     private var includesMicrophone = false
     private var generation = UUID()
     private var preview: MTHKView?
+    private var storageMonitor: Task<Void, Never>?
+    private let minimumRecordingFreeBytes: Int64 = 256 * 1024 * 1024
 
     var canPrepare: Bool { phase == .idle }
     var canStart: Bool { phase == .ready }
     var isActive: Bool { phase != .idle }
 
-    func prepareCamera(microphone: Bool) async {
+    func prepareCamera(microphone: Bool, frontCamera: Bool) async {
         guard phase == .idle else { return }
         phase = .preparing
         let current = UUID()
@@ -62,9 +64,16 @@ final class WivraIPhoneLiveController {
                                               options: [.defaultToSpeaker, .allowBluetooth])
                 try audioSession.setActive(true)
             }
+            // Reconciled from PR #159: choose exactly ONE physical camera
+            // before configuring MediaMixer. No hot-switch or simultaneous PiP.
+            let position: AVCaptureDevice.Position = frontCamera ? .front : .back
             guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                       for: .video, position: .back) else {
-                status = "No hay cámara trasera disponible."
+                                                       for: .video, position: position) else {
+                status = "La cámara elegida no está disponible."
+                if microphone {
+                    try? AVAudioSession.sharedInstance().setActive(false,
+                        options: .notifyOthersOnDeactivation)
+                }
                 phase = .idle
                 return
             }
@@ -115,6 +124,13 @@ final class WivraIPhoneLiveController {
         // rearm a recorder for a session that was already dismissed.
         guard generation == current, phase == .connecting else { return }
         if saveLocalCopy {
+            // Keep enough room for the MP4 index, filesystem journal and UI.
+            // A completed local archive is never silently replaced by LIVE-only.
+            guard hasRecordingReserve() else {
+                status = "Espacio insuficiente para MP4 local: libera al menos 256 MiB."
+                await stop()
+                return
+            }
             do {
                 let folder = try localFolder()
                 let file = folder.appendingPathComponent(UUID().uuidString)
@@ -153,6 +169,21 @@ final class WivraIPhoneLiveController {
                 return
             }
             phase = .live
+            if saveLocalCopy {
+                storageMonitor?.cancel()
+                storageMonitor = Task { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 10_000_000_000)
+                        guard let self, !Task.isCancelled else { return }
+                        guard self.phase == .live else { return }
+                        guard self.hasRecordingReserve() else {
+                            self.status = "Espacio crítico. Deteniendo LIVE para proteger la copia privada."
+                            await self.stop()
+                            return
+                        }
+                    }
+                }
+            }
             status = saveLocalCopy
                 ? "LIVE activo. MP4 privado en grabación."
                 : "LIVE activo sin copia local. Verifica el VOD de tu plataforma."
@@ -166,6 +197,8 @@ final class WivraIPhoneLiveController {
     func stop() async {
         guard phase != .idle && phase != .stopping else { return }
         phase = .stopping
+        storageMonitor?.cancel()
+        storageMonitor = nil
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = "Cerrando LIVE y verificando archivos…"
         let localStream = stream
@@ -243,6 +276,13 @@ final class WivraIPhoneLiveController {
         status = "Copias MP4 verificadas: \(savedVideos.count). Las demás permanecen privadas."
     }
 
+    private func hasRecordingReserve() -> Bool {
+        guard let root = try? localFolder(),
+              let size = try? FileManager.default.attributesOfFileSystem(forPath: root.path),
+              let free = size[.systemFreeSize] as? NSNumber else { return false }
+        return free.int64Value >= minimumRecordingFreeBytes
+    }
+
     private func localFolder() throws -> URL {
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraLive", isDirectory: true)
@@ -265,6 +305,7 @@ struct WivraIPhoneLiveScreen: View {
     @State private var controller = WivraIPhoneLiveController()
     @State private var destination = ""
     @State private var includeMicrophone = false
+    @State private var frontCamera = false
     @State private var archiveVideo = true
     @State private var confirmPublication = false
     @State private var savingPhotos = false
@@ -274,13 +315,17 @@ struct WivraIPhoneLiveScreen: View {
         NavigationStack {
             Form {
                 Section("Wivra LIVE · cámara iPhone") {
-                    Text("Solo cámara trasera del iPhone. No transmite Ray-Ban ni pantalla.")
+                    Text("Cámara frontal o trasera del iPhone. No transmite Ray-Ban ni pantalla.")
+                    Toggle("Usar cámara frontal", isOn: $frontCamera)
+                        .disabled(controller.phase != .idle)
+                        .accessibilityIdentifier("wivra_ios_live_front_camera")
                     Toggle("Micrófono del iPhone (opcional)", isOn: $includeMicrophone)
                         .disabled(controller.phase != .idle)
                     Toggle("Guardar copia MP4 local (recomendado)", isOn: $archiveVideo)
                         .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
                     Button("Preparar cámara") {
-                        Task { await controller.prepareCamera(microphone: includeMicrophone) }
+                        Task { await controller.prepareCamera(microphone: includeMicrophone,
+                                                              frontCamera: frontCamera) }
                     }.disabled(!controller.canPrepare)
                 }
                 Section("Destino RTMP/RTMPS") {

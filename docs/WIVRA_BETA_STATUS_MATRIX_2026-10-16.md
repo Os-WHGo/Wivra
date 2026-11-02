@@ -1,4 +1,22 @@
 # Wivra · Matriz de estado del EDITOR (beta) · 16-oct-2026
+## Revisión de integración a 01-11-2026
+
+Este bloque actualiza la foto histórica del editor Claude del 16 de octubre que sigue debajo. Se verificó el checkpoint MU, repositorio Wivra, PR de Claude y Codex, y los CI. Ninguna función está certificada en hardware físico por estas pruebas.
+
+| Área | Confirmado en rama y pruebas | Pendiente real |
+| --- | --- | --- |
+| Editor y Director | #136 integra recuperación de captura, 7 módulos reconstruidos, edición/Director y exportación progresiva Claude #132; #160 272 commits adelante de #136, cero atrás | Uso y velocidad con clips reales, accesibilidad |
+| Exportación | MediaRecorder progresivo, WebM/MP4 con reparación y CRC; 10/20/30/60 min Chromium/Linux CI SUCCESS [41151818001](https://github.com/Os-WHGo/Wivra/actions/runs/41151818001) | MP4, audio, seek y 30/60 min físicos con teléfono, temperatura |
+| Motor rápido | WebCodecs+Mediabunny 8,5x en benchmark 60 s Linux, NO integrado: ACCELERATED_EXPORT_IMPLEMENTED=false en app/export-engine-policy.mjs | Render multipista, writer random-access, fallback y prueba física |
+| Ray-Ban Meta | DAT Gen2, HEVC por segmentos, diario de captura y unión para una sola película tras validación, permisos | Sesiones largas reales y pantalla bloqueada, límite gafas, LIVE Ray-Ban |
+| Android FULL LIVE | RootEncoder RTMP, cámara frontal/trasera, MP4 local opt-in, audio preferido USB/BT, MediaProjection pantalla/app consentido; #155 3/3 CI success | Plataforma RTMP/VOD, micrófonos y grabaciones reales |
+| iPhone LIVE | #156 valida RTMP(S) y completó 3/3 CI; #157 implementa HaishinKit 2.2.5 y MP4 privado; #160 reconcilia frontal/trasera con MP4/recovery y gate espacio 256 MiB | CI exacto #160 pendiente, emisión y MP4 físicos, firma iOS |
+| Artefactos | Android DEBUG APK y iPhone arm64 UNSIGNED IPA pasaron en #155/#156, más emulador Android | Instalar Android autorizado, firma iOS del propietario, QA por lotes |
+
+Claude y Codex no están activos. PR #158/#159 son ramas históricas paralelas: no fusionar sus HEAD antiguas encima de #160 ni borrar la nueva copia MP4. Seguir siempre el último SHA de [PR #160](https://github.com/Os-WHGo/Wivra/pull/160), el checkpoint privado Wivra y la biblioteca MU. No tocar main, publicar, gastar ni declarar hardware probado. Meta beta 19-11-2026.
+
+---
+
 
 Escrita por Claude (editor). Estados por **evidencia**, no por intención. Vocabulario: **EN RAMA** (código en la rama beta, pruebas automáticas) · **CI** (verde en GitHub) · **VERIFICADO EN HARDWARE** (iPhone/Android reales) · **PENDIENTE**.
 Nada del editor está verificado en hardware real todavía: Chromium simulado **no** es un iPhone ni un Android WebView.

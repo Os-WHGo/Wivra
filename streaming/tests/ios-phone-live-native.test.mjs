@@ -72,3 +72,34 @@ test('leaving foreground closes stream and stops native camera; real VOD still r
   assert.match(source,/Button\("DETENER LIVE"\)/);
   assert.match(source,/VOD remoto/);
 });
+
+
+test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publisher', () => {
+  assert.match(source, /func prepareCamera\(microphone: Bool, frontCamera: Bool\) async/);
+  assert.match(source, /let position: AVCaptureDevice\.Position = frontCamera \? \.front : \.back/);
+  assert.match(source, /for: \.video, position: position/);
+  assert.match(source, /Toggle\("Usar cámara frontal", isOn: \$frontCamera\)/);
+  assert.match(source, /accessibilityIdentifier\("wivra_ios_live_front_camera"\)/);
+  assert.match(source, /Task \{ await controller\.prepareCamera\(microphone: includeMicrophone,\s*frontCamera: frontCamera\) \}/);
+  assert.match(source, /\.disabled\(controller\.phase != \.idle\)/);
+  assert.match(source, /StreamRecorder\(\)/);
+  assert.match(source, /func reviewSavedVideos\(\) async/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source, /MTHKViewRepresentable\(previewSource: controller\)/);
+  assert.doesNotMatch(app, /showingIPhoneLive|WivraIOSPhoneLiveScreen/);
+});
+
+
+test('long iPhone LIVE copy protects disk and preserves private MP4 under low storage', () => {
+  assert.match(source, /minimumRecordingFreeBytes: Int64 = 256 \* 1024 \* 1024/);
+  assert.match(source, /guard hasRecordingReserve\(\) else \{/);
+  assert.ok(source.indexOf('guard hasRecordingReserve() else {') < source.indexOf('try await writer.startRecording(file, settings: settings)'));
+  assert.match(source, /FileManager\.default\.attributesOfFileSystem\(forPath: root\.path\)/);
+  assert.match(source, /size\[\.systemFreeSize\] as\? NSNumber/);
+  assert.match(source, /storageMonitor = Task \{ \[weak self\] in/);
+  assert.match(source, /Task\.sleep\(nanoseconds: 10_000_000_000\)/);
+  assert.match(source, /self\.status = "Espacio crítico\./);
+  assert.match(source, /await self\.stop\(\)/);
+  assert.match(source, /storageMonitor\?\.cancel\(\)/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+});
