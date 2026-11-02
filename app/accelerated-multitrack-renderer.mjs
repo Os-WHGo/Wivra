@@ -6,7 +6,7 @@
 // First implementation is bounded to <=30 s / <=60 fps for controlled QA.
 // Never claim a 30/60-minute or iPhone codec result from these source tests.
 import {clipLength,srcTime} from '../core/project.mjs';
-import {drawFrame,formatSize,exportBitrate} from './export.mjs';
+import {drawFrame,formatSize,exportBitrate,clipGain} from './export.mjs';
 import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parity.mjs';
 import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
@@ -159,7 +159,7 @@ export async function prepareAcceleratedMultitrack({
     const audible=[];
     for(const lane of ledger.tracks) {
       const c=lane.authored,source=used.get(lane.assetId);
-      if(c.muted || c.volume===0 || source.kind==='image')continue;
+      if(clipGain(c)<=0 || source.kind==='image')continue;
       if(lane.lane==='audio' && !source.audioSink)
         deny('independent microphone track missing');
       if(!source.audioSink)continue;
@@ -234,7 +234,7 @@ export async function renderAcceleratedMultitrack({
         frame=asVisual(surface,surface.width,surface.height);
       }
       const overlays=[];
-      for(const c of [...project.overlayClips??[]].sort(
+      for(const c of [...(project.overlayClips??[])].sort(
         (a,b)=>(a.track??0)-(b.track??0)||a.start-b.start)) {
         if(!(t>=c.start&&t<c.start+clipLength(c)))continue;
         const source=used.get(c.asset_id);
