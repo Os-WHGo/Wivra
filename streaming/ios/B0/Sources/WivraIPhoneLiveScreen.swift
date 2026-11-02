@@ -263,6 +263,12 @@ struct WivraIPhoneLiveScreen: View {
             )) {
                 Button("OK") { photoMessage = nil }
             } message: { Text(photoMessage ?? "") }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.didEnterBackgroundNotification
+            )) { _ in
+                // First iPhone LIVE is foreground only. No secret background broadcast.
+                Task { await controller.stop() }
+            }
             .onDisappear { Task { await controller.stop() } }
         }
     }
