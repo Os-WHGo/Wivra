@@ -320,3 +320,35 @@ test('accelerated QA preflight accepts explicit voice ducking and rejects invali
   project:wrong,media,M,imageFactory,expectedAudio:true
  }),/invalid or unsupported voice ducking/);
 });
+
+test('120-second accelerator canary preserves 120 cuts and 30 independent voices without production enablement',async()=>{
+ const M=fakeM(),p=proj();
+ p.clips=Array.from({length:120},(_,i)=>({
+  id:'part'+i,asset_id:i%2?'main':'guest',start:i,in:0,out:1
+ }));
+ p.audioClips=Array.from({length:30},(_,i)=>({
+  id:'voice'+i,asset_id:'mic',start:i*4+.12,
+  in:0,out:1.88,role:'voice_primary',volume:.75
+ }));
+ const prepared=await prepareAcceleratedMultitrack({
+  project:p,media,M,imageFactory,platform:'android',expectedAudio:true
+ });
+ assert.equal(prepared.totalSeconds,120);
+ assert.equal(prepared.ledger.authoredItems,152);
+ assert.equal(prepared.audible.length,30);
+ assert.equal(prepared.ledger.rendererReady,false);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+ const tooLong=structuredClone(p);
+ tooLong.clips.at(-1).out=1.01; // 120.01 seconds exceed the QA-only 120s cap
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:tooLong,media,M,imageFactory,expectedAudio:true
+ }),/timeline-duration/);
+ const tooMany=structuredClone(p);
+ for(let i=0;i<9;i++)tooMany.audioClips.push({
+  id:'extra'+i,asset_id:'mic',start:i,in:0,out:1
+ });
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:tooMany,media,M,imageFactory,expectedAudio:true
+ }),/item-count/);
+ assert.equal(M.events.some(x=>x[0]==='start'),false);
+});

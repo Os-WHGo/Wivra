@@ -83,6 +83,8 @@ jobs:
         run: node tools/browser-accelerated-main-still.cjs
       - name: Render 60-second accelerated multipista with 120 cuts and 30 independent voice segments (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --minute
+      - name: Render bounded 120-second accelerated multipista with 120 cuts and 30 voices (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --two-minute
       - name: Verify exact 150ms video gap in accelerated multipista exported frames (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --gap
       - name: Verify voice ducking survives actual WebCodecs mux and PCM decoding (Linux only)
@@ -104,6 +106,7 @@ jobs:
             wivra-multitrack-stress.json
             wivra-multitrack-long.json
             wivra-multitrack-minute.json
+            wivra-multitrack-two-minute.json
             wivra-multitrack-gap.json
             wivra-multitrack-duck.json
           if-no-files-found: warn
