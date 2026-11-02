@@ -1,6 +1,8 @@
 import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accelerated-multitrack-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 import {planAcceleratedStorageReservation} from './accelerated-storage-budget.mjs';
+import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-probe.mjs';
+import {exportBitrate} from './export.mjs';
 
 /**
  * W22: iOS private v2 files remain the authoritative recovery copy.
@@ -76,6 +78,17 @@ export async function recordExperimentalNativeMultitrack({
         throw new Error('Canales de audio no admitidos por el motor acelerado.');
     }
     if(isCancelled())throw new Error('Exportación multipista cancelada antes de abrir archivo.');
+    // Mediabunny can select a codec family without the actual WKWebView or
+    // Android WebView supporting these exact output dimensions, fps and
+    // stereo sample rate. Fail safely BEFORE obtaining a native file token.
+    const codecCapabilities=await verifyAcceleratedMobileCodecSupport({
+      platform:host.platform,codec:prepared.codec,
+      width:prepared.width,height:prepared.height,fps,sampleRate,
+      videoBitrate:exportBitrate(prepared.totalSeconds,{
+        progressive:true,width:prepared.width,height:prepared.height,fps
+      })
+    });
+    if(isCancelled())throw new Error('Exportación multipista cancelada tras validar códecs.');
     sink=createAcceleratedNativeSink(host,{
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
       expectedDurationMs:Math.round(prepared.totalSeconds*1000),
@@ -112,7 +125,7 @@ export async function recordExperimentalNativeMultitrack({
     return {experimental:true,verifiedNative:true,verifiedOnDevice:false,
       rendererReadyForProduction:false,
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
-      saved,render:stats,photos};
+      saved,render:stats,photos,codecCapabilities};
   }catch(error){
     if(sink) {
       try{await sink.abort();}catch{}
