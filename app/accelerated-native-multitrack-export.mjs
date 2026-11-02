@@ -29,11 +29,13 @@ export async function recordExperimentalNativeMultitrack({
     project,media,M,platform:host.platform,expectedAudio:expectAudio,
     isCancelled,...(imageFactory?{imageFactory}:{})
   });
-  const expectedBytes=estimatedBytes??exportEstimatedBytes(
-    prepared.totalSeconds,{progressive:true,width:prepared.width,
-      height:prepared.height,fps});
   let sink;
   try {
+    // Keep estimation inside the same cleanup scope as codec/bridge setup.
+    // Invalid space estimates must release every decoder before returning.
+    const expectedBytes=estimatedBytes??exportEstimatedBytes(
+      prepared.totalSeconds,{progressive:true,width:prepared.width,
+        height:prepared.height,fps});
     // Only mono and stereo are mixed today. A multi-channel source could
     // otherwise lose its center/dialogue channel unnoticed.
     for(const item of prepared.used.values()){
