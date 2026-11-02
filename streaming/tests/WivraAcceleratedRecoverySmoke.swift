@@ -1,6 +1,7 @@
 // Native macOS Swift 6 rehearsal for PRIVATE accelerated-video recovery.
 // Real H.264/AAC fixture with AVFoundation; no iPhone hardware/Photos claims.
 import Foundation
+import CryptoKit
 
 @main
 struct WivraAcceleratedRecoverySmoke {
@@ -35,6 +36,55 @@ struct WivraAcceleratedRecoverySmoke {
             opus, expectAudio: true)
         precondition(!hevcSupported && !opusSupported)
 
+        // P0-W37: exercise the ENTIRE v2 writer with bytes from an actual
+        // AVFoundation-validated H.264/AAC MP4, not a mocked media inspector.
+        // The muxer's header is deliberately delivered AFTER its media tail,
+        // then patched to prove random-offset coverage/hash/finalization.
+        let sourceBytes = try Data(contentsOf: verified)
+        precondition(sourceBytes.count > 256)
+        let writerRoot = root.appendingPathComponent("v2-real-media", isDirectory: true)
+        let writer = WivraAcceleratedExportStore(directory: writerRoot,
+            freeSpace: { _ in 8_000_000_000 })
+        let owner = "wivra-macos-codec-test-owner"
+        let token = try await writer.begin(mime: "video/mp4",
+            estimatedBytes: Int64(sourceBytes.count) + 64 * 1024 * 1024,
+            owner: owner)
+        let split = min(64 * 1024, sourceBytes.count / 2)
+        var seq = 0
+        var offset = split
+        while offset < sourceBytes.count {
+            let end = min(sourceBytes.count, offset + 128 * 1024)
+            let ack = try await writer.writeAt(token: token, seq: seq,
+                position: Int64(offset), data: sourceBytes.subdata(in: offset..<end),
+                owner: owner)
+            precondition(ack.writtenBytes == end - offset)
+            offset = end
+            seq += 1
+        }
+        _ = try await writer.writeAt(token: token, seq: seq, position: 0,
+            data: sourceBytes.subdata(in: 0..<split), owner: owner)
+        seq += 1
+        // A muxer may overwrite an already-written moov/ftyp header.
+        _ = try await writer.writeAt(token: token, seq: seq, position: 0,
+            data: sourceBytes.subdata(in: 0..<16), owner: owner)
+        seq += 1
+        let finished = try await writer.finish(token: token,
+            expectedBytes: Int64(sourceBytes.count), writes: seq,
+            expectedDurationMs: media.durationMs, expectAudio: true,
+            owner: owner)
+        let sha = SHA256.hash(data: sourceBytes)
+            .map { String(format: "%02x", $0) }.joined()
+        precondition(finished.bytes == Int64(sourceBytes.count))
+        precondition(finished.sha256 == sha)
+        precondition(try Data(contentsOf: finished.url) == sourceBytes)
+        precondition(await WivraAcceleratedExportStore.compatibleNativeCodecs(
+            finished.url, expectAudio: true))
+        let recoveredWriter = WivraAcceleratedExportStore(directory: writerRoot,
+            freeSpace: { _ in 8_000_000_000 })
+        let recoveredWriterFiles = await recoveredWriter.recovered()
+        precondition(recoveredWriterFiles.count == 1)
+        precondition(recoveredWriterFiles[0].sha256 == sha)
+        precondition(recoveredWriterFiles[0].media.video && recoveredWriterFiles[0].media.audio)
 
         let store = WivraAcceleratedExportStore(directory: root,
             freeSpace: { _ in 8_000_000_000 })
@@ -68,6 +118,6 @@ struct WivraAcceleratedRecoverySmoke {
         precondition(FileManager.default.fileExists(atPath: foreign.path))
         precondition(FileManager.default.fileExists(atPath: linked.path))
         precondition(!FileManager.default.fileExists(atPath: partial.path))
-        print("Wivra accelerated iOS recovery PASS: valid H264/AAC, restart, corruption, symlink and partial preservation")
+        print("Wivra accelerated macOS PASS: real H264/AAC random v2 writer, header patch, SHA256, native AVFoundation inspection, cold recovery, corruption and symlink safety")
     }
 }
