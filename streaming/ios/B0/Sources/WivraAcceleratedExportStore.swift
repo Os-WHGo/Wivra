@@ -68,10 +68,41 @@ actor WivraAcceleratedExportStore {
         return true
     }
 
+    private static let verificationAliasPrefix = ".Wivra_Fast_Verify_"
+
+    /// A crash during AVFoundation inspection may leave the hidden hard link.
+    /// Remove only OLD, regular, self-named aliases, not sealed media, fresh
+    /// in-flight inspection or user files. No shell/glob or recursive delete.
+    static func cleanupOldVerificationAliases(directory: URL,
+        now: Date = Date()) throws -> Int {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return 0 }
+        let urls = try FileManager.default.contentsOfDirectory(at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey,
+                                          .contentModificationDateKey],
+            options: [.skipsSubdirectoryDescendants])
+        var removed = 0
+        for url in urls {
+            let name = url.lastPathComponent
+            guard name.hasPrefix(verificationAliasPrefix), name.hasSuffix(".mp4"),
+                  let uuid = UUID(uuidString: String(
+                    name.dropFirst(verificationAliasPrefix.count).dropLast(4))),
+                  !uuid.uuidString.isEmpty else { continue }
+            let values = try url.resourceValues(forKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey, .contentModificationDateKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
+                  let modified = values.contentModificationDate,
+                  modified < now.addingTimeInterval(-3600) else { continue }
+            try FileManager.default.removeItem(at: url)
+            removed += 1
+        }
+        return removed
+    }
+
     func cleanupOrphans() throws -> Int {
         // Never delete an active writer even if an editor was opened quickly.
         guard sessions.isEmpty else { return 0 }
-        return try WivraRandomAccessExportSession.cleanupOrphanPartials(directory: directory)
+        let partials = try WivraRandomAccessExportSession.cleanupOrphanPartials(directory: directory)
+        return partials + (try Self.cleanupOldVerificationAliases(directory: directory))
     }
 
     func begin(mime: String, estimatedBytes: Int64, owner: String) throws -> Int {
