@@ -6,10 +6,10 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import java.io.File
 import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -148,19 +148,19 @@ object WivraRandomExportStore {
             val sha = digest()
             var copied = 0L
             FileInputStream(verified.file).use { input ->
-                resolver.openFileDescriptor(uri, "w")?.use { descriptor ->
-                    FileOutputStream(descriptor.fileDescriptor).use { out ->
-                        val buffer = ByteArray(1024 * 1024)
-                        while (true) {
-                            val n = input.read(buffer)
-                            if (n < 0) break
-                            out.write(buffer, 0, n)
-                            sha.update(buffer, 0, n)
-                            copied += n
-                        }
-                        out.fd.sync()
+                val descriptor = resolver.openFileDescriptor(uri, "w")
+                    ?: throw IOException("No se pudo escribir en la galería.")
+                ParcelFileDescriptor.AutoCloseOutputStream(descriptor).use { out ->
+                    val buffer = ByteArray(1024 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        out.write(buffer, 0, n)
+                        sha.update(buffer, 0, n)
+                        copied += n
                     }
-                } ?: throw IOException("No se pudo escribir en la galería.")
+                    out.fd.sync()
+                }
             }
             if (copied != verified.bytes || shaString(sha.digest()) != verified.sha256)
                 throw IOException("La copia de galería difiere del archivo verificado.")
