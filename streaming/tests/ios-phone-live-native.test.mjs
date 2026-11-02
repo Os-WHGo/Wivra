@@ -65,3 +65,13 @@ test('leaving foreground closes stream and stops native camera; real VOD still r
   assert.match(source,/Button\("DETENER LIVE"\)/);
   assert.match(source,/VOD remoto/);
 });
+
+test('single native iPhone LIVE chooses one front/back camera before mixer attach',()=> {
+  assert.match(source,/func prepareCamera\(microphone: Bool, frontCamera: Bool\) async/);
+  assert.match(source,/selectedPosition: AVCaptureDevice\.Position = frontCamera \? \.front : \.back/);
+  assert.match(source,/position: selectedPosition/);
+  assert.match(source,/Toggle\("Usar cámara frontal", isOn: \$frontCamera\)/);
+  assert.match(source,/\.disabled\(!controller\.canPrepare\)/);
+  assert.match(source,/wivra_ios_live_front_camera/);
+  assert.doesNotMatch(source,/switchCamera\(|attachMultiCamera\(/);
+});
