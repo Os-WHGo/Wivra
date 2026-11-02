@@ -83,6 +83,21 @@ object WivraRandomExportStore {
         }
     }
 
+    /**
+     * A .mp4 extension cannot make HEVC/VP9 or Opus into iOS/gallery-safe
+     * H.264/AAC. This v2-only check is performed against Android's extractor
+     * report for the actual final bytes, not requested WebCodecs settings.
+     * WebM retains its existing independent seek and duration preflight.
+     */
+    internal fun compatibleAcceleratedTrack(mime: String, trackMime: String): Boolean {
+        if (mime != "video/mp4") return true
+        return when {
+            trackMime.startsWith("video/") -> trackMime == MediaFormat.MIMETYPE_VIDEO_AVC
+            trackMime.startsWith("audio/") -> trackMime == MediaFormat.MIMETYPE_AUDIO_AAC
+            else -> true
+        }
+    }
+
     /** Real Android track metadata + sample probing. Not a hardware decode claim. */
     private fun inspect(file: File, mime: String): WivraRandomAccessExportSession.Media? {
         val retriever = MediaMetadataRetriever()
@@ -98,6 +113,7 @@ object WivraRandomExportStore {
             for (i in 0 until extractor.trackCount) {
                 val format = extractor.getTrackFormat(i)
                 val trackMime = format.getString(MediaFormat.KEY_MIME) ?: continue
+                if (!compatibleAcceleratedTrack(mime, trackMime)) return null
                 if (trackMime.startsWith("video/")) { video = true; videoTrack = i }
                 if (trackMime.startsWith("audio/")) audio = true
             }
