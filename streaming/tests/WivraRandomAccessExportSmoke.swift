@@ -21,7 +21,7 @@ struct WivraRandomAccessExportSmoke {
         .init(video: true, audio: audio, durationMs: duration)
     }
 
-    static func expectFailure(_ operation: () async throws -> Void) async throws {
+    static func expectFailure(_ operation: @Sendable () async throws -> Void) async throws {
         do {
             try await operation()
             fatalError("Unsafe random export was accepted")
