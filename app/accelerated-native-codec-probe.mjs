@@ -5,7 +5,7 @@
 // A positive result is a precondition, never proof that a completed MP4
 // can be published to Photos or safely played on a real device.
 
-const fail=message=>{throw new Error('Preflight WebCodecs móvil: '+message);};
+const rejectMobileCodec=message=>{throw new Error('Preflight WebCodecs móvil: '+message);};
 export function mobileCodecConfig({codec,width,height,fps,sampleRate,
  audioBitrate=128000,videoBitrate=3000000}={}) {
  if(!codec || !['avc','vp8','vp9'].includes(codec.videoCodec) ||
@@ -16,12 +16,12 @@ export function mobileCodecConfig({codec,width,height,fps,sampleRate,
     !Number.isSafeInteger(sampleRate)||sampleRate<8000||sampleRate>96000 ||
     !Number.isSafeInteger(videoBitrate)||videoBitrate<=0 ||
     !Number.isSafeInteger(audioBitrate)||audioBitrate<=0)
-  fail('configuración inválida');
+  rejectMobileCodec('configuración inválida');
  if((codec.container==='mp4' && codec.videoCodec!=='avc') ||
     (codec.container==='webm' && codec.videoCodec==='avc') ||
     (codec.hasAudio && codec.audioCodec!==(codec.container==='mp4'?'aac':'opus')) ||
     (!codec.hasAudio && codec.audioCodec!=null))
-  fail('par de códecs y contenedor inconsistente');
+  rejectMobileCodec('par de códecs y contenedor inconsistente');
  // H264 level must scale to the output area. A baseline 3.1 probe would
  // wrongly label a 4K output as supported (or reject a supported high profile).
  const pixels=width*height;
@@ -40,25 +40,25 @@ export async function verifyAcceleratedMobileCodecSupport({
  codec,width,height,fps,sampleRate,videoBitrate,videoEncoder=globalThis.VideoEncoder,
  audioEncoder=globalThis.AudioEncoder,platform
 }={}) {
- if(!['android','ios'].includes(platform))fail('plataforma desconocida');
+ if(!['android','ios'].includes(platform))rejectMobileCodec('plataforma desconocida');
  if(platform==='ios' && (codec?.container!=='mp4'||
     codec?.videoCodec!=='avc'||(codec?.hasAudio&&codec.audioCodec!=='aac')))
-  fail('iOS exige MP4 H264/AAC real');
+  rejectMobileCodec('iOS exige MP4 H264/AAC real');
  const requested=mobileCodecConfig({codec,width,height,fps,sampleRate,
   ...(videoBitrate===undefined?{}:{videoBitrate})});
  if(typeof videoEncoder?.isConfigSupported!=='function')
-  fail('VideoEncoder no disponible en este teléfono');
+  rejectMobileCodec('VideoEncoder no disponible en este teléfono');
  let video;
  try{video=await videoEncoder.isConfigSupported(requested.video);}
- catch{fail('VideoEncoder no acepta la configuración seleccionada');}
- if(video?.supported!==true)fail('H264/VP8/VP9 no disponible a esta resolución y FPS');
+ catch{rejectMobileCodec('VideoEncoder no acepta la configuración seleccionada');}
+ if(video?.supported!==true)rejectMobileCodec('H264/VP8/VP9 no disponible a esta resolución y FPS');
  if(requested.audio){
   if(typeof audioEncoder?.isConfigSupported!=='function')
-   fail('AudioEncoder no disponible en este teléfono');
+   rejectMobileCodec('AudioEncoder no disponible en este teléfono');
   let audio;
   try{audio=await audioEncoder.isConfigSupported(requested.audio);}
-  catch{fail('AudioEncoder no acepta la configuración seleccionada');}
-  if(audio?.supported!==true)fail('AAC/Opus no disponible con audio estéreo');
+  catch{rejectMobileCodec('AudioEncoder no acepta la configuración seleccionada');}
+  if(audio?.supported!==true)rejectMobileCodec('AAC/Opus no disponible con audio estéreo');
  }
  return {supported:true,platform,videoCodec:codec.videoCodec,
   audioCodec:codec.audioCodec,container:codec.container,
