@@ -1,5 +1,4 @@
-import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}
-  from './accelerated-multitrack-renderer.mjs';
+import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accelerated-multitrack-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 import {exportEstimatedBytes} from './export.mjs';
 
