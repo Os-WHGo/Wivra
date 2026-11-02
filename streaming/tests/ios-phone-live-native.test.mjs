@@ -35,7 +35,8 @@ test('iPhone LIVE explicitly confirms public publishing and requests microphone 
   assert.match(source, /if includeMicrophone \{\s*guard await AVCaptureDevice\.requestAccess\(for: \.audio\)/);
   assert.match(source, /if includeMicrophone \{\s*try await newMixer\.attachAudio/);
   assert.match(source, /endpoint = "" \/\/ Stream key never kept after publish request/);
-  assert.doesNotMatch(source, /UserDefaults|Keychain|NSLog|print\(|error\.localizedDescription/);
+  const executable = source.split("\n").filter(line => !line.trimStart().startsWith("//")).join("\n");
+  assert.doesNotMatch(executable, /UserDefaults|Keychain|NSLog|print\(|error\.localizedDescription/);
   assert.match(parser, /parts\.query == nil, parts\.fragment == nil/);
 });
 
