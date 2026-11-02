@@ -199,7 +199,7 @@ const server=http.createServer((req,res)=>{
    preservedBlackGap:!gap||gapRgb.every(x=>x<30),
    firstOrange:first[0]>first[2]+25,
    secondBlue:second[2]>second[0]+25};
-  const pcm=execFileSync('ffmpeg',['-nostdin','-v','error','-i',actual,
+  const pcm=longSoak?null:execFileSync('ffmpeg',['-nostdin','-v','error','-i',actual,
    '-map','0:a:0','-ac','1','-ar','16000','-f','s16le','pipe:1'],
    {timeout:20000,maxBuffer:Math.ceil(seconds*16000*2+262144)});
   const rms=(a,b)=>{
