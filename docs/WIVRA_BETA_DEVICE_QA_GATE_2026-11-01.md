@@ -254,3 +254,9 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - Pulsar STOP o mandar la app a background: cancelar sesión, cerrar RTMPStream/RTMPConnection, liberar MediaMixer, desactivar audio y borrar clave. En LIVE iOS P0-T **no hay MP4 local**; activar archivo VOD en plataforma para las pruebas. No prometer captura bloqueada o RTMP en segundo plano.
 - Comparar Mac CI y simulador con hardware físico más adelante; no probar con claves reales en CI. En la tanda física, verificar video H.264, audio opt-in, desincronización, interrupción de red, recuento de frames, calentamiento, VOD, STOP y pérdida de permisos. Instalar solo cuando el propietario decida y tenga firma Apple.
 - El SDK es BSD-3-Clause, sus dependencias transversales requieren inventario y políticas de distribución antes de publicar. Candidato alternativo LiveKit/WebRTC descartado para esta ruta simple por necesidad de servidor/signalling o relay; librería AVFoundation nativa no trae cliente RTMP. HaishinKit RTMP tiene SPM y código abierto, se somete a build Xcode para comprobar compatibilidad real.
+
+### P0-U · Cámara iPhone LIVE frontal/trasera seleccionable al iniciar
+
+- Antes de LIVE, elegir trasera (por defecto) o frontal con `AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)`. Si cámara no existe, abortar antes de conectar y sin reclamar frames.
+- Toggle bloqueado mientras el publisher está conectando o emitiendo; **no** se pretende hot-switch ni multicámara simultánea. Confirmación pública y permisos de cámara/micro conservados.
+- En futura tanda física, comparar orientación real, imagen, audio, permisos, pérdida de cámara, VOD y calor; simulator/compilación iOS solo valida API y flujo, no calidad de capturas reales. No hardware QA ni firma todavía.
