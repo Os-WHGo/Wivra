@@ -3,7 +3,7 @@
 // same drawFrame implementation as the stable exporter, including captions,
 // video overlays, image overlays, crop, shapes and fade transforms. Decoding
 // each frame by timestamp avoids cumulative seeking/MediaRecorder clock drift.
-// First implementation is bounded to <=30 s / <=60 fps for controlled QA.
+// This still runs only in explicit QA, bounded to 60 s / 160 items / <=60 fps.
 // Never claim a 30/60-minute or iPhone codec result from these source tests.
 import {clipLength,srcTime} from '../core/project.mjs';
 import {drawFrame,formatSize,exportBitrate,clipGain} from './export.mjs';
@@ -12,8 +12,8 @@ import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
 
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
-export const ACCELERATED_MULTITRACK_MAX_SECONDS = 30;
-export const ACCELERATED_MULTITRACK_MAX_ITEMS = 80;
+export const ACCELERATED_MULTITRACK_MAX_SECONDS = 60;
+export const ACCELERATED_MULTITRACK_MAX_ITEMS = 160;
 
 // Explicit supported keys. Unknown future edits MUST NOT disappear silently.
 const MAIN = new Set(['id','asset_id','start','in','out','speed','volume','muted',
