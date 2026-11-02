@@ -46,7 +46,9 @@ const qaSidecar = qaPipeline ?
   '\n if(!host) throw new Error("No existe el puente nativo acelerado v2 en este dispositivo.");' +
   '\n return recordExperimentalNativeMultitrack({...options,host,M:globalThis.Mediabunny});' +
   '\n}' +
-  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack};' +
+  '\nconst nativeHost = () => findAndroid() ?? findIOS();' +
+  '\nconst saveToPhotos = ({saved,userConfirmed}) => saveVerifiedAcceleratedVideoToPhotos({host:nativeHost(),saved,userConfirmed});' +
+  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos};' +
   '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n})();\n' : '';
 
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
