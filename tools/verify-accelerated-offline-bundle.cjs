@@ -59,7 +59,7 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     assert.equal(result.verifiedOnDevice,false);
     assert.ok(result.frames>0,'No decoded frames passed through shared renderer');
     assert.ok(result.size>1000,'No finished file from QA memory exporter');
-    assert.match(result.mime,/^video\\/(?:mp4|webm)$/);
+    assert.match(result.mime,/^video\/(?:mp4|webm)$/);
     assert.equal(result.hasAudio,false);
   }
   console.log('Wivra offline Mediabunny bundle and opt-in API smoke PASS: '+JSON.stringify({status,result}));
