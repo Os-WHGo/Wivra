@@ -172,7 +172,7 @@ const server=http.createServer((req,res)=>{
     try{result.mediabunnyAac=(await M.canEncodeAudio('aac'))===true;}
     catch(e){result.mediabunnyAac=false;result.aacError=String(e);}
     result.mobileMp4ReadyInThisBrowser=
-      result.h264&&result.aac&&result.mediabunnyAvc&&result.mediabunnyAac;
+      result.mediabunnyAvc&&result.mediabunnyAac;
     return result;
    })():null;
    const started=performance.now();
