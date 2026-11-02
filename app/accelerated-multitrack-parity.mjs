@@ -56,7 +56,7 @@ export function analyzeAcceleratedMultitrackParity(project, media, {
       const source=media[c.asset_id];
       if (!source || typeof source.url !== 'string' || !source.url ||
           !['video','audio','image'].includes(source.kind) ||
-          (type==='main' && source.kind!=='video') ||
+          (type==='main' && source.kind!=='video' && source.kind!=='image') ||
           (type==='audio' && source.kind!=='audio') ||
           (type==='overlay' && source.kind!=='video' && source.kind!=='image'))
         return reject('missing-or-unsupported-asset',{lane:type,index,assetId:c.asset_id});
