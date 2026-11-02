@@ -339,7 +339,7 @@ test('120-second accelerator canary preserves 120 cuts and 30 independent voices
  assert.equal(prepared.ledger.rendererReady,false);
  for(const item of prepared.used.values())await item.input?.dispose?.();
  const tooLong=structuredClone(p);
- tooLong.clips.at(-1).out=1.01; // 120.01 seconds exceed the QA-only 120s cap
+ tooLong.clips.at(-1).start=180; // 181-second timeline exceeds QA-only 180s cap
  await assert.rejects(prepareAcceleratedMultitrack({
   project:tooLong,media,M,imageFactory,expectedAudio:true
  }),/timeline-duration/);
@@ -371,4 +371,28 @@ test('main source lookup preserves original sequence when timeline array is unso
   assert.equal(decoded[0][1],'blob:main');
   assert.equal(decoded.at(-1)[1],'blob:guest');
  }finally{globalThis.document=prior;}
+});
+
+test('180-second 120-cut 30-voice accelerated canary stays QA-only and enforces the next millisecond',async()=>{
+ const M=fakeM(),p=proj();
+ p.clips=Array.from({length:120},(_,i)=>({
+  id:'c'+i,asset_id:i%2?'main':'guest',start:i*1.5,in:0,out:1.5
+ }));
+ p.audioClips=Array.from({length:30},(_,i)=>({
+  id:'voice'+i,asset_id:'mic',start:i*6+.12,
+  in:0,out:1.88,role:'voice_primary',volume:.75
+ }));
+ const prepared=await prepareAcceleratedMultitrack({
+  project:p,media,M,imageFactory,expectedAudio:true
+ });
+ assert.equal(prepared.totalSeconds,180);
+ assert.equal(prepared.ledger.authoredItems,152);
+ assert.equal(prepared.ledger.rendererReady,false);
+ assert.equal(prepared.audible.length,30);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+ const excessive=structuredClone(p);
+ excessive.clips.at(-1).out=1.51;
+ await assert.rejects(prepareAcceleratedMultitrack({
+  project:excessive,media,M,imageFactory,expectedAudio:true
+ }),/timeline-duration/);
 });
