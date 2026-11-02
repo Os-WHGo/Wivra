@@ -70,6 +70,8 @@ jobs:
         run: node tools/export-engine-benchmark.cjs 30 12
       - name: Verify real accelerated multipista video overlay text and independent WAV via ffprobe (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs
+      - name: Soak 20 real accelerated cuts and 5 independent voice blocks for 10 seconds (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs --stress
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -84,5 +86,6 @@ jobs:
             wivra-container-playback.json
             wivra-export-engine-benchmark.json
             wivra-multitrack-accelerated.json
+            wivra-multitrack-stress.json
           if-no-files-found: warn
           retention-days: 7
