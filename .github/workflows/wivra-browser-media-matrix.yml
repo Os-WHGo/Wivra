@@ -68,6 +68,8 @@ jobs:
         run: node tools/browser-container-playback.cjs
       - name: Compare export engines (MediaRecorder vs WebCodecs+Mediabunny), 30 s montage, A/V markers
         run: node tools/export-engine-benchmark.cjs 30 12
+      - name: Verify real accelerated multipista video overlay text and independent WAV via ffprobe (Linux only)
+        run: node tools/browser-multitrack-accelerated.cjs
       - name: Archive evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,5 +83,6 @@ jobs:
             wivra-progressive-export.json
             wivra-container-playback.json
             wivra-export-engine-benchmark.json
+            wivra-multitrack-accelerated.json
           if-no-files-found: warn
           retention-days: 7
