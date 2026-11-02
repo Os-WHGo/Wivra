@@ -77,3 +77,10 @@ La matriz de navegador [41514053659](https://github.com/Os-WHGo/Wivra/actions/ru
 - La matriz de navegador y el contrato de ensamblaje beta pasaron. No se generaron instalables ni se publicó nada.
 - Siguen pendientes pruebas físicas agrupadas: H.264/AAC real en WKWebView iPhone, MediaStore en Android, sincronía prolongada con medios reales y cualquier afirmación sobre Ray-Ban.
 
+
+
+## W43: integridad del bundle offline (02-11-2026)
+
+La comprobación de nombre, versión y licencia del paquete no garantiza que el JavaScript generado sea el artefacto revisado. El build QA opcional ahora exige `WIVRA_MEDIABUNNY_SHA256`, un digest SHA-256 de 64 caracteres suministrado por el pipeline confiable, y compara el contenido exacto antes de incrustarlo. Si falta el pin o no coincide, el build se detiene; no descarga ni sustituye el bundle. Se añaden pruebas de digest correcto, ausente, malformado, incorrecto y contenido inválido.
+
+Este control no habilita el bundle en beta: `ACCELERATED_EXPORT_IMPLEMENTED=false`, MediaRecorder sigue siendo el motor normal. El pipeline QA que use Mediabunny debe guardar y revisar el hash del artefacto antes de compilar; no debe calcular el hash y aceptarlo automáticamente desde el mismo archivo no confiable.
