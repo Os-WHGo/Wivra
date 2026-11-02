@@ -23,8 +23,32 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     multipista:typeof globalThis.WivraAcceleratedQA?.recordExperimentalNativeMultitrack,
     photoQA:typeof globalThis.WivraAcceleratedQA?.prepareAcceleratedMultitrack,
     nativeLaunch:typeof globalThis.WivraAcceleratedQA?.recordOnNative,
+    qaUI:document.getElementById('wivraAcceleratedQA')?.id || null,
+    nativeHost:typeof globalThis.WivraAcceleratedQA?.nativeHost,
+    photos:typeof globalThis.WivraAcceleratedQA?.saveToPhotos,
   }));
-  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function',nativeLaunch:'function'});
+  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function',nativeLaunch:'function',qaUI:null,nativeHost:'function',photos:'function'});
+  // The same offline QA HTML must show controls ONLY when a dedicated
+  // v2 host exists. An ordinary browser may inspect codecs but cannot launch
+  // native export or recovery. This is Chromium Linux, not an iPhone proof.
+  const simulated=await browser.newPage();
+  await simulated.addInitScript(()=>{
+    globalThis.WivraAcceleratedExportNative={
+      addEventListener(){},postMessage(){}
+    };
+  });
+  await simulated.goto('file://'+htmlPath,{waitUntil:'domcontentloaded'});
+  const gated=await simulated.evaluate(()=>{
+    const box=document.getElementById('wivraAcceleratedQA');
+    const start=document.getElementById('wivraQaStart');
+    return {box:!!box,start:!!start,consent:document.getElementById('wivraQaEnable')?.checked,
+      native:globalThis.WivraAcceleratedQA?.nativeHost()?.platform};
+  });
+  assert.deepEqual(gated,{box:true,start:true,consent:false,native:'android'});
+  await simulated.click('#wivraQaStart');
+  const denied=await simulated.locator('#wivraAcceleratedQA [role="status"]').first().textContent();
+  assert.match(denied,/Marca primero la autorización experimental/);
+  await simulated.close();
   const hostSafety=await page.evaluate(async()=>{
     const qa=globalThis.WivraAcceleratedQA;
     let deniedWithoutConsent=false,deniedWithoutHost=false;
