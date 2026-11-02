@@ -224,10 +224,12 @@ object WivraRandomExportStore {
                          val sha256: String, val media: WivraRandomAccessExportSession.Media)
 
     private val sealedName = Regex("""^Wivra_Fast_[A-Za-z0-9_-]{6,80}\.(mp4|webm)$""")
+    /** Pure filename boundary; file identity and media bytes are checked separately. */
+    internal fun isRecoverableFilename(name: String): Boolean = name.matches(sealedName)
 
     private fun validateSealed(context: Context, file: File): Recovered? {
         val root = directory(context).canonicalFile
-        if (!file.name.matches(sealedName) || !file.isFile ||
+        if (!isRecoverableFilename(file.name) || !file.isFile ||
             Files.isSymbolicLink(file.toPath()) || file.canonicalFile.parentFile != root ||
             file.length() <= 0 || file.length() > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
             return null
@@ -254,7 +256,7 @@ object WivraRandomExportStore {
     /** Read-only catalog. Never publishes, edits or deletes a saved original. */
     fun recovered(context: Context): List<Recovered> {
         return directory(context).listFiles().orEmpty()
-            .filter { it.isFile && it.name.matches(sealedName) }
+            .filter { it.isFile && isRecoverableFilename(it.name) }
             .sortedByDescending { it.lastModified() }.take(100)
             .mapNotNull { validateSealed(context, it) }
     }
@@ -265,7 +267,7 @@ object WivraRandomExportStore {
      * the sealed source survives any failure. No arbitrary path or deletion API.
      */
     fun restore(context: Context, selectedName: String): Published {
-        if (!selectedName.matches(sealedName)) throw IOException("Nombre de recuperación inválido.")
+        if (!isRecoverableFilename(selectedName)) throw IOException("Nombre de recuperación inválido.")
         val file = File(directory(context), selectedName)
         val verified = validateSealed(context, file)
             ?: throw IOException("El archivo privado no supera la verificación.")
