@@ -22,6 +22,9 @@ final class WivraIPhoneLiveController {
     private var stream: RTMPStream?
     private var recorder: StreamRecorder?
     private var privateVideoURL: URL?
+    private var includesMicrophone = false
+    private var generation = UUID()
+    private var preview: MTHKView?
 
     var canPrepare: Bool { phase == .idle }
     var canStart: Bool { phase == .ready }
@@ -30,15 +33,20 @@ final class WivraIPhoneLiveController {
     func prepareCamera(microphone: Bool) async {
         guard phase == .idle else { return }
         phase = .preparing
+        let current = UUID()
+        generation = current
         status = "Solicitando cámara y preparando vista previa…"
         let allowed = await AVCaptureDevice.requestAccess(for: .video)
+        guard generation == current else { return }
         guard allowed else {
             status = "Se necesita permiso de cámara para LIVE."
             phase = .idle
             return
         }
         if microphone {
-            guard await AVCaptureDevice.requestAccess(for: .audio) else {
+            let allowedAudio = await AVCaptureDevice.requestAccess(for: .audio)
+            guard generation == current else { return }
+            guard allowedAudio else {
                 status = "Micrófono denegado. Desactiva audio para emitir solo video."
                 phase = .idle
                 return
@@ -46,6 +54,12 @@ final class WivraIPhoneLiveController {
         }
         let capture = MediaMixer()
         do {
+            if microphone {
+                let audioSession = AVAudioSession.sharedInstance()
+                try audioSession.setCategory(.playAndRecord, mode: .default,
+                                              options: [.defaultToSpeaker, .allowBluetooth])
+                try audioSession.setActive(true)
+            }
             guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera,
                                                        for: .video, position: .back) else {
                 status = "No hay cámara trasera disponible."
@@ -57,11 +71,21 @@ final class WivraIPhoneLiveController {
                 try await capture.attachAudio(AVCaptureDevice.default(for: .audio))
             }
             await capture.startRunning()
+            guard generation == current else {
+                await capture.stopRunning()
+                return
+            }
+            includesMicrophone = microphone
             mixer = capture
+            if let preview { await capture.addOutput(preview) }
             phase = .ready
             status = "Cámara preparada. Ningún video se ha transmitido."
         } catch {
             await capture.stopRunning()
+            if microphone {
+                try? AVAudioSession.sharedInstance().setActive(false,
+                    options: .notifyOthersOnDeactivation)
+            }
             phase = .idle
             status = "No se pudo preparar cámara o audio. Revisa permisos."
         }
@@ -75,6 +99,10 @@ final class WivraIPhoneLiveController {
         }
         // The caller MUST show a second, explicit public-emission confirmation.
         phase = .connecting
+        let current = UUID()
+        generation = current
+        verifiedVideoURL = nil
+        unverifiedVideoURL = nil
         status = "Preparando emisión y copia local…"
         let liveConnection = RTMPConnection()
         let liveStream = RTMPStream(connection: liveConnection)
@@ -91,7 +119,9 @@ final class WivraIPhoneLiveController {
                 await mixer.addOutput(writer)
                 recorder = writer
                 privateVideoURL = file
-                try await writer.startRecording(file)
+                let settings = includesMicrophone ? StreamRecorder.defaultSettings
+                    : StreamRecorder.defaultSettings.filter { $0.key == .video }
+                try await writer.startRecording(file, settings: settings)
             } catch {
                 // A requested archive is a precondition to network LIVE, not
                 // a best-effort checkbox that can silently fail.
@@ -101,8 +131,15 @@ final class WivraIPhoneLiveController {
             }
         }
         do {
+            guard generation == current, phase == .connecting else { return }
             try await liveConnection.connect(endpoint.serverURL)
+            guard generation == current, phase == .connecting else { return }
             _ = try await liveStream.publish(endpoint.streamKey)
+            guard generation == current, phase == .connecting else {
+                _ = try? await liveStream.close()
+                try? await liveConnection.close()
+                return
+            }
             phase = .live
             status = saveLocalCopy
                 ? "LIVE activo. MP4 privado en grabación."
@@ -117,6 +154,7 @@ final class WivraIPhoneLiveController {
     func stop() async {
         guard phase != .idle && phase != .stopping else { return }
         phase = .stopping
+        generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = "Cerrando LIVE y verificando archivos…"
         let localStream = stream
         let localConnection = connection
@@ -153,6 +191,11 @@ final class WivraIPhoneLiveController {
         }
         if let localStream, let localMixer { await localMixer.removeOutput(localStream) }
         if let localMixer { await localMixer.stopRunning() }
+        if includesMicrophone {
+            try? AVAudioSession.sharedInstance().setActive(false,
+                options: .notifyOthersOnDeactivation)
+        }
+        includesMicrophone = false
         phase = .idle
         status = verifiedVideoURL != nil
             ? "LIVE detenido. Copia MP4 verificada y disponible para compartir."
@@ -166,6 +209,15 @@ final class WivraIPhoneLiveController {
             .appendingPathComponent("WivraLive", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         return root
+    }
+}
+
+extension WivraIPhoneLiveController: MTHKViewRepresentable.PreviewSource {
+    nonisolated func connect(to view: MTHKView) {
+        Task { @MainActor in
+            preview = view
+            if let mixer { await mixer.addOutput(view) }
+        }
     }
 }
 
@@ -207,6 +259,12 @@ struct WivraIPhoneLiveScreen: View {
                     }.disabled(controller.phase == .idle || controller.phase == .stopping)
                 }
                 Section("Estado") {
+                    if controller.phase == .ready || controller.phase == .connecting ||
+                       controller.phase == .live {
+                        MTHKViewRepresentable(previewSource: controller)
+                            .frame(height: 240)
+                            .accessibilityIdentifier("wivra_ios_live_preview")
+                    }
                     Text(controller.status).accessibilityIdentifier("wivra_ios_live_status")
                     if let file = controller.verifiedVideoURL {
                         ShareLink(item: file) {
