@@ -282,3 +282,20 @@ test('native preflight explicitly returns codec capability evidence after verifi
   });
  }finally{globalThis.document=prior;}
 });
+
+test('WebCodecs claiming success with a changed AVC frame size never opens native v2',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),prior=globalThis.VideoEncoder;
+ globalThis.VideoEncoder={
+  isConfigSupported:async config=>({
+   supported:true,config:{...config,width:config.width+16}
+  })
+ };
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true}),/no confirmó resolución, FPS, perfil y bitrate exactos/);
+  assert.deepEqual(host.ops,[]);
+  assert.ok(log.includes('input-dispose'));
+ } finally {
+  globalThis.VideoEncoder=prior;
+ }
+});
