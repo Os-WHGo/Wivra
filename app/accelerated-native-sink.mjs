@@ -64,7 +64,8 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       const id = seq++;
       const expectedEnd = position + data.byteLength;
       const action = pending.then(async () => {
-        if (state !== 'open') throw new Error('Sesión cancelada antes de escribir.');
+        if ((state !== 'open' && state !== 'finishing') || failure)
+          throw failure || new Error('Sesión cancelada antes de escribir.');
         const r = await host.sendWriteAt({ protocol: ACCELERATED_NATIVE_PROTOCOL,
           token, seq: id, position, bytes: data });
         if (r?.seq !== id || r?.writtenBytes !== data.byteLength ||
