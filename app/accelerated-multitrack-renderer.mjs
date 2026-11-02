@@ -124,6 +124,14 @@ export async function prepareAcceleratedMultitrack({
   });
   if(!ledger.valid)deny(ledger.reason);
   validateAuthoring(project,ledger,media);
+  // A voice marked principal/guest is essential narration. The stable
+  // exporter rejects silently clipped final words; accelerator must too.
+  if(ledger.tracks.some(lane=>lane.lane==='audio' &&
+      ['voice_primary','voice_guest'].includes(lane.authored.role) &&
+      lane.end > ledger.totalSeconds + .05))
+    deny('essential voice extends beyond final video');
+  if(ledger.needsParity.textsBeyondEnd)
+    deny('authored captions continue beyond final picture');
   const first=media[project.clips[0].asset_id];
   if(!(first?.w>0 && first?.h>0))deny('first video dimensions unavailable');
   const {w:width,h:height}=formatSize(project.format,first.w,first.h);
