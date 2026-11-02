@@ -54,6 +54,6 @@ test('heavy long-form QA supersedes obsolete PR commits but never interrupts man
   assert.match(acceleratedSoak,/workflow_dispatch:/);
   assert.match(acceleratedSoak,/minutes: \[10, 20, 30, 60\]/);
   assert.match(acceleratedSoak,/node tools\/browser-multitrack-accelerated\.cjs --telemetry-smoke/);
-  assert.match(acceleratedSoak,/node tools\/accelerated-resource-telemetry\.test\.cjs/);
+  assert.match(acceleratedSoak,/node --test tools\/accelerated-resource-telemetry\.test\.cjs/);
   assert.doesNotMatch(acceleratedSoak,/pull_request_target:/);
 });
