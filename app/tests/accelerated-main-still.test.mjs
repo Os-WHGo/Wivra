@@ -21,3 +21,17 @@ test('an animated GIF is rejected before any decoder or native output starts',as
   expectedAudio:false
  }),/animated GIF/);
 });
+
+test('main photo preflight resolves output dimensions without a video decoder',async()=>{
+ const {prepareAcceleratedMultitrack}=await import('../accelerated-multitrack-renderer.mjs');
+ const M={Input:class{},UrlSource:class{},CanvasSink:class{},AudioBufferSink:class{},
+   getFirstEncodableVideoCodec:async()=> 'avc',canEncodeAudio:async()=>true};
+ const prepared=await prepareAcceleratedMultitrack({
+  project:base(),media,M,expectedAudio:false,
+  imageFactory:async()=>({naturalWidth:1080,naturalHeight:1920})
+ });
+ assert.equal(prepared.codec.container,'mp4');
+ assert.equal(prepared.totalSeconds,2);
+ assert.equal(prepared.used.get('photo').kind,'image');
+ assert.equal(prepared.used.get('photo').input,undefined);
+});
