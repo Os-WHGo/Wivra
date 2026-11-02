@@ -1,5 +1,15 @@
 # Wivra
 
+## Estado operativo reciente · 01-11-2026 (para retomar desde cualquier chat)
+
+- **Rama de continuidad propuesta**: PR apilada a partir de [#157](https://github.com/Os-WHGo/Wivra/pull/157). Confirmar siempre el SHA/CI más reciente antes de codificar, nunca asumir que otro chat/agente terminó una tarea. Claude y Codex no están trabajando actualmente; ChatGPT mantiene la integración dentro de las autorizaciones.
+- **Historia conservada, no `main`**: [#136](https://github.com/Os-WHGo/Wivra/pull/136) incorporó captura recuperable + exportación de Claude; la línea posterior sumó Meta DAT, editor/Director, LIVE Android, pantalla autorizada y [#155](https://github.com/Os-WHGo/Wivra/pull/155) (micrófonos). [#156](https://github.com/Os-WHGo/Wivra/pull/156) validó direcciones LIVE iPhone y [#157](https://github.com/Os-WHGo/Wivra/pull/157) añade RTMP iPhone + MP4 privado.
+- **No confundir pruebas**: exportación 10/20/30/60 min de Claude medida en Chromium/Linux y build/emulador son evidencia de software, **NO** grabación física Ray-Ban de 60 min, transmisión RTMP/VOD a servidor real ni uso de micrófono Bluetooth físico. La IPA iOS sigue **sin firmar**; el APK es de depuración.
+- **Motor rápido pendiente**: WebCodecs + Mediabunny fue comparado (~8,5× en prueba Linux de 60 s), pero no integra el editor. Ver `app/export-engine-policy.mjs`; MediaRecorder sigue siendo la ruta activa.
+- **Ramas paralelas**: [#158](https://github.com/Os-WHGo/Wivra/pull/158) y [#159](https://github.com/Os-WHGo/Wivra/pull/159) propusieron elección frontal/trasera iPhone; reconciliar sobre el código reciente de #157 sin resucitar la pantalla duplicada ni perder MP4/recuperación.
+- **Fuente canónica privada y QA**: leer instrucciones MU, checkpoint Wivra existente en Drive y biblioteca tecnológica MU; gates públicos en [QA beta](docs/WIVRA_BETA_DEVICE_QA_GATE_2026-11-01.md). No guardar en GitHub enlaces privados, datos personales, claves RTMP ni diseños físicos confidenciales. Objetivo beta instalable **19-11-2026**. No fusionar `main`, pagar, publicar ni declarar QA física sin autorización.
+
+
 **ES · Un editor de video para el teléfono (iPhone y Android), en el navegador, que una IA controla desde un chat.**
 **EN · A phone-first video editor, in the browser, that an AI drives from a chat.**
 
