@@ -47,6 +47,8 @@ public final class MainActivity extends Activity {
     private WebView editor;
     // Progressive export: editor chunks go straight to Movies/Wivra (AndroidX WebMessageListener).
     private WivraExportBridge exportBridge;
+    // Separate experimental random-write protocol; not part of Capture edition.
+    private WivraAcceleratedExportBridge acceleratedExportBridge;
     private WivraCaptureVerificationBridge captureVerificationBridge;
 
     @Override
@@ -217,6 +219,12 @@ public final class MainActivity extends Activity {
         // Without it (old WebView) the editor keeps its previous in-memory export.
         exportBridge = new WivraExportBridge(this, editor);
         if (!exportBridge.install()) exportBridge = null;
+        // Advertising a v2 storage bridge does not enable accelerated rendering:
+        // the Editor's experimental opt-in is still guarded separately.
+        if ("com.oswhgo.wivra".equals(getPackageName())) {
+            acceleratedExportBridge = new WivraAcceleratedExportBridge(this, editor);
+            if (!acceleratedExportBridge.install()) acceleratedExportBridge = null;
+        }
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
         editor.loadUrl("file:///android_asset/agentcut.html");
@@ -708,6 +716,10 @@ public final class MainActivity extends Activity {
             // Leaving the editor mid-export deletes the partial gallery item.
             exportBridge.dispose();
             exportBridge = null;
+        }
+        if (acceleratedExportBridge != null) {
+            acceleratedExportBridge.dispose();
+            acceleratedExportBridge = null;
         }
         if (captureVerificationBridge != null) {
             captureVerificationBridge.dispose();
