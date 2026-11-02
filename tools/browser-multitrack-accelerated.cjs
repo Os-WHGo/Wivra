@@ -209,7 +209,7 @@ const server=http.createServer((req,res)=>{
    return Math.sqrt(energy/Math.max(1,end-start));
   };
   report.audio={beforeVoice:rms(0,.06),afterVoice:rms(.25,.4),
-   tailVoice:extended?rms(threeMinute?175.25:twoMinute?116.25:minute?58.25:long?28.25:8.25,
+   tailVoice:extended?rms(longSoak?seconds*29/30+.25:threeMinute?175.25:twoMinute?116.25:minute?58.25:long?28.25:8.25,
      threeMinute?175.4:twoMinute?116.4:minute?58.4:long?28.4:8.4):null,
    recordedSeconds:pcm.length/2/16000};
   if(duck){
