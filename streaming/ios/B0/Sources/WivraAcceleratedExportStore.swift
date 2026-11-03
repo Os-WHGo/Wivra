@@ -122,7 +122,8 @@ actor WivraAcceleratedExportStore {
         repeat { token = Int.random(in: 1..<Int(Int32.max)) }
         while sessions[token] != nil || finished[token] != nil
         sessions[token] = Session(owner: owner,
-            writer: try WivraRandomAccessExportSession(directory: directory, mime: mime))
+            writer: try WivraRandomAccessExportSession(directory: directory, mime: mime,
+                reservedBytes: estimatedBytes))
         return token
     }
 

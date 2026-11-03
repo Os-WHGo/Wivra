@@ -71,7 +71,7 @@ object WivraRandomExportStore {
         var token: Int
         do { token = random.nextInt(Int.MAX_VALUE - 1) + 1 }
         while (active.containsKey(token) || finished.containsKey(token))
-        active[token] = Active(owner, WivraRandomAccessExportSession.create(directory(context), mime), mime)
+        active[token] = Active(owner, WivraRandomAccessExportSession.create(directory(context), mime, estimatedBytes), mime)
         return token
     }
 

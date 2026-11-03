@@ -37,16 +37,24 @@ actor WivraRandomAccessExportSession {
     private let partial: URL
     private let final: URL
     private let mime: String
+    private let reservedBytes: Int64
     private var file: FileHandle?
     private var covered: [Range<Int64>] = []
+    private var writeRanges: [Range<Int64>] = []
+    private var patchRanges: [Range<Int64>] = []
     private(set) var state: State = .open
     private(set) var maxEnd: Int64 = 0
     private(set) var writes = 0
 
-    init(directory: URL, mime: String) throws {
+    init(directory: URL, mime: String,
+         reservedBytes: Int64 = WivraRandomAccessExportSession.maxOutputBytes) throws {
         guard mime == "video/mp4" || mime == "video/webm" else {
             throw Failure.invalid("Contenedor aleatorio no admitido.")
         }
+        guard (1...Self.maxOutputBytes).contains(reservedBytes) else {
+            throw Failure.invalid("Tamaño reservado de salida fuera de límites.")
+        }
+        self.reservedBytes = reservedBytes
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let ext = mime == "video/mp4" ? "mp4" : "webm"
         let basename = "Wivra_Fast_\(UUID().uuidString).\(ext)"
@@ -83,18 +91,41 @@ actor WivraRandomAccessExportSession {
         covered = merged
     }
 
+    private func validateWriteRange(_ range: Range<Int64>) throws {
+        let overlaps = writeRanges.filter {
+            range.lowerBound < $0.upperBound && range.upperBound > $0.lowerBound
+        }
+        if overlaps.isEmpty { return }
+        let alreadyCovered = covered.contains {
+            $0.lowerBound <= range.lowerBound && $0.upperBound >= range.upperBound
+        }
+        let duplicate = writeRanges.contains { $0 == range }
+        let overlapsPriorPatch = patchRanges.contains {
+            range.lowerBound < $0.upperBound && range.upperBound > $0.lowerBound
+        }
+        guard alreadyCovered, !duplicate, !overlapsPriorPatch else {
+            throw Failure.invalid("La escritura se solapa con bytes existentes fuera de un parche contenido único.")
+        }
+        // Container header/index patches are allowed only inside fully written
+        // bytes. A second patch cannot rewrite any byte patched previously.
+        patchRanges.append(range)
+    }
+
     func writeAt(seq: Int, position: Int64, data: Data) throws -> Ack {
         guard state == .open, seq == writes, seq >= 0,
               !data.isEmpty, data.count <= Self.maxWriteBytes,
-              position >= 0, position <= Self.maxOutputBytes - Int64(data.count),
+              position >= 0, position <= reservedBytes - Int64(data.count),
               let file else {
             throw Failure.invalid("Bloque aleatorio o secuencia inválidos.")
         }
+        let end = position + Int64(data.count)
+        let range = position..<end
+        try validateWriteRange(range)
         do {
             try file.seek(toOffset: UInt64(position))
             try file.write(contentsOf: data)
-            let end = position + Int64(data.count)
-            markCovered(position..<end)
+            writeRanges.append(range)
+            markCovered(range)
             maxEnd = max(maxEnd, end)
             writes += 1
             return Ack(seq: seq, writtenBytes: data.count, maxEnd: maxEnd)
