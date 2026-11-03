@@ -102,7 +102,7 @@ En curso al corte:
 
 ---
 
-## Continuidad GitHub | corte 04-11-2026
+## Continuidad GitHub | corte 03-11-2026
 
 ### Estado Git y PR
 - Rama de trabajo: `chatgpt/wivra-p0-w29-mobile-export-storage-20261102`
