@@ -4,6 +4,35 @@
 // A later guarded bridge must provide real AVFoundation track inspection.
 import Foundation
 import CryptoKit
+import CoreFoundation
+
+/// Reject NSNumber coercions that blur JSON booleans, strings, and fractions.
+enum WivraStrictJSONValue {
+    static func integer(_ value: Any?) -> Int64? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let type = String(cString: number.objCType)
+        guard type != "f" && type != "d" else { return nil }
+        let token = number.stringValue
+        let bytes = Array(token.utf8)
+        guard !bytes.isEmpty else { return nil }
+        let start = bytes[0] == 45 ? 1 : 0
+        guard start < bytes.count else { return nil }
+        if bytes[start] == 48 {
+            guard bytes.count == start + 1 else { return nil }
+        } else {
+            guard bytes[start] >= 49 && bytes[start] <= 57,
+                  bytes.dropFirst(start + 1).allSatisfy({ $0 >= 48 && $0 <= 57 })
+            else { return nil }
+        }
+        return Int64(token)
+    }
+    static func boolean(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
+    }
+}
 
 actor WivraRandomAccessExportSession {
     static let maxWriteBytes = 1024 * 1024
