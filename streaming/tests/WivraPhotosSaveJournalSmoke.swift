@@ -4,7 +4,7 @@ import Foundation
 struct WivraPhotosSaveJournalSmoke {
     static func main() async throws {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("wivra-photos-journal-\\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("wivra-photos-journal-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let media = root.appendingPathComponent("sample.mp4")
