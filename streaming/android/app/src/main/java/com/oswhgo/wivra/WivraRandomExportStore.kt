@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.os.Bundle
+import android.os.Build
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -33,6 +34,7 @@ object WivraRandomExportStore {
     private const val MIN_FREE_BYTES = WivraExportStore.MIN_FREE_BYTES
     private const val DIR = "accelerated-v2"
     private const val PREFIX = "Wivra_Fast_"
+    private val pendingMediaName = Regex("""^Wivra_Fast_[0-9]{10,17}_[0-9a-f]{1,8}\.(mp4|webm)$""")
     private val random = SecureRandom()
     private data class Active(
         val owner: String,
@@ -61,6 +63,21 @@ object WivraRandomExportStore {
 
     internal fun validEstimatedBytes(estimatedBytes: Long): Boolean =
         estimatedBytes > 0 && estimatedBytes <= WivraRandomAccessExportSession.MAX_OUTPUT_BYTES
+
+    /** Pure predicate for app-owned, interrupted v2 MediaStore rows. */
+    internal fun isOwnedPendingV2MediaRow(
+        name: String?, mime: String?, relativePath: String?, ownerPackage: String?,
+        pending: Int, expectedPackage: String
+    ): Boolean {
+        if (pending != 1 || name == null || !pendingMediaName.matches(name) ||
+            relativePath != WivraExportStore.FOLDER || ownerPackage != expectedPackage)
+            return false
+        return when {
+            name.endsWith(".mp4") -> mime == "video/mp4"
+            name.endsWith(".webm") -> mime == "video/webm"
+            else -> false
+        }
+    }
 
     fun begin(context: Context, mime: String, estimatedBytes: Long, owner: String): Int {
         if (mime != "video/mp4" && mime != "video/webm") throw IOException("Contenedor inválido.")
@@ -421,13 +438,73 @@ object WivraRandomExportStore {
         return publish(context, token, owner, verified.mime, expected)
     }
 
+    /**
+     * Remove orphaned pending MediaStore rows from interrupted v2 publication.
+     * All bridge operations share one IO executor, so cleanup cannot race an
+     * in-flight publish. Every candidate is checked again in DELETE selection.
+     */
+    private fun cleanupOrphanPendingMediaRows(context: Context): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val resolver = context.contentResolver
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.OWNER_PACKAGE_NAME, MediaStore.MediaColumns.IS_PENDING
+        )
+        val query = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_ONLY)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND " +
+                "${MediaStore.MediaColumns.IS_PENDING} = ?")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                arrayOf(WivraExportStore.FOLDER, context.packageName, "${PREFIX}%", "1"))
+        }
+        val cursor = try { resolver.query(collection, projection, query, null) }
+            catch (_: Exception) { null } ?: return 0
+        var removed = 0
+        cursor.use {
+            val idColumn = it.getColumnIndex(MediaStore.MediaColumns._ID)
+            val nameColumn = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+            val mimeColumn = it.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
+            val folderColumn = it.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+            val ownerColumn = it.getColumnIndex(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
+            val pendingColumn = it.getColumnIndex(MediaStore.MediaColumns.IS_PENDING)
+            if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0 || folderColumn < 0 ||
+                ownerColumn < 0 || pendingColumn < 0) return@use
+            var inspected = 0
+            while (it.moveToNext() && inspected < 250) {
+                inspected++
+                val name = it.getString(nameColumn)
+                val mime = it.getString(mimeColumn)
+                val folder = it.getString(folderColumn)
+                val ownerPackage = it.getString(ownerColumn)
+                val pending = it.getInt(pendingColumn)
+                if (!isOwnedPendingV2MediaRow(name, mime, folder, ownerPackage,
+                        pending, context.packageName)) continue
+                val uri = ContentUris.withAppendedId(collection, it.getLong(idColumn))
+                val deleted = try {
+                    resolver.delete(uri,
+                        "${MediaStore.MediaColumns.IS_PENDING} = ? AND " +
+                        "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                        "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                        "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND " +
+                        "${MediaStore.MediaColumns.MIME_TYPE} = ?",
+                        arrayOf("1", WivraExportStore.FOLDER, context.packageName, name, mime))
+                } catch (_: Exception) { 0 }
+                if (deleted == 1) removed++
+            }
+        }
+        return removed
+    }
+
     /** Only stale, incomplete Wivra v2 temp files, never finalized private videos. */
     fun cleanupOrphanPartials(context: Context): Int {
-        // Another live editor Activity may own an active random-write session.
-        // Never mistake its partial file for a crash orphan.
-        if (active.isNotEmpty()) return 0
+        var count = cleanupOrphanPendingMediaRows(context)
+        if (active.isNotEmpty()) return count
         val dir = directory(context)
-        var count = 0
         for (file in dir.listFiles().orEmpty()) {
             if (file.isFile && file.name.startsWith(PREFIX) && file.name.endsWith(".partial")) {
                 if (file.delete()) count++
