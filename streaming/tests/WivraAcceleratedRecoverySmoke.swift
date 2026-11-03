@@ -6,6 +6,19 @@ import CryptoKit
 @main
 struct WivraAcceleratedRecoverySmoke {
     static func main() async throws {
+        precondition(WivraStrictJSONValue.integer(NSNumber(value: 1024)) == 1024)
+        precondition(WivraStrictJSONValue.integer(NSNumber(value: -1)) == -1)
+        precondition(WivraStrictJSONValue.integer(NSNumber(value: 1.5)) == nil)
+        precondition(WivraStrictJSONValue.integer(NSNumber(value: 1.0)) == nil)
+        precondition(WivraStrictJSONValue.integer(true) == nil)
+        precondition(WivraStrictJSONValue.integer("1024") == nil)
+        precondition(WivraStrictJSONValue.integer(NSNull()) == nil)
+        precondition(WivraStrictJSONValue.boolean(true) == true)
+        precondition(WivraStrictJSONValue.boolean(false) == false)
+        precondition(WivraStrictJSONValue.boolean(NSNumber(value: 1)) == nil)
+        precondition(WivraStrictJSONValue.boolean("true") == nil)
+        precondition(WivraStrictJSONValue.boolean(NSNull()) == nil)
+
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("wivra-accelerated-recovery-\(UUID().uuidString)",
                                     isDirectory: true)
