@@ -98,3 +98,56 @@ En curso al corte:
 - MediaRecorder continúa siendo el fallback estable.
 - Los soaks Linux/Chromium no equivalen a prueba física en iPhone/Android, prueba de temperatura/memoria del teléfono, Ray-Ban HEVC o LIVE RTMP.
 - Próximo paso exacto: cerrar el CI iOS arm64, browser matrix y soak; corregir cualquier fallo en esta misma rama; después completar una prueba instrumentada Android MediaStore y preparar el siguiente lote agrupado de pruebas en iPhone/Android físicos. No fusionar PR #164 hasta superar sus gates y autorización de fusión.
+
+
+---
+
+## Continuidad GitHub | corte 04-11-2026
+
+### Estado Git y PR
+- Rama de trabajo: `chatgpt/wivra-p0-w29-mobile-export-storage-20261102`
+- HEAD de código validado en este corte: `e4d0ea392401cafd7dd8ec2c215bdbccd643424c`
+- PR #164: abierta, draft, sin merge: https://github.com/Os-WHGo/Wivra/pull/164
+- Base main: `99732810355970752b385244f327a35bbc787fe5`
+- Comparación antes de actualizar este checkpoint: 65 commits ahead, 0 behind.
+- `main` no se modificó.
+
+### W47 | recuperación de exportaciones aceleradas Android en MediaStore
+- Se amplió el test instrumentado existente `WivraExportStoreTest.kt`; no se creó una suite duplicada.
+- Nuevo escenario de interrupción: inserta filas sintéticas pendientes MP4 y WebM con propietario, carpeta y patrón v2 propios; ejecuta `WivraRandomExportStore.cleanupOrphanPartials(context)` y comprueba su eliminación.
+- El mismo escenario confirma que sobreviven un vídeo publicado, una fila de captura telefónica heredada, un nombre v2 malformado y un archivo pendiente en otra carpeta.
+- Nuevo ciclo de vida: comprueba que un archivo privado `.partial` no desaparece mientras exista un escritor activo y que se limpia después de cerrar/abortar ese escritor.
+- Son datos multimedia sintéticos: no se toca vídeo personal ni cámara, y no constituye prueba de Ray-Ban, micrófono o LIVE.
+- El emulador API 35 existente ya ejecuta `WivraExportStoreTest`. Se conserva exactamente su compuerta `needs: android-beta`; no se añadió un atajo para generar APK.
+- `unified-android-build.yml` ahora compila las fuentes androidTest FULL y Capture con `compileFullDebugAndroidTestKotlin`, `compileCaptureDebugAndroidTestKotlin` y sus tareas Java. Estas tareas no ensamblan APK ni arrancan emulador.
+- `android-capture-editor-bundle.test.mjs` protege el vínculo entre pruebas, compilación sin instalables y ejecución API 35 bajo el gate de beta.
+
+### CI verificado sobre HEAD de código `e4d0ea3`
+Aprobados:
+- Android Native Build [41598329244](https://github.com/Os-WHGo/Wivra/actions/runs/41598329244): job completo `success`, 29 pasos. FULL/Capture compile, tests JVM, compilación de las fuentes androidTest FULL/Capture y validación de recursos aprobados.
+- App Tests [41598329307](https://github.com/Os-WHGo/Wivra/actions/runs/41598329307): `success`.
+- Beta Assembly [41598329273](https://github.com/Os-WHGo/Wivra/actions/runs/41598329273): contrato Editor/Director/native `success`; APK, IPA y Android emulator `skipped` por gates.
+- Director/Editor [41598329343](https://github.com/Os-WHGo/Wivra/actions/runs/41598329343): `success`.
+- AI Chat-First [41598329322](https://github.com/Os-WHGo/Wivra/actions/runs/41598329322): `success`.
+- Creative Director [41598329261](https://github.com/Os-WHGo/Wivra/actions/runs/41598329261): `success`.
+- Local Visual Evidence [41598329308](https://github.com/Os-WHGo/Wivra/actions/runs/41598329308): `success`.
+- LIVE Preflight [41598329310](https://github.com/Os-WHGo/Wivra/actions/runs/41598329310): `success`.
+
+En curso al corte:
+- iOS Native Build [41598329229](https://github.com/Os-WHGo/Wivra/actions/runs/41598329229): pendiente de cierre.
+- Browser matrix [41598329243](https://github.com/Os-WHGo/Wivra/actions/runs/41598329243): en cola/pendiente de ejecución.
+- Long-form soak [41598329276](https://github.com/Os-WHGo/Wivra/actions/runs/41598329276): 10 min `success`; 20, 30 y 60 min aún en ejecución al corte. No declarar el conjunto aprobado hasta terminar.
+
+### Lo que NO se ha ejecutado ni certificado
+- La prueba instrumentada de `MediaStore` real no se ejecutó en el emulador en este corte: el job Android emulator fue omitido porque no se otorgó la etiqueta `wivra-package-beta` ni se lanzó un workflow_dispatch de instalación.
+- La compilación de clases instrumentadas no significa que la prueba API 35 haya corrido.
+- No se generó APK, IPA, instalable, firma ni artefacto de instalación.
+- No hay prueba física nueva de teléfono, Ray-Ban, micrófono USB/Bluetooth o RTMP.
+
+### Siguiente trabajo exacto
+1. Cerrar el CI iOS, browser matrix y soaks del HEAD actual, sin confundir Linux/Chromium con QA física.
+2. En el hito de beta autorizado, ejecutar el job Android API 35 que ya incluye los escenarios nuevos; revisar logs y filas residuales antes de dar por validada la recuperación.
+3. Si el emulador descubre diferencias de MediaStore entre versiones, corregir y repetir el conjunto instrumentado.
+4. Agrupar después las pruebas físicas en Android/iPhone para exportación larga, Fotos/Galería, codecs, cámaras, Ray-Ban, audio externo y LIVE.
+5. Mantener `ACCELERATED_EXPORT_IMPLEMENTED=false` hasta completar el renderer multipista, codecs y validación física; MediaRecorder sigue como fallback estable.
+6. No fusionar PR #164, no publicar, no producir instalables ni alterar `main` sin pasar gates y autorización.
