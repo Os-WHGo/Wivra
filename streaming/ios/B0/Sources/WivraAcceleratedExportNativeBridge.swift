@@ -44,30 +44,56 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
               message.frameInfo.request.url?.isFileURL == true,
               approved?.standardizedFileURL == message.frameInfo.request.url?.standardizedFileURL,
               let body = message.body as? [String: Any],
-              body["version"] as? Int == 2,
-              body["protocol"] as? Int == 2,
+              WivraStrictJSONValue.integer(body["version"]) == 2,
+              WivraStrictJSONValue.integer(body["protocol"]) == 2,
               let op = body["op"] as? String else {
             replyHandler(nil, "Petición acelerada no autorizada.")
             return
         }
         func number(_ key: String) -> Int64 {
-            (body[key] as? NSNumber)?.int64Value ?? -1
+            WivraStrictJSONValue.integer(body[key]) ?? -1
         }
         let token = number("token"), seq = number("seq"), position = number("position")
         let writes = number("writes")
+        let size = number("size")
+        let expectAudio = WivraStrictJSONValue.boolean(body["expectAudio"])
+        if op == "beginRandom" {
+            let reservation = number("estimatedBytes")
+            guard reservation > 0 && reservation <= WivraRandomAccessExportSession.maxOutputBytes,
+                  let mime = body["mime"] as? String,
+                  mime == "video/mp4" || mime == "video/webm" else {
+                replyHandler(nil, "Reserva o contenedor acelerado inválido.")
+                return
+            }
+        }
         let data: Data?
         if op == "writeAt" {
-            guard number("size") > 0,
-                  number("size") <= Int64(WivraRandomAccessExportSession.maxWriteBytes),
+            guard token > 0, token < Int64(Int32.max), seq >= 0,
+                  seq < Int64(Int32.max), position >= 0,
+                  size > 0, size <= Int64(WivraRandomAccessExportSession.maxWriteBytes),
                   let encoded = body["b64"] as? String,
                   encoded.utf8.count <= maxBase64Chars,
                   let decoded = Data(base64Encoded: encoded),
-                  decoded.count == Int(number("size")) else {
+                  decoded.count == Int(size) else {
                 replyHandler(nil, "Bloque aleatorio inválido o demasiado grande.")
                 return
             }
             data = decoded
         } else { data = nil }
+        if op == "finishRandom" {
+            guard token > 0, token < Int64(Int32.max), writes > 0,
+                  writes < Int64(Int32.max), number("bytes") > 0,
+                  number("expectedDurationMs") > 0, expectAudio != nil else {
+                replyHandler(nil, "Totales finales de exportación inválidos.")
+                return
+            }
+        }
+        if op == "abortRandom" || op == "share" {
+            guard token > 0, token < Int64(Int32.max) else {
+                replyHandler(nil, "Token acelerado inválido.")
+                return
+            }
+        }
         // Keep each token/sequence within Int32 so no NSNumber->Int overflow
         // can create a different addressable export on either platform.
         let request = Request(op: op, token: token > 0 && token < Int64(Int32.max) ? Int(token) : -1,
@@ -75,7 +101,7 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
             position: position, bytes: number("bytes"),
             writes: writes >= 0 && writes < Int64(Int32.max) ? Int(writes) : -1,
             expectedDurationMs: number("expectedDurationMs"),
-            expectAudio: body["expectAudio"] as? Bool ?? false,
+            expectAudio: expectAudio ?? false,
             mime: body["mime"] as? String ?? "",
             estimatedBytes: number("estimatedBytes"), data: data,
             name: body["name"] as? String ?? "")
