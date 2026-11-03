@@ -72,9 +72,9 @@ jobs:
       - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)
         run: |
           set -eu
-          xcrun swiftc -swift-version 6 \\
-            streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift \\
-            streaming/tests/WivraPhotosSaveJournalSmoke.swift \\
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift \
+            streaming/tests/WivraPhotosSaveJournalSmoke.swift \
             -o /tmp/wivra-photos-save-journal-smoke
           /tmp/wivra-photos-save-journal-smoke
       - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
