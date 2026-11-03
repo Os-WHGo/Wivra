@@ -16,7 +16,8 @@ struct WivraPhotosSaveJournalSmoke {
         guard case .proceed(let hash) = decision else { fatalError("first save must reserve intent") }
         try await first.markConfirmed(hash: hash)
         let restarted = WivraPhotosSaveJournal(fileURL: journalURL)
-        precondition(try await restarted.begin(for: media) == .alreadyConfirmed)
+        let confirmedAgain = try await restarted.begin(for: media)
+        precondition(confirmedAgain == .alreadyConfirmed)
 
         let interruptedURL = root.appendingPathComponent("interrupted.mov")
         try Data("second export".utf8).write(to: interruptedURL)
@@ -25,10 +26,12 @@ struct WivraPhotosSaveJournalSmoke {
         else { fatalError("new media must reserve intent") }
         // Simulate process death: a new actor sees persisted pending intent.
         let afterCrash = WivraPhotosSaveJournal(fileURL: journalURL)
-        precondition(try await afterCrash.begin(for: interruptedURL) == .requiresManualReview)
+        let crashDecision = try await afterCrash.begin(for: interruptedURL)
+        precondition(crashDecision == .requiresManualReview)
         try await afterCrash.markUncertain(hash: interruptedHash)
         let afterFailure = WivraPhotosSaveJournal(fileURL: journalURL)
-        precondition(try await afterFailure.begin(for: interruptedURL) == .requiresManualReview)
+        let failureDecision = try await afterFailure.begin(for: interruptedURL)
+        precondition(failureDecision == .requiresManualReview)
 
         // Corruption must fail closed, not silently reset deduplication history.
         try Data("not-json".utf8).write(to: journalURL)
