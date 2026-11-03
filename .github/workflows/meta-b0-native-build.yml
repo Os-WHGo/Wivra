@@ -65,6 +65,8 @@ jobs:
             streaming/tests/WivraRandomAccessExportSmoke.swift \
             -o /tmp/wivra-random-v2-smoke
           /tmp/wivra-random-v2-smoke
+      - name: Verify Photos save journal integration contracts
+        run: node --test streaming/tests/ios-photos-save-journal-contract.test.mjs
       - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)
         run: |
           set -eu
