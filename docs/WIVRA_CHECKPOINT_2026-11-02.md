@@ -194,3 +194,18 @@ En curso al corte:
 3. Añadir lectura de estado del journal a la interfaz de recuperación si la prueba de producto demuestra que el estado visual debe mostrarse antes de pulsar Guardar; el guard ya bloquea duplicados aunque la UI se reinicie.
 4. Mantener MediaRecorder como motor por defecto y `ACCELERATED_EXPORT_IMPLEMENTED=false`.
 5. No generar APK/IPA, no ejecutar el emulador bajo gate no autorizado, no fusionar PR #164 ni alterar `main`.
+
+
+### W48.1 | Correcciones de CI y estado de validación | 03-11-2026
+- HEAD de código: `86bad74979a6ddb14fcd7b9fd7a67440d9106cfc`.
+- PR #164 permanece abierta y en draft. No se ha fusionado.
+- Primer intento CI: el contrato Node se escribió inicialmente con CommonJS dentro de `.mjs`; el log confirmó `require is not defined in ES module scope`. Se migró a imports ESM.
+- Segundo intento CI: el comando `swiftc` tenía continuaciones de shell escapadas dos veces; el log confirmó que clang recibió una ruta literal `\\`. Se corrigieron las barras a una sola.
+- Se corrigió también la interpolación UUID del directorio temporal del smoke Swift para aislar ejecuciones.
+- En el nuevo run iOS [41717881821](https://github.com/Os-WHGo/Wivra/actions/runs/41717881821), el contrato Node de integración (3/3) y el smoke Swift 6 del journal terminaron `success`. Recuperación acelerada previa, contratos iOS, captura CAF, exportación progresiva, random-write, RTMP preflight, generación de editor y resolución Meta DAT 1.0.1 también terminaron `success`.
+- En ese mismo run, compilación iOS Simulator sigue en curso; compilación iPhone arm64 todavía pendiente. No hay IPA ni firma.
+- Android [41717881618](https://github.com/Os-WHGo/Wivra/actions/runs/41717881618): compilación FULL/Capture aprobada; tests JVM aprobados; compilación de fuentes instrumentadas AndroidTest en curso. Sin APK ni emulador.
+- Browser matrix [41717881671](https://github.com/Os-WHGo/Wivra/actions/runs/41717881671) y soak 10/20/30/60 [41717882060](https://github.com/Os-WHGo/Wivra/actions/runs/41717882060) continúan en ejecución. El soak anterior completo de 10/20/30/60 min sí había pasado en run [41598726420](https://github.com/Os-WHGo/Wivra/actions/runs/41598726420).
+- App Tests [41717881817], Beta Assembly contracts [41717881775], Director [41717881881], Creative Director [41717881829], LIVE [41717881880], Local Visual [41717881873] y AI Chat-First [41717881935] terminaron `success`.
+- No se generaron APK, IPA, instalables, firma, publicación ni pruebas físicas. Los jobs de APK/IPA/emulador permanecen bajo sus gates.
+- Siguiente acción exacta: cerrar iOS Simulator y iPhone arm64; revisar Android instrumented source compile; cerrar browser matrix y auditoría soak; después consolidar resultados y preparar prueba instrumentada API 35 solo en hito beta autorizado.
