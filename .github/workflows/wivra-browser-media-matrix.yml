@@ -34,8 +34,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install isolated browser tester, never app runtime
-        run: npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 mediabunny@1.61.6
+      - name: Install isolated browser tester and verify pinned Mediabunny archive
+        run: |
+          set -euo pipefail
+          archive=/tmp/mediabunny-1.61.6.tgz
+          expected_sha512='VHEZ53/7jGl4dQ+uOdndsZufFYwEUFWv9UXgvrGun3OapyzoqI9iaPOD7z3xxY/nAttLZBNwswgJzMtGJAquOQ=='
+          curl --fail --location --silent --show-error \
+            https://registry.npmjs.org/mediabunny/-/mediabunny-1.61.6.tgz \
+            --output "$archive"
+          actual_sha512="$(openssl dgst -sha512 -binary "$archive" | base64 -w0)"
+          if [ "$actual_sha512" != "$expected_sha512" ]; then
+            echo "Mediabunny 1.61.6 archive SHA-512/SRI mismatch" >&2
+            exit 1
+          fi
+          npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts \
+            playwright@1.56.1 "$archive"
+          bundle=/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles/mediabunny.cjs
+          test -s "$bundle"
+          bundle_sha256="$(sha256sum "$bundle" | cut -d' ' -f1)"
+          echo "WIVRA_MEDIABUNNY_SHA256=$bundle_sha256" >> "$GITHUB_ENV"
       - name: Install Linux test browser engines
         run: node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium webkit
       - name: Smoke pinned Mediabunny 1.61.6 in an isolated fully offline editor HTML
@@ -63,10 +80,6 @@ jobs:
         run: node tools/browser-export-roundtrip.cjs
       - name: Render 81 synthetic cuts and verify output with ffprobe (not Ray-Ban HEVC)
         run: |
-          # Under shared CI load, 81 subsecond MediaRecorder pause/resume cuts
-          # can occasionally exceed the strict 450 ms total duration tolerance.
-          # One retry is allowed ONLY for a marginal timing drift; actual
-          # broken media, missing tracks, crashes or repeated drift remain red.
           if ! node tools/browser-long-multipart-export.cjs; then
             node -e 'const r=require("./wivra-long-multipart-export.json");const d=Math.abs(r.durationDriftSeconds);if(!(r.pass===false&&r.partCount===81&&r.ffprobe?.video&&r.outputBytes>1000&&Number.isFinite(d)&&d>0.45&&d<=0.75))process.exit(1);'
             mv wivra-long-multipart-export.json wivra-long-multipart-export-first-attempt.json

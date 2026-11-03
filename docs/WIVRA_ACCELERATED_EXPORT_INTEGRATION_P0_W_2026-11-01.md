@@ -84,3 +84,12 @@ La matriz de navegador [41514053659](https://github.com/Os-WHGo/Wivra/actions/ru
 La comprobación de nombre, versión y licencia del paquete no garantiza que el JavaScript generado sea el artefacto revisado. El build QA opcional ahora exige `WIVRA_MEDIABUNNY_SHA256`, un digest SHA-256 de 64 caracteres suministrado por el pipeline confiable, y compara el contenido exacto antes de incrustarlo. Si falta el pin o no coincide, el build se detiene; no descarga ni sustituye el bundle. Se añaden pruebas de digest correcto, ausente, malformado, incorrecto y contenido inválido.
 
 Este control no habilita el bundle en beta: `ACCELERATED_EXPORT_IMPLEMENTED=false`, MediaRecorder sigue siendo el motor normal. El pipeline QA que use Mediabunny debe guardar y revisar el hash del artefacto antes de compilar; no debe calcular el hash y aceptarlo automáticamente desde el mismo archivo no confiable.
+
+
+## W43.1: corrección del pin de Mediabunny en CI (02-11-2026)
+
+La matriz WebCodecs falló antes de ejecutar las pruebas de navegador porque el workflow instalaba Mediabunny 1.61.6 pero no suministraba `WIVRA_MEDIABUNNY_SHA256`. No fue un fallo del render ni de WebCodecs: el build QA rechazó correctamente la ausencia del digest.
+
+Corrección: el workflow descarga el tarball oficial de `mediabunny@1.61.6`, comprueba su SHA-512/SRI contra el valor publicado en el metadata oficial de npm (`VHEZ53/7jGl4dQ+uOdndsZufFYwEUFWv9UXgvrGun3OapyzoqI9iaPOD7z3xxY/nAttLZBNwswgJzMtGJAquOQ==`), instala ese archivo ya verificado y recién entonces calcula el SHA-256 del bundle instalado para pasarlo al build. Se conserva el fail-closed del build y no se calcula un hash para aceptar un artefacto sin autenticar.
+
+La ejecución anterior de soak QA completó correctamente 10, 20, 30 y 60 minutos. Es Linux/Chromium sintético, no validación física iOS/Android, Ray-Ban ni RTMP.
