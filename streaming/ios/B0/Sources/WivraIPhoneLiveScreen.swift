@@ -32,7 +32,7 @@ final class WivraIPhoneLiveController {
     var canStart: Bool { phase == .ready }
     var isActive: Bool { phase != .idle }
 
-    func prepareCamera(microphone: Bool) async {
+    func prepareCamera(microphone: Bool, frontCamera: Bool) async {
         guard phase == .idle else { return }
         phase = .preparing
         let current = UUID()
@@ -62,9 +62,10 @@ final class WivraIPhoneLiveController {
                                               options: [.defaultToSpeaker, .allowBluetooth])
                 try audioSession.setActive(true)
             }
+            let selectedPosition: AVCaptureDevice.Position = frontCamera ? .front : .back
             guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                       for: .video, position: .back) else {
-                status = "No hay cámara trasera disponible."
+                                                       for: .video, position: selectedPosition) else {
+                status = "La cámara seleccionada no está disponible."
                 phase = .idle
                 return
             }
@@ -265,6 +266,7 @@ struct WivraIPhoneLiveScreen: View {
     @State private var controller = WivraIPhoneLiveController()
     @State private var destination = ""
     @State private var includeMicrophone = false
+    @State private var frontCamera = false
     @State private var archiveVideo = true
     @State private var confirmPublication = false
     @State private var savingPhotos = false
@@ -274,13 +276,16 @@ struct WivraIPhoneLiveScreen: View {
         NavigationStack {
             Form {
                 Section("Wivra LIVE · cámara iPhone") {
-                    Text("Solo cámara trasera del iPhone. No transmite Ray-Ban ni pantalla.")
+                    Text("Una cámara del iPhone a la vez. No transmite Ray-Ban ni pantalla.")
+                    Toggle("Usar cámara frontal", isOn: $frontCamera)
+                        .disabled(!controller.canPrepare)
+                        .accessibilityIdentifier("wivra_ios_live_front_camera")
                     Toggle("Micrófono del iPhone (opcional)", isOn: $includeMicrophone)
                         .disabled(controller.phase != .idle)
                     Toggle("Guardar copia MP4 local (recomendado)", isOn: $archiveVideo)
                         .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
                     Button("Preparar cámara") {
-                        Task { await controller.prepareCamera(microphone: includeMicrophone) }
+                        Task { await controller.prepareCamera(microphone: includeMicrophone, frontCamera: frontCamera) }
                     }.disabled(!controller.canPrepare)
                 }
                 Section("Destino RTMP/RTMPS") {
