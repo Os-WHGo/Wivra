@@ -51,3 +51,50 @@
 - Ray-Ban Meta HEVC y sincronía de audio externa siguen pendientes de dispositivo real.
 - LIVE RTMP real e iOS LIVE no se dan por verificados por pruebas Linux.
 - WebCodecs + Mediabunny sigue en QA, no activado automáticamente.
+
+
+---
+
+## Continuidad GitHub | corte 03-11-2026
+
+> Actualización operativa. Google Drive continúa fuera del circuito de escritura; este checkpoint temporal se mantiene en la rama de trabajo de GitHub y no reemplaza los documentos privados MU.
+
+### Estado Git confirmado
+- Rama: `chatgpt/wivra-p0-w29-mobile-export-storage-20261102`
+- HEAD al corte: `28e9ed3ff2fdca05ea7ab0a4913e0af5b6a57a83`
+- PR: [#164](https://github.com/Os-WHGo/Wivra/pull/164), abierta y en draft.
+- Base `main`: `99732810355970752b385244f327a35bbc787fe5`.
+- Comparación: 61 commits ahead, 0 behind. No se modificó `main`.
+- No APK, IPA, publicación, firma, instalable ni prueba física declarada.
+
+### W44-W46 | escritores nativos y seguridad del protocolo v2
+- Android e iOS conservan sus escritores v2 de acceso aleatorio separados del MediaRecorder v1.
+- Las reservas de almacenamiento de Android/iOS se aplican a los límites efectivos del escritor; se rechazan escrituras fuera de reserva, solapamientos no permitidos, huecos, totales inconsistentes y archivos alterados.
+- W29 protege la reserva nativa derivada del bitrate progresivo, añade 15% más 16 MiB y conserva el límite QA móvil de 180 s.
+- Se endureció el parseo numérico del puente Android: enteros JSON exactos y dentro de rango; no admite decimales, cadenas, booleanos ni valores no finitos como números.
+- Se endureció el parseo del puente iOS con distinción CFBoolean/NSNumber, rechazo de flotantes y validación exacta de enteros para versión, secuencia, posición, bytes, duración y reserva.
+- Android añade limpieza de filas MediaStore pendientes de una publicación v2 interrumpida. La eliminación exige coincidencia de estado pendiente, propietario de la app, carpeta Movies/Wivra, patrón de nombre generado y MIME. El DELETE repite esas condiciones. Conserva filas publicadas, otros propietarios y contenido ajeno.
+- Pruebas JVM añadidas para el parser JSON y el predicado de filas pendientes; smoke Swift macOS amplía las pruebas de tipos JSON y conserva el ciclo de escritura/recovery con MP4 H.264/AAC real.
+- Cambios de seguridad registrados en los commits `7ad5959`, `33b4fd0`, `c84cdb0`, `e023c17`, `d4d20d3`, `3a83333`, `29b7cc0`, `28e9ed3`.
+
+### CI del HEAD 28e9ed3
+Aprobados:
+- App Tests [41595900123](https://github.com/Os-WHGo/Wivra/actions/runs/41595900123).
+- Android Native Build [41595899911](https://github.com/Os-WHGo/Wivra/actions/runs/41595899911): compila Android FULL y Capture, tests unitarios nativos y comprobación de recursos; job final `success`. Sin APK.
+- Director/Editor [41595899914](https://github.com/Os-WHGo/Wivra/actions/runs/41595899914).
+- Creative Director [41595899888](https://github.com/Os-WHGo/Wivra/actions/runs/41595899888).
+- LIVE Preflight [41595900272](https://github.com/Os-WHGo/Wivra/actions/runs/41595900272).
+- Local Visual Evidence [41595900048](https://github.com/Os-WHGo/Wivra/actions/runs/41595900048).
+- Chat-First UI [41595899938](https://github.com/Os-WHGo/Wivra/actions/runs/41595899938).
+- Beta Assembly [41595899862](https://github.com/Os-WHGo/Wivra/actions/runs/41595899862): contratos de Editor/Director/native success; jobs APK, IPA y emulador omitidos por gates autorizados.
+
+En curso al corte:
+- iOS Native Build [41595900004](https://github.com/Os-WHGo/Wivra/actions/runs/41595900004): smoke macOS de recuperación acelerada H.264/AAC y parser JSON success; Simulator compile success; generic iPhone arm64 compile todavía en ejecución. No firma ni IPA.
+- WebCodecs browser matrix [41595899901](https://github.com/Os-WHGo/Wivra/actions/runs/41595899901): Mediabunny 1.61.6 offline, build QA, canvas, ffprobe y 81 cortes completados; pasos restantes de exportación progresiva, multipista, continuidad, 180 s, 720p y audio.
+- Accelerated long-form soak [41595900126](https://github.com/Os-WHGo/Wivra/actions/runs/41595900126): jobs de 10/20/30/60 min iniciados; los renders y validaciones finales siguen en ejecución. No se declaran aprobados hasta cierre del workflow.
+
+### Límites y próxima acción
+- WebCodecs + Mediabunny continúa aprobado y con renderer multipista y hosts nativos implementados; permanece aislado de la selección automática del exportador mientras no cierren las comprobaciones pendientes.
+- MediaRecorder continúa siendo el fallback estable.
+- Los soaks Linux/Chromium no equivalen a prueba física en iPhone/Android, prueba de temperatura/memoria del teléfono, Ray-Ban HEVC o LIVE RTMP.
+- Próximo paso exacto: cerrar el CI iOS arm64, browser matrix y soak; corregir cualquier fallo en esta misma rama; después completar una prueba instrumentada Android MediaStore y preparar el siguiente lote agrupado de pruebas en iPhone/Android físicos. No fusionar PR #164 hasta superar sus gates y autorización de fusión.
