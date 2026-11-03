@@ -151,3 +151,46 @@ En curso al corte:
 4. Agrupar después las pruebas físicas en Android/iPhone para exportación larga, Fotos/Galería, codecs, cámaras, Ray-Ban, audio externo y LIVE.
 5. Mantener `ACCELERATED_EXPORT_IMPLEMENTED=false` hasta completar el renderer multipista, codecs y validación física; MediaRecorder sigue como fallback estable.
 6. No fusionar PR #164, no publicar, no producir instalables ni alterar `main` sin pasar gates y autorización.
+
+
+---
+
+## W48 | Registro durable e idempotente de guardados en Fotos iOS | 03-11-2026
+
+### Estado Git
+- Rama: `chatgpt/wivra-p0-w29-mobile-export-storage-20261102`
+- HEAD de implementación: `e9927fe6bf8c6fbabe3fa7596a25ae921a6226b2`
+- PR #164: abierta, draft, no fusionada.
+- Base `main`: `99732810355970752b385244f327a35bbc787fe5`.
+- Comparación al corte: 74 commits ahead, 0 behind. `main` no se modificó.
+- CI de W48 disparado sobre el HEAD anterior y reiniciado con el contrato de integración añadido; el workflow iOS del HEAD actual está en ejecución. No declarar W48 aprobado hasta el cierre.
+
+### Problema cerrado en diseño
+- La pantalla de exportaciones recuperadas y el editor mantenían `savedToPhotos` en estado efímero de UI.
+- Con permiso Photos `addOnly`, Wivra no puede consultar la biblioteca para deduplicar. Si iOS termina el proceso después de que Photos acepte el asset y antes de persistir el acuse local, un nuevo intento podría crear un duplicado.
+
+### Implementación W48
+- Nuevo `WivraPhotosSaveJournal.swift`: journal privado en Application Support, clave por SHA-256 de los bytes exactos del archivo, persistencia JSON atómica y protección de archivo iOS.
+- Estados `pending`, `confirmed` y `uncertain`.
+- La intención `pending` se escribe antes de invocar `PHPhotoLibrary.performChanges`; solo el callback exitoso permite persistir `confirmed`.
+- Si el proceso muere con `pending`, el siguiente intento queda bloqueado como revisión manual. Un callback fallido se marca `uncertain`; no se reintenta automáticamente.
+- Una huella ya confirmada devuelve éxito idempotente sin volver a insertar el asset.
+- Journal corrupto o no persistible falla cerrado; nunca se reinicia silenciosamente ni se borra la copia privada original.
+- La función compartida `WivraPhotosLibrary.saveVideo` aplica la protección al editor v1, exportación acelerada v2 y biblioteca de exportaciones recuperadas. No se consulta ni se lee la biblioteca Photos del usuario.
+
+### Pruebas incorporadas
+- `WivraPhotosSaveJournalSmoke.swift`: prueba Swift 6 de idempotencia confirmada, reinicio con operación pendiente, estado incierto sin reintento y journal corrupto.
+- `ios-photos-save-journal-contract.test.mjs`: verifica orden durable antes/después de `performChanges` y que los tres puntos de entrada usan el servicio común.
+- `meta-b0-native-build.yml`: ejecuta el contrato Node y smoke Swift 6 macOS; el build iOS compila el nuevo archivo dentro de `Sources`.
+
+### CI observado
+- El workflow iOS del HEAD `e9927fe` está en ejecución; al último sondeo había completado los contratos previos y estaba ejecutando la prueba macOS CAF. Los dos pasos nuevos del journal aún estaban pendientes.
+- El CI completo del corte anterior `432630c` terminó correctamente: iOS Native Build [41598726415], Android Native Build [41598726423], Browser Matrix [41598726446], Long-form Soak [41598726420] y contratos Beta Assembly [41598726422] en success.
+- En ese hito, APK, IPA y emulador Android quedaron omitidos por gates. No se generaron instalables ni se ejecutó la prueba instrumentada API 35.
+
+### Límites y siguiente trabajo exacto
+1. Cerrar el workflow iOS del HEAD W48 y corregir cualquier error del contrato Node, Swift 6 o build iOS.
+2. Cerrar la matriz CI restante del HEAD actual y registrar sus resultados definitivos.
+3. Añadir lectura de estado del journal a la interfaz de recuperación si la prueba de producto demuestra que el estado visual debe mostrarse antes de pulsar Guardar; el guard ya bloquea duplicados aunque la UI se reinicie.
+4. Mantener MediaRecorder como motor por defecto y `ACCELERATED_EXPORT_IMPLEMENTED=false`.
+5. No generar APK/IPA, no ejecutar el emulador bajo gate no autorizado, no fusionar PR #164 ni alterar `main`.
