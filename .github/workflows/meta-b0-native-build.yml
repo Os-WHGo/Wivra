@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'streaming/ios/B0/**'
+      - 'streaming/tests/ios-photos-save-journal-contract.test.mjs'
+      - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
