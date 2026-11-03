@@ -12,6 +12,8 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.zip.CRC32
+import java.io.File
+import java.util.UUID
 
 /**
  * Emulator/device: progressive export into the REAL MediaStore (Movies/Wivra).
@@ -232,4 +234,139 @@ class WivraExportStoreTest {
             }
         } finally { context.contentResolver.delete(saved.uri, null, null) }
     }
+
+    private data class AcceleratedMediaRow(
+        val uri: Uri,
+        val ownerPackage: String?,
+        val relativePath: String?,
+        val mime: String?,
+        val pending: Int
+    )
+
+    private fun acceleratedName(extension: String) =
+        "Wivra_Fast_${System.currentTimeMillis()}_${UUID.randomUUID().toString().replace("-", "").take(8)}.$extension"
+
+    private fun insertAcceleratedRow(
+        name: String,
+        mime: String,
+        pending: Int = 1,
+        relativePath: String = WivraExportStore.FOLDER
+    ): Uri = context.contentResolver.insert(
+        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+        ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, name)
+            put(MediaStore.Video.Media.MIME_TYPE, mime)
+            put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+            put(MediaStore.Video.Media.IS_PENDING, pending)
+        }
+    ) ?: throw AssertionError("Could not insert synthetic MediaStore row: $name")
+
+    private fun acceleratedRowsNamed(name: String, matchPending: Int): List<AcceleratedMediaRow> {
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val args = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, matchPending)
+            putString(android.content.ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.DISPLAY_NAME} = ?")
+            putStringArray(android.content.ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(name))
+        }
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.OWNER_PACKAGE_NAME,
+            MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.IS_PENDING
+        )
+        val out = mutableListOf<AcceleratedMediaRow>()
+        context.contentResolver.query(collection, projection, args, null)?.use { c ->
+            val id = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val owner = c.getColumnIndexOrThrow(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
+            val folder = c.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+            val mime = c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+            val pending = c.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_PENDING)
+            while (c.moveToNext()) {
+                out += AcceleratedMediaRow(
+                    android.content.ContentUris.withAppendedId(collection, c.getLong(id)),
+                    c.getString(owner), c.getString(folder), c.getString(mime), c.getInt(pending)
+                )
+            }
+        } ?: throw AssertionError("MediaStore query failed for: $name")
+        return out
+    }
+
+    private fun safeDeleteAcceleratedRow(uri: Uri) {
+        try { context.contentResolver.delete(uri, null, null) }
+        catch (_: SecurityException) { /* The cleanup under test may already have deleted it. */ }
+    }
+
+    @Test fun acceleratedV2CleanupRemovesOnlyAppOwnedPendingMediaStoreRows() {
+        val orphanMp4 = acceleratedName("mp4")
+        val orphanWebm = acceleratedName("webm")
+        val publishedMp4 = acceleratedName("mp4")
+        val unrelatedPending = "Wivra_Phone_keep_${System.nanoTime()}.mp4"
+        val malformedV2Name = "Wivra_Fast_interrupted-but-not-a-generated-name.mp4"
+        val otherFolderName = acceleratedName("mp4")
+        val inserted = mutableListOf<Uri>()
+        try {
+            inserted += insertAcceleratedRow(orphanMp4, "video/mp4")
+            inserted += insertAcceleratedRow(orphanWebm, "video/webm")
+            inserted += insertAcceleratedRow(publishedMp4, "video/mp4", pending = 0)
+            inserted += insertAcceleratedRow(unrelatedPending, "video/mp4")
+            inserted += insertAcceleratedRow(malformedV2Name, "video/mp4")
+            inserted += insertAcceleratedRow(
+                otherFolderName, "video/mp4", relativePath = "Movies/Wivra-Other/"
+            )
+
+            val before = acceleratedRowsNamed(orphanMp4, MediaStore.MATCH_ONLY).single()
+            assertEquals(context.packageName, before.ownerPackage)
+            assertEquals(WivraExportStore.FOLDER, before.relativePath)
+            assertEquals("video/mp4", before.mime)
+            assertEquals(1, before.pending)
+
+            val removed = WivraRandomExportStore.cleanupOrphanPartials(context)
+
+            assertTrue("Both interrupted v2 rows should be reclaimed.", removed >= 2)
+            assertEquals(0, acceleratedRowsNamed(orphanMp4, MediaStore.MATCH_INCLUDE).size)
+            assertEquals(0, acceleratedRowsNamed(orphanWebm, MediaStore.MATCH_INCLUDE).size)
+
+            // Published v2 media, legacy phone exports, malformed names and rows
+            // outside Movies/Wivra must remain untouched.
+            val published = acceleratedRowsNamed(publishedMp4, MediaStore.MATCH_EXCLUDE).single()
+            assertEquals(context.packageName, published.ownerPackage)
+            assertEquals(0, published.pending)
+            assertEquals(1, acceleratedRowsNamed(unrelatedPending, MediaStore.MATCH_ONLY).size)
+            assertEquals(1, acceleratedRowsNamed(malformedV2Name, MediaStore.MATCH_ONLY).size)
+            assertEquals(1, acceleratedRowsNamed(otherFolderName, MediaStore.MATCH_ONLY).size)
+        } finally {
+            inserted.forEach(::safeDeleteAcceleratedRow)
+        }
+    }
+
+    @Test fun acceleratedCleanupKeepsPrivatePartialWhileAWriterIsActive() {
+        val privateDir = File(context.filesDir, "accelerated-v2")
+        assertTrue(privateDir.isDirectory || privateDir.mkdirs())
+        val orphanPartial = File(
+            privateDir, "Wivra_Fast_1234567890123_deadbeef.mp4.partial"
+        )
+        orphanPartial.writeText("synthetic orphan partial")
+        val owner = "instrumentation-${UUID.randomUUID()}"
+        var token: Int? = null
+        try {
+            token = WivraRandomExportStore.begin(context, "video/mp4", 1024L, owner)
+
+            WivraRandomExportStore.cleanupOrphanPartials(context)
+            assertTrue("Cleanup must not delete partial files while a writer is active.",
+                orphanPartial.exists())
+        } finally {
+            token?.let { WivraRandomExportStore.abort(it, owner) }
+        }
+
+        try {
+            WivraRandomExportStore.cleanupOrphanPartials(context)
+            assertTrue("The stale partial should be removed after the writer closes.",
+                !orphanPartial.exists())
+        } finally {
+            orphanPartial.delete()
+        }
+    }
+
 }
