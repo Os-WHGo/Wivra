@@ -45,9 +45,9 @@ test('export recovery UI exposes explicit manual resolution and guarded retry on
  assert.ok(journal.includes('func confirmManuallyPresent(for url: URL)'));
  assert.ok(journal.includes('func authorizeRetryAfterManualAbsence(for url: URL)'));
  assert.ok(journal.includes('entry.state != .confirmed'));
- assert.match(ui,/Ya aparece en Fotos/);
- assert.match(ui,/No aparece, permitir reintento/);
- assert.match(ui,/Confirma que buscaste este video en Fotos y no aparece/);
- assert.match(ui,/confirmManuallyPresent\\(for: video\\.url\\)/);
- assert.match(ui,/authorizeRetryAfterManualAbsence\\(for: video\\.url\\)/);
+ assert.ok(ui.includes('Ya aparece en Fotos'));
+ assert.ok(ui.includes('No aparece, permitir reintento'));
+ assert.ok(ui.includes('Confirma que buscaste este video en Fotos y no aparece'));
+ assert.ok(ui.includes('confirmManuallyPresent(for: video.url)'));
+ assert.ok(ui.includes('authorizeRetryAfterManualAbsence(for: video.url)'));
 });
