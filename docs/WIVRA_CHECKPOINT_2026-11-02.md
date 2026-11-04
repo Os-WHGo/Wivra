@@ -209,3 +209,42 @@ En curso al corte:
 - App Tests [41717881817], Beta Assembly contracts [41717881775], Director [41717881881], Creative Director [41717881829], LIVE [41717881880], Local Visual [41717881873] y AI Chat-First [41717881935] terminaron `success`.
 - No se generaron APK, IPA, instalables, firma, publicación ni pruebas físicas. Los jobs de APK/IPA/emulador permanecen bajo sus gates.
 - Siguiente acción exacta: cerrar iOS Simulator y iPhone arm64; revisar Android instrumented source compile; cerrar browser matrix y auditoría soak; después consolidar resultados y preparar prueba instrumentada API 35 solo en hito beta autorizado.
+
+
+### W48.2 | Resolución manual de guardados Fotos inciertos | 03-11-2026
+
+**Implementación**
+- `WivraPhotosSaveJournal.ReviewStatus` permite consultar estado local por SHA-256 sin consultar la fototeca.
+- Se añadieron dos acciones explícitas a la biblioteca nativa de exportaciones:
+  - **Ya aparece en Fotos**: el usuario confirma que encontró el vídeo y el journal lo marca `confirmed`; el siguiente Save es idempotente y no inserta otro asset.
+  - **No aparece, permitir reintento**: muestra confirmación destructiva explicando que debe haber buscado el vídeo en Fotos; solo entonces elimina la intención pendiente/incierta y permite iniciar una transacción nueva.
+- Una operación confirmada no puede borrarse ni reabrirse para reintento (`invalidResolution`).
+- Los controles de resolución quedan deshabilitados mientras la pantalla tiene un guardado activo.
+- La resolución nunca borra la copia privada ni lee el contenido de la fototeca. No se cambia el permiso add-only.
+- `ReviewStatus` se declara Sendable para cruzar de forma segura el actor journal a SwiftUI bajo Swift 6.
+
+**Pruebas**
+- Smoke Swift 6 ampliado: confirmación manual de asset presente, idempotencia posterior, autorización de retry tras confirmación de ausencia y rechazo de limpiar un asset ya confirmado.
+- Contrato Node ampliado para asegurar que UI y journal exponen ambas rutas, y que la autorización de reintento requiere estado no confirmado y confirmación expresa.
+- Run iOS [41762618074](https://github.com/Os-WHGo/Wivra/actions/runs/41762618074), HEAD de código `3bbe47926c6f69e2878e3eb6ad6f593871bd84d4`:
+  - Contrato de integración Photos: success.
+  - Smoke Swift 6 journal: success.
+  - Recuperación acelerada con MP4 real y fixtures de nombres maliciosos: success.
+  - Captura CAF, recuperación agrupada, exportación progresiva, random-write, RTMP gate, traducciones y preparación del editor: success.
+  - Resolución Meta DAT 1.0.1: in progress en el último sondeo; compilaciones Simulator y iPhone arm64 pendientes.
+- Beta Assembly [41762617933](https://github.com/Os-WHGo/Wivra/actions/runs/41762617933): contratos integrados success. APK, IPA y emulador skipped por gates.
+- Android Native [41762617947](https://github.com/Os-WHGo/Wivra/actions/runs/41762617947) y Browser Matrix [41762617954](https://github.com/Os-WHGo/Wivra/actions/runs/41762617954): in progress.
+- Hubo dos fallos intermedios de pruebas de contrato por regex de JavaScript; el test se cambió a comparaciones literales. El run Beta Assembly de la revisión actual pasó.
+
+**Git**
+- HEAD documentado de implementación: `3bbe47926c6f69e2878e3eb6ad6f593871bd84d4`.
+- Base main: `99732810355970752b385244f327a35bbc787fe5`.
+- Comparación en el momento del checkpoint: 88 commits ahead, 0 behind.
+- PR #164 abierta, draft, no fusionada. Main intacta.
+
+**Siguiente trabajo**
+1. Esperar y cerrar iOS package resolution, compilación Simulator y compilación iPhone arm64 sin firma.
+2. Cerrar Android FULL/Capture y Browser Matrix en el mismo HEAD.
+3. Ejecutar soak 10/20/30/60 min en el HEAD actual y consolidar el resumen.
+4. No activar automáticamente WebCodecs; MediaRecorder sigue como default.
+5. No generar APK/IPA ni ejecutar emulador fuera del hito beta autorizado. No fusionar PR #164 sin autorización explícita.
