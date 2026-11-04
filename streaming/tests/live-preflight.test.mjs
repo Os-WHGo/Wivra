@@ -106,3 +106,71 @@ test('camera transport is source-specific and cannot claim unverified Meta Wi-Fi
  assert.throws(()=>createPreflight({sourceMode:'phone-camera',cameraLink:'wifi-softap',destinations:[d()]}),/Phone camera/);
  assert.throws(()=>createPreflight({sourceMode:'meta-ios',cameraLink:'phone-camera',destinations:[d()]}),/Camera link/);
 });
+
+test('only explicit resolution names pass and a preflight cannot be mutated after validation',()=>{
+ for(const resolution of ['constructor','toString','__proto__']){
+  assert.throws(()=>createPreflight({resolution,destinations:[d()]}),/Unsupported resolution/);
+ }
+ const original=d();
+ const plan=createPreflight({destinations:[original]});
+ original.platform='youtube';
+ assert.equal(plan.destinations[0].platform,'twitch');
+ for(const part of [plan,plan.sourceRequested,plan.destinations,plan.destinations[0],plan.warnings]){
+  assert.equal(Object.isFrozen(part),true);
+ }
+ assert.throws(()=>{plan.sourceRequested.fps=30},TypeError);
+ assert.throws(()=>{plan.destinations[0].secureCredentialId='cred-forged123'},TypeError);
+ assert.throws(()=>{plan.destinations.push(d('youtube','cred-another123'))},TypeError);
+ assert.throws(()=>{plan.warnings.length=0},TypeError);
+ assert.equal(plan.liveReady,false);
+});
+
+test('LIVE only accepts issued plans and illegal ready calls do not install a plan',()=>{
+ const s=new LiveSession(),p=createPreflight({destinations:[d()]});
+ const ready=(plan)=>s.ready({
+  plan,recorderPrepared:true,encodedAudioVideoValidated:true
+ });
+ for(const fake of [{liveReady:false},{...p},JSON.parse(JSON.stringify(p))]){
+  assert.throws(()=>ready(fake),/Expected validated preflight/);
+  assert.equal(s.plan,null);
+ }
+ assert.throws(()=>ready(p),/Illegal LIVE transition/);
+ assert.equal(s.plan,null);
+ assert.equal(s.state,'idle');
+ assert.equal(s.events.length,0);
+ s.connectGlasses({nativeConnectionVerified:true});
+ s.beginPreview({nativeFramesObserved:true});
+ ready(p);
+ assert.equal(s.state,'ready');
+ assert.strictEqual(s.plan,p);
+ assert.throws(()=>ready(p),/Illegal LIVE transition/);
+ assert.strictEqual(s.plan,p);
+});
+
+test('finishing an inactive LIVE never claims a saved recording',()=>{
+ const s=new LiveSession();
+ const result={storageVerified:true,bytesWritten:512,localAssetId:'local-test-123456'};
+ assert.throws(()=>s.finishRecording(result),/Illegal LIVE transition/);
+ assert.equal(s.savedFile,null);
+ assert.equal(s.state,'idle');
+ assert.equal(s.events.length,0);
+ const p=createPreflight({destinations:[d()]});
+ s.connectGlasses({nativeConnectionVerified:true});
+ s.beginPreview({nativeFramesObserved:true});
+ s.ready({plan:p,recorderPrepared:true,encodedAudioVideoValidated:true});
+ s.startLive({explicitHumanPress:true,nativePublisherConnected:true});
+ assert.throws(()=>s.finishRecording(result),/Illegal LIVE transition/);
+ assert.equal(s.savedFile,null);
+ assert.equal(s.state,'live');
+ s.requestStop({humanRequested:true});
+ for(const bytesWritten of [1.5,0,Number.MAX_SAFE_INTEGER+1,NaN,Infinity]){
+  assert.throws(()=>s.finishRecording({...result,bytesWritten}),/verified local artifact/);
+  assert.equal(s.savedFile,null);
+  assert.equal(s.state,'stopping');
+ }
+ s.finishRecording(result);
+ assert.deepEqual(s.savedFile,{localAssetId:result.localAssetId,bytesWritten:512});
+ assert.equal(s.state,'saved');
+ assert.throws(()=>s.finishRecording({...result,localAssetId:'local-duplicate123'}),/Illegal LIVE transition/);
+ assert.deepEqual(s.savedFile,{localAssetId:result.localAssetId,bytesWritten:512});
+});

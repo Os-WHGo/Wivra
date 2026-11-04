@@ -13,10 +13,27 @@ internal object WivraLiveEndpoint {
             input.any { it.isWhitespace() || Character.isISOControl(it) }) return false
         return try {
             val uri = URI(input)
-            val segments = (uri.rawPath ?: "").split('/').filter { it.isNotEmpty() }
+            val rawPath = uri.rawPath ?: return false
+            val decodedPath = uri.path ?: return false
+            // Keep every segment boundary unchanged across percent decoding.
+            // URI.path can turn %2F into a new slash and %0A into a control.
+            if (!rawPath.startsWith("/") || rawPath.endsWith("/") ||
+                rawPath.contains("//") || !decodedPath.startsWith("/")) return false
+            val rawSegments = rawPath.drop(1).split('/')
+            val decodedSegments = decodedPath.drop(1).split('/')
+            val validSegments = rawSegments.size == decodedSegments.size &&
+                decodedSegments.size >= 2 &&
+                decodedSegments.all { segment ->
+                    segment.isNotEmpty() && segment != "." && segment != ".." &&
+                        segment.none { char ->
+                            char == '\\' || char == '/' || char.isWhitespace() ||
+                                Character.isISOControl(char)
+                        }
+                }
             uri.scheme?.lowercase() in setOf("rtmp", "rtmps") &&
                 !uri.host.isNullOrBlank() && uri.rawUserInfo == null &&
-                uri.rawFragment == null && segments.size >= 2
+                uri.rawFragment == null && uri.rawQuery == null &&
+                (uri.port == -1 || uri.port in 1..65535) && validSegments
         } catch (_: Exception) { false }
     }
 

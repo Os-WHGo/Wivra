@@ -28,6 +28,18 @@ struct WivraIOSLiveEndpoint: Sendable {
               let key = String(last).removingPercentEncoding,
               !key.isEmpty, key != "." && key != ".." else { return nil }
 
+        // Percent-encoded slash, newline, NUL, whitespace or dot traversal
+        // must not turn a visually valid RTMP destination into another path
+        // or stream key after URLComponents decodes its components.
+        let forbiddenDecoded = CharacterSet.whitespacesAndNewlines
+            .union(.controlCharacters)
+            .union(CharacterSet(charactersIn: "/\\"))
+        guard path.dropFirst().allSatisfy({ component in
+            guard let decoded = String(component).removingPercentEncoding,
+                  !decoded.isEmpty, decoded != ".", decoded != ".." else { return false }
+            return !decoded.unicodeScalars.contains(where: { forbiddenDecoded.contains($0) })
+        }) else { return nil }
+
         let app = path.dropFirst().dropLast().joined(separator: "/")
         guard !app.isEmpty else { return nil }
         parts.percentEncodedPath = "/" + app
