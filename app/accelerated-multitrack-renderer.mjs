@@ -15,6 +15,8 @@ export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
 export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
 export const ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS = 3600;
 export const ACCELERATED_MULTITRACK_MAX_ITEMS = 160;
+// RGBA compositor surfaces only; decoder/encoder RAM requires separate QA.
+export const ACCELERATED_MULTITRACK_MAX_SURFACE_BYTES = 96 * 1024 * 1024;
 
 // Explicit supported keys. Unknown future edits MUST NOT disappear silently.
 const MAIN = new Set(['id','asset_id','start','in','out','speed','volume','muted',
@@ -29,6 +31,8 @@ const deny = (message) => {throw new Error('Multitrack accelerated preflight: '+
 function validateAuthoring(project, ledger, media) {
   if (Object.keys(project).some(k=>!PROJECT.has(k) && project[k]!=null))
     deny('unsupported project property');
+  if(!Array.isArray(project.transitions??[]) || !Array.isArray(project.effects??[]))
+    deny('invalid project transitions/effects');
   if ((project.transitions??[]).length || (project.effects??[]).length)
     deny('project transitions/effects require full parity');
   for(const lane of ledger.tracks) {
@@ -143,6 +147,10 @@ export async function prepareAcceleratedMultitrack({
     ACCELERATED_MULTITRACK_MAX_SECONDS;
   if(!(Number.isSafeInteger(maxSeconds)&&maxSeconds>0&&maxSeconds<=horizon))
     deny('excessive render horizon');
+  // Export one immutable authoring snapshot across async decoder probes.
+  // Editing the live timeline must not introduce unvalidated effects/layers
+  // while preparation is awaiting media or codec capability checks.
+  try{project=structuredClone(project);}catch{deny('project is not cloneable');}
   const ledger=analyzeAcceleratedMultitrackParity(project,media,{
     maxItems:ACCELERATED_MULTITRACK_MAX_ITEMS,maxTimelineSeconds:maxSeconds
   });
@@ -208,14 +216,45 @@ export async function prepareAcceleratedMultitrack({
              earliestSourceIn<firstTimestamp-.08)
             deny('source trim begins before first decodable sample');
         }
-        if(video){
-          entry.canvasOptions={poolSize:1,
-            width:Math.min(1920,Math.max(2,asset.width||width)),fit:'contain'};
+        if(video && asset.kind==='video'){
+          const sourceWidth=typeof video.getDisplayWidth==='function'
+            ?await video.getDisplayWidth():asset.width;
+          const sourceHeight=typeof video.getDisplayHeight==='function'
+            ?await video.getDisplayHeight():asset.height;
+          if(!Number.isFinite(sourceWidth)||!Number.isFinite(sourceHeight)||
+             sourceWidth<=0||sourceHeight<=0)
+            deny('decoded video dimensions unavailable');
+          const canvasWidth=Math.min(1920,Math.max(2,Math.round(sourceWidth)));
+          const canvasHeight=Math.max(2,Math.round(canvasWidth*sourceHeight/sourceWidth));
+          if(!Number.isSafeInteger(canvasHeight)||canvasHeight>3840)
+            deny('decoded canvas dimensions exceed safe bounds');
+          entry.canvasOptions={poolSize:1,width:canvasWidth,
+            height:canvasHeight,fit:'contain'};
           entry.canvas=new M.CanvasSink(video,entry.canvasOptions);
           entry.visualSinks=[entry.canvas];
         }
         if(audio)entry.audioSink=new M.AudioBufferSink(audio);
       }
+    }
+    // Sink slots stay allocated until disposal. Reserve the per-asset peak,
+    // not just the maximum global overlap: sequential assets may each retain
+    // their own peak pool. End events precede starts at the same timestamp.
+    let surfaceBytes=width*height*4;
+    for(const [assetId,item] of used){
+      if(item.kind==='image'){
+        surfaceBytes+=item.image.videoWidth*item.image.videoHeight*4;
+      }else if(item.visualSinks){
+        const events=ledger.tracks.filter(l=>l.assetId===assetId &&
+          l.lane!=='audio' && l.visibleDuration>0).flatMap(l=>[
+            {time:l.start,delta:1},{time:l.renderEnd,delta:-1}]);
+        events.sort((a,b)=>a.time-b.time||a.delta-b.delta);
+        let active=0,peak=1;
+        for(const event of events){active+=event.delta;peak=Math.max(peak,active);}
+        surfaceBytes+=peak*item.canvasOptions.width*item.canvasOptions.height*4;
+      }
+      if(!Number.isSafeInteger(surfaceBytes)||
+         surfaceBytes>ACCELERATED_MULTITRACK_MAX_SURFACE_BYTES)
+        deny('decoded compositor surfaces exceed memory budget');
     }
     const audible=[];
     for(const lane of ledger.tracks) {
@@ -242,8 +281,15 @@ export async function prepareAcceleratedMultitrack({
   }
 }
 
+const renderedPreparations=new WeakSet();
+
 /** Actual output to arbitrary-offset native writer; never overrides v1. */
 export async function renderAcceleratedMultitrack(options={}) {
+  const prepared=options.prepared;
+  if(prepared && typeof prepared==='object'){
+    if(renderedPreparations.has(prepared))deny('preparation already consumed');
+    renderedPreparations.add(prepared);
+  }
   try {
     return await renderPreparedMultitrack(options);
   } finally {

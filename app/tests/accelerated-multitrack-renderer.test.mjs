@@ -428,6 +428,8 @@ test('same-source simultaneous layers preserve distinct decoded times and reuse 
 
 test('unknown transition/shape and visual audio edits fail before opening output',async()=>{
  for(const change of [
+  p=>{p.effects={name:'future-effect'};},
+  p=>{p.transitions={name:'future-wipe'};},
   p=>{p.clips[0].fxIn='future-wipe';},
   p=>{p.overlayClips[0].fxOut='future-wipe';},
   p=>{p.clips[0].fxDur=NaN;},
@@ -467,4 +469,54 @@ test('early renderer failures dispose all inputs and cancel an allocated output 
    assert.equal(M.events.some(e=>e[0]==='finalize'),false);
   }finally{globalThis.document=prior;}
  }
+});
+
+test('preflight budgets retained shared-source surfaces using decoded dimensions and temporal overlap',async()=>{
+ const p=proj();p.audioClips=[];p.texts=[];
+ p.clips=[{id:'main',asset_id:'main',start:0,in:0,out:2}];
+ p.overlayClips=Array.from({length:13},(_,i)=>({id:'layer'+i,
+  asset_id:'main',start:0,in:0,out:.1,x:.5,y:.5,scale:.2}));
+ const sdk=()=>{
+  const M=fakeM(),Base=M.Input;
+  M.Input=class extends Base{async getPrimaryVideoTrack(){return {
+   getDisplayWidth:async()=>1920,getDisplayHeight:async()=>1080};}};
+  return M;
+ };
+ const M=sdk();
+ await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M}),/surfaces exceed memory budget/);
+ assert.equal(M.events.filter(e=>e[0]==='dispose').length,1);
+ assert.equal(M.events.some(e=>e[0]==='start'),false);
+ // Same 13 authored overlays, but no overlap: only main + one inset retained.
+ p.overlayClips.forEach((c,i)=>{c.start=i*.1;});
+ const prepared=await prepareAcceleratedMultitrack({project:p,media,M:sdk()});
+ assert.equal(prepared.used.get('main').canvasOptions.width,1920);
+ assert.equal(prepared.used.get('main').canvasOptions.height,1080);
+ await prepared.used.get('main').input.dispose();
+});
+
+test('preparation snapshots authoring and rejects reuse without disposing a running export',async()=>{
+ const M=fakeM(),p=proj(),prior=globalThis.document,priorAudio=globalThis.AudioBuffer;
+ globalThis.document=context().document;globalThis.AudioBuffer=PCM;
+ try{
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+  p.clips[0].asset_id='new-unvalidated-source';
+  p.texts[0].text='changed after validation';
+  assert.equal(prepared.project.clips[0].asset_id,'main');
+  assert.equal(prepared.project.texts[0].text,'Wivra');
+  let release;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const Base=M.CanvasSource;
+  M.CanvasSource=class extends Base{async add(...args){await blocked;return super.add(...args);}};
+  const first=renderAcceleratedMultitrack({prepared,sampleRate:8000,
+   writeAt:async(pos,bytes)=>bytes.length});
+  await assert.rejects(renderAcceleratedMultitrack({prepared,
+   writeAt:async(pos,bytes)=>bytes.length}),/already consumed/);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,0);
+  release();
+  assert.equal((await first).videoFrames,18);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+  await assert.rejects(renderAcceleratedMultitrack({prepared,
+   writeAt:async(pos,bytes)=>bytes.length}),/already consumed/);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+ }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
 });

@@ -133,7 +133,7 @@ test('a real bounded video render travels through random v2 and verifies native 
   assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
   assert.equal(log.includes('finalize'),true);
   assert.equal(log.includes('cancel'),false);
-  assert.equal(log.includes('input-dispose'),true);
+  assert.equal(log.filter(op=>op==='input-dispose').length,1);
  }finally{globalThis.document=old;}
 });
 test('mid-render cancellation aborts v2, cancels encoder and never commits media',async()=>{

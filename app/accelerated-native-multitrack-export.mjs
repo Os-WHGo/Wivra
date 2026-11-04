@@ -69,7 +69,7 @@ export async function recordExperimentalNativeMultitrack({
     expectedAudio:expectAudio ? true : null,
     isCancelled,...(imageFactory?{imageFactory}:{})
   });
-  let sink;
+  let sink,renderOwnsInputs=false;
   try {
     // Keep estimation inside the same cleanup scope as codec/bridge setup.
     // Invalid space estimates must release every decoder before returning.
@@ -104,6 +104,7 @@ export async function recordExperimentalNativeMultitrack({
       expectAudio,estimatedBytes:expectedBytes
     });
     await sink.begin();
+    renderOwnsInputs=true;
     const stats=await renderAcceleratedMultitrack({prepared,
       fps,sampleRate,isCancelled,onProgress:safeProgress,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
@@ -141,11 +142,9 @@ export async function recordExperimentalNativeMultitrack({
     }
     throw error;
   } finally {
-    // Guarantee decoder disposal even if output setup fails before the
-    // renderer reaches its own try/finally (e.g. unavailable canvas or
-    // encoder constructor). The renderer also closes inputs on its path;
-    // dispose may be called twice and must not suppress the original error.
-    for(const item of prepared.used.values()){
+    // Before handoff, this adapter owns preparation. Once rendering starts,
+    // the renderer releases inputs on every exit (including setup failures).
+    if(!renderOwnsInputs)for(const item of prepared.used.values()){
       try{await item.input?.dispose?.();}catch{}
     }
   }
