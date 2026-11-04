@@ -1,7 +1,11 @@
 package com.oswhgo.wivra
 
+import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.os.Bundle
+import android.os.Build
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -30,6 +34,7 @@ object WivraRandomExportStore {
     private const val MIN_FREE_BYTES = WivraExportStore.MIN_FREE_BYTES
     private const val DIR = "accelerated-v2"
     private const val PREFIX = "Wivra_Fast_"
+    private val pendingMediaName = Regex("""^Wivra_Fast_[0-9]{10,17}_[0-9a-f]{1,8}\.(mp4|webm)$""")
     private val random = SecureRandom()
     private data class Active(
         val owner: String,
@@ -42,7 +47,8 @@ object WivraRandomExportStore {
         val mime: String,
         val bytes: Long,
         val sha256: String,
-        val media: WivraRandomAccessExportSession.Media
+        val media: WivraRandomAccessExportSession.Media,
+        val alreadyPublished: Boolean = false
     )
     private val active = ConcurrentHashMap<Int, Active>()
     private val finished = ConcurrentHashMap<Int, Pair<String, Published>>()
@@ -55,16 +61,34 @@ object WivraRandomExportStore {
         active[token]?.takeIf { it.owner == owner }
             ?: throw IOException("Sesión acelerada desconocida.")
 
+    internal fun validEstimatedBytes(estimatedBytes: Long): Boolean =
+        estimatedBytes > 0 && estimatedBytes <= WivraRandomAccessExportSession.MAX_OUTPUT_BYTES
+
+    /** Pure predicate for app-owned, interrupted v2 MediaStore rows. */
+    internal fun isOwnedPendingV2MediaRow(
+        name: String?, mime: String?, relativePath: String?, ownerPackage: String?,
+        pending: Int, expectedPackage: String
+    ): Boolean {
+        if (pending != 1 || name == null || !pendingMediaName.matches(name) ||
+            relativePath != WivraExportStore.FOLDER || ownerPackage != expectedPackage)
+            return false
+        return when {
+            name.endsWith(".mp4") -> mime == "video/mp4"
+            name.endsWith(".webm") -> mime == "video/webm"
+            else -> false
+        }
+    }
+
     fun begin(context: Context, mime: String, estimatedBytes: Long, owner: String): Int {
         if (mime != "video/mp4" && mime != "video/webm") throw IOException("Contenedor inválido.")
-        if (estimatedBytes < 0 || estimatedBytes > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
+        if (!validEstimatedBytes(estimatedBytes))
             throw IOException("Tamaño estimado fuera del límite seguro.")
         if (WivraExportStore.freeBytes(context) < estimatedBytes + MIN_FREE_BYTES)
             throw IOException("Espacio insuficiente para la exportación y reserva del sistema.")
         var token: Int
         do { token = random.nextInt(Int.MAX_VALUE - 1) + 1 }
         while (active.containsKey(token) || finished.containsKey(token))
-        active[token] = Active(owner, WivraRandomAccessExportSession.create(directory(context), mime), mime)
+        active[token] = Active(owner, WivraRandomAccessExportSession.create(directory(context), mime, estimatedBytes), mime)
         return token
     }
 
@@ -279,16 +303,132 @@ object WivraRandomExportStore {
     }
 
     /**
+     * Never republish the same sealed recording if a previous MediaStore
+     * publication completed but the app was killed before it acknowledged it.
+     * Query only this app's OWN completed exports in its own Movies folder.
+     * Never delete or modify existing rows and never trust their names as
+     * proof: read the bytes, SHA-256 and real media metadata again.
+     */
+    internal fun isVerifiedRecoveryCopy(
+        expectedBytes: Long, actualBytes: Long,
+        expectedSha: String, actualSha: String,
+        expectedDurationMs: Long, actualDurationMs: Long,
+        expectsAudio: Boolean, actualAudio: Boolean,
+        actualVideo: Boolean, isWebm: Boolean,
+        hasDuration: Boolean, seekIndex: Boolean
+    ): Boolean = expectedBytes > 0L && expectedBytes == actualBytes &&
+        expectedSha.length == 64 && expectedSha.equals(actualSha, ignoreCase = true) &&
+        actualVideo && actualDurationMs > 0L &&
+        kotlin.math.abs(actualDurationMs - expectedDurationMs) <= 1500L &&
+        (!expectsAudio || actualAudio) &&
+        (!isWebm || (hasDuration && seekIndex))
+
+    private fun existingRecoveryCopy(context: Context, expected: Recovered): Published? {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val columns = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.SIZE,
+            MediaStore.MediaColumns.IS_PENDING,
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.OWNER_PACKAGE_NAME
+        )
+        val query = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_EXCLUDE)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND " +
+                "${MediaStore.MediaColumns.SIZE} = ?")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                arrayOf(WivraExportStore.FOLDER, context.packageName,
+                    "${PREFIX}%", expected.bytes.toString()))
+        }
+        // Do not continue to produce a possibly duplicate gallery copy if
+        // ownership or completeness cannot be determined by the provider.
+        val cursor = try { resolver.query(collection, columns, query, null) }
+        catch (error: Exception) {
+            throw IOException("No se pudo comprobar duplicados de galería.", error)
+        } ?: throw IOException("Catálogo de galería no disponible para recuperación.")
+        cursor.use {
+            var inspected = 0
+            val id = it.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val nameColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val size = it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+            val pendingColumn = it.getColumnIndexOrThrow(MediaStore.MediaColumns.IS_PENDING)
+            val mime = it.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+            val folder = it.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+            val owner = it.getColumnIndexOrThrow(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
+            while (it.moveToNext()) {
+                if (++inspected > 250)
+                    throw IOException("Demasiados videos propios para comprobar recuperación.")
+                val name = it.getString(nameColumn) ?: continue
+                if (!name.startsWith(PREFIX) ||
+                    it.getInt(pendingColumn) != 0 ||
+                    it.getString(owner) != context.packageName ||
+                    it.getString(folder) != WivraExportStore.FOLDER ||
+                    it.getString(mime) != expected.mime ||
+                    it.getLong(size) != expected.bytes) continue
+                val uri = ContentUris.withAppendedId(collection, it.getLong(id))
+                var actualBytes = 0L
+                val hash = digest()
+                try {
+                    (resolver.openInputStream(uri) ?:
+                        throw IOException("No se pudo releer video previo de Wivra.")).use { input ->
+                        val buffer = ByteArray(1024 * 1024)
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            actualBytes += n
+                            if (actualBytes > expected.bytes) break
+                            hash.update(buffer, 0, n)
+                        }
+                    }
+                } catch (error: Exception) {
+                    throw IOException("No se pudo comprobar copia previa; sin duplicar.", error)
+                }
+                val actualSha = shaString(hash.digest())
+                if (actualBytes != expected.bytes ||
+                    !expected.sha256.equals(actualSha, ignoreCase = true))
+                    continue
+                // A matching hash with corrupt playback metadata is NOT a
+                // successful recovery; protect the sealed original.
+                val gallery = try { WivraExportFinalizer.inspect(context, uri, expected.mime) }
+                catch (error: Exception) {
+                    throw IOException("Copia previa inválida; privado conservado.", error)
+                }
+                if (!isVerifiedRecoveryCopy(
+                    expected.bytes, actualBytes, expected.sha256, actualSha,
+                    expected.media.durationMs, gallery.durationMs,
+                    expected.media.audio, gallery.audio, gallery.video,
+                    expected.mime == "video/webm",
+                    gallery.declaresDuration, gallery.seekIndex))
+                    throw IOException("Copia previa no reproduce correctamente; privado conservado.")
+                return Published(uri, name, expected.mime, expected.bytes,
+                    expected.sha256, expected.media, alreadyPublished = true)
+            }
+        }
+        return null
+    }
+
+    /**
      * An explicit native user action may republish ONE verified private file.
      * A newly created MediaStore row is SHA-256 verified before it is visible;
      * the sealed source survives any failure. No arbitrary path or deletion API.
      */
     @JvmStatic
+    @Synchronized
     fun restore(context: Context, selectedName: String): Published {
         if (!isRecoverableFilename(selectedName)) throw IOException("Nombre de recuperación inválido.")
         val file = File(directory(context), selectedName)
         val verified = validateSealed(context, file)
             ?: throw IOException("El archivo privado no supera la verificación.")
+        // Process-death replay safety: if a prior gallery copy was already
+        // published and verified, return it instead of creating a duplicate.
+        // The private sealed file remains recoverable until explicitly handled.
+        existingRecoveryCopy(context, verified)?.let { return it }
         val expected = WivraRandomAccessExportSession.Saved(
             file, verified.bytes, verified.sha256, verified.media)
         val owner = java.util.UUID.randomUUID().toString()
@@ -298,13 +438,73 @@ object WivraRandomExportStore {
         return publish(context, token, owner, verified.mime, expected)
     }
 
+    /**
+     * Remove orphaned pending MediaStore rows from interrupted v2 publication.
+     * All bridge operations share one IO executor, so cleanup cannot race an
+     * in-flight publish. Every candidate is checked again in DELETE selection.
+     */
+    private fun cleanupOrphanPendingMediaRows(context: Context): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        val resolver = context.contentResolver
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.OWNER_PACKAGE_NAME, MediaStore.MediaColumns.IS_PENDING
+        )
+        val query = Bundle().apply {
+            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_ONLY)
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND " +
+                "${MediaStore.MediaColumns.IS_PENDING} = ?")
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                arrayOf(WivraExportStore.FOLDER, context.packageName, "${PREFIX}%", "1"))
+        }
+        val cursor = try { resolver.query(collection, projection, query, null) }
+            catch (_: Exception) { null } ?: return 0
+        var removed = 0
+        cursor.use {
+            val idColumn = it.getColumnIndex(MediaStore.MediaColumns._ID)
+            val nameColumn = it.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+            val mimeColumn = it.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
+            val folderColumn = it.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+            val ownerColumn = it.getColumnIndex(MediaStore.MediaColumns.OWNER_PACKAGE_NAME)
+            val pendingColumn = it.getColumnIndex(MediaStore.MediaColumns.IS_PENDING)
+            if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0 || folderColumn < 0 ||
+                ownerColumn < 0 || pendingColumn < 0) return@use
+            var inspected = 0
+            while (it.moveToNext() && inspected < 250) {
+                inspected++
+                val name = it.getString(nameColumn)
+                val mime = it.getString(mimeColumn)
+                val folder = it.getString(folderColumn)
+                val ownerPackage = it.getString(ownerColumn)
+                val pending = it.getInt(pendingColumn)
+                if (!isOwnedPendingV2MediaRow(name, mime, folder, ownerPackage,
+                        pending, context.packageName)) continue
+                val uri = ContentUris.withAppendedId(collection, it.getLong(idColumn))
+                val deleted = try {
+                    resolver.delete(uri,
+                        "${MediaStore.MediaColumns.IS_PENDING} = ? AND " +
+                        "${MediaStore.MediaColumns.RELATIVE_PATH} = ? AND " +
+                        "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
+                        "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND " +
+                        "${MediaStore.MediaColumns.MIME_TYPE} = ?",
+                        arrayOf("1", WivraExportStore.FOLDER, context.packageName, name, mime))
+                } catch (_: Exception) { 0 }
+                if (deleted == 1) removed++
+            }
+        }
+        return removed
+    }
+
     /** Only stale, incomplete Wivra v2 temp files, never finalized private videos. */
     fun cleanupOrphanPartials(context: Context): Int {
-        // Another live editor Activity may own an active random-write session.
-        // Never mistake its partial file for a crash orphan.
-        if (active.isNotEmpty()) return 0
+        var count = cleanupOrphanPendingMediaRows(context)
+        if (active.isNotEmpty()) return count
         val dir = directory(context)
-        var count = 0
         for (file in dir.listFiles().orEmpty()) {
             if (file.isFile && file.name.startsWith(PREFIX) && file.name.endsWith(".partial")) {
                 if (file.delete()) count++

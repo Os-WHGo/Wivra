@@ -396,3 +396,159 @@ test('180-second 120-cut 30-voice accelerated canary stays QA-only and enforces 
   project:excessive,media,M,imageFactory,expectedAudio:true
  }),/timeline-duration/);
 });
+
+test('same-source simultaneous layers preserve distinct decoded times and reuse bounded slots',async()=>{
+ const M=fakeM();let sinks=0;
+ M.CanvasSink=class {
+  constructor(){sinks++;this.canvas={width:640,height:360,time:null};}
+  async getCanvas(t){this.canvas.time=t;return {canvas:this.canvas};}
+ };
+ const p=proj();p.audioClips=[];p.texts=[];
+ p.clips=[{id:'main',asset_id:'main',start:0,in:0,out:.2}];
+ p.overlayClips=[1,2].map(i=>({id:'ov'+i,asset_id:'main',
+  start:0,in:i,out:i+.2,scale:.2,x:.5,y:.5}));
+ const painted=[],{document}=context();
+ const canvas=document.createElement(),g=canvas.getContext();
+ g.drawImage=source=>painted.push(source.time);
+ const prior=globalThis.document;
+ globalThis.document={createElement:()=>canvas};
+ try{
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M});
+  const result=await renderAcceleratedMultitrack({prepared,fps:30,
+   writeAt:async(pos,bytes)=>bytes.length});
+  assert.equal(result.videoFrames,6);
+  assert.equal(sinks,3); // three simultaneous surfaces, not three per frame
+  for(let k=0;k<6;k++){
+   const times=painted.slice(k*3,k*3+3);
+   assert.equal(times.length,3);
+   for(let i=0;i<3;i++)assert.ok(Math.abs(times[i]-(k/30+i))<1e-9);
+  }
+ }finally{globalThis.document=prior;}
+});
+
+test('unknown transition/shape and visual audio edits fail before opening output',async()=>{
+ for(const change of [
+  p=>{p.effects={name:'future-effect'};},
+  p=>{p.transitions={name:'future-wipe'};},
+  p=>{p.clips[0].fxIn='future-wipe';},
+  p=>{p.overlayClips[0].fxOut='future-wipe';},
+  p=>{p.clips[0].fxDur=NaN;},
+  p=>{p.overlayClips[0].shape='future-mask';},
+  p=>{p.audioClips[0].fxIn='fade';},
+  p=>{p.audioClips[0].filter={exposure:1};}
+ ]){
+  const p=proj(),M=fakeM();change(p);
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),
+   /preflight/);
+  assert.equal(M.events.some(e=>e[0]==='start'),false);
+ }
+ for(const fx of ['none','fade','slide','zoom']){
+  const p=proj(),M=fakeM();p.clips[0].fxIn=fx;p.clips[0].fxDur=.1;
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+  assert.equal(prepared.project.clips[0].fxIn,fx);
+  for(const item of prepared.used.values())await item.input?.dispose?.();
+ }
+});
+
+test('early renderer failures dispose all inputs and cancel an allocated output exactly once',async()=>{
+ for(const failure of ['fps','canvas','encoder']){
+  const M=fakeM(),p=proj();let cancels=0;
+  const BaseOutput=M.Output;
+  M.Output=class extends BaseOutput{async cancel(){cancels++;}};
+  if(failure==='encoder')M.CanvasSource=class{constructor(){throw Error('encoder setup failed');}};
+  const prior=globalThis.document;
+  globalThis.document=failure==='canvas'
+   ?{createElement(){throw Error('canvas allocation failed');}}:context().document;
+  try{
+   const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+   await assert.rejects(renderAcceleratedMultitrack({prepared,
+    fps:failure==='fps'?0:30,writeAt:async(pos,bytes)=>bytes.length}),
+    /frame rate|canvas allocation|encoder setup/);
+   assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+   assert.equal(cancels,failure==='encoder'?1:0);
+   assert.equal(M.events.some(e=>e[0]==='finalize'),false);
+  }finally{globalThis.document=prior;}
+ }
+});
+
+test('preflight budgets retained shared-source surfaces using decoded dimensions and temporal overlap',async()=>{
+ const p=proj();p.audioClips=[];p.texts=[];
+ p.clips=[{id:'main',asset_id:'main',start:0,in:0,out:2}];
+ p.overlayClips=Array.from({length:13},(_,i)=>({id:'layer'+i,
+  asset_id:'main',start:0,in:0,out:.1,x:.5,y:.5,scale:.2}));
+ const sdk=()=>{
+  const M=fakeM(),Base=M.Input;
+  M.Input=class extends Base{async getPrimaryVideoTrack(){return {
+   getDisplayWidth:async()=>1920,getDisplayHeight:async()=>1080};}};
+  return M;
+ };
+ const M=sdk();
+ await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M}),/surfaces exceed memory budget/);
+ assert.equal(M.events.filter(e=>e[0]==='dispose').length,1);
+ assert.equal(M.events.some(e=>e[0]==='start'),false);
+ // Same 13 authored overlays, but no overlap: only main + one inset retained.
+ p.overlayClips.forEach((c,i)=>{c.start=i*.1;});
+ const prepared=await prepareAcceleratedMultitrack({project:p,media,M:sdk()});
+ assert.equal(prepared.used.get('main').canvasOptions.width,1920);
+ assert.equal(prepared.used.get('main').canvasOptions.height,1080);
+ await prepared.used.get('main').input.dispose();
+});
+
+test('preparation snapshots authoring and rejects reuse without disposing a running export',async()=>{
+ const M=fakeM(),p=proj(),prior=globalThis.document,priorAudio=globalThis.AudioBuffer;
+ globalThis.document=context().document;globalThis.AudioBuffer=PCM;
+ try{
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+  p.clips[0].asset_id='new-unvalidated-source';
+  p.texts[0].text='changed after validation';
+  assert.equal(prepared.project.clips[0].asset_id,'main');
+  assert.equal(prepared.project.texts[0].text,'Wivra');
+  let release;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const Base=M.CanvasSource;
+  M.CanvasSource=class extends Base{async add(...args){await blocked;return super.add(...args);}};
+  const first=renderAcceleratedMultitrack({prepared,sampleRate:8000,
+   writeAt:async(pos,bytes)=>bytes.length});
+  await assert.rejects(renderAcceleratedMultitrack({prepared,
+   writeAt:async(pos,bytes)=>bytes.length}),/already consumed/);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,0);
+  release();
+  assert.equal((await first).videoFrames,18);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+  await assert.rejects(renderAcceleratedMultitrack({prepared,
+   writeAt:async(pos,bytes)=>bytes.length}),/already consumed/);
+  assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+ }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
+});
+
+test('caption and color-filter validation reuses editor contracts without silently defaulting edits',async()=>{
+ for(const change of [
+  p=>{p.texts[0].position='middle';},
+  p=>{p.texts[0].pos='future-zone';},
+  p=>{p.texts[0].color='invalid-css';},
+  p=>{p.clips[0].filter={brightness:2};},
+  p=>{p.clips[0].filter={futureShader:.4};},
+  p=>{p.clips[0].filter={look:'future-look'};}
+ ]){
+  const p=proj(),M=fakeM();change(p);
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),/preflight/);
+  assert.equal(M.events.some(e=>e[0]==='start'),false);
+ }
+ const p=proj(),M=fakeM();
+ Object.assign(p.texts[0],{pos:'middle',size:'xl',color:'#aabbcc',box:'#000000'});
+ const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+ assert.deepEqual(prepared.project.texts,p.texts);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+});
+
+test('oversized authoring is rejected before allocating a full project snapshot',async()=>{
+ const p=proj(),M=fakeM(),original=globalThis.structuredClone;
+ p.clips=Array.from({length:161},(_,i)=>({id:'c'+i,asset_id:'main',start:i*.01,in:0,out:.01}));
+ let clones=0;
+ globalThis.structuredClone=()=>{clones++;throw Error('oversized snapshot should not be allocated');};
+ try{
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),/item-count/);
+  assert.equal(clones,0);
+  assert.equal(M.events.length,0);
+ }finally{globalThis.structuredClone=original;}
+});

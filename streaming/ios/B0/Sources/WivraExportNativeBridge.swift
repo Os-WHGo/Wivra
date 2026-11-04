@@ -207,13 +207,33 @@ enum WivraPhotosLibrary {
         guard status == .authorized || status == .limited else {
             throw WivraExportError.io("Permiso para añadir videos a Fotos denegado.")
         }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            PHPhotoLibrary.shared().performChanges({
-                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-            }, completionHandler: { success, error in
-                if success { continuation.resume() }
-                else { continuation.resume(throwing: error ?? WivraExportError.io("Fotos no pudo guardar el video.")) }
-            })
+        let journal = WivraPhotosSaveJournal.shared
+        let decision = try await journal.begin(for: url)
+        let hash: String
+        switch decision {
+        case .alreadyConfirmed:
+            // Idempotent success: the same bytes were previously confirmed.
+            return
+        case .requiresManualReview:
+            throw WivraExportError.io("El resultado de un guardado anterior puede ser incierto. Revisa Fotos manualmente; Wivra no repetirá la operación para evitar duplicados.")
+        case .proceed(let reservedHash):
+            hash = reservedHash
+        }
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                PHPhotoLibrary.shared().performChanges({
+                    PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                }, completionHandler: { success, error in
+                    if success { continuation.resume() }
+                    else { continuation.resume(throwing: error ?? WivraExportError.io("Fotos no pudo guardar el video.")) }
+                })
+            }
+            // If this durable confirmation fails after Photos accepted the asset,
+            // the pending record remains and blocks a duplicate retry after restart.
+            try await journal.markConfirmed(hash: hash)
+        } catch {
+            try? await journal.markUncertain(hash: hash)
+            throw error
         }
     }
 

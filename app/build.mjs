@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { loadI18n } from './i18n-parse.mjs';
 import { dirname, resolve } from 'node:path';
+import { verifyPinnedAcceleratedVendor } from './accelerated-vendor-integrity.mjs';
 
 // Optional, explicitly pinned OFFLINE vendor for the isolated accelerated QA
 // build. Standard beta packaging still contains no Mediabunny until its native
@@ -16,6 +17,12 @@ if (acceleratedBundlePath) {
   const source = readFileSync(acceleratedBundlePath, 'utf8');
   if (!source.includes('Mediabunny') || source.length < 10000)
     throw new Error('Acelerador: bundle local Mediabunny vacío o inesperado.');
+  // The package version alone does not pin the exact generated JavaScript.
+  // A trusted release/QA pipeline must provide the digest independently.
+  verifyPinnedAcceleratedVendor({
+    source,
+    expectedSha256: process.env.WIVRA_MEDIABUNNY_SHA256
+  });
   // Keep an explicit license notice in the generated distribution; a full
   // license/attribution must be shipped when production activates this.
   acceleratedVendor = '/* Wivra optional QA vendor: Mediabunny 1.61.6, MPL-2.0 (https://github.com/Vanilagy/mediabunny) */\n' +
@@ -32,6 +39,8 @@ const qaPipeline = acceleratedVendor ? [
   './accelerated-multitrack-parity.mjs',
   './accelerated-audio-mixer.mjs',
   './accelerated-multitrack-renderer.mjs',
+  './accelerated-storage-budget.mjs',
+  './accelerated-native-codec-probe.mjs',
   './accelerated-native-multitrack-export.mjs'
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';

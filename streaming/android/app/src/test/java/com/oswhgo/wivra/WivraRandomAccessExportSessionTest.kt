@@ -56,6 +56,24 @@ class WivraRandomAccessExportSessionTest {
         } finally { dir.deleteRecursively() }
     }
 
+    @Test fun finishRejectsWrongFinalTotalsBeforeInspection() {
+        val dir = folder()
+        try {
+            val session = WivraRandomAccessExportSession.create(dir, "video/mp4", 32)
+            session.writeAt(0, 0, mp4())
+            var inspected = false
+            try {
+                session.finish(16, 2, 1000, false) {
+                    inspected = true
+                    WivraRandomAccessExportSession.Media(true, true, 1000)
+                }
+                fail("A mismatched final write count was accepted")
+            } catch (_: WivraRandomAccessExportSession.IntegrityException) { }
+            assertFalse(inspected)
+            assertEquals(0, dir.listFiles()?.size)
+        } finally { dir.deleteRecursively() }
+    }
+
     @Test fun neverSealMissingAudioOrCorruptHeader() {
         val dir = folder()
         try {

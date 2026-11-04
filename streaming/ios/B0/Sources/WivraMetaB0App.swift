@@ -859,6 +859,8 @@ private struct WivraNativeExportLibraryScreen: View {
     @State private var recoveredAccelerated: [WivraSavedExport] = []
     @State private var savingPhoto: String?
     @State private var savedToPhotos = Set<String>()
+    @State private var photosReview: [String: WivraPhotosSaveJournal.ReviewStatus] = [:]
+    @State private var retryConfirmationVideo: WivraSavedExport?
     @State private var photosError: String?
 
     private func reload() async {
@@ -871,6 +873,28 @@ private struct WivraNativeExportLibraryScreen: View {
                 forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
             return WivraSavedExport(name: item.url.lastPathComponent,
                 url: item.url, bytes: item.bytes, modifiedAt: date)
+        }
+        var statuses: [String: WivraPhotosSaveJournal.ReviewStatus] = [:]
+        for video in exports + recoveredAccelerated where video.url.pathExtension.lowercased() == "mp4" {
+            statuses[video.id] = try? await WivraPhotosSaveJournal.shared.reviewStatus(for: video.url)
+        }
+        photosReview = statuses
+    }
+
+    private func resolvePhotos(video: WivraSavedExport, present: Bool) {
+        Task { @MainActor in
+            do {
+                if present {
+                    try await WivraPhotosSaveJournal.shared.confirmManuallyPresent(for: video.url)
+                    savedToPhotos.insert(video.id)
+                } else {
+                    try await WivraPhotosSaveJournal.shared.authorizeRetryAfterManualAbsence(for: video.url)
+                    savedToPhotos.remove(video.id)
+                }
+                await reload()
+            } catch {
+                photosError = error.localizedDescription
+            }
         }
     }
 
@@ -915,8 +939,39 @@ private struct WivraNativeExportLibraryScreen: View {
                                     Label(savedToPhotos.contains(video.id) ? "ios.exports.saved_photos" : "ios.exports.save_photos",
                                           systemImage: "square.and.arrow.down")
                                 }
-                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id))
+                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id)
+                                    || photosReview[video.id] == .needsManualReview)
                                 .accessibilityIdentifier("wivra_export_library_save_photos")
+                                if photosReview[video.id] == .needsManualReview {
+                                    Text("Guardado anterior sin confirmar. Revisa Fotos antes de decidir.")
+                                        .font(.caption).foregroundStyle(.orange)
+                                    Button {
+                                        resolvePhotos(video: video, present: true)
+                                    } label: {
+                                        Label("Ya aparece en Fotos", systemImage: "checkmark.circle")
+                                    }
+                                    .disabled(savingPhoto != nil)
+                                    Button(role: .destructive) {
+                                        retryConfirmationVideo = video
+                                    } label: {
+                                        Label("No aparece, permitir reintento", systemImage: "arrow.clockwise")
+                                    }
+                                    .disabled(savingPhoto != nil)
+                                    .confirmationDialog(
+                                        "Confirma que buscaste este video en Fotos y no aparece. Solo entonces se permitirá otro guardado.",
+                                        isPresented: Binding(
+                                            get: { retryConfirmationVideo?.id == video.id },
+                                            set: { if !$0 { retryConfirmationVideo = nil } }
+                                        ),
+                                        titleVisibility: .visible
+                                    ) {
+                                        Button("Confirmar que no está en Fotos", role: .destructive) {
+                                            resolvePhotos(video: video, present: false)
+                                            retryConfirmationVideo = nil
+                                        }
+                                        Button("Cancelar", role: .cancel) { retryConfirmationVideo = nil }
+                                    }
+                                }
                             }
                         }
                         .padding(.vertical, 4)

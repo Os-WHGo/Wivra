@@ -5,16 +5,31 @@ import {recordExperimentalNativeMultitrack as run,
   saveVerifiedAcceleratedVideoToPhotos}
   from '../accelerated-native-multitrack-export.mjs';
 
+// Test-only codec implementations. The real native workflow MUST use
+// WebView/WKWebView's VideoEncoder/AudioEncoder.isConfigSupported instead.
+const originalVideoEncoder=globalThis.VideoEncoder;
+const originalAudioEncoder=globalThis.AudioEncoder;
+test.before(()=>{
+ globalThis.VideoEncoder={isConfigSupported:async config=>({supported:true,config})};
+ globalThis.AudioEncoder={isConfigSupported:async config=>({supported:true,config})};
+});
+test.after(()=>{
+ if(originalVideoEncoder===undefined)delete globalThis.VideoEncoder;
+ else globalThis.VideoEncoder=originalVideoEncoder;
+ if(originalAudioEncoder===undefined)delete globalThis.AudioEncoder;
+ else globalThis.AudioEncoder=originalAudioEncoder;
+});
+
 const project=()=>({
  clips:[{id:'c',asset_id:'v',start:0,in:0,out:.4}],
  overlayClips:[],audioClips:[],texts:[],
  format:{aspect:'original',fit:'contain'}
 });
 const media={v:{url:'blob:test',kind:'video',w:320,h:180,duration:2}};
-function fakeM(log) {
+function fakeM(log,{audio=false}={}) {
  class Input {
   async getPrimaryVideoTrack(){return {};}
-  async getPrimaryAudioTrack(){return null;}
+  async getPrimaryAudioTrack(){return audio?{getNumberOfChannels:async()=>2}:null;}
   dispose(){log.push('input-dispose');}
  }
  class CanvasSink {
@@ -82,6 +97,28 @@ test('experimental native multitrack is opt-in and preflights before any native 
    experimentalAccelerated:true}),/preflight/);
  assert.deepEqual(host.ops,[]);
 });
+test('unchecked audio requirement keeps authored audio; checked requirement rejects missing audio',async()=>{
+ const withAudio=project();
+ withAudio.audioClips=[{id:'a',asset_id:'a',start:0,in:0,out:.4,volume:1}];
+ const withAudioMedia={...media,a:{url:'blob:audio',kind:'audio',duration:2}};
+ const host=fakeHost(),M=fakeM([],{audio:true});
+ const native=host.request.bind(host);
+ host.request=async request=>{
+  if(request.op==='helloRandom'){
+   host.ops.push(request.op);
+   throw Error('audio-optional-preflight-passed');
+  }
+  return native(request);
+ };
+ await assert.rejects(run({project:withAudio,media:withAudioMedia,M,host,
+  expectAudio:false,experimentalAccelerated:true}),/audio-optional-preflight-passed/);
+ assert.deepEqual(host.ops,['helloRandom']);
+
+ const missingHost=fakeHost();
+ await assert.rejects(run({project:project(),media,M:fakeM([]),host:missingHost,
+  expectAudio:true,experimentalAccelerated:true}),/required timeline audio presence differs/);
+ assert.deepEqual(missingHost.ops,[]);
+});
 test('a real bounded video render travels through random v2 and verifies native final bytes',async()=>{
  const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
  globalThis.document=documentFake();
@@ -96,7 +133,7 @@ test('a real bounded video render travels through random v2 and verifies native 
   assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
   assert.equal(log.includes('finalize'),true);
   assert.equal(log.includes('cancel'),false);
-  assert.equal(log.includes('input-dispose'),true);
+  assert.equal(log.filter(op=>op==='input-dispose').length,1);
  }finally{globalThis.document=old;}
 });
 test('mid-render cancellation aborts v2, cancels encoder and never commits media',async()=>{
@@ -202,4 +239,103 @@ test('Photos never runs on default, Android, forged receipts or unconfirmed requ
  await assert.rejects(saveVerifiedAcceleratedVideoToPhotos({
   host,saved:{...fake,sha256:'invalid'},userConfirmed:true}),/verificado/);
  assert.deepEqual(host.ops,[]);
+});
+
+test('native v2 rejects misleading tiny storage estimates before opening or claiming success',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ globalThis.document=documentFake();
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,estimatedBytes:1
+  }),/Reserva manual insuficiente/);
+  assert.deepEqual(host.ops,[]);
+  assert.ok(log.includes('input-dispose'));
+ }finally{globalThis.document=old;}
+});
+
+test('native v2 sends automatic conservative reservation and preserves exact output-byte verification',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ const original=host.request.bind(host);let estimated=null;
+ host.request=async request=>{
+  if(request.op==='beginRandom')estimated=request.estimatedBytes;
+  return original(request);
+ };
+ globalThis.document=documentFake();
+ try {
+  const res=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true});
+  assert.ok(Number.isSafeInteger(estimated) && estimated>=16*1024*1024);
+  assert.equal(res.verifiedNative,true);
+  assert.equal(res.saved.bytes,res.render.outputBytes);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
+ }finally{globalThis.document=old;}
+});
+
+test('oversized explicit reservation does not create a temp native file',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
+ globalThis.document=documentFake();
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,estimatedBytes:17*1024**3
+  }),/Reserva manual insuficiente/);
+  assert.deepEqual(host.ops,[]);
+ }finally{globalThis.document=old;}
+});
+
+test('optimistic Mediabunny but missing WebCodecs encoder fails before any v2 native file is opened',async()=>{
+ const host=fakeHost(),M=fakeM([]),previous=globalThis.VideoEncoder;
+ globalThis.VideoEncoder={isConfigSupported:async()=>({supported:false})};
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true}),/Preflight WebCodecs móvil/);
+  assert.deepEqual(host.ops,[]);
+ }finally{globalThis.VideoEncoder=previous;}
+});
+test('native preflight explicitly returns codec capability evidence after verified render',async()=>{
+ const host=fakeHost(),M=fakeM([]),prior=globalThis.document;
+ globalThis.document=documentFake();
+ try{
+  const result=await run({project:project(),media,M,host,
+   expectAudio:false,experimentalAccelerated:true});
+  assert.deepEqual(result.codecCapabilities,{
+   supported:true,platform:'android',videoCodec:'avc',
+   audioCodec:null,container:'mp4',width:320,height:180,
+   fps:30,sampleRate:48000,audioChecked:false
+  });
+ }finally{globalThis.document=prior;}
+});
+
+test('WebCodecs claiming success with a changed AVC frame size never opens native v2',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),prior=globalThis.VideoEncoder;
+ globalThis.VideoEncoder={
+  isConfigSupported:async config=>({
+   supported:true,config:{...config,width:config.width+16}
+  })
+ };
+ try {
+  await assert.rejects(run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true}),/no confirmó resolución, FPS, perfil y bitrate exactos/);
+  assert.deepEqual(host.ops,[]);
+  assert.ok(log.includes('input-dispose'));
+ } finally {
+  globalThis.VideoEncoder=prior;
+ }
+});
+
+test('UI progress callback failure cannot discard or mislabel a sealed native export',async()=>{
+ const host=fakeHost(),log=[],M=fakeM(log),prior=globalThis.document;
+ globalThis.document=documentFake();
+ let notifications=0;
+ try {
+  const result=await run({project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,
+   onProgress:()=>{notifications++;throw Error('UI view was removed');}});
+  assert.ok(notifications>=2);
+  assert.equal(result.verifiedNative,true);
+  assert.equal(result.saved.verified,true);
+  assert.equal(result.rendererReadyForProduction,false);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
+  assert.equal(log.includes('finalize'),true);
+  assert.equal(log.includes('cancel'),false);
+ }finally{globalThis.document=prior;}
 });

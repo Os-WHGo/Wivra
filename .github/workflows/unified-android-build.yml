@@ -80,6 +80,14 @@ jobs:
             --no-daemon --stacktrace
       - name: Check Android native unit tests, no emulator or installer
         run: gradle -p streaming/android :app:testFullDebugUnitTest :app:testCaptureDebugUnitTest --no-daemon --stacktrace
+      - name: Compile Android instrumentation test sources WITHOUT APK assembly or emulator
+        run: |
+          gradle -p streaming/android \
+            :app:compileFullDebugAndroidTestKotlin \
+            :app:compileCaptureDebugAndroidTestKotlin \
+            :app:compileFullDebugAndroidTestJavaWithJavac \
+            :app:compileCaptureDebugAndroidTestJavaWithJavac \
+            --no-daemon --stacktrace
       - name: Verify editor and filter source assets for future milestone packaging
         run: |
           test -s app/dist/agentcut.html

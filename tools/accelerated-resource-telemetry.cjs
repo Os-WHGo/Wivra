@@ -66,5 +66,33 @@ function createAcceleratedResourceMonitor({
   }
  };
 }
+// Playwright's Browser has no process() API. Only BrowserServer provides
+// the exact spawned browser PID that the Linux process-tree monitor needs.
+// Keep this launcher isolated from mobile and short unmonitored tests.
+async function launchObservedChromium(chromium,options) {
+ if(typeof chromium?.launchServer!=='function'||
+    typeof chromium?.connect!=='function')
+  throw Error('Playwright browser server unavailable for RSS QA');
+ let server;
+ try {
+  server=await chromium.launchServer(options);
+  const browserPid=server.process?.()?.pid;
+  if(!Number.isSafeInteger(browserPid)||browserPid<=0)
+   throw Error('Playwright browser server PID unavailable');
+  const endpoint=server.wsEndpoint?.();
+  if(typeof endpoint!=='string'||!endpoint.startsWith('ws'))
+   throw Error('Playwright browser server endpoint unavailable');
+  const browser=await chromium.connect(endpoint,{timeout:30000});
+  return {browser,browserPid,
+   async close() {
+    try {await browser.close();}
+    finally {await server.close();}
+   }
+  };
+ } catch(error) {
+  try {await server?.close();}catch{}
+  throw error;
+ }
+}
 module.exports={DEFAULT_RSS_BUDGET_MIB,parseProcessTable,
- aggregateProcessTree,createAcceleratedResourceMonitor};
+ aggregateProcessTree,createAcceleratedResourceMonitor,launchObservedChromium};

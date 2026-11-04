@@ -4,15 +4,20 @@ on:
     paths:
       - app/accelerated-multitrack-renderer.mjs
       - tools/browser-multitrack-accelerated.cjs
+      - tools/browser-multitrack-accelerated.cjs
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
+      - tools/accelerated-long-soak-report.cjs
+      - tools/accelerated-long-soak-report.test.cjs
       - .github/workflows/wivra-accelerated-long-soak.yml
   workflow_dispatch:
 permissions:
   contents: read
+# A new PR commit supersedes old PR-only long-form telemetry. Preserve
+# manual milestone runs: each workflow_dispatch has an isolated run-id group.
 concurrency:
-  group: wivra-accelerated-soak-${{ github.ref }}
-  cancel-in-progress: false
+  group: wivra-accelerated-soak-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   accelerated-long-form:
     name: Real WebCodecs + Mediabunny ${{ matrix.minutes }} min
@@ -39,6 +44,9 @@ jobs:
           command -v ffprobe
       - name: Validate resource monitoring counters and process-tree accounting
         run: node --test tools/accelerated-resource-telemetry.test.cjs
+      - name: Smoke monitored Chromium PID, RSS and output counters (1.2 seconds)
+        timeout-minutes: 5
+        run: node tools/browser-multitrack-accelerated.cjs --telemetry-smoke
       - name: Render and probe accelerated ${{ matrix.minutes }}-minute video and final voice
         env:
           WIVRA_LONG_QA_MINUTES: ${{ matrix.minutes }}
@@ -51,3 +59,24 @@ jobs:
           path: wivra-accelerated-soak-${{ matrix.minutes }}min.json
           if-no-files-found: warn
           retention-days: 7
+
+  validate-complete-long-form-evidence:
+    name: Validate all four long-form reports and publish metrics summary
+    runs-on: ubuntu-24.04
+    needs: accelerated-long-form
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download every available duration report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Wivra-Accelerated-*min-LinuxQA
+          path: /tmp/wivra-soak-reports
+          merge-multiple: true
+      - name: Validate auditor contract tests
+        run: node --test tools/accelerated-long-soak-report.test.cjs
+      - name: Require valid 10, 20, 30 and 60 minute reports
+        run: node tools/accelerated-long-soak-report.cjs /tmp/wivra-soak-reports

@@ -8,6 +8,7 @@ const build=code('../build.mjs');
 const qa=code('../accelerated-qa-export-ui.mjs');
 const swift=code('../../streaming/ios/B0/Sources/WivraAcceleratedExportNativeBridge.swift');
 const kotlin=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraAcceleratedExportBridge.kt');
+const store=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraRandomExportStore.kt');
 
 test('recovered private names are bounded and cannot select arbitrary phone files',()=>{
  const valid={name:'Wivra_Fast_11111111-1111-1111-1111-111111111111.mp4',
@@ -23,7 +24,9 @@ test('recovered private names are bounded and cannot select arbitrary phone file
 });
 
 test('QA controls are bundled only when a pinned offline vendor is present',()=>{
- assert.match(build,/const qaUI = qaPipeline \? strip\(readFileSync/);
+ assert.ok(build.includes("'./accelerated-storage-budget.mjs'"));
+ assert.ok(build.includes("'./accelerated-native-codec-probe.mjs'"));
+ assert.ok(build.includes("'./accelerated-qa-export-ui.mjs'"));
  assert.match(build,/const qaPipeline = acceleratedVendor \?/);
  assert.match(build,/\+ qaUI \+/);
  assert.match(build,/const nativeHost = \(\) => findAndroid\(\) \?\? findIOS\(\)/);
@@ -52,4 +55,15 @@ test('Android/iOS bridge can only restore verified app-private assets',()=>{
  assert.doesNotMatch(swift+kotlin,/"deleteRecovered"/);
  assert.match(qa,/host\.platform==='ios'\?'shareRecovered':'restoreRecovered'/);
  assert.match(qa,/window\.confirm\(message\)/);
+});
+
+test('Android recovered copy is verified before reuse and UI distinguishes idempotent restore',()=>{
+ assert.match(store,/existingRecoveryCopy\(context, verified\)/);
+ assert.match(store,/MediaStore\.MediaColumns\.OWNER_PACKAGE_NAME/);
+ assert.match(store,/MediaStore\.QUERY_ARG_MATCH_PENDING/);
+ assert.match(store,/it\.getInt\(pendingColumn\) != 0/);
+ assert.match(store,/verifiedCopy|isVerifiedRecoveryCopy/);
+ assert.match(store,/alreadyPublished = true/);
+ assert.match(qa,/response\.alreadyPublished===true/);
+ assert.match(qa,/No se creó ninguna copia duplicada/);
 });
