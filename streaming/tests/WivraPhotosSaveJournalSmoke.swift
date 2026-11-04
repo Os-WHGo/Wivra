@@ -33,6 +33,36 @@ struct WivraPhotosSaveJournalSmoke {
         let failureDecision = try await afterFailure.begin(for: interruptedURL)
         precondition(failureDecision == .requiresManualReview)
 
+        // Manual review can settle a confirmed asset or authorize a new
+        // transaction only after the user confirms it is absent from Photos.
+        let presentURL = root.appendingPathComponent("manual-present.mp4")
+        try Data("manually found in Photos".utf8).write(to: presentURL)
+        let manualPresent = WivraPhotosSaveJournal(fileURL: journalURL)
+        guard case .proceed = try await manualPresent.begin(for: presentURL)
+        else { fatalError("manual-present media must reserve intent") }
+        try await manualPresent.confirmManuallyPresent(for: presentURL)
+        let presentStatus = try await manualPresent.reviewStatus(for: presentURL)
+        precondition(presentStatus == .confirmed)
+        let noDuplicate = try await manualPresent.begin(for: presentURL)
+        precondition(noDuplicate == .alreadyConfirmed)
+
+        let absentURL = root.appendingPathComponent("manual-absent.mp4")
+        try Data("manually confirmed absent in Photos".utf8).write(to: absentURL)
+        let manualAbsent = WivraPhotosSaveJournal(fileURL: journalURL)
+        guard case .proceed = try await manualAbsent.begin(for: absentURL)
+        else { fatalError("manual-absent media must reserve intent") }
+        try await manualAbsent.authorizeRetryAfterManualAbsence(for: absentURL)
+        let retryAllowed = try await manualAbsent.begin(for: absentURL)
+        guard case .proceed = retryAllowed else {
+            fatalError("explicit absence must allow a new transaction")
+        }
+        do {
+            try await manualAbsent.authorizeRetryAfterManualAbsence(for: presentURL)
+            fatalError("confirmed asset must never be cleared for retry")
+        } catch WivraPhotosSaveJournal.JournalError.invalidResolution {
+            // Expected: confirmed entries cannot be reset by retry resolution.
+        }
+
         // Corruption must fail closed, not silently reset deduplication history.
         try Data("not-json".utf8).write(to: journalURL)
         let corrupted = WivraPhotosSaveJournal(fileURL: journalURL)
