@@ -231,8 +231,23 @@ final class WivraIPhoneLiveController {
             do {
                 let result = try await localRecorder.stopRecording()
                 if let localMixer { await localMixer.removeOutput(localRecorder) }
-                if let folder = try? localFolder(),
-                   await WivraCaptureMediaVerifier.verifyFile(result, in: folder) {
+                // Verify the original, then require a real nonempty audio
+                // track if the user requested microphone recording. A valid
+                // video-only MP4 must not be presented as a mic+video archive.
+                let verifiedMedia: Bool
+                if let folder = try? localFolder() {
+                    verifiedMedia = await WivraCaptureMediaVerifier.verifyFile(result, in: folder)
+                } else {
+                    verifiedMedia = false
+                }
+                let verifiedAudio: Bool
+                if verifiedMedia && includesMicrophone {
+                    let tracks = try? await AVURLAsset(url: result).loadTracks(withMediaType: .audio)
+                    verifiedAudio = tracks?.isEmpty == false
+                } else {
+                    verifiedAudio = !includesMicrophone
+                }
+                if verifiedMedia && verifiedAudio {
                     verifiedVideoURL = result
                     unverifiedVideoURL = nil
                 } else {
