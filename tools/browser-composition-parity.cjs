@@ -31,11 +31,15 @@ const still=path.join(tmp,'still.svg');
 fs.writeFileSync(still,'<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64"><rect width="96" height="64" fill="#fef08a"/></svg>');
 files['/still.svg']=still;
 const server=http.createServer((req,res)=>{
- const url=decodeURIComponent(new URL(req.url,'http://local').pathname);
+ let url;
+ try{url=decodeURIComponent(new URL(req.url,'http://local').pathname);}
+ catch{res.writeHead(400);res.end();return;}
  let file=files[url];
  if(url.startsWith('/mb/'))file=path.join(mbDir,path.basename(url));
- if(!file&&/^\/(app|core)\//.test(url))
+ if(!file&&/^\/(app|core)\//.test(url)){
   file=path.resolve(root,'.'+url);
+  if(!file.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}
+ }
  if(!file||!fs.existsSync(file)){res.writeHead(404);res.end();return;}
  const mime=file.endsWith('.webm')?'video/webm':
   file.endsWith('.wav')?'audio/wav':file.endsWith('.svg')?'image/svg+xml':
@@ -74,6 +78,11 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto('http://127.0.0.1:'+server.address().port+'/app/export.mjs');
+  report.server=await page.evaluate(async()=>({
+   traversal:(await fetch('/app/%2e%2e%2f%2e%2e%2fAGENTS.md')).status,
+   malformed:(await fetch('/app/%zz')).status
+  }));
+  assert.deepEqual(report.server,{traversal:403,malformed:400});
   const data=await page.evaluate(async()=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack:prepare,renderAcceleratedMultitrack:render}=
