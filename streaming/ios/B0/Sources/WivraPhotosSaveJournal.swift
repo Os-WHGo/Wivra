@@ -11,7 +11,7 @@ actor WivraPhotosSaveJournal {
         case requiresManualReview
     }
 
-    enum ReviewStatus: Equatable {
+    enum ReviewStatus: Equatable, Sendable {
         case noRecord
         case confirmed
         case needsManualReview
