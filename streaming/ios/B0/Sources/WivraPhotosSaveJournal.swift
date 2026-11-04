@@ -11,6 +11,12 @@ actor WivraPhotosSaveJournal {
         case requiresManualReview
     }
 
+    enum ReviewStatus: Equatable {
+        case noRecord
+        case confirmed
+        case needsManualReview
+    }
+
     private enum State: String, Codable { case pending, confirmed, uncertain }
     private struct Entry: Codable {
         let hash: String
@@ -57,6 +63,37 @@ actor WivraPhotosSaveJournal {
 
     func markUncertain(hash: String) throws {
         try update(hash: hash, to: .uncertain)
+    }
+
+    /// Read-only status for the export library. Hashing is local; Photos is never queried.
+    func reviewStatus(for url: URL) throws -> ReviewStatus {
+        let hash = try Self.sha256(url)
+        guard let entry = try load().entries[hash] else { return .noRecord }
+        return entry.state == .confirmed ? .confirmed : .needsManualReview
+    }
+
+    /// User explicitly confirms they inspected Photos and found this exact export.
+    func confirmManuallyPresent(for url: URL) throws {
+        let hash = try Self.sha256(url)
+        var document = try load()
+        guard var entry = document.entries[hash], entry.state != .confirmed else {
+            throw JournalError.invalidResolution
+        }
+        entry.state = .confirmed
+        entry.updatedAt = Date()
+        document.entries[hash] = entry
+        try persist(document)
+    }
+
+    /// Allows a fresh save only after the user explicitly confirms the asset is absent.
+    func authorizeRetryAfterManualAbsence(for url: URL) throws {
+        let hash = try Self.sha256(url)
+        var document = try load()
+        guard let entry = document.entries[hash], entry.state != .confirmed else {
+            throw JournalError.invalidResolution
+        }
+        document.entries.removeValue(forKey: hash)
+        try persist(document)
     }
 
     private func update(hash: String, to state: State) throws {
@@ -118,11 +155,12 @@ actor WivraPhotosSaveJournal {
     }
 
     enum JournalError: LocalizedError {
-        case invalidFile, missingEntry, corruptJournal, persistenceFailed
+        case invalidFile, missingEntry, invalidResolution, corruptJournal, persistenceFailed
         var errorDescription: String? {
             switch self {
             case .invalidFile: return "El archivo local no es válido para registrar el guardado."
             case .missingEntry: return "No existe una operación de Fotos pendiente para confirmar."
+            case .invalidResolution: return "La operación ya está confirmada o no admite esta resolución."
             case .corruptJournal: return "El registro de guardados está dañado. Se bloqueó el reintento para evitar duplicados."
             case .persistenceFailed: return "No se pudo guardar de forma segura el estado de Fotos."
             }
