@@ -6,6 +6,7 @@ const source = files('Sources/WivraIPhoneLiveScreen.swift');
 const app = files('Sources/WivraMetaB0App.swift');
 const project = files('project.yml');
 const parser = files('Sources/WivraIOSLiveEndpoint.swift');
+const verifier = files('Sources/WivraCaptureMediaVerifier.swift');
 
 test('single native iPhone LIVE entry requires exclusive camera ownership',()=>{
   assert.match(project,/HaishinKit:\s+url: https:\/\/github\.com\/HaishinKit\/HaishinKit\.swift\s+exactVersion: 2\.2\.5/);
@@ -50,7 +51,7 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/StreamRecorder\.defaultSettings\.filter \{ \$0\.key == \.video \}/);
   assert.match(source,/try await writer\.startRecording\(file, settings: settings\)/);
   assert.ok(source.indexOf('try await writer.startRecording(file, settings: settings)') < source.indexOf('try await liveConnection.connect(endpoint.serverURL)'));
-  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
   assert.match(source,/unverifiedVideoURL = result/);
   assert.match(source,/ShareLink\(item: file\)/);
   assert.match(source,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
@@ -102,21 +103,22 @@ test('long iPhone LIVE copy protects disk and preserves private MP4 under low st
   assert.match(source, /self\.status = "Espacio crítico\./);
   assert.match(source, /await self\.stop\(\)/);
   assert.match(source, /storageMonitor\?\.cancel\(\)/);
-  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
 });
 
-test('iPhone LIVE requested microphone cannot silently become a video-only archive',()=>{
+test('iPhone LIVE requires actual audio samples from the same verified MP4',()=>{
   assert.match(source,/var selectedAudioInput: AVCaptureDevice\?/);
   assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
   assert.match(source,/No hay entrada de micrófono disponible/);
   assert.ok(source.indexOf('guard let input = AVCaptureDevice.default(for: .audio)')
     < source.indexOf('try await capture.attachVideo(camera)'));
-  assert.match(source,/verifiedMedia = await WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
-  assert.match(source,/if verifiedMedia && includesMicrophone \{/);
-  assert.match(source,/AVURLAsset\(url: result\)\.loadTracks\(withMediaType: \.audio\)/);
-  assert.match(source,/verifiedAudio = tracks\?\.isEmpty == false/);
-  assert.match(source,/if verifiedMedia && verifiedAudio \{/);
-  assert.ok(source.indexOf('verifiedMedia = await WivraCaptureMediaVerifier.verifyFile(result, in: folder)')
-     < source.indexOf('AVURLAsset(url: result).loadTracks(withMediaType: .audio)'));
+  assert.match(source,/verifiedMedia = await WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
+  assert.match(source,/if verifiedMedia \{/);
   assert.match(source,/unverifiedVideoURL = result/);
+  assert.doesNotMatch(source,/AVURLAsset\(url: result\)\.loadTracks\(withMediaType: \.audio\)/);
+  assert.match(verifier,/requireAudio: Bool = false/);
+  assert.match(verifier,/guard !requireAudio \|\| !audioTracks\.isEmpty/);
+  assert.match(verifier,/let allTracks = tracks \+ audioTracks/);
+  assert.match(verifier,/guard count > 0 else \{ return false \}/);
+  assert.match(verifier,/guard reader\.status == \.completed/);
 });
