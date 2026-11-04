@@ -950,11 +950,13 @@ private struct WivraNativeExportLibraryScreen: View {
                                     } label: {
                                         Label("Ya aparece en Fotos", systemImage: "checkmark.circle")
                                     }
+                                    .disabled(savingPhoto != nil)
                                     Button(role: .destructive) {
                                         retryConfirmationVideo = video
                                     } label: {
                                         Label("No aparece, permitir reintento", systemImage: "arrow.clockwise")
                                     }
+                                    .disabled(savingPhoto != nil)
                                     .confirmationDialog(
                                         "Confirma que buscaste este video en Fotos y no aparece. Solo entonces se permitirá otro guardado.",
                                         isPresented: Binding(
