@@ -59,7 +59,7 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/func reviewSavedVideos\(\) async/);
   assert.match(source,/FileManager\.default\.contentsOfDirectory/);
   assert.match(source,/values\.isRegularFile == true, values\.isSymbolicLink == false/);
-  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*file, in: folder, requireAudio: expectation == \.required\)/);
   assert.match(source,/Button\("Revisar copias locales de LIVE"\)/);
   assert.match(source,/ForEach\(controller\.savedVideos, id:/);
   assert.doesNotMatch(source,/try\? FileManager\.default\.removeItem\(at: file\)/);
@@ -86,7 +86,7 @@ test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publis
   assert.match(source, /\.disabled\(controller\.phase != \.idle\)/);
   assert.match(source, /StreamRecorder\(\)/);
   assert.match(source, /func reviewSavedVideos\(\) async/);
-  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(\s*file, in: folder, requireAudio: expectation == \.required\)/);
   assert.match(source, /MTHKViewRepresentable\(previewSource: controller\)/);
   assert.doesNotMatch(app, /showingIPhoneLive|WivraIOSPhoneLiveScreen/);
 });
