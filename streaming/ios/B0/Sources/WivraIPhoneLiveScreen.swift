@@ -342,6 +342,8 @@ struct WivraIPhoneLiveScreen: View {
     @State private var archiveVideo = true
     @State private var confirmPublication = false
     @State private var savingPhotos = false
+    @State private var photosReview: [URL: WivraPhotosSaveJournal.ReviewStatus] = [:]
+    @State private var pendingPhotosRetry: URL?
     @State private var photoMessage: String?
 
     var body: some View {
@@ -390,6 +392,8 @@ struct WivraIPhoneLiveScreen: View {
                             Text("Audio no confirmado: grabación anterior o registro incompleto.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        } else {
+                            photosControls(for: file)
                         }
                     }
                     if controller.phase == .ready || controller.phase == .connecting ||
@@ -403,18 +407,7 @@ struct WivraIPhoneLiveScreen: View {
                         ShareLink(item: file) {
                             Label("Compartir MP4 verificado", systemImage: "square.and.arrow.up")
                         }
-                        Button("Guardar MP4 en Fotos") {
-                            savingPhotos = true
-                            Task { @MainActor in
-                                defer { savingPhotos = false }
-                                do {
-                                    try await WivraPhotosLibrary.saveVideo(file)
-                                    photoMessage = "Video guardado en Fotos."
-                                } catch {
-                                    photoMessage = "No se pudo guardar en Fotos; el archivo local se conserva."
-                                }
-                            }
-                        }.disabled(savingPhotos)
+                        photosControls(for: file)
                     }
                     if controller.unverifiedVideoURL != nil {
                         Text("Existe un archivo incompleto/no verificado. No se publicará automáticamente.")
@@ -448,6 +441,24 @@ struct WivraIPhoneLiveScreen: View {
                     ? "Wivra también intentará guardar MP4 privado. Comprueba el VOD de la plataforma."
                     : "No se guardará MP4 local. El VOD remoto puede no existir.")
             }
+            .confirmationDialog(
+                "¿Confirmas que este video no aparece en Fotos?",
+                isPresented: Binding(
+                    get: { pendingPhotosRetry != nil },
+                    set: { if !$0 { pendingPhotosRetry = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("No aparece, permitir reintento", role: .destructive) {
+                    if let file = pendingPhotosRetry {
+                        resolvePhotos(for: file, present: false)
+                    }
+                    pendingPhotosRetry = nil
+                }
+                Button("Cancelar", role: .cancel) { pendingPhotosRetry = nil }
+            } message: {
+                Text("Comprueba primero que este video no existe en Fotos. Solo después se podrá intentar guardar otra vez; la copia local nunca se elimina.")
+            }
             .alert("Fotos", isPresented: Binding(
                 get: { photoMessage != nil },
                 set: { if !$0 { photoMessage = nil } }
@@ -462,5 +473,83 @@ struct WivraIPhoneLiveScreen: View {
             }
             .onDisappear { Task { await controller.stop() } }
         }
+    }
+
+    @MainActor
+    private func refreshPhotosReview(for file: URL) async {
+        do {
+            photosReview[file] = try await WivraPhotosSaveJournal.shared.reviewStatus(for: file)
+        } catch {
+            // A corrupted journal must block retries rather than duplicate
+            // a possibly committed Photos asset.
+            photosReview.removeValue(forKey: file)
+            photoMessage = "No se pudo revisar el registro de Fotos; la copia privada sigue intacta."
+        }
+    }
+
+    @MainActor
+    private func savePhotos(_ file: URL) {
+        guard !savingPhotos, photosReview[file] == .noRecord else { return }
+        savingPhotos = true
+        Task { @MainActor in
+            defer { savingPhotos = false }
+            do {
+                try await WivraPhotosLibrary.saveVideo(file)
+                photoMessage = "Video guardado o confirmado en Fotos."
+            } catch {
+                photoMessage = "Guardado no confirmado. Revisa Fotos antes de cualquier reintento; el MP4 local se conserva."
+            }
+            await refreshPhotosReview(for: file)
+        }
+    }
+
+    @MainActor
+    private func resolvePhotos(for file: URL, present: Bool) {
+        guard !savingPhotos, photosReview[file] == .needsManualReview else { return }
+        savingPhotos = true
+        Task { @MainActor in
+            defer { savingPhotos = false }
+            do {
+                if present {
+                    try await WivraPhotosSaveJournal.shared.confirmManuallyPresent(for: file)
+                    photoMessage = "Video confirmado manualmente en Fotos."
+                } else {
+                    try await WivraPhotosSaveJournal.shared.authorizeRetryAfterManualAbsence(for: file)
+                    photoMessage = "Puedes reintentar guardar este video cuando quieras."
+                }
+            } catch {
+                photoMessage = "No se pudo resolver el guardado. La copia privada permanece intacta."
+            }
+            await refreshPhotosReview(for: file)
+        }
+    }
+
+    @MainActor @ViewBuilder
+    private func photosControls(for file: URL) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let state = photosReview[file] {
+                switch state {
+                case .noRecord:
+                    Button("Guardar MP4 en Fotos") { savePhotos(file) }
+                        .disabled(savingPhotos)
+                case .confirmed:
+                    Text("Guardado confirmado en Fotos.")
+                        .font(.caption).foregroundStyle(.secondary)
+                case .needsManualReview:
+                    Text("Guardado anterior sin confirmar. Revisa Fotos antes de decidir.")
+                        .font(.caption).foregroundStyle(.orange)
+                    Button("Ya aparece en Fotos") {
+                        resolvePhotos(for: file, present: true)
+                    }.disabled(savingPhotos)
+                    Button("No aparece, permitir reintento", role: .destructive) {
+                        pendingPhotosRetry = file
+                    }.disabled(savingPhotos)
+                }
+            } else {
+                Text("Comprobando historial de Fotos…")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .task(id: file) { await refreshPhotosReview(for: file) }
     }
 }
