@@ -6,6 +6,8 @@ on:
       - tools/browser-export-roundtrip.cjs
       - tools/browser-long-multipart-export.cjs
       - app/export.mjs
+      - app/filters-gl.mjs
+      - core/filters.mjs
       - app/export-sink.mjs
       - tools/browser-progressive-export.cjs
       - tools/browser-container-playback.cjs
@@ -97,7 +99,7 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs
       - name: Verify shared-source video layers preserve distinct decoded pixels (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --shared-source
-      - name: Verify 1080p composition pixels, mixed-speed PCM, cancellation and write failure (Linux only)
+      - name: Verify 1080p composition, WebGL filters/context loss, format pixels and mixed-speed PCM (Linux only)
         timeout-minutes: 5
         run: node tools/browser-composition-parity.cjs
       - name: Soak 20 real accelerated cuts and 5 independent voice blocks for 10 seconds (Linux only)

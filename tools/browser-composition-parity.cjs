@@ -67,7 +67,7 @@ const server=http.createServer((req,res)=>{
  const target=path.join(tmp,'output.bin');
  try{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});
   const page=await browser.newPage();
   fd=fs.openSync(target,'w+');
   let high=0,writes=0;
@@ -83,6 +83,7 @@ const server=http.createServer((req,res)=>{
    malformed:(await fetch('/app/%zz')).status
   }));
   assert.deepEqual(report.server,{traversal:403,malformed:400});
+  await page.addScriptTag({url:'http://127.0.0.1:'+server.address().port+'/app/filters-gl.mjs'});
   const data=await page.evaluate(async()=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack:prepare,renderAcceleratedMultitrack:render}=
@@ -169,11 +170,52 @@ const server=http.createServer((req,res)=>{
     catch(e){error=String(e);}
     failures.push({mode,error,created,disposed,cancelled});
    }
-   return {result,references,failures,renderSeconds:(performance.now()-started)/1000};
+   const {filterRGB}=await import('/core/filters.mjs');
+   const {createBoundedRandomMemoryWriter}=await import('/app/accelerated-memory-export.mjs');
+   const source=document.createElement('canvas');source.width=96;source.height=64;
+   const sg=source.getContext('2d');sg.fillStyle='rgb(96,64,32)';sg.fillRect(0,0,96,64);
+   const filter={brightness:.2,contrast:.1,saturation:-.2,warmth:.3,sepia:.4,fade:.1,vignette:.3};
+   const healthy=globalThis.fxRender(source,filter,0);
+   if(!healthy)throw Error('Real WebGL unavailable: filter parity must not silently skip');
+   const sample=document.createElement('canvas');sample.width=96;sample.height=64;
+   const cg=sample.getContext('2d');cg.drawImage(healthy,0,0);
+   const gpuPixel=[...cg.getImageData(48,32,1,1).data].slice(0,3);
+   const cpuPixel=filterRGB([96/255,64/255,32/255],filter,[.5,.5]).map(v=>Math.round(v*255));
+   const formats=[];
+   for(const aspect of ['9:16','4:5','1:1']){
+    const f={brightness:.2,sepia:.4};
+    const p={format:{aspect,fit:'cover',safe:true},
+     clips:[{id:'photo',asset_id:'still',start:0,in:0,out:.2,filter:f}],
+     overlayClips:[],audioClips:[],texts:[{id:'title',text:'SAFE',start:0,end:.2,pos:'bottom'}]};
+    const prepared=await prepare({project:p,media,M,platform:'qa',expectedAudio:false});
+    const writer=createBoundedRandomMemoryWriter();
+    const stats=await render({prepared,fps:30,writeAt:(pos,bytes)=>writer.writeAt(pos,bytes)});
+    formats.push({aspect,stats,bytes:base64(writer.finalize()),
+     expected:filterRGB([254/255,240/255,138/255],f,[.5,.5]).map(v=>Math.round(v*255))});
+   }
+   const originalFx=globalThis.fxRender;let lost=false,cancelled=0,disposed=0,finalized=0;
+   const SDK={...M,
+    Input:class extends M.Input{dispose(){disposed++;super.dispose();}},
+    Output:class extends M.Output{async cancel(){cancelled++;return super.cancel();}async finalize(){finalized++;return super.finalize();}}};
+   const p={format:{aspect:'16:9'},clips:[{id:'main',asset_id:'a',start:0,in:0,out:.2,filter:{warmth:.3}}],
+    overlayClips:[],audioClips:[],texts:[]};
+   const preparedLoss=await prepare({project:p,media,M:SDK,platform:'qa',expectedAudio:false});
+   globalThis.fxRender=(...args)=>{
+    const canvas=originalFx(...args),gl=canvas.getContext('webgl');
+    const ext=gl.getExtension('WEBGL_lose_context');
+    if(!ext)throw Error('WEBGL_lose_context unavailable');
+    ext.loseContext();lost=gl.isContextLost();
+    return originalFx(...args);
+   };
+   let lossError='';
+   try{await render({prepared:preparedLoss,fps:30,writeAt:async(pos,bytes)=>bytes.length});}
+   catch(e){lossError=String(e);}finally{globalThis.fxRender=originalFx;}
+   return {result,references,failures,exerciseSeconds:(performance.now()-started)/1000,
+    gpu:{gpuPixel,cpuPixel,loss:{lost,error:lossError,cancelled,disposed,finalized}},formats};
   });
   fs.closeSync(fd);fd=null;
   report.result=data.result;report.failures=data.failures;
-  report.renderSeconds=data.renderSeconds;report.bytes=high;report.writes=writes;
+  report.exerciseSeconds=data.exerciseSeconds;report.bytes=high;report.writes=writes;
   for(const f of data.failures){
    assert.match(f.error,f.mode==='cancel'?/cancelled/:/injected writer failure/);
    assert.equal(f.created,f.disposed);assert.equal(f.cancelled,1);
@@ -224,6 +266,25 @@ const server=http.createServer((req,res)=>{
   const gainRatio=report.audio.slowVoice/report.audio.musicStart;
   assert.ok(Math.abs(gainRatio-2)<.15,'authored mic/music volume ratio changed');
   assert.ok(Math.abs(report.audio.fastVoice/report.audio.slowVoice-1)<.1);
+  report.gpu=data.gpu;
+  for(let i=0;i<3;i++)assert.ok(Math.abs(data.gpu.gpuPixel[i]-data.gpu.cpuPixel[i])<=3);
+  assert.equal(data.gpu.loss.lost,true);
+  assert.match(data.gpu.loss.error,/GPU filter failed/);
+  assert.equal(data.gpu.loss.cancelled,1);assert.equal(data.gpu.loss.disposed,1);
+  assert.equal(data.gpu.loss.finalized,0);
+  report.formats=[];
+  for(const f of data.formats){
+   const file=path.join(tmp,f.aspect.replace(':','-')+'.'+f.stats.container);
+   fs.writeFileSync(file,Buffer.from(f.bytes,'base64'));
+   const frame=ffmpeg(['-i',file,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1']);
+   const at=(10*f.stats.width+10)*3,actual=[...frame.subarray(at,at+3)];
+   const size={'9:16':[1080,1920],'4:5':[1080,1350],'1:1':[1080,1080]}[f.aspect];
+   assert.deepEqual([f.stats.width,f.stats.height],size);
+   assert.equal(frame.length,size[0]*size[1]*3);
+   assert.equal(f.stats.videoFrames,6);
+   for(let i=0;i<3;i++)assert.ok(Math.abs(actual[i]-f.expected[i])<10,'GPU export color mismatch');
+   report.formats.push({aspect:f.aspect,width:f.stats.width,height:f.stats.height,actual,expected:f.expected});
+  }
   report.pass=true;
  }finally{
   if(fd!==undefined&&fd!==null)fs.closeSync(fd);

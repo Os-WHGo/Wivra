@@ -77,3 +77,20 @@ Oversized authoring now fails the bounded ledger before the full project clone,
 while the authoring snapshot still precedes every asynchronous decoder probe.
 Production activation, arbitrary project effects and physical acceptance remain
 outside this canary's evidence.
+
+### Real WebGL failure and aspect-ratio coverage
+
+The same canary now loads the existing `filters-gl.mjs` in Chromium with an
+explicit SwiftShader QA flag. It compares a healthy WebGL pixel against the
+independent `filterRGB` CPU formula, then encodes filtered 9:16 (1080x1920),
+4:5 (1080x1350) and 1:1 (1080x1080) files and checks decoded colors/dimensions.
+This is software WebGL evidence, not mobile GPU compatibility.
+
+A real `WEBGL_lose_context` call reproduced a failure: before the async context
+loss event, `fxRender` returned a non-null canvas despite `isContextLost()`.
+The accelerator consequently accepted the apparent filter result. The filter
+now checks context loss before uploading/drawing and after drawing, returning
+null so the existing accelerated guard cancels output. The injected-loss test
+requires zero finalization, one cancellation and one input disposal. Healthy
+preview behavior and CPU/GPU parity remain covered. The exercise timer includes
+negative renders and is named `exerciseSeconds`; it is not a throughput benchmark.

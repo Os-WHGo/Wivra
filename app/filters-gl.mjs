@@ -48,6 +48,9 @@ function fxRender(src, f, t, maxSide = 1280) {      // maxSide: 1280 basta para 
   const S = fxInit(); if (!S || !src) return null;
   const [w0, h0] = fxDims(src); if (!(w0 > 0 && h0 > 0)) return null;
   const k = Math.min(1, Math.min(4096, maxSide) / Math.max(w0, h0)), w = Math.max(2, Math.round(w0 * k)), h = Math.max(2, Math.round(h0 * k)), { cv, gl, u } = S;
+  // Context loss is synchronous before its event is delivered. A non-null
+  // canvas is not evidence of a rendered filter while WebGL is lost.
+  if (gl.isContextLost()) return null;
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { return null; }
   const F = (n) => (f && f[n]) || 0;
@@ -56,5 +59,5 @@ function fxRender(src, f, t, maxSide = 1280) {      // maxSide: 1280 basta para 
   gl.uniform1f(u.W, F('warmth')); gl.uniform1f(u.Fd, F('fade')); gl.uniform1f(u.V, F('vignette')); gl.uniform1f(u.G, F('grain'));
   gl.uniform1f(u.seed, (Math.floor((t || 0) * 24) % 997) * 0.37);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  return cv;
+  return gl.isContextLost() ? null : cv;
 }
