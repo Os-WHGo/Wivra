@@ -13,24 +13,26 @@ struct WivraLiveRecordingReceiptSmoke {
         let video = root.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
         let other = root.appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
         let receipt = video.appendingPathExtension("wivra.live.json")
-        let expectation = WivraLiveRecordingReceipt.audioExpectation
+        func expectation(_ video: URL) -> WivraLiveRecordingReceipt.AudioExpectation {
+            WivraLiveRecordingReceipt.audioExpectation(for: video, in: root)
+        }
 
-        precondition(expectation(for: video, in: root) == .unknown)
+        precondition(expectation(video) == .unknown)
         try WivraLiveRecordingReceipt.stage(audioRequired: true, for: video, in: root)
-        precondition(expectation(for: video, in: root) == .required)
-        precondition(expectation(for: other, in: root) == .unknown)
+        precondition(expectation(video) == .required)
+        precondition(expectation(other) == .unknown)
 
         try WivraLiveRecordingReceipt.stage(audioRequired: false, for: video, in: root)
-        precondition(expectation(for: video, in: root) == .notRequired)
+        precondition(expectation(video) == .notRequired)
         try Data("corrupt".utf8).write(to: receipt, options: [.atomic])
-        precondition(expectation(for: video, in: root) == .unknown)
+        precondition(expectation(video) == .unknown)
 
         try WivraLiveRecordingReceipt.stage(audioRequired: true, for: video, in: root)
         let original = try Data(contentsOf: receipt)
         try Data(repeating: 65, count: 512).write(to: receipt, options: [.atomic])
-        precondition(expectation(for: video, in: root) == .unknown)
+        precondition(expectation(video) == .unknown)
         try original.write(to: receipt, options: [.atomic])
-        precondition(expectation(for: video, in: root) == .required)
+        precondition(expectation(video) == .required)
 
         let outside = root.deletingLastPathComponent()
             .appendingPathComponent(UUID().uuidString).appendingPathExtension("mp4")
@@ -51,7 +53,7 @@ struct WivraLiveRecordingReceiptSmoke {
         let target = root.appendingPathComponent("outside-metadata.json")
         try original.write(to: target)
         try FileManager.default.createSymbolicLink(at: receipt, withDestinationURL: target)
-        precondition(expectation(for: video, in: root) == .unknown)
+        precondition(expectation(video) == .unknown)
 
         print("Wivra LIVE audio receipt PASS: opt-in preserved, legacy unknown, corrupt/oversized/symlink and path guards")
     }
