@@ -16,9 +16,9 @@ struct WivraCaptureVerificationSmoke {
             FileHandle.standardError.write(Data(("Capture verifier: " + message + "\n").utf8))
         })
         precondition(valid, "real samples and boundary decode must pass")
-        precondition(await WivraCaptureMediaVerifier.verifyFile(
-            video, in: root, requireAudio: true),
-            "fixture has video plus nonempty AAC samples")
+        let withRequiredAudio = await WivraCaptureMediaVerifier.verifyFile(
+            video, in: root, requireAudio: true)
+        precondition(withRequiredAudio, "fixture has video plus nonempty AAC samples")
 
         // Deliberately tiny, locally generated H264-only synthetic MP4,
         // not Ray-Ban footage or a physical-camera recording.
@@ -27,11 +27,11 @@ struct WivraCaptureVerificationSmoke {
             preconditionFailure("invalid video-only fixture encoding")
         }
         try videoOnlyBytes.write(to: videoOnly)
-        precondition(await WivraCaptureMediaVerifier.verifyFile(videoOnly, in: root),
-                     "video-only file must remain valid for optional-mic sessions")
-        precondition(!(await WivraCaptureMediaVerifier.verifyFile(
-            videoOnly, in: root, requireAudio: true)),
-            "mic-requested LIVE must reject an MP4 with no audio track")
+        let videoOnlyValid = await WivraCaptureMediaVerifier.verifyFile(videoOnly, in: root)
+        precondition(videoOnlyValid, "video-only file must remain valid for optional-mic sessions")
+        let videoOnlyWithMic = await WivraCaptureMediaVerifier.verifyFile(
+            videoOnly, in: root, requireAudio: true)
+        precondition(!videoOnlyWithMic, "mic-requested LIVE must reject an MP4 with no audio track")
         let after = try Data(contentsOf: video)
         precondition(after == original)
         let bad = root.appendingPathComponent("broken.mov")
