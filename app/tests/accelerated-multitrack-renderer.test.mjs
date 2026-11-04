@@ -540,3 +540,15 @@ test('caption and color-filter validation reuses editor contracts without silent
  assert.deepEqual(prepared.project.texts,p.texts);
  for(const item of prepared.used.values())await item.input?.dispose?.();
 });
+
+test('oversized authoring is rejected before allocating a full project snapshot',async()=>{
+ const p=proj(),M=fakeM(),original=globalThis.structuredClone;
+ p.clips=Array.from({length:161},(_,i)=>({id:'c'+i,asset_id:'main',start:i*.01,in:0,out:.01}));
+ let clones=0;
+ globalThis.structuredClone=()=>{clones++;throw Error('oversized snapshot should not be allocated');};
+ try{
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),/item-count/);
+  assert.equal(clones,0);
+  assert.equal(M.events.length,0);
+ }finally{globalThis.structuredClone=original;}
+});

@@ -15,6 +15,7 @@ on:
       - app/accelerated-audio-mixer.mjs
       - app/accelerated-multitrack-renderer.mjs
       - tools/browser-multitrack-accelerated.cjs
+      - tools/browser-composition-parity.cjs
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
       - app/accelerated-native-sink.mjs
@@ -96,6 +97,9 @@ jobs:
         run: node tools/browser-multitrack-accelerated.cjs
       - name: Verify shared-source video layers preserve distinct decoded pixels (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --shared-source
+      - name: Verify 1080p composition pixels, mixed-speed PCM, cancellation and write failure (Linux only)
+        timeout-minutes: 5
+        run: node tools/browser-composition-parity.cjs
       - name: Soak 20 real accelerated cuts and 5 independent voice blocks for 10 seconds (Linux only)
         run: node tools/browser-multitrack-accelerated.cjs --stress
       - name: Export 30 seconds of real accelerated multipista (60 cuts 15 voice segments, Linux only)
@@ -129,6 +133,7 @@ jobs:
             wivra-export-engine-benchmark.json
             wivra-multitrack-accelerated.json
             wivra-multitrack-shared-source.json
+            wivra-composition-parity.json
             wivra-multitrack-stress.json
             wivra-multitrack-long.json
             wivra-multitrack-minute.json

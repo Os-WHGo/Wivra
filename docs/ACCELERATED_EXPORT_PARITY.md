@@ -54,3 +54,26 @@ emulator and physical acceptance require the owner's milestone authorization.
 Capture, Meta DAT, microphone routing, RTMP/RTMPS, simultaneous recording,
 teleprompter and Director remain separate acceptance rows; passing export tests
 does not certify those integrations. Preserve their existing implementations.
+
+## W50 1080p composition canary (2026-11-04)
+
+`node tools/browser-composition-parity.cjs` produces a real 1920x1080,
+30fps, 3.2-second VP9/Opus or supported MP4 file in isolated Chromium/Linux.
+Ten decoded output frames are compared against independent per-layer source
+lookups drawn by the existing `drawFrame` compositor (mean absolute RGB error
+<8; fewer than 3% of sampled channels may differ by >30). Independent scene
+color checks verify source switching, shared-source layers, 0.5x/2x source time
+and a black gap. The project includes fade/slide/zoom, opacity/crop, a circular
+image with border and styled captions. This tests parity with the existing
+compositor; it is not a separate editorial reference or physical-device test.
+
+Known sine tracks verify slowed/accelerated voice frequencies (440/1760 Hz),
+voice placement, continuous music (220 Hz), the authored 2:1 gain ratio and
+absence of a muted 3300 Hz track in decoded output PCM. Cancellation and an
+injected random-write failure each cancel the real output and dispose all five
+media inputs. The browser workflow archives the JSON evidence.
+
+Oversized authoring now fails the bounded ledger before the full project clone,
+while the authoring snapshot still precedes every asynchronous decoder probe.
+Production activation, arbitrary project effects and physical acceptance remain
+outside this canary's evidence.

@@ -159,15 +159,18 @@ export async function prepareAcceleratedMultitrack({
     ACCELERATED_MULTITRACK_MAX_SECONDS;
   if(!(Number.isSafeInteger(maxSeconds)&&maxSeconds>0&&maxSeconds<=horizon))
     deny('excessive render horizon');
-  // Export one immutable authoring snapshot across async decoder probes.
-  // Editing the live timeline must not introduce unvalidated effects/layers
-  // while preparation is awaiting media or codec capability checks.
-  try{project=structuredClone(project);}catch{deny('project is not cloneable');}
   const ledger=analyzeAcceleratedMultitrackParity(project,media,{
     maxItems:ACCELERATED_MULTITRACK_MAX_ITEMS,maxTimelineSeconds:maxSeconds
   });
   if(!ledger.valid)deny(ledger.reason);
   validateAuthoring(project,ledger,media);
+  // Validate the bounded ledger BEFORE cloning the whole project: rejected
+  // oversized timelines must not allocate a second copy of their payload.
+  // Export one immutable authoring snapshot across async decoder probes.
+  // Editing the live timeline must not introduce unvalidated effects/layers
+  // while preparation is awaiting media or codec capability checks.
+  try{project=structuredClone(project);}catch{deny('project is not cloneable');}
+
   // A voice marked principal/guest is essential narration. The stable
   // exporter rejects silently clipped final words; accelerator must too.
   if(ledger.tracks.some(lane=>lane.lane==='audio' &&
