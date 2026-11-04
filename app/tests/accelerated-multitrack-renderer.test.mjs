@@ -520,3 +520,23 @@ test('preparation snapshots authoring and rejects reuse without disposing a runn
   assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
  }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
 });
+
+test('caption and color-filter validation reuses editor contracts without silently defaulting edits',async()=>{
+ for(const change of [
+  p=>{p.texts[0].position='middle';},
+  p=>{p.texts[0].pos='future-zone';},
+  p=>{p.texts[0].color='invalid-css';},
+  p=>{p.clips[0].filter={brightness:2};},
+  p=>{p.clips[0].filter={futureShader:.4};},
+  p=>{p.clips[0].filter={look:'future-look'};}
+ ]){
+  const p=proj(),M=fakeM();change(p);
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),/preflight/);
+  assert.equal(M.events.some(e=>e[0]==='start'),false);
+ }
+ const p=proj(),M=fakeM();
+ Object.assign(p.texts[0],{pos:'middle',size:'xl',color:'#aabbcc',box:'#000000'});
+ const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+ assert.deepEqual(prepared.project.texts,p.texts);
+ for(const item of prepared.used.values())await item.input?.dispose?.();
+});

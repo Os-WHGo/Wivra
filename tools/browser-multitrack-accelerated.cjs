@@ -179,7 +179,7 @@ const server=http.createServer((req,res)=>{
     })):[{id:'voice',asset_id:'mic',start:.12,in:0,out:1.08,
       role:'voice_primary',volume:.75}],
     texts:[{id:'caption',text:'Wivra MULTITRACK',start:.35,end:.75,
-      position:'middle'}],
+      pos:'middle'}],
     format:{aspect:'original',fit:'contain'}
    };
    const prepared=await prepareAcceleratedMultitrack({

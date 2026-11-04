@@ -6,6 +6,8 @@
 // This still runs only in explicit QA, bounded to 180 s / 160 items / <=60 fps.
 // A 3-minute synthetic test is not a 30/60-minute or iPhone hardware proof.
 import {clipLength,srcTime} from '../core/project.mjs';
+import {TEXT_STYLE_KEYS,textStyleProblem} from '../core/text-style.mjs';
+import {FILTER_KEYS,filterProblem,LOOK_IDS} from '../core/filters.mjs';
 import {drawFrame,formatSize,exportBitrate,clipGain,SHAPE_NAMES} from './export.mjs';
 import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parity.mjs';
 import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
@@ -53,6 +55,11 @@ function validateAuthoring(project, ledger, media) {
     if(lane.lane==='overlay' && c.shape!=null &&
        !Object.hasOwn(SHAPE_NAMES,c.shape))
       deny('unsupported overlay shape');
+    if(c.filter!=null && (typeof c.filter!=='object'||Array.isArray(c.filter)||
+       Object.keys(c.filter).some(k=>!FILTER_KEYS.includes(k)&&k!=='look') ||
+       filterProblem(c.filter) ||
+       (c.filter.look!=null&&!LOOK_IDS.includes(c.filter.look))))
+      deny('invalid or unsupported color filter');
     if (c.filter && typeof globalThis.fxRender !== 'function')
       deny('missing GPU color filter integration');
     if(c.ducking !== undefined &&
@@ -74,6 +81,11 @@ function validateAuthoring(project, ledger, media) {
   }
   for(const t of project.texts??[]) {
     if(typeof t.text!=='string')deny('caption must contain a text string');
+    if(Object.keys(t).some(k=>!['id','text','start','end',...TEXT_STYLE_KEYS].includes(k)))
+      deny('unsupported caption edit');
+    for(const key of TEXT_STYLE_KEYS)
+      if(t[key]!==undefined && textStyleProblem(key,t[key]))
+        deny('invalid caption style');
   }
   if(!Array.isArray(project.clips)||!project.clips.length)
     deny('first multi-lane path requires a main video clip');
