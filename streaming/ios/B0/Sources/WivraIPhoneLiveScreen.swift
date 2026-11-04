@@ -77,9 +77,22 @@ final class WivraIPhoneLiveController {
                 phase = .idle
                 return
             }
-            try await capture.attachVideo(camera)
+            // Permission alone does not guarantee a usable microphone device.
+            // A requested audio archive must not silently become video-only.
+            var selectedAudioInput: AVCaptureDevice?
             if microphone {
-                try await capture.attachAudio(AVCaptureDevice.default(for: .audio))
+                guard let input = AVCaptureDevice.default(for: .audio) else {
+                    status = "No hay entrada de micrófono disponible. Desactiva audio para grabar solo video."
+                    try? AVAudioSession.sharedInstance().setActive(false,
+                        options: .notifyOthersOnDeactivation)
+                    phase = .idle
+                    return
+                }
+                selectedAudioInput = input
+            }
+            try await capture.attachVideo(camera)
+            if let selectedAudioInput {
+                try await capture.attachAudio(selectedAudioInput)
             }
             await capture.startRunning()
             guard generation == current else {
