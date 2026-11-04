@@ -7,6 +7,7 @@ const app = files('Sources/WivraMetaB0App.swift');
 const project = files('project.yml');
 const parser = files('Sources/WivraIOSLiveEndpoint.swift');
 const verifier = files('Sources/WivraCaptureMediaVerifier.swift');
+const liveReceipt = files('Sources/WivraLiveRecordingReceipt.swift');
 
 test('single native iPhone LIVE entry requires exclusive camera ownership',()=>{
   assert.match(project,/HaishinKit:\s+url: https:\/\/github\.com\/HaishinKit\/HaishinKit\.swift\s+exactVersion: 2\.2\.5/);
@@ -121,4 +122,21 @@ test('iPhone LIVE requires actual audio samples from the same verified MP4',()=>
   assert.match(verifier,/let allTracks = tracks \+ audioTracks/);
   assert.match(verifier,/guard count > 0 else \{ return false \}/);
   assert.match(verifier,/guard reader\.status == \.completed/);
+});
+
+test('iPhone LIVE crash recovery validates persisted microphone intent, not just video',()=>{
+  assert.match(source,/WivraLiveRecordingReceipt\.stage\(\s*audioRequired: includesMicrophone, for: file, in: folder\)/);
+  assert.ok(source.indexOf('WivraLiveRecordingReceipt.stage(')
+    < source.indexOf('try await writer.startRecording(file, settings: settings)'));
+  assert.match(source,/WivraLiveRecordingReceipt\.audioExpectation\(\s*for: file, in: folder\)/);
+  assert.match(source,/requireAudio: expectation == \.required/);
+  assert.match(source,/if expectation == \.unknown \{ uncertainAudio\.insert\(file\) \}/);
+  assert.match(source,/audioUncertainVideos = uncertainAudio/);
+  assert.match(source,/controller\.audioUncertainVideos\.contains\(file\)/);
+  assert.match(source,/Audio no confirmado: grabación anterior o registro incompleto/);
+  assert.match(liveReceipt,/audioRequired: Bool/);
+  assert.match(liveReceipt,/schemaVersion: 1/);
+  assert.match(liveReceipt,/\.write\(to: receipt, options: \[\.atomic\]\)/);
+  assert.match(liveReceipt,/values\.isSymbolicLink == false, values\.isRegularFile == true/);
+  assert.match(liveReceipt,/size > 0, size <= 256/);
 });
