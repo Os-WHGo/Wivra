@@ -396,3 +396,75 @@ test('180-second 120-cut 30-voice accelerated canary stays QA-only and enforces 
   project:excessive,media,M,imageFactory,expectedAudio:true
  }),/timeline-duration/);
 });
+
+test('same-source simultaneous layers preserve distinct decoded times and reuse bounded slots',async()=>{
+ const M=fakeM();let sinks=0;
+ M.CanvasSink=class {
+  constructor(){sinks++;this.canvas={width:640,height:360,time:null};}
+  async getCanvas(t){this.canvas.time=t;return {canvas:this.canvas};}
+ };
+ const p=proj();p.audioClips=[];p.texts=[];
+ p.clips=[{id:'main',asset_id:'main',start:0,in:0,out:.2}];
+ p.overlayClips=[1,2].map(i=>({id:'ov'+i,asset_id:'main',
+  start:0,in:i,out:i+.2,scale:.2,x:.5,y:.5}));
+ const painted=[],{document}=context();
+ const canvas=document.createElement(),g=canvas.getContext();
+ g.drawImage=source=>painted.push(source.time);
+ const prior=globalThis.document;
+ globalThis.document={createElement:()=>canvas};
+ try{
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M});
+  const result=await renderAcceleratedMultitrack({prepared,fps:30,
+   writeAt:async(pos,bytes)=>bytes.length});
+  assert.equal(result.videoFrames,6);
+  assert.equal(sinks,3); // three simultaneous surfaces, not three per frame
+  for(let k=0;k<6;k++){
+   const times=painted.slice(k*3,k*3+3);
+   assert.equal(times.length,3);
+   for(let i=0;i<3;i++)assert.ok(Math.abs(times[i]-(k/30+i))<1e-9);
+  }
+ }finally{globalThis.document=prior;}
+});
+
+test('unknown transition/shape and visual audio edits fail before opening output',async()=>{
+ for(const change of [
+  p=>{p.clips[0].fxIn='future-wipe';},
+  p=>{p.overlayClips[0].fxOut='future-wipe';},
+  p=>{p.clips[0].fxDur=NaN;},
+  p=>{p.overlayClips[0].shape='future-mask';},
+  p=>{p.audioClips[0].fxIn='fade';},
+  p=>{p.audioClips[0].filter={exposure:1};}
+ ]){
+  const p=proj(),M=fakeM();change(p);
+  await assert.rejects(prepareAcceleratedMultitrack({project:p,media,M,imageFactory}),
+   /preflight/);
+  assert.equal(M.events.some(e=>e[0]==='start'),false);
+ }
+ for(const fx of ['none','fade','slide','zoom']){
+  const p=proj(),M=fakeM();p.clips[0].fxIn=fx;p.clips[0].fxDur=.1;
+  const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+  assert.equal(prepared.project.clips[0].fxIn,fx);
+  for(const item of prepared.used.values())await item.input?.dispose?.();
+ }
+});
+
+test('early renderer failures dispose all inputs and cancel an allocated output exactly once',async()=>{
+ for(const failure of ['fps','canvas','encoder']){
+  const M=fakeM(),p=proj();let cancels=0;
+  const BaseOutput=M.Output;
+  M.Output=class extends BaseOutput{async cancel(){cancels++;}};
+  if(failure==='encoder')M.CanvasSource=class{constructor(){throw Error('encoder setup failed');}};
+  const prior=globalThis.document;
+  globalThis.document=failure==='canvas'
+   ?{createElement(){throw Error('canvas allocation failed');}}:context().document;
+  try{
+   const prepared=await prepareAcceleratedMultitrack({project:p,media,M,imageFactory});
+   await assert.rejects(renderAcceleratedMultitrack({prepared,
+    fps:failure==='fps'?0:30,writeAt:async(pos,bytes)=>bytes.length}),
+    /frame rate|canvas allocation|encoder setup/);
+   assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+   assert.equal(cancels,failure==='encoder'?1:0);
+   assert.equal(M.events.some(e=>e[0]==='finalize'),false);
+  }finally{globalThis.document=prior;}
+ }
+});

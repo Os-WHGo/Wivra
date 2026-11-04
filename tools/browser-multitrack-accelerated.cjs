@@ -3,13 +3,14 @@
 // voice delayed by 120ms, random-access MP4/WebM and ffprobe PCM inspection.
 // NOT Android/iPhone WebView, Ray-Ban or a long-form hardware guarantee.
 let chromium;
-try {chromium=require('playwright').chromium;}
-catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium;}
+try {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium;}
+catch {chromium=require('playwright').chromium;}
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
 const {execFileSync}=require('node:child_process');
 const {createAcceleratedResourceMonitor,launchObservedChromium}=
  require('./accelerated-resource-telemetry.cjs');
+const sharedSource=process.argv.includes('--shared-source');
 const gap=process.argv.includes('--gap');
 const duck=process.argv.includes('--duck');
 const minute=process.argv.includes('--minute');
@@ -29,6 +30,8 @@ const extended=hdCanary||longSoak||threeMinute||twoMinute||minute||long||process
 const seconds=longSoak?longSoakMinutes*60:threeMinute?180:twoMinute?120:minute?60:long||hdCanary?30:extended?10:gap?1.25:1.2;
 if(hdCanary&&(longSoak||gap||duck||minute||twoMinute||threeMinute))
  throw Error('720p real A/V canary requires isolated 30s mode.');
+if(sharedSource&&(longSoak||gap||duck||extended||telemetrySmoke))
+ throw Error('Shared-source regression requires the isolated short profile.');
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
 const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
@@ -44,6 +47,14 @@ for(const [name,color] of [['first.webm','0xa16207'],['second.webm','0x0369a1']]
  ffmpeg(['-f','lavfi','-i','color=c='+color+':s='+videoWidth+'x'+videoHeight+':r=30:d='+(longSoak?seconds/120+1:2.2),
   '-an','-c:v','libvpx','-b:v','350k',target]);
  files['/'+name]=target;
+}
+if(sharedSource){
+ // One encoded source changes from orange to blue after one second.
+ // Main reads 0.2s while its overlay reads 1.2s in the SAME output frame.
+ ffmpeg(['-f','lavfi','-i','color=c=0xa16207:s=320x240:r=30:d=1',
+  '-f','lavfi','-i','color=c=0x0369a1:s=320x240:r=30:d=1.2',
+  '-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0[v]',
+  '-map','[v]','-an','-c:v','libvpx','-b:v','350k',files['/first.webm']]);
 }
 const wav=path.join(tmp,'mic.wav');
 ffmpeg(['-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=2',
@@ -128,7 +139,7 @@ const server=http.createServer((req,res)=>{
    return bytes.length;
   });
   await page.goto(base+'/app/export.mjs');
-  report.browser=await page.evaluate(async({extended,long,minute,twoMinute,threeMinute,gap,duck,longSoak,seconds,hdCanary,videoWidth,videoHeight})=>{
+  report.browser=await page.evaluate(async({sharedSource,extended,long,minute,twoMinute,threeMinute,gap,duck,longSoak,seconds,hdCanary,videoWidth,videoHeight})=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}=
     await import('/app/accelerated-multitrack-renderer.mjs');
@@ -148,7 +159,7 @@ const server=http.createServer((req,res)=>{
      {id:'a',asset_id:'first',start:0,in:0,out:.6},
      {id:'b',asset_id:'second',start:gap?.75:.6,in:.5,out:gap?1:1.1}
     ],
-    overlayClips:[{id:'logo',asset_id:'logo',start:.18,in:0,out:1,
+    overlayClips:[{id:'logo',asset_id:sharedSource?'first':'logo',start:.18,in:sharedSource?1:0,out:sharedSource?1.4:1,
       x:.5,y:.5,scale:.18,track:1,opacity:.9}],
     audioClips:duck?[
       {id:'bed',asset_id:'bed',start:0,in:0,out:1.2,
@@ -222,7 +233,7 @@ const server=http.createServer((req,res)=>{
     CanvasRenderingContext2D.prototype.fillText=originalFillText;
    }
    return {result,drawnTitles,renderSeconds:(performance.now()-started)/1000,mobileCodecCapabilities};
-  },{extended,long,minute,twoMinute,threeMinute,gap,duck,longSoak,seconds,hdCanary,videoWidth,videoHeight});
+  },{sharedSource,extended,long,minute,twoMinute,threeMinute,gap,duck,longSoak,seconds,hdCanary,videoWidth,videoHeight});
   if(monitor)report.resources=monitor.stop();
   await page.close();
   fs.closeSync(fd);fd=null;
@@ -243,9 +254,9 @@ const server=http.createServer((req,res)=>{
   // the native stores mirror with duration/seek-index gates.
   const {inspectExport}=await import('file://'+path.join(root,'app/media-container.mjs'));
   report.containerInspection=inspectExport(new Uint8Array(fs.readFileSync(actual)));
-  const pixel=(time)=>{
+  const pixel=(time,x=10,y=10)=>{
    const data=execFileSync('ffmpeg',['-nostdin','-v','error','-ss',String(time),
-    '-i',actual,'-frames:v','1','-vf','crop=20:20:10:10,scale=1:1',
+    '-i',actual,'-frames:v','1','-vf','crop=20:20:'+x+':'+y+',scale=1:1',
     '-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{timeout:15000});
    if(data.length<3)throw Error('A frame could not be decoded at '+time);
    return [data[0],data[1],data[2]];
@@ -255,6 +266,13 @@ const server=http.createServer((req,res)=>{
    preservedBlackGap:!gap||gapRgb.every(x=>x<30),
    firstOrange:first[0]>first[2]+25,
    secondBlue:second[2]>second[0]+25};
+  if(sharedSource){
+   const overlay=pixel(.2,150,110);
+   report.scenes.sharedSourceOverlayRGB=overlay;
+   report.scenes.sharedSourceOverlayBlue=overlay[2]>overlay[0]+25;
+   if(!report.scenes.firstOrange||!report.scenes.sharedSourceOverlayBlue)
+    throw Error('Shared-source main/overlay timestamps were overwritten: '+JSON.stringify(report.scenes));
+  }
   const pcm=longSoak?null:execFileSync('ffmpeg',['-nostdin','-v','error','-i',actual,
    '-map','0:a:0','-ac','1','-ar','16000','-f','s16le','pipe:1'],
    {timeout:20000,maxBuffer:Math.ceil(seconds*16000*2+262144)});
@@ -385,7 +403,7 @@ const server=http.createServer((req,res)=>{
   if(observed)await observed.close();
   else await browser.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,longSoak?('wivra-accelerated-soak-'+longSoakMinutes+'min.json'):duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':threeMinute?'wivra-multitrack-three-minute.json':twoMinute?'wivra-multitrack-two-minute.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':hdCanary?'wivra-multitrack-hd-canary.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
+  fs.writeFileSync(path.join(root,sharedSource?'wivra-multitrack-shared-source.json':longSoak?('wivra-accelerated-soak-'+longSoakMinutes+'min.json'):duck?'wivra-multitrack-duck.json':gap?'wivra-multitrack-gap.json':threeMinute?'wivra-multitrack-three-minute.json':twoMinute?'wivra-multitrack-two-minute.json':minute?'wivra-multitrack-minute.json':long?'wivra-multitrack-long.json':hdCanary?'wivra-multitrack-hd-canary.json':extended?'wivra-multitrack-stress.json':'wivra-multitrack-accelerated.json'),
    JSON.stringify(report,null,2)+'\n');
   fs.rmSync(tmp,{recursive:true,force:true});
  }

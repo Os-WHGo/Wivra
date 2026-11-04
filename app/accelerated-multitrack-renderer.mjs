@@ -6,7 +6,7 @@
 // This still runs only in explicit QA, bounded to 180 s / 160 items / <=60 fps.
 // A 3-minute synthetic test is not a 30/60-minute or iPhone hardware proof.
 import {clipLength,srcTime} from '../core/project.mjs';
-import {drawFrame,formatSize,exportBitrate,clipGain} from './export.mjs';
+import {drawFrame,formatSize,exportBitrate,clipGain,SHAPE_NAMES} from './export.mjs';
 import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parity.mjs';
 import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
@@ -36,6 +36,19 @@ function validateAuthoring(project, ledger, media) {
     const c=lane.authored;
     if(Object.keys(c).some(k=>!known.has(k) && c[k]!=null))
       deny('unsupported '+lane.lane+' clip edit');
+    // Unknown enum values otherwise fall through the preview compositor
+    // as no effect/rectangular crop. Export must preserve edits or reject.
+    for(const key of ['fxIn','fxOut'])
+      if(c[key]!=null && !['none','fade','slide','zoom'].includes(c[key]))
+        deny('unsupported clip transition');
+    if(c.fxDur!=null && (!Number.isFinite(c.fxDur) || c.fxDur<=0))
+      deny('invalid clip transition duration');
+    if(lane.lane==='audio' && (c.filter ||
+       [c.fxIn,c.fxOut].some(v=>v!=null && v!=='none')))
+      deny('visual effects on independent audio require parity');
+    if(lane.lane==='overlay' && c.shape!=null &&
+       !Object.hasOwn(SHAPE_NAMES,c.shape))
+      deny('unsupported overlay shape');
     if (c.filter && typeof globalThis.fxRender !== 'function')
       deny('missing GPU color filter integration');
     if(c.ducking !== undefined &&
@@ -196,10 +209,10 @@ export async function prepareAcceleratedMultitrack({
             deny('source trim begins before first decodable sample');
         }
         if(video){
-          entry.canvas=new M.CanvasSink(video,{
-            poolSize:1,width:Math.min(1920,Math.max(2,asset.width||width)),
-            fit:'contain'
-          });
+          entry.canvasOptions={poolSize:1,
+            width:Math.min(1920,Math.max(2,asset.width||width)),fit:'contain'};
+          entry.canvas=new M.CanvasSink(video,entry.canvasOptions);
+          entry.visualSinks=[entry.canvas];
         }
         if(audio)entry.audioSink=new M.AudioBufferSink(audio);
       }
@@ -230,7 +243,18 @@ export async function prepareAcceleratedMultitrack({
 }
 
 /** Actual output to arbitrary-offset native writer; never overrides v1. */
-export async function renderAcceleratedMultitrack({
+export async function renderAcceleratedMultitrack(options={}) {
+  try {
+    return await renderPreparedMultitrack(options);
+  } finally {
+    // Preparation transfers ownership to this single render, including when
+    // FPS validation, canvas allocation or encoder setup fails before start().
+    for(const item of options.prepared?.used?.values?.()??[]){
+      try{await item.input?.dispose?.();}catch{}
+    }
+  }
+}
+async function renderPreparedMultitrack({
   prepared,writeAt,isCancelled=()=>false,fps=30,
   videoBitrate=null,audioBitrate=128000,
   sampleRate=48000,onProgress=()=>{}
@@ -247,57 +271,58 @@ export async function renderAcceleratedMultitrack({
     :ACCELERATED_MULTITRACK_MAX_SECONDS)*60+1;
   if(framesTotal>maxFrames)deny('frame limit');
   const writer=checkedRandomWrite(writeAt,{maxChunkBytes:1024*1024});
-  const canvas=document.createElement('canvas');
-  canvas.width=width;canvas.height=height;
-  const g=canvas.getContext('2d');
-  if(!g)deny('2D compositor unavailable');
-  // The stable drawFrame intentionally swallows drawImage failures during
-  // interactive preview. An export MUST NOT silently omit a principal video
-  // frame or a requested overlay. Count successful draws and caught failures.
-  let draws=0,failedDraws=0;
-  const guardedG=new Proxy(g,{
-    get(target,property) {
-      if(property==='drawImage') return (...args)=>{
-        try {
-          target.drawImage(...args);
-          draws++;
-        } catch(error) {
-          failedDraws++;
-          throw error;
-        }
-      };
-      const value=Reflect.get(target,property,target);
-      return typeof value==='function'?value.bind(target):value;
-    },
-    set(target,property,value) {
-      return Reflect.set(target,property,value,target);
-    }
-  });
-  const format=codec.container==='mp4'?
-    new M.Mp4OutputFormat({fastStart:false}):new M.WebMOutputFormat();
-  const writable=new WritableStream({write:chunk=>writer.write(chunk.position,chunk.data)});
-  const output=new M.Output({format,
-    target:new M.StreamTarget(writable,{chunked:true,chunkSize:1<<20})});
-  const videoSource=new M.CanvasSource(canvas,{codec:codec.videoCodec,
-    bitrate:videoBitrate||exportBitrate(totalSeconds,{progressive:true,width,height,fps}),
-    keyFrameInterval:1});
-  output.addVideoTrack(videoSource,{frameRate:fps});
-  const audioSource=codec.hasAudio?new M.AudioBufferSource({
-    codec:codec.audioCodec,bitrate:audioBitrate}):null;
-  if(audioSource)output.addAudioTrack(audioSource);
-  const mixer=audioSource?mixAcceleratedAudioBlocks({
-    tracks:audible,totalSeconds,sampleRate,
-    blockFrames:sampleRate,channels:2,isCancelled
-  })[Symbol.asyncIterator]():null;
-  // Sort the same authored lanes ONCE, not once per encoded frame.
-  // The original compositor still receives the unchanged project and applies
-  // its existing filters, captions and fades. Only source lookup is indexed.
-  const mainTimeline=[...project.clips].sort((a,b)=>a.start-b.start);
-  const overlayTimeline=[...(project.overlayClips??[])].sort(
-    (a,b)=>(a.track??0)-(b.track??0)||a.start-b.start);
-  let mainIndex=0;
-  let videoFrames=0,audioBlocks=0,overlaysRendered=0,finalized=false;
+  let output,finalized=false;
   try {
+    const canvas=document.createElement('canvas');
+    canvas.width=width;canvas.height=height;
+    const g=canvas.getContext('2d');
+    if(!g)deny('2D compositor unavailable');
+    // The stable drawFrame intentionally swallows drawImage failures during
+    // interactive preview. An export MUST NOT silently omit a principal video
+    // frame or a requested overlay. Count successful draws and caught failures.
+    let draws=0,failedDraws=0;
+    const guardedG=new Proxy(g,{
+      get(target,property) {
+        if(property==='drawImage') return (...args)=>{
+          try {
+            target.drawImage(...args);
+            draws++;
+          } catch(error) {
+            failedDraws++;
+            throw error;
+          }
+        };
+        const value=Reflect.get(target,property,target);
+        return typeof value==='function'?value.bind(target):value;
+      },
+      set(target,property,value) {
+        return Reflect.set(target,property,value,target);
+      }
+    });
+    const format=codec.container==='mp4'?
+      new M.Mp4OutputFormat({fastStart:false}):new M.WebMOutputFormat();
+    const writable=new WritableStream({write:chunk=>writer.write(chunk.position,chunk.data)});
+    output=new M.Output({format,
+      target:new M.StreamTarget(writable,{chunked:true,chunkSize:1<<20})});
+    const videoSource=new M.CanvasSource(canvas,{codec:codec.videoCodec,
+      bitrate:videoBitrate||exportBitrate(totalSeconds,{progressive:true,width,height,fps}),
+      keyFrameInterval:1});
+    output.addVideoTrack(videoSource,{frameRate:fps});
+    const audioSource=codec.hasAudio?new M.AudioBufferSource({
+      codec:codec.audioCodec,bitrate:audioBitrate}):null;
+    if(audioSource)output.addAudioTrack(audioSource);
+    const mixer=audioSource?mixAcceleratedAudioBlocks({
+      tracks:audible,totalSeconds,sampleRate,
+      blockFrames:sampleRate,channels:2,isCancelled
+    })[Symbol.asyncIterator]():null;
+    // Sort the same authored lanes ONCE, not once per encoded frame.
+    // The original compositor still receives the unchanged project and applies
+    // its existing filters, captions and fades. Only source lookup is indexed.
+    const mainTimeline=[...project.clips].sort((a,b)=>a.start-b.start);
+    const overlayTimeline=[...(project.overlayClips??[])].sort(
+      (a,b)=>(a.track??0)-(b.track??0)||a.start-b.start);
+    let mainIndex=0;
+    let videoFrames=0,audioBlocks=0,overlaysRendered=0;
     await output.start();
     for(let k=0;k<framesTotal;k++) {
       if(isCancelled())throw new Error('Accelerated multi-lane render cancelled.');
@@ -309,6 +334,18 @@ export async function renderAcceleratedMultitrack({
       const candidate=mainTimeline[mainIndex];
       const main=candidate && t>=candidate.start &&
         t<candidate.start+clipLength(candidate) ? candidate : null;
+      // A poolSize:1 CanvasSink reuses its canvas. Each simultaneous layer
+      // needs a distinct sink, even when several clips reference one asset
+      // at different source times. Reuse slots across frames/sequential cuts
+      // rather than retaining one decoder canvas for every authored clip.
+      const visualSlots=new Map();
+      const videoFrame=async(asset,time)=>{
+        const slot=visualSlots.get(asset)??0;
+        visualSlots.set(asset,slot+1);
+        if(!asset.visualSinks[slot])
+          asset.visualSinks[slot]=new M.CanvasSink(asset.video,asset.canvasOptions);
+        return asset.visualSinks[slot].getCanvas(time);
+      };
       let frame=null;
       if(main){
         const asset=used.get(main.asset_id);
@@ -316,7 +353,7 @@ export async function renderAcceleratedMultitrack({
           frame=asset.image;
           if(!frame)throw new Error('Missing decoded main still image at timeline '+t);
         }else{
-          const wrapped=await asset.canvas.getCanvas(srcTime(main,t));
+          const wrapped=await videoFrame(asset,srcTime(main,t));
           const surface=wrapped?.canvas;
           if(!surface)throw new Error('Missing decoded main video at timeline '+t);
           frame=asVisual(surface,surface.width,surface.height);
@@ -328,7 +365,7 @@ export async function renderAcceleratedMultitrack({
         const source=used.get(c.asset_id);
         let visual=source.image;
         if(!visual){
-          const wrapped=await source.canvas.getCanvas(srcTime(c,t));
+          const wrapped=await videoFrame(source,srcTime(c,t));
           const raw=wrapped?.canvas;
           if(!raw)throw new Error('Missing decoded overlay at timeline '+t);
           visual=asVisual(raw,raw.width,raw.height);
@@ -389,11 +426,8 @@ export async function renderAcceleratedMultitrack({
   } finally {
     // Aborting the native partial is not enough: free active encoders and
     // release StreamTarget's writer even when a renderer/decoder fails.
-    if(!finalized && typeof output.cancel==='function'){
+    if(!finalized && typeof output?.cancel==='function'){
       try{await output.cancel();}catch{}
-    }
-    for(const item of used.values()){
-      try{await item.input?.dispose?.();}catch{}
     }
   }
 }
