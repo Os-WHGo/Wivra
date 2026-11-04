@@ -43,7 +43,8 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/let allowed = await AVCaptureDevice\.requestAccess\(for: \.video\)/);
   assert.match(source,/guard allowed else/);
   assert.match(source,/let allowedAudio = await AVCaptureDevice\.requestAccess\(for: \.audio\)/);
-  assert.match(source,/try await capture\.attachAudio\(AVCaptureDevice\.default\(for: \.audio\)\)/);
+  assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
+  assert.match(source,/try await capture\.attachAudio\(selectedAudioInput\)/);
   assert.match(source,/let writer = StreamRecorder\(\)/);
   assert.match(source,/await writer\.setMovieFragmentInterval\(10\.0\)/);
   assert.match(source,/StreamRecorder\.defaultSettings\.filter \{ \$0\.key == \.video \}/);
@@ -102,4 +103,20 @@ test('long iPhone LIVE copy protects disk and preserves private MP4 under low st
   assert.match(source, /await self\.stop\(\)/);
   assert.match(source, /storageMonitor\?\.cancel\(\)/);
   assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+});
+
+test('iPhone LIVE requested microphone cannot silently become a video-only archive',()=>{
+  assert.match(source,/var selectedAudioInput: AVCaptureDevice\?/);
+  assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
+  assert.match(source,/No hay entrada de micrófono disponible/);
+  assert.ok(source.indexOf('guard let input = AVCaptureDevice.default(for: .audio)')
+    < source.indexOf('try await capture.attachVideo(camera)'));
+  assert.match(source,/verifiedMedia = await WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+  assert.match(source,/if verifiedMedia && includesMicrophone \{/);
+  assert.match(source,/AVURLAsset\(url: result\)\.loadTracks\(withMediaType: \.audio\)/);
+  assert.match(source,/verifiedAudio = tracks\?\.isEmpty == false/);
+  assert.match(source,/if verifiedMedia && verifiedAudio \{/);
+  assert.ok(source.indexOf('verifiedMedia = await WivraCaptureMediaVerifier.verifyFile(result, in: folder)')
+     < source.indexOf('AVURLAsset(url: result).loadTracks(withMediaType: .audio)'));
+  assert.match(source,/unverifiedVideoURL = result/);
 });
