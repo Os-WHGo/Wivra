@@ -41,10 +41,10 @@ test('journal hashes exact bytes, atomically persists and fails closed for uncer
 test('export recovery UI exposes explicit manual resolution and guarded retry only after absence confirmation',()=>{
  const journal=read('ios/B0/Sources/WivraPhotosSaveJournal.swift');
  const ui=read('ios/B0/Sources/WivraMetaB0App.swift');
- assert.match(journal,/func reviewStatus\\(for url: URL\\)/);
- assert.match(journal,/func confirmManuallyPresent\\(for url: URL\\)/);
- assert.match(journal,/func authorizeRetryAfterManualAbsence\\(for url: URL\\)/);
- assert.match(journal,/entry\\.state != \\.confirmed/);
+ assert.ok(journal.includes('func reviewStatus(for url: URL)'));
+ assert.ok(journal.includes('func confirmManuallyPresent(for url: URL)'));
+ assert.ok(journal.includes('func authorizeRetryAfterManualAbsence(for url: URL)'));
+ assert.ok(journal.includes('entry.state != .confirmed'));
  assert.match(ui,/Ya aparece en Fotos/);
  assert.match(ui,/No aparece, permitir reintento/);
  assert.match(ui,/Confirma que buscaste este video en Fotos y no aparece/);
