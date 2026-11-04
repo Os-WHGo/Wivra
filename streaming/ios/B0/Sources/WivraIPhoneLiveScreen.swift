@@ -17,6 +17,7 @@ final class WivraIPhoneLiveController {
     private(set) var verifiedVideoURL: URL?
     private(set) var unverifiedVideoURL: URL?
     private(set) var savedVideos: [URL] = []
+    private(set) var audioUncertainVideos: Set<URL> = []
     private(set) var isReviewingSavedVideos = false
 
     private var mixer: MediaMixer?
@@ -77,9 +78,22 @@ final class WivraIPhoneLiveController {
                 phase = .idle
                 return
             }
-            try await capture.attachVideo(camera)
+            // Permission alone does not guarantee a usable microphone device.
+            // A requested audio archive must not silently become video-only.
+            var selectedAudioInput: AVCaptureDevice?
             if microphone {
-                try await capture.attachAudio(AVCaptureDevice.default(for: .audio))
+                guard let input = AVCaptureDevice.default(for: .audio) else {
+                    status = "No hay entrada de micrófono disponible. Desactiva audio para grabar solo video."
+                    try? AVAudioSession.sharedInstance().setActive(false,
+                        options: .notifyOthersOnDeactivation)
+                    phase = .idle
+                    return
+                }
+                selectedAudioInput = input
+            }
+            try await capture.attachVideo(camera)
+            if let selectedAudioInput {
+                try await capture.attachAudio(selectedAudioInput)
             }
             await capture.startRunning()
             guard generation == current else {
@@ -135,6 +149,10 @@ final class WivraIPhoneLiveController {
                 let folder = try localFolder()
                 let file = folder.appendingPathComponent(UUID().uuidString)
                     .appendingPathExtension("mp4")
+                // Record the user's mic choice before any media bytes are
+                // written, including when the app is later killed mid-LIVE.
+                try WivraLiveRecordingReceipt.stage(
+                    audioRequired: includesMicrophone, for: file, in: folder)
                 let writer = StreamRecorder()
                 await writer.setMovieFragmentInterval(10.0)
                 await mixer.addOutput(writer)
@@ -218,8 +236,17 @@ final class WivraIPhoneLiveController {
             do {
                 let result = try await localRecorder.stopRecording()
                 if let localMixer { await localMixer.removeOutput(localRecorder) }
-                if let folder = try? localFolder(),
-                   await WivraCaptureMediaVerifier.verifyFile(result, in: folder) {
+                // One verified AVAssetReader pass checks media and, when
+                // microphone was requested, real nonempty audio samples.
+                // A missing/empty audio track must remain private for recovery.
+                let verifiedMedia: Bool
+                if let folder = try? localFolder() {
+                    verifiedMedia = await WivraCaptureMediaVerifier.verifyFile(
+                        result, in: folder, requireAudio: includesMicrophone)
+                } else {
+                    verifiedMedia = false
+                }
+                if verifiedMedia {
                     verifiedVideoURL = result
                     unverifiedVideoURL = nil
                 } else {
@@ -263,17 +290,23 @@ final class WivraIPhoneLiveController {
             return
         }
         var approved: [URL] = []
+        var uncertainAudio: Set<URL> = []
         for file in urls where file.pathExtension.lowercased() == "mp4" {
             guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey,
                 .isSymbolicLinkKey, .fileSizeKey]),
                 values.isRegularFile == true, values.isSymbolicLink == false,
                 (values.fileSize ?? 0) > 0 else { continue }
-            if await WivraCaptureMediaVerifier.verifyFile(file, in: folder) {
+            let expectation = WivraLiveRecordingReceipt.audioExpectation(
+                for: file, in: folder)
+            if await WivraCaptureMediaVerifier.verifyFile(
+                file, in: folder, requireAudio: expectation == .required) {
                 approved.append(file)
+                if expectation == .unknown { uncertainAudio.insert(file) }
             }
         }
         savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
-        status = "Copias MP4 verificadas: \(savedVideos.count). Las demás permanecen privadas."
+        audioUncertainVideos = uncertainAudio
+        status = "Copias MP4 verificadas: \(savedVideos.count). Audio no confirmado en \(uncertainAudio.count). Las demás permanecen privadas."
     }
 
     private func hasRecordingReserve() -> Bool {
@@ -352,6 +385,11 @@ struct WivraIPhoneLiveScreen: View {
                     ForEach(controller.savedVideos, id: \.self) { file in
                         ShareLink(item: file) {
                             Label("Compartir MP4 recuperado", systemImage: "film.stack")
+                        }
+                        if controller.audioUncertainVideos.contains(file) {
+                            Text("Audio no confirmado: grabación anterior o registro incompleto.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                     if controller.phase == .ready || controller.phase == .connecting ||

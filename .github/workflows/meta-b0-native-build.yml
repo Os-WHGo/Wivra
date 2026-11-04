@@ -80,6 +80,14 @@ jobs:
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
+      - name: Verify iOS LIVE audio-intent recovery in Swift 6 (synthetic, no device)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraLiveRecordingReceipt.swift \
+            streaming/tests/WivraLiveRecordingReceiptSmoke.swift \
+            -o /tmp/wivra-live-audio-intent-smoke
+          /tmp/wivra-live-audio-intent-smoke
       - name: Validate iOS RTMP endpoint gate with native Swift 6 (no network)
         run: |
           set -eu
