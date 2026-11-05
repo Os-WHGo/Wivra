@@ -236,7 +236,6 @@ class WivraScreenLiveActivity : ComponentActivity() {
                     pendingEndpoint = null
                     status.text = "Android no pudo solicitar el permiso de pantalla."
                 }
-            }.show()
     }
 
     override fun onStart() {
