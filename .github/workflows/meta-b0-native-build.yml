@@ -136,6 +136,7 @@ jobs:
       - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
         run: |
           set -eu
+          node --test streaming/tests/ios-accelerated-recovery-scan-w73.test.mjs
           xcrun swiftc -swift-version 6 -parse-as-library \
             streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
             streaming/ios/B0/Sources/WivraAcceleratedExportStore.swift \
