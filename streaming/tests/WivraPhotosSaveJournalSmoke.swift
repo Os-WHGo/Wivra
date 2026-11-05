@@ -38,8 +38,9 @@ struct WivraPhotosSaveJournalSmoke {
         let presentURL = root.appendingPathComponent("manual-present.mp4")
         try Data("manually found in Photos".utf8).write(to: presentURL)
         let manualPresent = WivraPhotosSaveJournal(fileURL: journalURL)
-        guard case .proceed = try await manualPresent.begin(for: presentURL)
+        guard case .proceed(let presentHash) = try await manualPresent.begin(for: presentURL)
         else { fatalError("manual-present media must reserve intent") }
+        try await manualPresent.markUncertain(hash: presentHash)
         try await manualPresent.confirmManuallyPresent(for: presentURL)
         let presentStatus = try await manualPresent.reviewStatus(for: presentURL)
         precondition(presentStatus == .confirmed)
@@ -49,8 +50,9 @@ struct WivraPhotosSaveJournalSmoke {
         let absentURL = root.appendingPathComponent("manual-absent.mp4")
         try Data("manually confirmed absent in Photos".utf8).write(to: absentURL)
         let manualAbsent = WivraPhotosSaveJournal(fileURL: journalURL)
-        guard case .proceed = try await manualAbsent.begin(for: absentURL)
+        guard case .proceed(let absentHash) = try await manualAbsent.begin(for: absentURL)
         else { fatalError("manual-absent media must reserve intent") }
+        try await manualAbsent.markUncertain(hash: absentHash)
         try await manualAbsent.authorizeRetryAfterManualAbsence(for: absentURL)
         let retryAllowed = try await manualAbsent.begin(for: absentURL)
         guard case .proceed = retryAllowed else {

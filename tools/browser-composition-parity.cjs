@@ -4,6 +4,7 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http'),assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
 const {chromium}=require('/tmp/wivra-media-lab/node_modules/playwright');
+const spatial=process.argv.includes('--spatial');
 const root=path.resolve(__dirname,'..');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'wivra-composition-'));
 const mbDir='/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles';
@@ -84,6 +85,12 @@ const server=http.createServer((req,res)=>{
   }));
   assert.deepEqual(report.server,{traversal:403,malformed:400});
   await page.addScriptTag({url:'http://127.0.0.1:'+server.address().port+'/app/filters-gl.mjs'});
+  if(spatial){
+   const exercise=require('./composition-spatial-case.cjs');
+   report.spatial=exercise.verifyCase(await page.evaluate(exercise.browserCase),{tmp,ffmpeg});
+   delete report.width;delete report.height;report.pass=true;
+   console.log(JSON.stringify(report,null,2));return;
+  }
   const data=await page.evaluate(async()=>{
    const M=await import('/mb/mediabunny.mjs');
    const {prepareAcceleratedMultitrack:prepare,renderAcceleratedMultitrack:render}=
@@ -290,7 +297,7 @@ const server=http.createServer((req,res)=>{
   if(fd!==undefined&&fd!==null)fs.closeSync(fd);
   await browser?.close();
   await new Promise(resolve=>server.close(resolve));
-  fs.writeFileSync(path.join(root,'wivra-composition-parity.json'),JSON.stringify(report,null,2)+'\n');
+  fs.writeFileSync(path.join(root,spatial?'wivra-composition-spatial.json':'wivra-composition-parity.json'),JSON.stringify(report,null,2)+'\n');
  }
  console.log(JSON.stringify(report,null,2));
 })().catch(error=>{console.error(error);process.exitCode=1;});

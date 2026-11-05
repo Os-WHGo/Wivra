@@ -5,6 +5,8 @@ on:
       - 'streaming/ios/B0/**'
       - 'streaming/tests/ios-photos-save-journal-contract.test.mjs'
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
+      - 'streaming/tests/WivraPhotosActiveSaveSmoke.swift'
+      - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
@@ -77,6 +79,24 @@ jobs:
             streaming/tests/WivraPhotosSaveJournalSmoke.swift \
             -o /tmp/wivra-photos-save-journal-smoke
           /tmp/wivra-photos-save-journal-smoke
+      - name: Verify active Photos reservations against immutable pre-fix control (macOS Swift 6)
+        run: |
+          set -eu
+          wivra_photos_baseline=9482102d035bf779b290dc6a04f968ae0d359906
+          git fetch --no-tags --depth=1 origin "$wivra_photos_baseline"
+          git show "$wivra_photos_baseline":streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift > /tmp/wivra-photos-before.swift
+          xcrun swiftc -swift-version 6 /tmp/wivra-photos-before.swift \
+            streaming/tests/WivraPhotosActiveSaveSmoke.swift -o /tmp/wivra-photos-active-before
+          if /tmp/wivra-photos-active-before > /tmp/wivra-photos-before.log 2>&1; then
+            echo 'Pre-fix control unexpectedly accepted the active-save regression' >&2
+            exit 1
+          fi
+          cat /tmp/wivra-photos-before.log
+          node -e 'if(!require("fs").readFileSync("/tmp/wivra-photos-before.log","utf8").includes("FAIL: manual absence cleared an active Photos reservation"))process.exit(1)'
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift \
+            streaming/tests/WivraPhotosActiveSaveSmoke.swift -o /tmp/wivra-photos-active-fixed
+          /tmp/wivra-photos-active-fixed
       - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
         run: |
           set -eu
