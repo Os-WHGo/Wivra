@@ -193,34 +193,67 @@ actor WivraAcceleratedExportStore {
     }
 
 
-    /// Re-discover NEW sealed files after a process restart, without trusting
-    /// the name alone or exposing arbitrary app/user files. Only confirmed
-    /// non-symlink MP4 assets with real AVFoundation tracks are returned.
-    /// Explicitly called from the native export recovery library, not at boot.
+    // W73: only generated private, regular, non-symlinked MP4 files may be
+    // candidates. Snapshot size/mtime before AVFoundation verification and
+    // compare it after SHA-256 reading, refusing files changed during review.
+    // This is a freshness guard, not an authenticated device/storage proof.
+    private struct RecoveryFileStamp: Equatable {
+        let bytes: Int
+        let modified: Date
+    }
+
+    private static func recoveryStamp(_ url: URL, in root: URL) -> RecoveryFileStamp? {
+        let file = url.standardizedFileURL
+        guard file.isFileURL, file.deletingLastPathComponent() == root,
+              file == file.resolvingSymlinksInPath().standardizedFileURL,
+              let values = try? file.resourceValues(forKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
+                .contentModificationDateKey
+              ]),
+              values.isRegularFile == true, values.isSymbolicLink == false,
+              let bytes = values.fileSize, bytes > 0,
+              Int64(bytes) <= WivraRandomAccessExportSession.maxOutputBytes,
+              let modified = values.contentModificationDate else { return nil }
+        return RecoveryFileStamp(bytes: bytes, modified: modified)
+    }
+
+    private static func isGeneratedRecoveredName(_ name: String) -> Bool {
+        let prefix = "Wivra_Fast_"
+        guard name.hasPrefix(prefix), name.hasSuffix(".mp4"),
+              name.count == prefix.count + 36 + 4 else { return false }
+        return UUID(uuidString: String(
+            name.dropFirst(prefix.count).dropLast(4))) != nil
+    }
+
+    /// Re-discover sealed exports after a process restart. Select the latest
+    /// 200 VALID CANDIDATES, not the first 200 arbitrary folder entries: a
+    /// crowded private directory must not hide a valid user's recovered movie.
+    /// All inspection and hashing happens before exposing a completed item.
     func recovered() async -> [Completed] {
         let root = directory.resolvingSymlinksInPath().standardizedFileURL
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: [
-                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
+                .contentModificationDateKey
             ], options: [.skipsHiddenFiles]) else { return [] }
+        let candidates = urls.compactMap { url -> (url: URL, stamp: RecoveryFileStamp)? in
+            guard Self.isGeneratedRecoveredName(url.lastPathComponent),
+                  let stamp = Self.recoveryStamp(url, in: root) else { return nil }
+            return (url: url, stamp: stamp)
+        }.sorted {
+            if $0.stamp.modified != $1.stamp.modified {
+                return $0.stamp.modified > $1.stamp.modified
+            }
+            return $0.url.lastPathComponent > $1.url.lastPathComponent
+        }.prefix(200)
         var result: [Completed] = []
-        for url in urls.prefix(200) {
-            let name = url.lastPathComponent
-            guard name.hasPrefix("Wivra_Fast_"), name.hasSuffix(".mp4"),
-                  UUID(uuidString: String(name.dropFirst(11).dropLast(4))) != nil,
-                  url.standardizedFileURL.deletingLastPathComponent() == root,
-                  url.resolvingSymlinksInPath().standardizedFileURL
-                    .deletingLastPathComponent() == root,
-                  let info = try? url.resourceValues(forKeys: [
-                    .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
-                  ]),
-                  info.isRegularFile == true, info.isSymbolicLink == false,
-                  let size = info.fileSize, size > 0,
-                  Int64(size) <= WivraRandomAccessExportSession.maxOutputBytes
-            else { continue }
+        for candidate in candidates {
+            let url = candidate.url
+            let initialStamp = candidate.stamp
             guard let metadata = await WivraMp4Repair.inspect(url),
                   metadata.video, metadata.durationMs > 0, metadata.seekIndex,
-                  await Self.compatibleNativeCodecs(url, expectAudio: metadata.audio)
+                  await Self.compatibleNativeCodecs(url, expectAudio: metadata.audio),
+                  Self.recoveryStamp(url, in: root) == initialStamp
             else { continue }
             do {
                 let input = try FileHandle(forReadingFrom: url)
@@ -231,7 +264,8 @@ actor WivraAcceleratedExportStore {
                     digest.update(data: bytes)
                     actualBytes += Int64(bytes.count)
                 }
-                guard actualBytes == Int64(size) else { continue }
+                guard actualBytes == Int64(initialStamp.bytes),
+                      Self.recoveryStamp(url, in: root) == initialStamp else { continue }
                 let sha = digest.finalize().map { String(format: "%02x", $0) }.joined()
                 result.append(Completed(url: url, bytes: actualBytes, sha256: sha,
                     media: WivraRandomAccessExportSession.Media(
@@ -242,7 +276,8 @@ actor WivraAcceleratedExportStore {
                 continue
             }
         }
-        return result.sorted { $0.url.lastPathComponent > $1.url.lastPathComponent }
+        // Newest verified export first, irrespective of random UUID order.
+        return result
     }
 
     func saved(token: Int, owner: String) -> Completed? {
