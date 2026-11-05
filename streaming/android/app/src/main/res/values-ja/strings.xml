@@ -402,4 +402,5 @@
     <string name="slive_on_air_both_mic">配信中 · 画面とカメラ（マイクあり、ローカルMP4なし）。</string>
     <string name="slive_on_air_camera">配信中 · カメラ（音声なし、ローカルMP4なし）。</string>
     <string name="slive_on_air_camera_mic">配信中 · カメラ（マイクあり、ローカルMP4なし）。</string>
+    <string name="plive_preview_description">LIVE用のカメラプレビュー</string>
 </resources>

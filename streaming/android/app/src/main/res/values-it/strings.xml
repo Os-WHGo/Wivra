@@ -402,4 +402,5 @@
     <string name="slive_on_air_both_mic">IN ONDA · schermo e fotocamera (con microfono, senza MP4 locale).</string>
     <string name="slive_on_air_camera">IN ONDA · fotocamera (senza audio, senza MP4 locale).</string>
     <string name="slive_on_air_camera_mic">IN ONDA · fotocamera (con microfono, senza MP4 locale).</string>
+    <string name="plive_preview_description">Anteprima della fotocamera per il LIVE</string>
 </resources>

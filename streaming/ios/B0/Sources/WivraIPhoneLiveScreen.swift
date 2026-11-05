@@ -5,6 +5,7 @@ import HaishinKit
 import Observation
 import RTMPHaishinKit
 import SwiftUI
+import UIKit
 
 /// W78 (Claude): every user text of this screen comes from Localizable.strings
 /// (8 languages). Keys are ios.plive.*; the stream key is never a resource.
@@ -526,6 +527,10 @@ struct WivraIPhoneLiveScreen: View {
             }
             .navigationTitle(wivraLiveText("ios.plive.title"))
             .onAppear { controller.scenes = scenes }
+            // W87 (Claude): VoiceOver hears connection, reconnection and copy changes.
+            .onChange(of: controller.status) { _, text in
+                UIAccessibility.post(notification: .announcement, argument: text)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(wivraLiveText("ios.plive.close")) { Task { await controller.stop(); dismiss() } }

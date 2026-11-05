@@ -402,4 +402,5 @@
     <string name="slive_on_air_both_mic">ON AIR · screen and camera (with microphone, no local MP4).</string>
     <string name="slive_on_air_camera">ON AIR · camera (no audio, no local MP4).</string>
     <string name="slive_on_air_camera_mic">ON AIR · camera (with microphone, no local MP4).</string>
+    <string name="plive_preview_description">Camera preview for LIVE</string>
 </resources>
