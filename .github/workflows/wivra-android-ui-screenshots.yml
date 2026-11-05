@@ -56,10 +56,10 @@ jobs:
             adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
             adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
             mkdir -p "$RUNNER_TEMP/wivra-screens"
-            adb shell am start -W -n com.oswhgo.wivra/.MainActivity; sleep 15; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/1-idioma.png"
-            bash tools/android-tap-text.sh "Español"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
-            bash tools/android-tap-text.sh "Omitir"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
-            bash tools/android-tap-text.sh "Capturar"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
+            adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot tour; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/1-idioma.png"
+            sleep 6; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
+            sleep 8; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
+            sleep 8; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
             for scene in live screen; do adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot "$scene"; sleep 12; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/5-$scene.png"; done
             adb shell am force-stop com.oswhgo.wivra
             ls -la "$RUNNER_TEMP/wivra-screens"
@@ -67,9 +67,10 @@ jobs:
       - name: Small previews in the log (artifact storage is not reachable for every reviewer)
         if: always()
         run: |
+          python3 -m pip install --quiet --user pillow
           for f in "$RUNNER_TEMP"/wivra-screens/*.png; do
             [ -f "$f" ] || continue
-            if command -v magick >/dev/null; then magick "$f" -resize 640x -quality 55 "$RUNNER_TEMP/preview.jpg"; else convert "$f" -resize 640x -quality 55 "$RUNNER_TEMP/preview.jpg"; fi
+            python3 -c 'import sys; from PIL import Image; im = Image.open(sys.argv[1]).convert("RGB"); im.thumbnail((640, 1500)); im.save(sys.argv[2], quality=55)' "$f" "$RUNNER_TEMP/preview.jpg"
             echo "WIVRA-SCREEN-BEGIN $(basename "$f")"; base64 -w0 "$RUNNER_TEMP/preview.jpg"; echo; echo "WIVRA-SCREEN-END"
             rm -f "$RUNNER_TEMP/preview.jpg"
           done

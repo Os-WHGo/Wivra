@@ -257,7 +257,7 @@ public final class MainActivity extends Activity {
     /**
      * W81 (Claude): CI-only screenshots in the Android emulator. Works ONLY in
      * debuggable builds; a release/beta APK ignores the extra completely.
-     * The editor's own screens are reached by tapping, never by touching its data.
+     * The editor's own screens are reached by pressing its buttons, never by touching its data.
      */
     private void applyScreenshotScene() {
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return;
@@ -268,6 +268,16 @@ public final class MainActivity extends Activity {
             startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity"));
         } else if ("screen".equals(scene) && full) {
             startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity"));
+        } else if ("tour".equals(scene)) {
+            // Press the editor's own buttons in order (language, Skip, Capturar),
+            // exactly like a person would; no editor data is read or written.
+            final String[] buttons = {"#langList button[data-l=\"es\"]", "#onbSkip", "#hCapture"};
+            for (int i = 0; i < buttons.length; i++) {
+                final String selector = buttons[i];
+                editor.postDelayed(() -> editor.evaluateJavascript(
+                    "(function(){var b=document.querySelector('" + selector + "');if(b)b.click();})()", null),
+                    6000L + 8000L * i);
+            }
         }
     }
 
