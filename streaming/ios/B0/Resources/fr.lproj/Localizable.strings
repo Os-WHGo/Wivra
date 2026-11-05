@@ -106,3 +106,14 @@
 "ios.capture.share_segment_only" = "Partager seulement ce segment";
 "ios.capture.take_not_finalized" = "Impossible de confirmer que cette prise est complète. Les segments restent dans Wivra, sans assemblage ni publication automatique dans Photos.";
 "ios.capture.dat_signal_interrupted" = "Le signal vidéo Ray-Ban a été interrompu. L'enregistrement a été clôturé pour protéger les fichiers. Les segments peuvent être incomplets.";
+
+"ios.library.multicam_recovery_title" = "Enregistrements à deux caméras en attente";
+"ios.library.multicam_recovery_note" = "Wivra conserve des vidéos d'une capture interrompue. Vérifiez avant de les restaurer dans le montage. Aucun fichier supprimé ou enregistré dans Photos.";
+"ios.library.multicam_verify" = "Vérifier et restaurer";
+"ios.library.multicam_verifying" = "Vérification des pistes et images MOV...";
+"ios.library.multicam_share_unverified" = "Partager le MOV principal non vérifié";
+"ios.library.multicam_share_secondary" = "Partager le second MOV non vérifié";
+"ios.library.multicam_recovered_both" = "Les deux vidéos ont été vérifiées et restaurées dans le montage.";
+"ios.library.multicam_recovered_main" = "Seule la vidéo principale a été restaurée. Le second original reste dans Wivra.";
+"ios.library.multicam_secondary_only" = "Seul le second MOV a pu être vérifié. Aucune importation automatique.";
+"ios.library.multicam_failed" = "La récupération n'a pas pu être vérifiée ou enregistrée. Les originaux sont conservés.";
