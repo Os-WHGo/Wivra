@@ -28,6 +28,9 @@ on:
       - app/accelerated-codec-diagnostic.mjs
       - app/accelerated-codec-diagnostic-ui.mjs
       - app/accelerated-codec-diagnostic-journal.mjs
+      - app/accelerated-codec-matrix.mjs
+      - app/accelerated-codec-matrix-ui.mjs
+      - app/tests/accelerated-codec-matrix.test.mjs
       - app/accelerated-avc-compatibility.mjs
       - tools/browser-accelerated-codec-diagnostic.cjs
       - tools/accelerated-codec-diagnostic.test.cjs
@@ -82,6 +85,7 @@ jobs:
         env:
           DEBUG: pw:browser
         run: |
+          node --test app/tests/accelerated-codec-matrix.test.mjs
           node --test tools/accelerated-codec-diagnostic.test.cjs
           node tools/browser-accelerated-codec-diagnostic.cjs
       - name: Inspect synthetic media tracks using ffprobe
