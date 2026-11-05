@@ -86,12 +86,20 @@ struct WivraMetaB0App: App {
     }
 
     init() {
+        var datConfigured = false
         do {
             try Wearables.configure()
+            datConfigured = true
         } catch {
             NSLog("[WivraMetaB0] DAT configuration failed: %@", error.localizedDescription)
         }
-        _model = State(initialValue: MetaB0Model(wearables: Wearables.shared))
+        if datConfigured {
+            _model = State(initialValue: MetaB0Model(wearables: Wearables.shared))
+        } else {
+            // W80 (Claude): Wearables.shared traps when configure() failed; the app
+            // must still open (iPhone camera, LIVE, editor) with the glasses unavailable.
+            _model = State(initialValue: MetaB0Model(wearables: WivraUnavailableWearables()))
+        }
     }
 
     var body: some Scene {
