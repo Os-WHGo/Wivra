@@ -36,6 +36,8 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private(set) var secondaryLayer: AVCaptureVideoPreviewLayer?
     private var primaryOutput: AVCaptureMovieFileOutput?
     private var secondaryOutput: AVCaptureMovieFileOutput?
+    // Dual capture uses multiple VideoDataOutputs, never two MovieFileOutputs.
+    private var sampleRecorder: WivraMultiCamSampleRecorder?
 
     private(set) var isDual = false
     private(set) var isRunning = false
@@ -101,6 +103,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private func configure(microphone: Bool) {
         primaryLayer = nil; secondaryLayer = nil
         primaryOutput = nil; secondaryOutput = nil
+        sampleRecorder = nil
         isDual = false
         let primaryPos: AVCaptureDevice.Position = frontIsPrimary ? .front : .back
         let secondaryPos: AVCaptureDevice.Position = frontIsPrimary ? .back : .front
@@ -125,6 +128,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             }
             primaryLayer = nil; secondaryLayer = nil
             primaryOutput = nil; secondaryOutput = nil
+        sampleRecorder = nil
         } else if !forceSingle {
             status = first.reason == "multicam-unsupported"
                 ? "Este iPhone no admite dos cámaras a la vez. Se graba con una."
@@ -137,8 +141,17 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                                microphone: Bool) -> Bool {
         s.beginConfiguration()
         defer { s.commitConfiguration() }
-        let mainOut = AVCaptureMovieFileOutput()
-        let insetOut = AVCaptureMovieFileOutput()
+        // iOS 17 permits two AVCaptureVideoDataOutput instances. Apple limits
+        // MovieFileOutput to one output per session: data buffers + AVAssetWriter
+        // are mandatory for two editable originals on one MultiCam clock.
+        let mainOut = AVCaptureVideoDataOutput()
+        let insetOut = AVCaptureVideoDataOutput()
+        for output in [mainOut, insetOut] {
+            output.alwaysDiscardsLateVideoFrames = true
+            output.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            ]
+        }
         let mainLayer = AVCaptureVideoPreviewLayer(sessionWithNoConnection: s)
         let insetLayer = AVCaptureVideoPreviewLayer(sessionWithNoConnection: s)
         for (device, output, layer) in [(main, mainOut, mainLayer), (inset, insetOut, insetLayer)] {
@@ -155,20 +168,34 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             guard s.canAddConnection(preview) else { return false }
             s.addConnection(preview)
         }
+        var audioOut: AVCaptureAudioDataOutput?
         includesAudio = false
         if microphone, let mic = AVCaptureDevice.default(for: .audio),
            let micInput = try? AVCaptureDeviceInput(device: mic), s.canAddInput(micInput) {
             s.addInputWithNoConnections(micInput)
             if let port = micInput.ports(for: .audio, sourceDeviceType: mic.deviceType,
-                                         sourceDevicePosition: .unspecified).first ?? micInput.ports.first(where: { $0.mediaType == .audio }) {
-                let audio = AVCaptureConnection(inputPorts: [port], output: mainOut)
-                if s.canAddConnection(audio) { s.addConnection(audio); includesAudio = true }
+                                         sourceDevicePosition: .unspecified).first ??
+                          micInput.ports.first(where: { $0.mediaType == .audio }) {
+                let output = AVCaptureAudioDataOutput()
+                if s.canAddOutput(output) {
+                    s.addOutputWithNoConnections(output)
+                    let audio = AVCaptureConnection(inputPorts: [port], output: output)
+                    if s.canAddConnection(audio) {
+                        s.addConnection(audio)
+                        audioOut = output
+                        includesAudio = true
+                    }
+                }
             }
         }
         mainLayer.videoGravity = .resizeAspectFill
         insetLayer.videoGravity = .resizeAspectFill
-        primaryLayer = mainLayer; secondaryLayer = insetLayer
-        primaryOutput = mainOut; secondaryOutput = insetOut
+        primaryLayer = mainLayer
+        secondaryLayer = insetLayer
+        primaryOutput = nil
+        secondaryOutput = nil
+        sampleRecorder = WivraMultiCamSampleRecorder(primary: mainOut, secondary: insetOut,
+                                                     microphone: audioOut)
         return true
     }
 
