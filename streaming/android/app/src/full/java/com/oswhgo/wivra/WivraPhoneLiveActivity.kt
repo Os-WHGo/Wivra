@@ -69,6 +69,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private var cameraVideoSource: Camera2Source? = null
     // LIVE scenes (Claude): layers over the camera; sources chosen before going live.
     private lateinit var scenes: WivraLiveSceneController
+    // Reconnection budget for this LIVE (Claude, W75); never stores the key.
+    private var reconnect = WivraLiveReconnect()
     private var pendingFile: File? = null
     private var saveLocalCopy = false
     private var localCopyFinalized = false
@@ -578,6 +580,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             updateAudioChoice()
             localCopyOption.isEnabled = false
             endpointInput.isEnabled = false
+            reconnect = WivraLiveReconnect()
+            runCatching { publisher.getStreamClient().setReTries(WivraLiveReconnect.DELAYS_S.size) }
             publisher.startStream(address)
             scenes.reapply() // e.g. the pause scene mutes the mic chosen just now
             storageHandler.removeCallbacks(storageCheck)
@@ -745,6 +749,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onConnectionSuccess() {
         if (!liveRequested || !initiatedByUser || stopping) return
         connected = true
+        reconnect.connected()
         setStatus(if (saveLocalCopy)
             "EN VIVO. También se está grabando una copia MP4 local."
             else "EN VIVO. Sin copia MP4 local: comprueba el VOD del proveedor."
@@ -753,6 +758,16 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     override fun onConnectionFailed(reason: String) {
         // Some servers embed the full key in error messages.
         if (stopping || !liveRequested) return
+        // W75: retry with the address RootEncoder already holds; the local
+        // MP4 copy keeps recording meanwhile. `reason` is never shown/logged.
+        val delay = reconnect.nextDelayMs()
+        if (delay != null && runCatching { stream?.getStreamClient()?.reTry(delay, reason) == true }.getOrDefault(false)) {
+            connected = false
+            setStatus("Conexión LIVE perdida. Reintento ${reconnect.attempt} de " +
+                "${WivraLiveReconnect.DELAYS_S.size} en ${delay / 1000} s." +
+                if (saveLocalCopy) " La copia MP4 local sigue grabando." else "")
+            return
+        }
         liveRequested = false
         connected = false
         runCatching { if (stream?.isStreaming == true) stream?.stopStream() }

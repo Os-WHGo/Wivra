@@ -31,6 +31,9 @@ final class WivraIPhoneLiveController {
     private var generation = UUID()
     private var preview: MTHKView?
     private var storageMonitor: Task<Void, Never>?
+    // W75 (Claude): watches the RTMP connection while on air and reconnects.
+    private var connectionWatcher: Task<Void, Never>?
+    private(set) var onAir = false
     private let minimumRecordingFreeBytes: Int64 = 256 * 1024 * 1024
 
     var canPrepare: Bool { phase == .idle }
@@ -210,6 +213,8 @@ final class WivraIPhoneLiveController {
             status = saveLocalCopy
                 ? "LIVE activo. MP4 privado en grabación."
                 : "LIVE activo sin copia local. Verifica el VOD de tu plataforma."
+            onAir = true
+            watchConnection(endpoint, liveConnection, liveStream, current, saveLocalCopy)
         } catch {
             // Do not print errors: servers can echo stream keys in their response.
             status = "No se pudo establecer LIVE. Cerrando la copia privada."
@@ -222,6 +227,9 @@ final class WivraIPhoneLiveController {
         phase = .stopping
         storageMonitor?.cancel()
         storageMonitor = nil
+        connectionWatcher?.cancel()
+        connectionWatcher = nil
+        onAir = false
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = "Cerrando LIVE y verificando archivos…"
         await scenes?.detach()
@@ -313,6 +321,60 @@ final class WivraIPhoneLiveController {
         savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
         audioUncertainVideos = uncertainAudio
         status = "Copias MP4 verificadas: \(savedVideos.count). Audio no confirmado en \(uncertainAudio.count). Las demás permanecen privadas."
+    }
+
+    /// A dropped connection used to leave "LIVE activo" on screen with nothing
+    /// on air. Now: detect it, retry with growing pauses (the local MP4 keeps
+    /// recording), and say clearly when it gave up. The endpoint stays in
+    /// memory for this session only and is never shown or logged. — Claude
+    private func watchConnection(_ endpoint: WivraIOSLiveEndpoint, _ connection: RTMPConnection,
+                                 _ liveStream: RTMPStream, _ session: UUID, _ saveLocalCopy: Bool) {
+        connectionWatcher?.cancel()
+        connectionWatcher = Task { [weak self] in
+            var policy = WivraLiveReconnectPolicy()
+            let copyNote = saveLocalCopy ? " La copia MP4 privada sigue grabando." : ""
+            for await event in await connection.status {
+                guard let self, !Task.isCancelled, self.generation == session, self.phase == .live else { return }
+                switch WivraLiveReconnectPolicy.classify(event.code) {
+                case .ignore:
+                    continue
+                case .connected:
+                    policy.connected()
+                    self.onAir = true
+                case .neverRetry:
+                    self.onAir = false
+                    self.status = "El servidor rechazó el LIVE. No se reintenta." + copyNote + " Pulsa Cerrar para terminar."
+                    return
+                case .retry:
+                    // Stale events from earlier attempts are ignored once reconnected.
+                    if await connection.connected { continue }
+                    self.onAir = false
+                    var back = false
+                    while let delay = policy.nextDelaySeconds() {
+                        self.status = "Conexión LIVE perdida. Reintento \(policy.attempt) de " +
+                            "\(WivraLiveReconnectPolicy.delaysSeconds.count) en \(delay) s." + copyNote
+                        try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
+                        guard !Task.isCancelled, self.generation == session, self.phase == .live else { return }
+                        do {
+                            try await connection.connect(endpoint.serverURL)
+                            _ = try await liveStream.publish(endpoint.streamKey)
+                            policy.connected()
+                            self.onAir = true
+                            self.status = "LIVE reconectado." + (saveLocalCopy ? " La copia MP4 no se interrumpió." : "")
+                            back = true
+                            break
+                        } catch {
+                            // Never print the error: servers can echo the key.
+                            continue
+                        }
+                    }
+                    if !back {
+                        self.status = "No se pudo recuperar el LIVE tras varios intentos." + copyNote + " Pulsa Cerrar para terminar."
+                        return
+                    }
+                }
+            }
+        }
     }
 
     private func hasRecordingReserve() -> Bool {

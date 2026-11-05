@@ -105,6 +105,14 @@ jobs:
             streaming/tests/WivraLiveScenePolicySmoke.swift \
             -o /tmp/wivra-live-scene-policy-smoke
           /tmp/wivra-live-scene-policy-smoke
+      - name: Verify LIVE reconnection policy (macOS Swift 6) — Claude W75
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraLiveReconnectPolicy.swift \
+            streaming/tests/WivraLiveReconnectPolicySmoke.swift \
+            -o /tmp/wivra-live-reconnect-smoke
+          /tmp/wivra-live-reconnect-smoke
       - name: Verify Photos save journal integration contracts
         run: node --test streaming/tests/ios-photos-save-journal-contract.test.mjs
       - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)
