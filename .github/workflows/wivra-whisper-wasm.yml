@@ -1,0 +1,86 @@
+name: Wivra Whisper WASM (multilingual, single-thread)
+# W86 (Claude): build whisper.cpp (pinned) to ONE single-file WebAssembly module for the
+# editor's Web Worker, print its SHA-256 (and a copy for vendoring), then compare the
+# multilingual Base Q5_1 and Tiny Q5_1 models in Node on an English and a Spanish sample.
+# Linux/Node timings are NOT mobile evidence. No English-only model is used.
+on:
+  pull_request:
+    paths:
+      - 'tools/whisper-wasm/**'
+      - 'app/vendor/whisper/**'
+      - '.github/workflows/wivra-whisper-wasm.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  WHISPER_COMMIT: 0c7be696371069e0baa2515ed7aa08d5a5473aa6
+  EMSDK_VERSION: 3.1.74
+  HF_REV: 5359861
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pinned Emscripten SDK
+        run: |
+          set -eu
+          git clone --quiet --depth 1 https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+          /tmp/emsdk/emsdk install "$EMSDK_VERSION" >/tmp/emsdk.log
+          /tmp/emsdk/emsdk activate "$EMSDK_VERSION" >/dev/null
+      - name: Pinned whisper.cpp
+        run: |
+          set -eu
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/whisper.cpp.git /tmp/whisper
+          git -C /tmp/whisper checkout --quiet "$WHISPER_COMMIT"
+      - name: Build static libraries and the single-file module
+        run: |
+          set -eu
+          source /tmp/emsdk/emsdk_env.sh >/dev/null
+          emcmake cmake -S /tmp/whisper -B /tmp/wb -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF \
+            -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DCMAKE_C_FLAGS=-msimd128 -DCMAKE_CXX_FLAGS=-msimd128 >/tmp/cmake.log
+          cmake --build /tmp/wb -j 4 >/tmp/build.log
+          libs=$(find /tmp/wb -name '*.a' | sort | tr '\n' ' ')
+          echo "libs: $libs"
+          mkdir -p out
+          em++ -O3 -msimd128 -std=c++17 -I/tmp/whisper/include -I/tmp/whisper/ggml/include \
+            tools/whisper-wasm/wivra_whisper.cpp $libs -o out/wivra-whisper.js \
+            --bind -sSINGLE_FILE=1 -sMODULARIZE=1 -sEXPORT_NAME=createWivraWhisper \
+            -sENVIRONMENT=web,worker,node -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sMAXIMUM_MEMORY=2GB \
+            -sEXPORTED_FUNCTIONS=_malloc,_free -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32 -sFILESYSTEM=0 -sASSERTIONS=0
+          ls -la out
+          sha256sum out/wivra-whisper.js | tee out/SHA256
+      - name: Copy of the module in the log for vendoring (base64 between markers)
+        run: |
+          echo "WIVRA-WASM-BEGIN"; gzip -9n -c out/wivra-whisper.js | base64 -w0; echo; echo "WIVRA-WASM-END"
+      - name: Compare with the vendored module, when present
+        run: |
+          if [ -f app/vendor/whisper/wivra-whisper.js ]; then
+            sha256sum app/vendor/whisper/wivra-whisper.js
+            cmp out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js && echo "vendored module is byte-identical to this build"
+          fi
+      - name: Multilingual models (pinned revision) and their SHA-256
+        run: |
+          set -eu
+          for m in tiny base; do
+            curl --fail --location --retry 2 --silent --show-error --max-time 300 \
+              "https://huggingface.co/ggerganov/whisper.cpp/resolve/$HF_REV/ggml-$m-q5_1.bin" -o "/tmp/ggml-$m-q5_1.bin"
+            printf 'model %s q5_1 bytes=%s sha256=%s\n' "$m" "$(stat -c %s /tmp/ggml-$m-q5_1.bin)" "$(sha256sum /tmp/ggml-$m-q5_1.bin | cut -d' ' -f1)"
+          done
+      - name: English and Spanish samples (16 kHz mono)
+        run: |
+          set -eu
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng ffmpeg >/dev/null
+          cp /tmp/whisper/samples/jfk.wav /tmp/en.wav
+          espeak-ng -v es -s 140 -w /tmp/es-raw.wav "Hola, bienvenidos a Wivra. Hoy grabamos un video corto en la montaña."
+          ffmpeg -loglevel error -y -i /tmp/es-raw.wav -ar 16000 -ac 1 -c:a pcm_s16le /tmp/es.wav
+      - name: Tiny multilingual
+        run: node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/ggml-tiny-q5_1.bin tiny-q5_1 /tmp/en.wav en country,ask /tmp/es.wav es hola,video
+      - name: Base multilingual
+        run: node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/ggml-base-q5_1.bin base-q5_1 /tmp/en.wav en country,ask /tmp/es.wav es hola,video
+      - name: Language detection (auto) with Base
+        run: node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/ggml-base-q5_1.bin base-auto /tmp/es.wav auto hola
