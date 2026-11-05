@@ -75,6 +75,15 @@ jobs:
             streaming/tests/WivraMultiCamPolicySmoke.swift \
             -o /tmp/wivra-multicam-policy-smoke
           /tmp/wivra-multicam-policy-smoke
+      - name: Verify iOS LIVE scene layout (macOS Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/ios/B0/Sources/WivraLiveScenePolicy.swift \
+            streaming/tests/WivraLiveScenePolicySmoke.swift \
+            -o /tmp/wivra-live-scene-policy-smoke
+          /tmp/wivra-live-scene-policy-smoke
       - name: Verify Photos save journal integration contracts
         run: node --test streaming/tests/ios-photos-save-journal-contract.test.mjs
       - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)
