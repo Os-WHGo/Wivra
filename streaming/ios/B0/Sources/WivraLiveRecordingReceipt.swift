@@ -31,19 +31,27 @@ enum WivraLiveRecordingReceipt {
     }
 
     /// Write BEFORE starting StreamRecorder, never after publishing RTMP.
-    /// An orphan receipt is harmless; the user-owned video is never deleted.
+    /// A receipt is write-once: a restarted/duplicate start must not downgrade
+    /// a previous audio-required intent to video-only. Stage a complete private
+    /// file first, then link it to its final name without replacing any existing
+    /// receipt. The temporary file and the destination live on the same volume.
     static func stage(audioRequired: Bool, for video: URL, in folder: URL) throws {
         guard let receipt = checkedReceiptURL(for: video, in: folder) else {
             throw ReceiptError.invalidVideoPath
         }
         let bytes = try JSONEncoder().encode(Record(schemaVersion: 1,
                                                     audioRequired: audioRequired))
-        try bytes.write(to: receipt, options: [.atomic])
+        let temporary = folder.appendingPathComponent(".wivra-live-\(UUID().uuidString).tmp")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try bytes.write(to: temporary, options: [.atomic])
         #if os(iOS)
         try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-            ofItemAtPath: receipt.path)
+            ofItemAtPath: temporary.path)
         #endif
+        // Hard-link creation fails when destination exists (even a symlink).
+        // Never use moveItem or atomic rename here: those may replace receipts.
+        try FileManager.default.linkItem(at: temporary, to: receipt)
     }
 
     /// Missing/corrupt/symlinked legacy metadata is UNKNOWN, never a
