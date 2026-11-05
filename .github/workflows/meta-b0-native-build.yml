@@ -87,6 +87,15 @@ jobs:
             streaming/tests/WivraMultiCamRecoveryPolicySmoke.swift \
             -o /tmp/wivra-multicam-recovery-policy
           /tmp/wivra-multicam-recovery-policy
+      - name: Verify W70 recovery manifest cannot overwrite existing metadata (macOS Swift 6)
+        run: |
+          set -eu
+          node --test streaming/tests/ios-multicam-orphan-recovery.test.mjs
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/tests/WivraCaptureWriteOnceSmoke.swift \
+            -o /tmp/wivra-write-once-smoke
+          /tmp/wivra-write-once-smoke
       - name: Verify iOS LIVE scene layout (macOS Swift 6) — Claude
         run: |
           set -eu
