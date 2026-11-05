@@ -256,3 +256,6 @@
 "ios.home.tab_projects" = "Projetos";
 "ios.home.tab_ai" = "IA";
 "ios.home.made_by" = "Um projeto de";
+"ios.plive.preview_placeholder" = "Prepare a câmera para ver a pré-visualização aqui.";
+"ios.plive.on_air_badge" = "● AO VIVO";
+"ios.plive.preview_badge" = "Pré-visualização";

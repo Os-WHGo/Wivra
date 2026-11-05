@@ -256,3 +256,6 @@
 "ios.home.tab_projects" = "プロジェクト";
 "ios.home.tab_ai" = "AI";
 "ios.home.made_by" = "制作";
+"ios.plive.preview_placeholder" = "カメラを準備すると、ここにプレビューが表示されます。";
+"ios.plive.on_air_badge" = "● 配信中";
+"ios.plive.preview_badge" = "プレビュー";
