@@ -8,6 +8,8 @@ on:
       - app/template.html
       - app/build.mjs
       - core/multicam-plan.mjs
+      - app/export.mjs
+      - tools/browser-capture-to-export.cjs
       - tools/browser-multicam-import.cjs
       - .github/workflows/wivra-multicam-editor-import.yml
   workflow_dispatch:
@@ -32,3 +34,5 @@ jobs:
         run: node app/build.mjs
       - name: Import two-camera bundles (valid, earlier start, unknown offset, missing, unreadable, corrupt, single)
         run: node tools/browser-multicam-import.cjs
+      - name: W75 end-to-end capture → editor → stable export (PiP pixels, main-camera audio, duration)
+        run: node tools/browser-capture-to-export.cjs
