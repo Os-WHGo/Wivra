@@ -65,3 +65,11 @@ test('bundled-editor checks ignore only the "#…" screen route, never the file 
   assert.match(editor, /guard let url = navigationAction\.request\.url\?\.wivraWithoutFragment else/);
   assert.match(editor, /let requestURL = frame\.request\.url\?\.wivraWithoutFragment,/);
 });
+
+test('a failed Meta DAT configuration no longer quits the app at launch', () => {
+  const stub = src('WivraUnavailableWearables.swift');
+  assert.match(app, /if datConfigured \{\s+_model = State\(initialValue: MetaB0Model\(wearables: Wearables\.shared\)\)\s+\} else \{[\s\S]*?MetaB0Model\(wearables: WivraUnavailableWearables\(\)\)/);
+  assert.match(stub, /var registrationState: MWDATCore\.RegistrationState \{ \.unavailable \}/);
+  assert.match(stub, /var devices: \[MWDATCore\.DeviceIdentifier\] \{ \[\] \}/);
+  assert.doesNotMatch(stub, /\.granted|\.registered\b/, 'never fakes a device, registration or permission');
+});
