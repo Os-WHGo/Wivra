@@ -3,9 +3,20 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=name=>readFileSync(new URL('../ios/B0/Sources/'+name,import.meta.url),'utf8');
 const recovery=source('WivraMultiCamRecoveryStore.swift');
+const manifest=source('WivraCaptureManifest.swift');
 const policy=source('WivraMultiCamRecoveryPolicy.swift');
 const capture=source('WivraMultiCamCapture.swift');
 const library=source('WivraNativeCaptureLibrary.swift');
+
+test('W70: immutable verified receipt and race-safe capture catalog publishing',()=>{
+  assert.match(recovery,/receiptDigest: Data/);
+  assert.match(recovery,/SHA256\.hash\(data: data\)/);
+  assert.match(recovery,/digest\(candidate\.receiptURL, in: folder\) == candidate\.receiptDigest/g);
+  assert.match(recovery,/writeOnce: true/);
+  assert.match(manifest,/writeOnce: Bool = false/);
+  assert.match(manifest,/FileManager\.default\.linkItem\(at: temporary, to: result\)/);
+  assert.match(manifest,/defer \{ try\? FileManager\.default\.removeItem\(at: temporary\) \}/);
+});
 
 test('W69: only app-generated MOV receipts in the private directory can be considered',()=>{
   assert.match(recovery,/WivraIPhoneMedia/);
