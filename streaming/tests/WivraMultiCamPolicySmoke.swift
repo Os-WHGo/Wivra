@@ -37,14 +37,14 @@ struct WivraMultiCamPolicySmoke {
             secondaryFile: "Wivra_B.mov", secondaryPosition: "front", secondaryOffsetMs: 41.5,
             offsetSource: "didStartRecording-callback", audio: "primary", corner: .bottomRight,
             continuation: false, primaryStatus: .kept, secondaryStatus: .needsReview)
-        let url = try WivraMultiCamTakeManifest.write(manifest, next: movie)
+        let url = try WivraMultiCamTakeManifest.write(manifest, beside: movie)
         check(url.lastPathComponent == "Wivra_A.multicam.json", "manifest next to movie")
         let back = try JSONDecoder().decode(WivraMultiCamTakeManifest.self, from: Data(contentsOf: url))
         check(back == manifest, "manifest round trip")
         let text = try String(contentsOf: url, encoding: .utf8)
         check(text.contains("\"secondaryStatus\":\"needs-review\"") && text.contains("\"schema\":\"wivra-multicam-take-v1\""), "stable JSON names")
         do {
-            _ = try WivraMultiCamTakeManifest.write(manifest, next: dir.appendingPathComponent(".mov"))
+            _ = try WivraMultiCamTakeManifest.write(manifest, beside: dir.appendingPathComponent(".mov"))
             check(false, "hidden name rejected")
         } catch { check(true, "hidden name rejected") }
     }

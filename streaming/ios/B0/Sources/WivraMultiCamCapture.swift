@@ -308,7 +308,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                 secondaryOffsetMs: offset, offsetSource: "didStartRecording-callback",
                 audio: includesAudio ? "primary" : "none", corner: corner,
                 continuation: continuation, primaryStatus: mainStatus, secondaryStatus: insetStatus)
-            _ = try? WivraMultiCamTakeManifest.write(manifest, next: a)
+            _ = try? WivraMultiCamTakeManifest.write(manifest, beside: a)
             savedTakes.append(a)
         }
         status = mainStatus == .kept ? "Toma guardada en el iPhone (Capturas)."

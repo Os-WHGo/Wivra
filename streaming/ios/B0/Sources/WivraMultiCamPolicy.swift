@@ -82,7 +82,7 @@ struct WivraMultiCamTakeManifest: Codable, Equatable, Sendable {
     let primaryStatus: WivraMultiCamTakeStatus
     let secondaryStatus: WivraMultiCamTakeStatus?
 
-    static func write(_ manifest: WivraMultiCamTakeManifest, next to movie: URL) throws -> URL {
+    static func write(_ manifest: WivraMultiCamTakeManifest, beside movie: URL) throws -> URL {
         let safe = movie.deletingPathExtension().lastPathComponent
         guard !safe.isEmpty, !safe.contains("/"), !safe.hasPrefix(".") else {
             throw CocoaError(.fileWriteInvalidFileName)
