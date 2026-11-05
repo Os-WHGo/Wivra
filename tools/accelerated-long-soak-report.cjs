@@ -34,6 +34,21 @@ function validateAcceleratedSoakReport(report,minutes){
    Math.abs(report.containerInspection.durationMs-seconds*1000)<=300,'container/seek');
  requireQA(report.scenes?.firstOrange===true&&report.scenes.secondBlue===true&&
    report.scenes.preservedBlackGap===true,'visual parity');
+ // W72: independently decode the final scene change, not only a header's
+ // duration/frame count. The last two of 120 clips alternate orange -> blue.
+ // A synthetic report is still never accepted as physical mobile evidence.
+ const tail=report.scenes.tailTransition;
+ const safeRGB=rgb=>Array.isArray(rgb)&&rgb.length===3&&
+   rgb.every(n=>Number.isInteger(n)&&n>=0&&n<=255);
+ const previousAtSeconds=seconds-seconds/120-.25,finalAtSeconds=seconds-.25;
+ requireQA(tail&&finite(tail.previousAtSeconds)&&finite(tail.finalAtSeconds)&&
+   Math.abs(tail.previousAtSeconds-previousAtSeconds)<.001&&
+   Math.abs(tail.finalAtSeconds-finalAtSeconds)<.001&&
+   safeRGB(tail.previousRGB)&&safeRGB(tail.finalRGB)&&
+   tail.previousOrange===true&&tail.finalBlue===true&&
+   tail.previousRGB[0]>tail.previousRGB[2]+25&&
+   tail.finalRGB[2]>tail.finalRGB[0]+25,
+   'last transition and final decoded picture');
  requireQA(finite(report.audio?.voiceGap)&&report.audio.voiceGap<.02&&
    finite(report.audio.voiceAfter)&&report.audio.voiceAfter>.015&&
    finite(report.audio.voiceTail)&&report.audio.voiceTail>.015&&
@@ -68,7 +83,8 @@ function validateAcceleratedSoakReport(report,minutes){
    audioBlocks:result.audioBlocks,outputBytes:result.outputBytes,
    voiceRmsMin:Number(Math.min(report.audio.voiceAfter,report.audio.voiceTail).toFixed(4)),
    musicRmsMin:Number(Math.min(report.audio.musicStart,report.audio.musicMid,report.audio.musicTail).toFixed(4)),
-   ffprobeSeconds:report.ffprobe.duration};
+   ffprobeSeconds:report.ffprobe.duration,
+   lastDecodedSeconds:tail.finalAtSeconds};
 }
 function validateAcceleratedSoakDirectory(directory){
  return MINUTES.map(minutes=>validateAcceleratedSoakReport(
@@ -79,11 +95,12 @@ if(require.main===module){
  try{
   const rows=validateAcceleratedSoakDirectory(process.argv[2]||'.');
   const summary=['### Wivra Linux QA: four validated long-form evidence files',
-   '| Video | Render (s) | Peak RSS (MiB) | CPU lifetime % | Samples | Frames | Audio blocks | Bytes | Voice RMS min | Music RMS min |',
-   '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
+   '| Video | Render (s) | Peak RSS (MiB) | CPU lifetime % | Samples | Frames | Audio blocks | Bytes | Voice RMS min | Music RMS min | Last decoded video (s) |',
+   '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
    ...rows.map(x=>'| '+x.minutes+' min | '+x.renderSeconds+' | '+x.peakRssMiB+
     ' | '+x.cpuLifetimePct+' | '+x.samples+' | '+x.frames+' | '+x.audioBlocks+
-    ' | '+x.outputBytes+' | '+x.voiceRmsMin+' | '+x.musicRmsMin+' |'),
+    ' | '+x.outputBytes+' | '+x.voiceRmsMin+' | '+x.musicRmsMin+
+    ' | '+x.lastDecodedSeconds+' |'),
    '',
    'Chromium/Linux WebM VP9/Opus, NOT mobile H264/AAC MP4, physical Ray-Ban, iOS or Android.',''].join('\n');
   process.stdout.write(summary+'\n');
