@@ -78,6 +78,8 @@ class WivraScreenLiveService : Service(), ConnectChecker {
     private var publisher: RtmpStream? = null
     private var projection: MediaProjection? = null
     private var stopping = false
+    // Reconnection budget (Claude, W75); RootEncoder keeps the URL in memory.
+    private var reconnect = WivraLiveReconnect()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -187,6 +189,8 @@ class WivraScreenLiveService : Service(), ConnectChecker {
         streaming = false
         statusMessage = "Conectando pantalla LIVE al servidor remoto…"
         showNotification()
+        reconnect = WivraLiveReconnect()
+        runCatching { stream.getStreamClient().setReTries(WivraLiveReconnect.DELAYS_S.size) }
         stream.startStream(request.rtmpUrl)
         // No publication is claimed until onConnectionSuccess().
     }
@@ -227,15 +231,26 @@ class WivraScreenLiveService : Service(), ConnectChecker {
         main.post {
             if (!active || stopping) return@post
             streaming = true
+            reconnect.connected()
             statusMessage = "EN VIVO · pantalla compartida (sin audio ni MP4 local)."
             showNotification()
         }
     }
     override fun onConnectionFailed(reason: String) {
         // reason may contain the RTMP URL/key.
-        main.post { if (!stopping) stopCapture(
-            "No se pudo conectar LIVE. No existe copia local; revisa el VOD remoto."
-        ) }
+        main.post {
+            if (stopping || !active) return@post
+            val delay = reconnect.nextDelayMs()
+            if (delay != null && runCatching { publisher?.getStreamClient()?.reTry(delay, reason) == true }.getOrDefault(false)) {
+                streaming = false
+                statusMessage = "Conexión perdida. Reintento ${reconnect.attempt} de " +
+                    "${WivraLiveReconnect.DELAYS_S.size} en ${delay / 1000} s."
+                showNotification()
+                return@post
+            }
+            stopCapture(
+            "No se pudo conectar LIVE. No existe copia local; revisa el VOD remoto.")
+        }
     }
     override fun onDisconnect() {
         main.post { if (!stopping) stopCapture(
