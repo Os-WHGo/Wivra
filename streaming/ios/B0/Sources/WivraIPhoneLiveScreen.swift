@@ -59,7 +59,8 @@ final class WivraIPhoneLiveController {
                 return
             }
         }
-        let capture = MediaMixer()
+        // Scenes mix the video's sound as a second audio track (Claude).
+        let capture = MediaMixer(multiTrackAudioMixingEnabled: scenes?.enabled == true)
         do {
             if microphone {
                 let audioSession = AVAudioSession.sharedInstance()
