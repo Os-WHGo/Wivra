@@ -231,23 +231,27 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     }
 
     private func startRecording(isContinuation: Bool) {
-        guard isRunning, !isFinishing, let main = primaryOutput else { return }
+        guard isRunning, !isFinishing else { return }
+        guard (isDual ? sampleRecorder != nil : primaryOutput != nil) else { return }
         do {
+            // Resolve both fresh paths before starting either writer.
+            let a = try Self.nextURL()
+            let b = isDual ? try Self.nextURL() : nil
             takeIndex += 1
             continuation = isContinuation
             ownerStopped = false
-            let a = try Self.nextURL()
             primaryURL = a
-            pending = [a: (nil, false, false)]
-            main.startRecording(to: a, recordingDelegate: self)
-            if isDual, let inset = secondaryOutput {
-                let b = try Self.nextURL()
-                secondaryURL = b
-                pending[b] = (nil, false, false)
-                inset.startRecording(to: b, recordingDelegate: self)
-            } else { secondaryURL = nil }
+            secondaryURL = b
+            if isDual, let sink = sampleRecorder, let b {
+                pending = [:]
+                sink.start(primary: a, secondary: b, audioRequired: includesAudio)
+            } else if let output = primaryOutput {
+                pending = [a: (nil, false, false)]
+                output.startRecording(to: a, recordingDelegate: self)
+            } else { return }
             isRecording = true
-            status = isContinuation ? "REC · sigue con una cámara (toma nueva)" : (isDual ? "REC · dos cámaras" : "REC · una cámara")
+            status = isContinuation ? "REC · sigue con una cámara (toma nueva)" :
+                (isDual ? "REC · dos cámaras" : "REC · una cámara")
         } catch {
             status = "No se pudo crear el archivo: " + error.localizedDescription
         }
@@ -258,8 +262,13 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         ownerStopped = owner
         isFinishing = true
         status = "Cerrando los archivos en el iPhone…"
-        primaryOutput?.stopRecording()
-        secondaryOutput?.stopRecording()
+        if isDual, let sink = sampleRecorder {
+            sink.finish { [weak self] result in
+                Task { @MainActor [weak self] in self?.finishedSamples(result) }
+            }
+        } else {
+            primaryOutput?.stopRecording()
+        }
     }
 
     /// Session interruption, runtime error or device loss (see the screen's
