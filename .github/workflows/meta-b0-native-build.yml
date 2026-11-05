@@ -67,6 +67,14 @@ jobs:
             streaming/tests/WivraRandomAccessExportSmoke.swift \
             -o /tmp/wivra-random-v2-smoke
           /tmp/wivra-random-v2-smoke
+      - name: Verify iOS multicamera policy and pair receipt (macOS Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/tests/WivraMultiCamPolicySmoke.swift \
+            -o /tmp/wivra-multicam-policy-smoke
+          /tmp/wivra-multicam-policy-smoke
       - name: Verify Photos save journal integration contracts
         run: node --test streaming/tests/ios-photos-save-journal-contract.test.mjs
       - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)

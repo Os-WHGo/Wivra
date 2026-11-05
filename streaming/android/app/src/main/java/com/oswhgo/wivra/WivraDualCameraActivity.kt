@@ -69,7 +69,7 @@ class WivraDualCameraActivity : ComponentActivity() {
     private lateinit var soundButton: Button
     private lateinit var takesButton: Button
 
-    private val mainExecutor by lazy { ContextCompat.getMainExecutor(this) }
+    private val uiExecutor by lazy { ContextCompat.getMainExecutor(this) }
     private val verifyExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
     private var videoCapture: VideoCapture<Recorder>? = null
@@ -163,7 +163,7 @@ class WivraDualCameraActivity : ComponentActivity() {
         future.addListener({
             provider = try { future.get() } catch (_: Exception) { null }
             if (provider == null) message(R.string.phone_camera_start_failed) else bindCameras()
-        }, mainExecutor)
+        }, uiExecutor)
     }
 
     /** Back + front from a pair THIS phone reports; null when there is none. */
@@ -313,7 +313,7 @@ class WivraDualCameraActivity : ComponentActivity() {
             finishing = false
             currentTake = take
             takes.add(take)
-            activeRecording = configured.start(mainExecutor) { event ->
+            activeRecording = configured.start(uiExecutor) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> message(
                         if (continuation) R.string.dual_camera_recording_continued
@@ -351,7 +351,7 @@ class WivraDualCameraActivity : ComponentActivity() {
                 WivraCaptureMediaVerifier.verifyFile(take.file, root).valid
             val result = WivraMulticamPolicy.classifyTake(bytes, verified)
             if (result == WivraMulticamPolicy.TakeStatus.EMPTY && bytes == 0L) take.file.delete()
-            mainExecutor.execute {
+            uiExecutor.execute {
                 take.status = result
                 if (activeRecording == null) message(when (result) {
                     WivraMulticamPolicy.TakeStatus.KEPT -> R.string.dual_camera_take_kept
@@ -421,7 +421,7 @@ class WivraDualCameraActivity : ComponentActivity() {
             .setPositiveButton(R.string.dual_camera_save) { _, _ ->
                 verifyExecutor.execute {
                     val ok = try { WivraPhoneMediaStore.publish(this, take.file); true } catch (_: Exception) { false }
-                    mainExecutor.execute {
+                    uiExecutor.execute {
                         if (ok) takes.remove(take)
                         message(if (ok) R.string.dual_camera_saved else R.string.dual_camera_save_failed)
                         refreshControls()
