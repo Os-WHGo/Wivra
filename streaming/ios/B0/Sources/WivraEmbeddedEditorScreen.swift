@@ -43,7 +43,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard pendingFileSelection == nil,
               frame.isMainFrame,
-              let requestURL = frame.request.url,
+              let requestURL = frame.request.url?.wivraWithoutFragment,
               requestURL.isFileURL,
               approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
               let presenter = visiblePresenter(for: webView) else {
@@ -232,7 +232,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-        guard let url = navigationAction.request.url else {
+        guard let url = navigationAction.request.url?.wivraWithoutFragment else {
             decisionHandler(.cancel)
             return
         }
@@ -259,7 +259,22 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     }
 }
 
+/// W80 (Claude): which editor screen the native home opens. Fixed values only.
+enum WivraEditorRoute: String {
+    case home = ""
+    case newProject = "#new"
+    case director = "#new-director"
+    case aiChat = "#new-ai"
+}
+
+extension Notification.Name {
+    /// Posted by the editor bridge when the editor's home asks for Capturar or LIVE.
+    static let wivraOpenNative = Notification.Name("WivraOpenNativeScreen")
+}
+
 private struct WivraEditorWebView: UIViewRepresentable {
+    var route: WivraEditorRoute = .home
+
     func makeCoordinator() -> WivraEditorNavigationPolicy {
         WivraEditorNavigationPolicy()
     }
@@ -285,10 +300,23 @@ private struct WivraEditorWebView: UIViewRepresentable {
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
               verifyFile: ({id, file}) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'capture.verifyFile', sessionId: id, file}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
-              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId})
+              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId}),
+              openNative: (what) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.openNative', what})
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
+        // Native home → a given editor screen, once per editor session. No
+        // navigation: history.replaceState only sets the start hash.
+        if route != .home {
+            configuration.userContentController.addUserScript(WKUserScript(source: """
+                try {
+                  if (!sessionStorage.getItem('wivra.nativeRoute')) {
+                    sessionStorage.setItem('wivra.nativeRoute', '1');
+                    if (!location.hash) history.replaceState(null, '', '\(route.rawValue)');
+                  }
+                } catch (e) {}
+                """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         configuration.userContentController.addScriptMessageHandler(
             WivraEditorNativeBridge(), contentWorld: .page, name: "wivraNative")
         // Progressive export: editor chunks are written to a local file as they are
@@ -368,12 +396,13 @@ private struct WivraCaptureSearchView: View {
 
 struct WivraEmbeddedEditorScreen: View {
     @Environment(\.dismiss) private var dismiss
+    var route: WivraEditorRoute = .home
 
     var body: some View {
         NavigationStack {
             Group {
                 if Bundle.main.url(forResource: "agentcut", withExtension: "html") != nil {
-                    WivraEditorWebView()
+                    WivraEditorWebView(route: route)
                         .ignoresSafeArea(edges: .bottom)
                         .accessibilityIdentifier("wivra_unified_embedded_editor")
                 } else {

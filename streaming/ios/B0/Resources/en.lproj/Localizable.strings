@@ -231,3 +231,27 @@
 "ios.plive.photos_needs_review" = "Earlier save not confirmed. Check Photos before deciding.";
 "ios.plive.photos_present" = "It's already in Photos";
 "ios.plive.photos_checking" = "Checking Photos history…";
+
+/* Native home (Claude, W80) */
+"ios.home.question" = "What do you want to create today?";
+"ios.home.new_project" = "New project";
+"ios.home.new_project_sub" = "Video editor";
+"ios.home.director" = "AI Director";
+"ios.home.director_sub" = "Scripts and ideas";
+"ios.home.capture" = "Capture";
+"ios.home.capture_sub" = "iPhone camera";
+"ios.home.rayban" = "Ray-Ban Meta";
+"ios.home.rayban_sub" = "Capture with the glasses";
+"ios.home.live" = "LIVE";
+"ios.home.live_sub" = "Stream live";
+"ios.home.chat" = "AI chat";
+"ios.home.chat_sub" = "Ask the editor for changes";
+"ios.home.library" = "Library";
+"ios.home.captures" = "My captures";
+"ios.home.captures_sub" = "Recordings saved on the iPhone";
+"ios.home.exports" = "My exports";
+"ios.home.exports_sub" = "Finished videos to share";
+"ios.home.privacy" = "Your videos stay on the iPhone. Only LIVE or your AI send anything, and you are always told.";
+"ios.home.tab_home" = "Home";
+"ios.home.tab_projects" = "Projects";
+"ios.home.tab_ai" = "AI";

@@ -16,7 +16,7 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard message.frameInfo.isMainFrame,
               message.frameInfo.request.url?.isFileURL == true,
               approved?.standardizedFileURL ==
-                message.frameInfo.request.url?.standardizedFileURL,
+                message.frameInfo.request.url?.wivraWithoutFragment.standardizedFileURL,
               let body = message.body as? [String: Any],
               body["version"] as? Int == 1,
               let method = body["method"] as? String else {
@@ -35,6 +35,15 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 "gps": "not_requested",
                 "paidServices": false
             ], nil)
+        case "host.openNative":
+            // W80 (Claude): the editor home asks to OPEN an existing native
+            // screen. It never starts capture or LIVE; consent stays there.
+            guard let what = body["what"] as? String, what == "live" || what == "capture" else {
+                replyHandler(nil, "Pantalla no disponible.")
+                return
+            }
+            NotificationCenter.default.post(name: .wivraOpenNative, object: nil, userInfo: ["what": what])
+            replyHandler(["opened": what], nil)
         case "capture.verifyFile":
             guard let id = body["sessionId"] as? String,
                   id.range(of: #"^[0-9a-f]{32}$"#, options: .regularExpression) != nil,

@@ -231,3 +231,27 @@
 "ios.plive.photos_needs_review" = "Enregistrement précédent non confirmé. Vérifiez Photos avant de décider.";
 "ios.plive.photos_present" = "Elle est déjà dans Photos";
 "ios.plive.photos_checking" = "Vérification de l’historique de Photos…";
+
+/* Native home (Claude, W80) */
+"ios.home.question" = "Que voulez-vous créer aujourd’hui ?";
+"ios.home.new_project" = "Nouveau projet";
+"ios.home.new_project_sub" = "Éditeur vidéo";
+"ios.home.director" = "Réalisateur IA";
+"ios.home.director_sub" = "Scénarios et idées";
+"ios.home.capture" = "Capturer";
+"ios.home.capture_sub" = "Caméra de l’iPhone";
+"ios.home.rayban" = "Ray-Ban Meta";
+"ios.home.rayban_sub" = "Filmer avec les lunettes";
+"ios.home.live" = "LIVE";
+"ios.home.live_sub" = "Diffuser en direct";
+"ios.home.chat" = "Chat IA";
+"ios.home.chat_sub" = "Demandez des changements à l’éditeur";
+"ios.home.library" = "Bibliothèque";
+"ios.home.captures" = "Mes captures";
+"ios.home.captures_sub" = "Enregistrements sur l’iPhone";
+"ios.home.exports" = "Mes exports";
+"ios.home.exports_sub" = "Vidéos terminées à partager";
+"ios.home.privacy" = "Vos vidéos restent sur l’iPhone. Seuls le LIVE ou votre IA envoient quelque chose, toujours avec un avis.";
+"ios.home.tab_home" = "Accueil";
+"ios.home.tab_projects" = "Projets";
+"ios.home.tab_ai" = "IA";
