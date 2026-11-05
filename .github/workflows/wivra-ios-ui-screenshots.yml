@@ -61,6 +61,20 @@ jobs:
           done
           xcrun simctl terminate "$udid" com.oswhgo.WivraMetaB0 || true
           ls -la "$RUNNER_TEMP/wivra-screens"
+          # If the app quit by itself, show why (crash report header + app log).
+          for report in "$HOME"/Library/Logs/DiagnosticReports/WivraMetaB0*; do
+            [ -f "$report" ] || continue
+            echo "== crash report: $report"; head -c 6000 "$report"; echo
+          done
+          xcrun simctl spawn "$udid" log show --last 4m --style compact \
+            --predicate 'process == "WivraMetaB0"' 2>/dev/null | tail -60 || true
+          # Small JPEG copies in the log, so a reviewer without artifact access
+          # can still see the screens (decode the base64 between the markers).
+          for f in "$RUNNER_TEMP"/wivra-screens/*.png; do
+            sips -Z 640 -s format jpeg -s formatOptions 55 "$f" --out "$RUNNER_TEMP/preview.jpg" >/dev/null
+            echo "WIVRA-SCREEN-BEGIN $(basename "$f")"; base64 -i "$RUNNER_TEMP/preview.jpg" | tr -d '\n'; echo; echo "WIVRA-SCREEN-END"
+            rm -f "$RUNNER_TEMP/preview.jpg"
+          done
           # Only PNG files may leave the runner.
           test -z "$(find "$RUNNER_TEMP/wivra-screens" -type f ! -name '*.png')"
       - name: Upload screenshots (PNG only)
