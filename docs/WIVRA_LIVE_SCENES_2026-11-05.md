@@ -44,8 +44,8 @@ Reglas comunes (`core/live-scenes.mjs`):
 
 - Core 118/118 y streaming 435/435 en local.
 - JVM `WivraLiveScenesTest` 3/3 en local.
-- Prueba de humo de iOS en Swift 6: se ejecuta en el CI.
-- CI de Android en `8bc70dc`: compilación de las variantes full y capture, y pruebas unitarias, en verde.
+- CI en `4fe792b`: **8/8 workflows en verde**: Android (variantes full y capture, pruebas unitarias), iOS (prueba de humo de escenas en Swift 6, Simulator y arm64 genérico), Preflight, Beta Assembly (sin paquetes), App, Core y Director ×2.
+- El CI encontró un error de Swift 6 y se corrigió: una constante de tamaño quedaba atada al hilo de HaishinKit (`nonisolated static let frame`).
 
 ## Prueba física (cuando el propietario la autorice)
 
