@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- W82 (Claude): original Wivra "W" with the brand gradient (no third-party marks). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path
+        android:pathData="M33,40 L42,70 L54,48 L66,70 L75,40"
+        android:strokeWidth="8.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear"
+                android:startX="33" android:startY="40" android:endX="75" android:endY="70">
+                <item android:offset="0" android:color="#FF4F7BFF" />
+                <item android:offset="0.5" android:color="#FF9B4DFF" />
+                <item android:offset="1" android:color="#FFFF3FB4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
