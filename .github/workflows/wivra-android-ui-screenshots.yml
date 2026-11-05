@@ -56,10 +56,12 @@ jobs:
             adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
             adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
             mkdir -p "$RUNNER_TEMP/wivra-screens"
-            adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot tour; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/1-idioma.png"
-            sleep 6; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
-            sleep 8; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
-            sleep 8; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
+            adb shell pm grant com.oswhgo.wivra android.permission.CAMERA || true
+            adb shell pm grant com.oswhgo.wivra android.permission.RECORD_AUDIO || true
+            adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot tour; sleep 10; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/1-idioma.png"
+            sleep 8; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
+            sleep 9; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
+            sleep 9; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
             for scene in live screen; do adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot "$scene"; sleep 12; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/5-$scene.png"; done
             adb shell am force-stop com.oswhgo.wivra
             ls -la "$RUNNER_TEMP/wivra-screens"

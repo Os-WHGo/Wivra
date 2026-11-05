@@ -276,7 +276,7 @@ public final class MainActivity extends Activity {
                 final String selector = buttons[i];
                 editor.postDelayed(() -> editor.evaluateJavascript(
                     "(function(){var b=document.querySelector('" + selector + "');if(b)b.click();})()", null),
-                    6000L + 8000L * i);
+                    12000L + 9000L * i);
             }
         }
     }
@@ -295,10 +295,14 @@ public final class MainActivity extends Activity {
         }
         bg.setCornerRadius(22 * d);
         button.setBackground(new android.graphics.drawable.InsetDrawable(
-            bg, Math.round(12 * d), Math.round(4 * d), Math.round(12 * d), Math.round(4 * d)));
+            bg, Math.round(12 * d), Math.round(3 * d), Math.round(12 * d), Math.round(3 * d)));
         button.setTextColor(getColor(R.color.wivra_text));
         button.setAllCaps(false);
-        button.setMinHeight(Math.round(52 * d));
+        button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        // Compact: the editor home below already has big Capturar / LIVE cards.
+        button.setMinHeight(Math.round(44 * d));
+        button.setMinimumHeight(Math.round(44 * d));
+        button.setPadding(Math.round(16 * d), 0, Math.round(16 * d), 0);
         button.setStateListAnimator(null);
     }
 
