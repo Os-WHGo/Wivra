@@ -28,7 +28,8 @@ struct WivraCaptureWriteOnceSmoke {
                 videoURL: video, tracks: [], mergedURL: nil,
                 cameraSource: "iphone-avfoundation", writeOnce: true)
         } catch { refusedDuplicate = true }
-        check(refusedDuplicate && (try Data(contentsOf: manifest)) == original,
+        let afterDuplicate = try Data(contentsOf: manifest)
+        check(refusedDuplicate && afterDuplicate == original,
               "repeat publication cannot replace original capture manifest")
 
         let secondVideo = folder.appendingPathComponent(
@@ -42,7 +43,8 @@ struct WivraCaptureWriteOnceSmoke {
                 videoURL: secondVideo, tracks: [], mergedURL: nil,
                 cameraSource: "iphone-avfoundation", writeOnce: true)
         } catch { refusedPreexisting = true }
-        check(refusedPreexisting && (try Data(contentsOf: secondManifest)) == malformed,
+        let afterPreexisting = try Data(contentsOf: secondManifest)
+        check(refusedPreexisting && afterPreexisting == malformed,
               "preexisting malformed manifest is never overwritten")
 
         let entries = try fm.contentsOfDirectory(atPath: folder.path)
