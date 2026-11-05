@@ -3,6 +3,7 @@
 // verified .wivra.json, and never promote a second camera without sample PTS.
 // Source/CI tests do NOT prove on-device H.264/AAC or simultaneous cameras.
 import AVFoundation
+import CryptoKit
 import Foundation
 
 /// In-process protection only. App crash resets this set, allowing a stale
@@ -23,6 +24,7 @@ struct WivraMultiCamFileStamp: Equatable, Sendable {
 struct WivraMultiCamRecoverableTake: Identifiable, Sendable {
     let receiptURL: URL
     let receiptStamp: WivraMultiCamFileStamp
+    let receiptDigest: Data
     let primaryURL: URL
     let secondaryURL: URL
     let primaryExists: Bool
@@ -76,6 +78,14 @@ enum WivraMultiCamRecoveryStore {
         return WivraMultiCamFileStamp(bytes: bytes, modified: modified)
     }
 
+    // A size/mtime check alone does not prove the receipt content is unchanged.
+    // Hash at most 16 KiB. Avoid hashing large MOVs on the main actor.
+    private static func digest(_ url: URL, in folder: URL) -> Data? {
+        guard let st = stamp(url, in: folder), st.bytes <= maximumReceiptBytes,
+              let bytes = try? Data(contentsOf: url), bytes.count == st.bytes else { return nil }
+        return Data(SHA256.hash(data: bytes))
+    }
+
     /// A receipt is an intent, NOT an editor-ready media manifest. The normal
     /// library only scans .wivra.json. Never overwrite one, even if malformed.
     @MainActor
@@ -110,6 +120,7 @@ enum WivraMultiCamRecoveryStore {
             guard mainExists || secondExists else { return nil }
             return WivraMultiCamRecoverableTake(
                 receiptURL: receiptURL, receiptStamp: receiptStamp,
+                receiptDigest: Data(SHA256.hash(data: data)),
                 primaryURL: primary, secondaryURL: secondary,
                 primaryExists: mainExists, secondaryExists: secondExists, intent: intent)
         }
@@ -119,7 +130,8 @@ enum WivraMultiCamRecoveryStore {
     /// caller must use Task.detached, then call publish on MainActor.
     static func verify(_ candidate: WivraMultiCamRecoverableTake) async -> WivraMultiCamRecoveryProof {
         guard let folder = root(),
-              stamp(candidate.receiptURL, in: folder) == candidate.receiptStamp else {
+              stamp(candidate.receiptURL, in: folder) == candidate.receiptStamp,
+              digest(candidate.receiptURL, in: folder) == candidate.receiptDigest else {
             return WivraMultiCamRecoveryProof(main: false, secondary: false,
                                                mainStamp: nil, secondaryStamp: nil)
         }
@@ -148,6 +160,7 @@ enum WivraMultiCamRecoveryStore {
               candidate.primaryURL.deletingLastPathComponent() == folder,
               candidate.secondaryURL.deletingLastPathComponent() == folder,
               stamp(candidate.receiptURL, in: folder) == candidate.receiptStamp,
+              digest(candidate.receiptURL, in: folder) == candidate.receiptDigest,
               !WivraMultiCamActiveCaptureRegistry.isActive(candidate.primaryURL),
               WivraMultiCamRecoveryPolicy.isValidIntent(candidate.intent)
         else { return .changedDuringReview }
@@ -172,7 +185,8 @@ enum WivraMultiCamRecoveryStore {
         do {
             _ = try WivraCaptureManifest.write(
                 videoURL: candidate.primaryURL, tracks: [], mergedURL: nil,
-                cameraSource: "iphone-avfoundation", multicam: secondary)
+                cameraSource: "iphone-avfoundation", multicam: secondary,
+                writeOnce: true)
         } catch { return .writeFailed }
         // Keep the recovered pair receipt useful to future troubleshooting.
         // An unverified or unsynchronized secondary remains separately saved.
