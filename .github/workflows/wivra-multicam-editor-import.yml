@@ -11,6 +11,8 @@ on:
       - app/export.mjs
       - tools/browser-capture-to-export.cjs
       - tools/browser-multicam-import.cjs
+      - tools/browser-crossfade-export.cjs
+      - app/transitions.mjs
       - .github/workflows/wivra-multicam-editor-import.yml
   workflow_dispatch:
 permissions:
@@ -36,3 +38,5 @@ jobs:
         run: node tools/browser-multicam-import.cjs
       - name: W75 end-to-end capture → editor → stable export (PiP pixels, main-camera audio, duration)
         run: node tools/browser-capture-to-export.cjs
+      - name: W85 real cross-dissolve → stable export (red → mix → blue, duration minus the dissolve)
+        run: node tools/browser-crossfade-export.cjs
