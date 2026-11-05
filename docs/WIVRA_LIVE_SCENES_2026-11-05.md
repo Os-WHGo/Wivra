@@ -32,13 +32,26 @@ Reglas comunes (`core/live-scenes.mjs`):
 - **iPhone:** composición «offscreen» de HaishinKit 2.2.5 con `AssetScreenObject`, `ImageScreenObject` y un segundo `VideoTrackScreenObject` de la cámara para el recuadro.
   - Solo se activa con el interruptor «Usar escenas»; sin él, el live funciona exactamente igual que antes.
 
+## Sonido del video en el live
+
+El sonido del video **va al live** en los dos teléfonos, sin pedir permisos nuevos y sin capturar la pantalla ni el audio interno del teléfono.
+
+- **Android:** Wivra decodifica la pista de audio del video (MediaCodec) al formato del live y la mezcla en el audio del micrófono, mediante `CustomAudioEffect` de RootEncoder.
+  - En el teléfono el video suena en silencio, para que el micrófono no recoja un eco.
+  - Si inicias el live con una escena de video, el video empieza desde el principio con su sonido.
+- **iPhone:** `AVAssetReader` lee el audio del video y lo añade como segunda pista (pista 1) del mezclador de HaishinKit; el micrófono es la pista 0.
+  - La escena de pausa silencia solo el micrófono.
+  - En iPhone el video vuelve a empezar cada vez que entras en una escena con video.
+- **Requisito:** el **audio del live (micrófono) debe estar activado**. Ese audio es el que marca el ritmo de la mezcla y es la única pista de audio que se transmite. Si no lo está, Wivra lo avisa.
+- Volumen: el video suena a volumen normal y el micrófono se suma; si se pasa del máximo, se recorta (no se distorsiona por desbordamiento).
+- Sin probar en un teléfono: la sincronización entre imagen y sonido del video y el volumen relativo con la voz.
+
 ## Límites actuales
 
-1. **El sonido del video no va al live.** En Android puede sonar por el altavoz del teléfono, para quien presenta. Llevarlo al live requiere una captura de audio interno con el permiso del sistema; es la siguiente fase.
-2. Videos e imágenes se eligen **antes** de iniciar el live, porque salir de la pantalla detiene la transmisión (regla de seguridad existente). Durante el live solo se cambia de escena.
-3. **Pantalla o aplicación como fuente:** no incluida. En Android es posible con el permiso de captura de pantalla y un servicio en primer plano; en iPhone Apple no permite usar la cámara mientras se muestra otra app.
-4. En iPhone la salida sigue en el formato horizontal 16:9 de antes; el formato vertical para reels es otra decisión.
-5. Las escenas no se guardan entre sesiones.
+1. Videos e imágenes se eligen **antes** de iniciar el live, porque salir de la pantalla detiene la transmisión (regla de seguridad existente). Durante el live solo se cambia de escena.
+2. **Pantalla o aplicación como fuente:** no incluida. En Android es posible con el permiso de captura de pantalla y un servicio en primer plano; en iPhone Apple no permite usar la cámara mientras se muestra otra app.
+3. En iPhone la salida sigue en el formato horizontal 16:9 de antes; el formato vertical para reels es otra decisión.
+4. Las escenas no se guardan entre sesiones.
 
 ## Pruebas
 
