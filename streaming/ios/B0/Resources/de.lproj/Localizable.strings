@@ -106,3 +106,14 @@
 "ios.capture.share_segment_only" = "Nur dieses Segment teilen";
 "ios.capture.take_not_finalized" = "Diese Aufnahme konnte nicht als vollständig bestätigt werden. Segmente bleiben in Wivra, ohne automatische Verbindung oder Veröffentlichung in Fotos.";
 "ios.capture.dat_signal_interrupted" = "Das Ray-Ban-Videosignal wurde unterbrochen. Die Aufnahme wurde zum Schutz der Dateien beendet. Segmente könnten unvollständig sein.";
+
+"ios.library.multicam_recovery_title" = "Unfertige Zwei-Kamera-Aufnahmen";
+"ios.library.multicam_recovery_note" = "Wivra bewahrt Dateien einer unterbrochenen Aufnahme auf. Bitte vor der Wiederherstellung prüfen. Nichts wird gelöscht oder in Fotos gespeichert.";
+"ios.library.multicam_verify" = "Prüfen und wiederherstellen";
+"ios.library.multicam_verifying" = "MOV-Spuren und Bilder werden geprüft...";
+"ios.library.multicam_share_unverified" = "Ungeprüftes Haupt-MOV teilen";
+"ios.library.multicam_share_secondary" = "Ungeprüftes zweites MOV teilen";
+"ios.library.multicam_recovered_both" = "Beide Kameraaufnahmen wurden geprüft und im Editor wiederhergestellt.";
+"ios.library.multicam_recovered_main" = "Nur das Hauptvideo wurde wiederhergestellt. Das zweite Original bleibt in Wivra.";
+"ios.library.multicam_secondary_only" = "Nur das zweite MOV wurde geprüft. Kein automatischer Import.";
+"ios.library.multicam_failed" = "Die Wiederherstellung konnte nicht geprüft oder gespeichert werden. Originale bleiben erhalten.";

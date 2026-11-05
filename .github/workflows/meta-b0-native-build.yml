@@ -78,6 +78,15 @@ jobs:
             streaming/tests/WivraMultiCamPolicySmoke.swift \
             -o /tmp/wivra-multicam-policy-smoke
           /tmp/wivra-multicam-policy-smoke
+      - name: Verify W69 orphaned two-camera receipt policy (macOS Swift 6)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/ios/B0/Sources/WivraMultiCamRecoveryPolicy.swift \
+            streaming/tests/WivraMultiCamRecoveryPolicySmoke.swift \
+            -o /tmp/wivra-multicam-recovery-policy
+          /tmp/wivra-multicam-recovery-policy
       - name: Verify iOS LIVE scene layout (macOS Swift 6) — Claude
         run: |
           set -eu

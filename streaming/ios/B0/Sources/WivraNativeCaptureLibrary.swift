@@ -175,6 +175,9 @@ struct WivraNativeCaptureLibraryScreen: View {
     @State private var days: [WivraStoredCaptureDay] = []
     @State private var rejected = 0
     @State private var recoveredAudio: [URL] = []
+    @State private var recoverableMultiCam: [WivraMultiCamRecoverableTake] = []
+    @State private var recoveringMultiCamID: String?
+    @State private var multiCamRecoveryMessage: String?
     @State private var photosSavingCaptureID: String?
     @State private var photosSavedCaptureIDs = Set<String>()
     @State private var photosSavedOriginalOnly = Set<String>()
@@ -201,6 +204,9 @@ struct WivraNativeCaptureLibraryScreen: View {
         days = result.days
         rejected = result.rejected
         recoveredAudio = WivraPendingRecordingStore.savedAudioOnlyURLs()
+        // A .multicam.json intent can survive a crash before the usual
+        // .wivra.json editor catalog exists. Keep those originals visible.
+        recoverableMultiCam = WivraMultiCamRecoveryStore.scan()
 
         var groups: [String: [URL]] = [:]
         var joined = Set<String>()
@@ -255,6 +261,32 @@ struct WivraNativeCaptureLibraryScreen: View {
         }
     }
 
+    // Run the real sample reader and boundary decoder away from SwiftUI.
+    // Publish only after re-checking the receipt and writers on MainActor.
+    private func restoreMultiCam(_ take: WivraMultiCamRecoverableTake) {
+        guard recoveringMultiCamID == nil else { return }
+        recoveringMultiCamID = take.id
+        multiCamRecoveryMessage = nil
+        Task { @MainActor in
+            let proof = await Task.detached(priority: .utility) {
+                await WivraMultiCamRecoveryStore.verify(take)
+            }.value
+            let outcome = WivraMultiCamRecoveryStore.publish(take, proof: proof)
+            switch outcome {
+            case .restoredWithPiP:
+                multiCamRecoveryMessage = NSLocalizedString("ios.library.multicam_recovered_both", comment: "")
+            case .restoredMainOnly:
+                multiCamRecoveryMessage = NSLocalizedString("ios.library.multicam_recovered_main", comment: "")
+            case .secondaryOnly:
+                multiCamRecoveryMessage = NSLocalizedString("ios.library.multicam_secondary_only", comment: "")
+            case .unverified, .changedDuringReview, .alreadyIndexed, .writeFailed:
+                multiCamRecoveryMessage = NSLocalizedString("ios.library.multicam_failed", comment: "")
+            }
+            recoveringMultiCamID = nil
+            refresh()
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -276,9 +308,53 @@ struct WivraNativeCaptureLibraryScreen: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if days.isEmpty && recoveredAudio.isEmpty {
+                if days.isEmpty && recoveredAudio.isEmpty && recoverableMultiCam.isEmpty {
                     ContentUnavailableView("ios.library.empty", systemImage: "film.stack",
                                            description: Text("ios.library.empty_description"))
+                }
+                if !recoverableMultiCam.isEmpty {
+                    Section {
+                        Text("ios.library.multicam_recovery_note")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        if let multiCamRecoveryMessage {
+                            Text(multiCamRecoveryMessage)
+                                .font(.footnote).foregroundStyle(.orange)
+                        }
+                        ForEach(recoverableMultiCam) { take in
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text(take.receiptURL.lastPathComponent)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Button {
+                                    restoreMultiCam(take)
+                                } label: {
+                                    Label("ios.library.multicam_verify", systemImage: "checkmark.shield")
+                                }
+                                .disabled(recoveringMultiCamID != nil)
+                                .accessibilityIdentifier("wivra_library_recover_multicam")
+                                if recoveringMultiCamID == take.id {
+                                    Text("ios.library.multicam_verifying")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                // Explicit manual sharing of preserved bytes,
+                                // clearly marked unverified. No Photos or editor
+                                // publication until independent media validation.
+                                if take.primaryExists {
+                                    ShareLink(item: take.primaryURL) {
+                                        Label("ios.library.multicam_share_unverified",
+                                              systemImage: "square.and.arrow.up")
+                                    }
+                                }
+                                if take.secondaryExists {
+                                    ShareLink(item: take.secondaryURL) {
+                                        Label("ios.library.multicam_share_secondary",
+                                              systemImage: "square.and.arrow.up")
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("ios.library.multicam_recovery_title")
+                    }
                 }
                 if !recoveredAudio.isEmpty {
                     Section {

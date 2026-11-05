@@ -106,3 +106,14 @@
 "ios.capture.share_segment_only" = "Share this segment only";
 "ios.capture.take_not_finalized" = "This take could not be verified as complete. Segments remain in Wivra but cannot be auto-joined or saved to Photos as a complete video.";
 "ios.capture.dat_signal_interrupted" = "Ray-Ban video signal was interrupted. Recording was closed to protect files. Segments may be incomplete; review them before exporting.";
+
+"ios.library.multicam_recovery_title" = "Unfinished dual-camera recordings";
+"ios.library.multicam_recovery_note" = "Interrupted camera files remain on this iPhone. Verify before restoring to the editor. No files are deleted or saved to Photos.";
+"ios.library.multicam_verify" = "Verify and restore";
+"ios.library.multicam_verifying" = "Checking original MOV tracks and frames...";
+"ios.library.multicam_share_unverified" = "Share unverified main MOV";
+"ios.library.multicam_share_secondary" = "Share unverified second MOV";
+"ios.library.multicam_recovered_both" = "Both camera videos were verified and restored to the editor.";
+"ios.library.multicam_recovered_main" = "Only the main video was restored. The second original stays in Wivra.";
+"ios.library.multicam_secondary_only" = "Only the second MOV could be verified. It was not imported automatically.";
+"ios.library.multicam_failed" = "Recovery could not be verified or saved. The originals remain unchanged.";
