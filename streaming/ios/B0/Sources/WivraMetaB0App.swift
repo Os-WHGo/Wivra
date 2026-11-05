@@ -104,6 +104,9 @@ struct WivraMetaB0App: App {
 
     var body: some Scene {
         WindowGroup {
+            // W80 (Claude): the native home sits ABOVE the capture tabs and fills the
+            // screen; the tabs stay alive underneath for the camera handoff.
+            ZStack {
             TabView(selection: Binding(
                 get: { captureTab },
                 set: { requestCaptureTab($0) }
@@ -117,7 +120,10 @@ struct WivraMetaB0App: App {
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 4) {
-                    HStack {
+                    // Five shortcuts no longer fit in one line: scroll sideways instead of
+                    // squeezing each label into a vertical column of letters (W80 screenshots).
+                    ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
                         Button {
                             showingHome = true
                         } label: {
@@ -159,7 +165,12 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
-                        .padding(.horizontal)
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .font(.footnote.bold())
+                    .lineLimit(1)
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
                     }
                     Toggle("ios.app.background_capture_toggle", isOn: $experimentalBackgroundMetaCapture)
                         .font(.footnote)
@@ -193,8 +204,9 @@ struct WivraMetaB0App: App {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                 }
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial)
             }
-            .overlay {
                 if showingHome {
                     WivraHomeScreen(camerasFree: camerasFree, onAction: handleHome)
                 }
