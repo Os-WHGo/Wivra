@@ -1,0 +1,73 @@
+name: Wivra Android UI Screenshots (Emulator)
+# W81 (Claude): lets the owner SEE native Android screens without installing
+# anything. A debug build is installed only inside this CI emulator; only PNG
+# screenshots leave the runner. No APK artifact, no device, no store upload.
+on:
+  pull_request:
+    paths:
+      - 'streaming/android/**'
+      - 'app/template.html'
+      - '.github/workflows/wivra-android-ui-screenshots.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wivra-android-screens-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install free Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build current editor
+        run: node app/build.mjs && test -s app/dist/agentcut.html
+      - name: Build the debug app for the emulator only
+        run: gradle -p streaming/android :app:assembleFullDebug --no-daemon --stacktrace
+      - name: Allow hardware-accelerated Android emulator on Ubuntu
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Take screenshots in an Android 35 emulator
+        # Same pinned ReactiveCircus/android-emulator-runner commit as the beta workflow (Apache-2.0).
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            set -eu
+            adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
+            adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
+            mkdir -p "$RUNNER_TEMP/wivra-screens"
+            adb shell am start -W -n com.oswhgo.wivra/.MainActivity; sleep 15; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/1-idioma.png"
+            bash tools/android-tap-text.sh "Español"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
+            bash tools/android-tap-text.sh "Omitir"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
+            bash tools/android-tap-text.sh "Capturar"; sleep 4; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
+            for scene in live screen; do adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot "$scene"; sleep 12; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/5-$scene.png"; done
+            adb shell am force-stop com.oswhgo.wivra
+            ls -la "$RUNNER_TEMP/wivra-screens"
+            test -z "$(find "$RUNNER_TEMP/wivra-screens" -type f ! -name '*.png')"
+      - name: Upload screenshots (PNG only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wivra-android-screens
+          path: ${{ runner.temp }}/wivra-screens/*.png
+          if-no-files-found: error
+          retention-days: 14

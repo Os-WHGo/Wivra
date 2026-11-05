@@ -18,7 +18,7 @@
     <!-- Android 13+: optional permission for visible recording controls in notifications. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:allowBackup="false" android:label="Wivra Dev"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:theme="@style/Theme.Wivra"
         android:usesCleartextTraffic="false">
         <!-- Privacy-first defaults documented by Meta DAT Android. -->
         <meta-data android:name="com.meta.wearable.mwdat.ANALYTICS_OPT_OUT" android:value="true" />

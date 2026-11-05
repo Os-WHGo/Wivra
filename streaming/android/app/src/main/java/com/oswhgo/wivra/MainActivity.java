@@ -194,8 +194,10 @@ public final class MainActivity extends Activity {
         // Opening a source is NOT evidence that it has working frames or RTMP.
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(getColor(R.color.wivra_background));
         Button cameraSources = new Button(this);
         cameraSources.setText(R.string.source_camera_button);
+        wivraStyle(cameraSources, true);
         cameraSources.setContentDescription(getString(R.string.source_camera_button));
         cameraSources.setOnClickListener(v -> showCameraSourceChooser());
         shell.addView(cameraSources, new LinearLayout.LayoutParams(
@@ -206,6 +208,7 @@ public final class MainActivity extends Activity {
         if ("com.oswhgo.wivra".equals(getPackageName())) {
             Button liveSources = new Button(this);
             liveSources.setText(R.string.source_live_button);
+            wivraStyle(liveSources, true);
             liveSources.setContentDescription(getString(R.string.source_live_button));
             liveSources.setOnClickListener(v -> showLiveSourceChooser());
             shell.addView(liveSources, new LinearLayout.LayoutParams(
@@ -215,6 +218,7 @@ public final class MainActivity extends Activity {
             // Never expose an accelerated writer or a recovery picker in Capture.
             Button acceleratedRecovery = new Button(this);
             acceleratedRecovery.setText(R.string.accelerated_recovery_button);
+            wivraStyle(acceleratedRecovery, false);
             acceleratedRecovery.setContentDescription(
                 getString(R.string.accelerated_recovery_button));
             acceleratedRecovery.setOnClickListener(v -> showAcceleratedRecovery());
@@ -237,7 +241,55 @@ public final class MainActivity extends Activity {
         }
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
+        // W81 (Claude): Capturar / LIVE cards on the editor home only OPEN the
+        // same native choosers as the buttons above. Nothing starts by itself.
+        new WivraHomeBridge(editor, what -> {
+            if ("live".equals(what) && "com.oswhgo.wivra".equals(getPackageName())) {
+                showLiveSourceChooser();
+            } else if ("capture".equals(what)) {
+                showCameraSourceChooser();
+            }
+        }).install();
         editor.loadUrl("file:///android_asset/agentcut.html");
+        applyScreenshotScene();
+    }
+
+    /**
+     * W81 (Claude): CI-only screenshots in the Android emulator. Works ONLY in
+     * debuggable builds; a release/beta APK ignores the extra completely.
+     * The editor's own screens are reached by tapping, never by touching its data.
+     */
+    private void applyScreenshotScene() {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return;
+        String scene = getIntent() == null ? null : getIntent().getStringExtra("wivra_screenshot");
+        if (scene == null) return;
+        boolean full = "com.oswhgo.wivra".equals(getPackageName());
+        if ("live".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity"));
+        } else if ("screen".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity"));
+        }
+    }
+
+    /** W81 (Claude): Wivra look for the native buttons above the editor (gradient or dark pill). */
+    private void wivraStyle(Button button, boolean primary) {
+        float d = getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable bg = primary
+            ? new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{getColor(R.color.wivra_violet), getColor(R.color.wivra_pink)})
+            : new android.graphics.drawable.GradientDrawable();
+        if (!primary) {
+            bg.setColor(getColor(R.color.wivra_card_high));
+            bg.setStroke(Math.round(d), getColor(R.color.wivra_line));
+        }
+        bg.setCornerRadius(22 * d);
+        button.setBackground(new android.graphics.drawable.InsetDrawable(
+            bg, Math.round(12 * d), Math.round(4 * d), Math.round(12 * d), Math.round(4 * d)));
+        button.setTextColor(getColor(R.color.wivra_text));
+        button.setAllCaps(false);
+        button.setMinHeight(Math.round(52 * d));
+        button.setStateListAnimator(null);
     }
 
     // A platform camera feature is only an eligibility hint. CameraX/RootEncoder
@@ -415,7 +467,7 @@ public final class MainActivity extends Activity {
     /** Same sanitized read-only Director checklist for both native cameras. */
     private void launchCameraFromDirector(Class<?> targetActivity) {
         if (editor == null ||
-            !"file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+            !WivraExportBridge.isEditor(editor.getUrl())) {
             startActivity(new Intent(this, targetActivity));
             return;
         }
@@ -708,7 +760,7 @@ public final class MainActivity extends Activity {
                 WivraDirectorProjectGuard.mayComplete(
                     expectedProject, expectedProject, expected,
                     data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
-                editor != null && "file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+                editor != null && WivraExportBridge.isEditor(editor.getUrl())) {
                 // A successful, explicitly saved native capture marks the take
                 // recorded, but NOT imported into the editor. Never fabricate an
                 // assetId or expose media URIs. Import remains a separate step.

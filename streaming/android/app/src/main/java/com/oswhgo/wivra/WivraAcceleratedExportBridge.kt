@@ -39,7 +39,7 @@ class WivraAcceleratedExportBridge(
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return false
         WebViewCompat.addWebMessageListener(webView, OBJECT, setOf("*")) {
             view, message, _, isMainFrame, reply ->
-            if (disposed || !isMainFrame || view.url != WivraExportBridge.EDITOR_URL)
+            if (disposed || !isMainFrame || !WivraExportBridge.isEditor(view.url))
                 return@addWebMessageListener
             onMessage(message, reply)
         }

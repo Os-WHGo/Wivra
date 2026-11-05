@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- W81 (Claude): Wivra palette, the same as the editor (W79) and iPhone (W80). -->
+<resources>
+    <color name="wivra_background">#FF0B0A12</color>
+    <color name="wivra_card">#FF16131F</color>
+    <color name="wivra_card_high">#FF1D1929</color>
+    <color name="wivra_line">#FF2C2741</color>
+    <color name="wivra_text">#FFF5F3FB</color>
+    <color name="wivra_muted">#FFA09AB6</color>
+    <color name="wivra_accent">#FFE238CF</color>
+    <color name="wivra_violet">#FFB62CFF</color>
+    <color name="wivra_pink">#FFFF2FB2</color>
+</resources>

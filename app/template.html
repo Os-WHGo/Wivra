@@ -3137,7 +3137,7 @@ new MutationObserver((recs) => {
   const mk = (box, onPick, cur) => { box.innerHTML = ''; for (const [id, name] of I18N_LANGS) { const b = document.createElement('button'); b.type = 'button'; b.dataset.l = id; b.dataset.notr = '1'; b.textContent = name; b.classList.toggle('on', id === cur); b.onclick = () => onPick(id); box.appendChild(b); } };
   const saved = i18nSaved();
   mk($('setLangs'), (id) => i18nApply(id), saved || 'es');
-  if (saved) i18nApply(saved);
+  if (saved) { i18nApply(saved); if (location.hash === '') setTimeout(onbShow, 0); }   // W81: bienvenida también si la app nativa ya eligió el idioma
   else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; onbShow(); }, det); $('sLang').style.display = 'block'; }
   $('hSet').onclick = async () => {
     $('sSettings').classList.add('on'); $('setSpace').textContent = '…';
@@ -3151,7 +3151,7 @@ $('hEditor').onclick = () => { location.hash = '#new'; };
 $('hDirector').onclick = () => { location.hash = '#new-director'; };
 // W79 (Claude): portada nueva. Capturar y LIVE son pantallas nativas del teléfono: el editor solo las pide si la app lo permite.
 function homeOpenNative(what) {
-  const h = window.WivraHost;
+  const h = (window.WivraHost && typeof window.WivraHost.openNative === 'function') ? window.WivraHost : window.WivraNativeHome;   // iPhone / Android (W80/W81)
   if (h && typeof h.openNative === 'function') { try { h.openNative(what); return; } catch {} }
   say(what === 'live' ? 'LIVE se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android.' : 'Capturar se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android.');
 }
