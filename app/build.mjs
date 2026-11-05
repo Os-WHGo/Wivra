@@ -45,11 +45,13 @@ const qaPipeline = acceleratedVendor ? [
   './accelerated-avc-compatibility.mjs',
   './accelerated-codec-diagnostic.mjs',
   './accelerated-codec-diagnostic-journal.mjs',
+  './accelerated-codec-matrix.mjs',
   './accelerated-native-multitrack-export.mjs'
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';
 const qaIOSHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-ios-host.mjs', import.meta.url), 'utf8')) : '';
-const qaUI = qaPipeline ? ['./accelerated-qa-export-ui.mjs','./accelerated-codec-diagnostic-ui.mjs']
+const qaUI = qaPipeline ? ['./accelerated-qa-export-ui.mjs','./accelerated-codec-diagnostic-ui.mjs',
+  './accelerated-codec-matrix-ui.mjs']
   .map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaSidecar = qaPipeline ?
   '\n;(() => {\n' + qaPipeline +
@@ -64,7 +66,8 @@ const qaSidecar = qaPipeline ?
   '\nconst nativeHost = () => findAndroid() ?? findIOS();' +
   '\nconst saveToPhotos = ({saved,userConfirmed}) => saveVerifiedAcceleratedVideoToPhotos({host:nativeHost(),saved,userConfirmed});' +
   '\nconst diagnoseCodecs = options => runAcceleratedCodecDiagnostic({...options,M:globalThis.Mediabunny});' +
-  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos, diagnoseCodecs};' +
+  '\nconst diagnoseCodecMatrix = options => runAcceleratedCodecMatrix({...options, diagnose: args => runAcceleratedCodecDiagnostic({...args, M:globalThis.Mediabunny})});' +
+  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos, diagnoseCodecs, diagnoseCodecMatrix};' +
   '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n' + qaUI + '\n})();\n' : '';
 
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
