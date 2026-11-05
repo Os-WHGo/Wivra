@@ -318,6 +318,21 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         Task { @MainActor [weak self] in self?.finished(outputFileURL, failed: failed) }
     }
 
+    private func finishedSamples(_ result: WivraMultiCamSampleRecorder.Result) {
+        guard isFinishing, primaryURL == result.primaryURL,
+              secondaryURL == result.secondaryURL else { return }
+        let size = { (u: URL) -> Int64 in
+            (try? FileManager.default.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? 0
+        }
+        let mainStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(result.primaryURL), finishedWithoutError: result.primaryComplete)
+        let insetStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(result.secondaryURL), finishedWithoutError: result.secondaryComplete)
+        finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
+                   offsetMilliseconds: result.secondaryOffsetSeconds.map { $0 * 1000 })
+    }
+
+    // Stable single-camera MovieFileOutput path retained for older devices.
     private func finished(_ url: URL, failed: Bool) {
         guard pending[url] != nil else { return }
         pending[url]?.finished = true
@@ -326,13 +341,29 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         let size = { (u: URL) -> Int64 in
             (try? FileManager.default.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? 0
         }
-        let mainStatus = WivraMultiCamPolicy.classifyTake(bytes: size(a), finishedWithoutError: !(pending[a]?.error ?? true))
+        let mainStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(a), finishedWithoutError: !(pending[a]?.error ?? true))
         var insetStatus: WivraMultiCamTakeStatus?
         var offset: Double?
         if let b = secondaryURL {
-            insetStatus = WivraMultiCamPolicy.classifyTake(bytes: size(b), finishedWithoutError: !(pending[b]?.error ?? true))
-            if let ta = pending[a]?.started, let tb = pending[b]?.started { offset = (tb - ta) * 1000 }
-            if insetStatus == .empty { try? FileManager.default.removeItem(at: b) }
+            insetStatus = WivraMultiCamPolicy.classifyTake(
+                bytes: size(b), finishedWithoutError: !(pending[b]?.error ?? true))
+            if let ta = pending[a]?.started, let tb = pending[b]?.started {
+                offset = (tb - ta) * 1000
+            }
+        }
+        finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
+                   offsetMilliseconds: offset)
+    }
+
+    // Shared finalizer: keep nonempty failed files for manual recovery, and
+    // publish the editor's optional second video only if BOTH writers finished.
+    private func finishTake(mainStatus: WivraMultiCamTakeStatus,
+                            insetStatus: WivraMultiCamTakeStatus?,
+                            offsetMilliseconds offset: Double?) {
+        guard let a = primaryURL else { return }
+        if let b = secondaryURL, insetStatus == .empty {
+            try? FileManager.default.removeItem(at: b)
         }
         if mainStatus == .empty { try? FileManager.default.removeItem(at: a) }
         if mainStatus != .empty {
@@ -341,7 +372,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                 primaryFile: a.lastPathComponent, primaryPosition: frontIsPrimary ? "front" : "back",
                 secondaryFile: insetStatus == .empty ? nil : secondaryURL?.lastPathComponent,
                 secondaryPosition: secondaryURL == nil ? nil : (frontIsPrimary ? "back" : "front"),
-                secondaryOffsetMs: offset, offsetSource: "didStartRecording-callback",
+                secondaryOffsetMs: offset, offsetSource: isDual ? "video-sample-pts" : "didStartRecording-callback",
                 audio: includesAudio ? "primary" : "none", corner: corner,
                 continuation: continuation, primaryStatus: mainStatus, secondaryStatus: insetStatus)
             _ = try? WivraMultiCamTakeManifest.write(manifest, beside: a)
