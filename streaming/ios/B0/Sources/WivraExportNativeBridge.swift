@@ -45,7 +45,7 @@ final class WivraExportNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         let approved = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard message.frameInfo.isMainFrame,
               message.frameInfo.request.url?.isFileURL == true,
-              approved?.standardizedFileURL == message.frameInfo.request.url?.standardizedFileURL,
+              approved?.standardizedFileURL == message.frameInfo.request.url?.wivraWithoutFragment.standardizedFileURL,
               let body = message.body as? [String: Any],
               body["version"] as? Int == 1,
               let op = body["op"] as? String else {

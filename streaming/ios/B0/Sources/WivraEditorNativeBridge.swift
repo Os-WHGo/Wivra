@@ -16,7 +16,7 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
         guard message.frameInfo.isMainFrame,
               message.frameInfo.request.url?.isFileURL == true,
               approved?.standardizedFileURL ==
-                message.frameInfo.request.url?.standardizedFileURL,
+                message.frameInfo.request.url?.wivraWithoutFragment.standardizedFileURL,
               let body = message.body as? [String: Any],
               body["version"] as? Int == 1,
               let method = body["method"] as? String else {

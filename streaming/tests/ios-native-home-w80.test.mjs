@@ -55,3 +55,13 @@ test('simulator screenshots: debug-only hook, PNG-only upload, no installer', ()
   assert.match(shots, /test -z "\$\(find "\$RUNNER_TEMP\/wivra-screens" -type f ! -name '\*\.png'\)"/);
   assert.doesNotMatch(shots, /\.ipa|-sdk iphoneos|devicectl|ios-deploy/);
 });
+
+test('bundled-editor checks ignore only the "#…" screen route, never the file or query', () => {
+  const url = src('WivraEditorURL.swift');
+  assert.match(url, /parts\.fragment = nil/);
+  assert.doesNotMatch(url, /query = nil|path =|host =/);
+  for (const f of ['WivraEditorNativeBridge.swift', 'WivraExportNativeBridge.swift', 'WivraAcceleratedExportNativeBridge.swift'])
+    assert.match(src(f), /message\.frameInfo\.isMainFrame[\s\S]{0,200}request\.url\?\.wivraWithoutFragment\.standardizedFileURL/, f);
+  assert.match(editor, /guard let url = navigationAction\.request\.url\?\.wivraWithoutFragment else/);
+  assert.match(editor, /let requestURL = frame\.request\.url\?\.wivraWithoutFragment,/);
+});

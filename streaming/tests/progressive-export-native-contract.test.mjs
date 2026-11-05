@@ -61,7 +61,7 @@ test('iOS file is renamed from .partial only after sync and a full re-read', () 
   assert.match(finish, /removeItem\(at: session\.partialURL\)/);
   assert.match(iosStore, /isExcludedFromBackup = true/);
   assert.match(iosStore, /volumeAvailableCapacityForImportantUsage/);
-  assert.match(iosBridge, /approved\?\.standardizedFileURL == message\.frameInfo\.request\.url\?\.standardizedFileURL/);
+  assert.match(iosBridge, /approved\?\.standardizedFileURL == message\.frameInfo\.request\.url\?\.wivraWithoutFragment\.standardizedFileURL/);
   assert.match(iosBridge, /message\.frameInfo\.isMainFrame/);
   assert.match(iosBridge, /deinit \{[\s\S]*abortOwned\(owner: owner\)/);
   assert.match(iosScreen, /name: "wivraExport"\)/);

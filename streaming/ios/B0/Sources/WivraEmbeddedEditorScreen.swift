@@ -43,7 +43,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard pendingFileSelection == nil,
               frame.isMainFrame,
-              let requestURL = frame.request.url,
+              let requestURL = frame.request.url?.wivraWithoutFragment,
               requestURL.isFileURL,
               approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
               let presenter = visiblePresenter(for: webView) else {
@@ -232,7 +232,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-        guard let url = navigationAction.request.url else {
+        guard let url = navigationAction.request.url?.wivraWithoutFragment else {
             decisionHandler(.cancel)
             return
         }
