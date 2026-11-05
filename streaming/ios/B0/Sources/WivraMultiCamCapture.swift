@@ -58,6 +58,10 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private var pending: [URL: (started: CFTimeInterval?, finished: Bool, error: Bool)] = [:]
     private var primaryURL: URL?
     private var secondaryURL: URL?
+    // Foreground and disk/thermal safety guards for a camera session.
+    private var stopSessionAfterFinish = false
+    private var safetyMonitor: Task<Void, Never>?
+    private var sessionRequest = 0
 
     var isReleased: Bool { !isRunning && !isRecording && !isFinishing }
 
@@ -80,19 +84,33 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     }
 
     func start() {
-        guard isReleased else { return }
+        guard isReleased, UIApplication.shared.applicationState == .active else { return }
+        stopSessionAfterFinish = false
+        sessionRequest += 1
+        let request = sessionRequest
         status = "Solicitando permisos…"
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             guard await AVCaptureDevice.requestAccess(for: .video) else {
-                status = "Sin permiso de cámara. Actívalo en Ajustes de iOS."
+                self.status = "Sin permiso de cámara. Actívalo en Ajustes de iOS."
                 return
             }
             let mic = await AVCaptureDevice.requestAccess(for: .audio)
-            configure(microphone: mic)
-            let current = session
-            runner.start(current) { [weak self] running in
+            // Permission dialogs are async: dismissing the screen before
+            // approval must not resurrect a camera in the background.
+            guard self.sessionRequest == request, !self.stopSessionAfterFinish,
+                  UIApplication.shared.applicationState == .active else { return }
+            self.configure(microphone: mic)
+            let current = self.session
+            self.runner.start(current) { [weak self] running in
                 Task { @MainActor [weak self] in
                     guard let self, self.session === current else { return }
+                    if self.sessionRequest != request || self.stopSessionAfterFinish ||
+                       UIApplication.shared.applicationState != .active {
+                        self.isRunning = false
+                        self.runner.stop(current) {}
+                        return
+                    }
                     self.isRunning = running
                     if !running { self.status = "No se pudo iniciar la captura." }
                 }
@@ -230,9 +248,52 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         if isRecording { stopRecording(owner: true) } else { startRecording(isContinuation: false) }
     }
 
+    // Reject an unmeasurable or low disk budget before either camera writes.
+    private func freeDiskBytes() -> Int64? {
+        let folder = FileManager.default.urls(for: .documentDirectory,
+            in: .userDomainMask)[0].appendingPathComponent("WivraIPhoneMedia", isDirectory: true)
+        let attrs = try? FileManager.default.attributesOfFileSystem(
+            forPath: folder.deletingLastPathComponent().path)
+        return (attrs?[.systemFreeSize] as? NSNumber)?.int64Value
+    }
+
+    private func armSafetyMonitor() {
+        safetyMonitor?.cancel()
+        let take = takeIndex
+        safetyMonitor = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Int(WivraMultiCamSafetyPolicy.monitorIntervalSeconds)))
+                guard let self, !Task.isCancelled, self.takeIndex == take,
+                      self.isRecording, !self.isFinishing else { return }
+                let thermal = ProcessInfo.processInfo.thermalState
+                let action = WivraMultiCamSafetyPolicy.check(
+                    freeBytes: self.freeDiskBytes(),
+                    seriousThermal: thermal == .serious || thermal == .critical,
+                    criticalThermal: thermal == .critical,
+                    dual: self.isDual)
+                switch action {
+                case .keepRecording:
+                    break
+                case .switchToSingle:
+                    self.cameraLost(reason: "temperatura alta; continuando con una cámara")
+                    return
+                case .stopAndPreserve:
+                    self.status = "Espacio insuficiente o temperatura crítica: cerrando y conservando lo grabado."
+                    self.stop()
+                    return
+                }
+            }
+        }
+    }
+
     private func startRecording(isContinuation: Bool) {
-        guard isRunning, !isFinishing else { return }
+        guard isRunning, !isFinishing, !stopSessionAfterFinish,
+              UIApplication.shared.applicationState == .active else { return }
         guard (isDual ? sampleRecorder != nil : primaryOutput != nil) else { return }
+        guard WivraMultiCamSafetyPolicy.canStart(freeBytes: freeDiskBytes()) else {
+            status = "No hay espacio seguro para iniciar otra grabación. No se creó ninguna toma."
+            return
+        }
         do {
             // Resolve both fresh paths before starting either writer.
             let a = try Self.nextURL()
@@ -243,6 +304,23 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             primaryURL = a
             secondaryURL = b
             if isDual, let sink = sampleRecorder, let b {
+                let intent = WivraMultiCamTakeManifest(
+                    take: takeIndex, mode: "dual-separate",
+                    primaryFile: a.lastPathComponent,
+                    primaryPosition: frontIsPrimary ? "front" : "back",
+                    secondaryFile: b.lastPathComponent,
+                    secondaryPosition: frontIsPrimary ? "back" : "front",
+                    secondaryOffsetMs: nil,
+                    offsetSource: "awaiting-video-sample-pts",
+                    audio: includesAudio ? "primary" : "none",
+                    corner: corner, continuation: continuation,
+                    primaryStatus: .needsReview, secondaryStatus: .needsReview)
+                guard (try? WivraMultiCamTakeManifest.write(intent, beside: a)) != nil else {
+                    status = "No se pudo guardar el recibo de recuperación; no se inicia la toma."
+                    primaryURL = nil
+                    secondaryURL = nil
+                    return
+                }
                 pending = [:]
                 sink.start(primary: a, secondary: b, audioRequired: includesAudio)
             } else if let output = primaryOutput {
@@ -250,6 +328,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                 output.startRecording(to: a, recordingDelegate: self)
             } else { return }
             isRecording = true
+            armSafetyMonitor()
             status = isContinuation ? "REC · sigue con una cámara (toma nueva)" :
                 (isDual ? "REC · dos cámaras" : "REC · una cámara")
         } catch {
@@ -261,6 +340,8 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         guard isRecording, !isFinishing else { return }
         ownerStopped = owner
         isFinishing = true
+        safetyMonitor?.cancel()
+        safetyMonitor = nil
         status = "Cerrando los archivos en el iPhone…"
         if isDual, let sink = sampleRecorder {
             sink.finish { [weak self] result in
@@ -275,13 +356,16 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     /// NotificationCenter subscriptions). Mirrors multicamReduce('camera-lost').
     func cameraLost(reason: String) {
         status = "Se interrumpió la cámara (\(reason))."
+        // Don't reactivate capture after the user exited or closure began.
+        guard !isFinishing, !stopSessionAfterFinish else { return }
         if isRecording {
-            // Single mode after the loss; continue only if the owner did not stop.
-            continueAfterFinish = WivraMultiCamPolicy.shouldContinueAfterLoss(
-                remainingCameras: 1, ownerStopped: ownerStopped)
+            continueAfterFinish = WivraMultiCamSafetyPolicy.mayRestartSingle(
+                ownerStopped: ownerStopped, exitRequested: stopSessionAfterFinish,
+                foregroundActive: UIApplication.shared.applicationState == .active,
+                camerasRemaining: 1)
             forceSingle = true
             stopRecording(owner: false)
-        } else if isDual {
+        } else if isDual && isRunning && UIApplication.shared.applicationState == .active {
             forceSingle = true
             restartSession()
         }
@@ -334,7 +418,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             bytes: bytes(result.primaryURL), finishedWithoutError: false)
         let secondaryProvisional = WivraMultiCamPolicy.classifyTake(
             bytes: bytes(result.secondaryURL), finishedWithoutError: false)
-        if primaryProvisional != .empty {
+        if primaryProvisional != .empty || secondaryProvisional != .empty {
             let pendingReceipt = WivraMultiCamTakeManifest(
                 take: takeIndex, mode: "dual-separate",
                 primaryFile: result.primaryURL.lastPathComponent,
@@ -454,23 +538,43 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         pending = [:]
         isRecording = false
         isFinishing = false
-        if continueAfterFinish {
-            continueAfterFinish = false
-            restartSession(thenRecord: true)
+        safetyMonitor?.cancel()
+        safetyMonitor = nil
+        let shouldRestart = continueAfterFinish &&
+            WivraMultiCamSafetyPolicy.mayRestartSingle(
+                ownerStopped: ownerStopped, exitRequested: stopSessionAfterFinish,
+                foregroundActive: UIApplication.shared.applicationState == .active,
+                camerasRemaining: 1)
+        continueAfterFinish = false
+        if shouldRestart { restartSession(thenRecord: true) }
+        if stopSessionAfterFinish {
+            stopSessionAfterFinish = false
+            if isRunning { isRunning = false; runner.stop(session) {} }
         }
     }
 
     private func restartSession(thenRecord: Bool = false) {
+        guard !stopSessionAfterFinish,
+              UIApplication.shared.applicationState == .active else { return }
+        let request = sessionRequest
         let old = session
         isRunning = false
         runner.stop(old) { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.sessionRequest == request,
+                      !self.stopSessionAfterFinish,
+                      UIApplication.shared.applicationState == .active else { return }
                 self.configure(microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
                 let current = self.session
                 self.runner.start(current) { [weak self] running in
                     Task { @MainActor [weak self] in
                         guard let self, self.session === current else { return }
+                        if self.sessionRequest != request || self.stopSessionAfterFinish ||
+                           UIApplication.shared.applicationState != .active {
+                            self.isRunning = false
+                            self.runner.stop(current) {}
+                            return
+                        }
                         self.isRunning = running
                         if running && thenRecord { self.startRecording(isContinuation: true) }
                     }
@@ -490,11 +594,22 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     func moveInset() { corner = corner.next }
 
     func stop() {
-        if isRecording { stopRecording(owner: true); return }
-        guard isRunning else { return }
-        isRunning = false
-        runner.stop(session) {}
-        status = "Dos cámaras: detenido."
+        sessionRequest += 1
+        ownerStopped = true
+        continueAfterFinish = false
+        stopSessionAfterFinish = true
+        safetyMonitor?.cancel()
+        safetyMonitor = nil
+        if isRecording && !isFinishing { stopRecording(owner: true) }
+        // Release camera immediately, not after a long file verification.
+        if isRunning {
+            isRunning = false
+            runner.stop(session) {}
+        }
+        if !isRecording && !isFinishing {
+            stopSessionAfterFinish = false
+            status = "Dos cámaras: detenido."
+        }
     }
 
     private static func nextURL() throws -> URL {
