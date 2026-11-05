@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Only FULL Wivra requests MediaProjection, never Wivra Capture. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Owner-approved 05-11-2026 (Claude): only when the owner ticks "Mostrar mi
+         cámara" / "Incluir mi micrófono" in screen LIVE and grants them. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <application>
         <!-- LIVE is full Wivra only. Not included in Wivra Capture. Explicit
              user confirmation is mandatory before any public transmission. -->
@@ -13,6 +17,6 @@
             android:screenOrientation="unspecified" />
         <service android:name=".WivraScreenLiveService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="mediaProjection|camera|microphone" />
     </application>
 </manifest>
