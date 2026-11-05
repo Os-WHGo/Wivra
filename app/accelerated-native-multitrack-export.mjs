@@ -90,12 +90,13 @@ export async function recordExperimentalNativeMultitrack({
     // Mediabunny can select a codec family without the actual WKWebView or
     // Android WebView supporting these exact output dimensions, fps and
     // stereo sample rate. Fail safely BEFORE obtaining a native file token.
+    const videoBitrate=exportBitrate(prepared.totalSeconds,{
+      progressive:true,width:prepared.width,height:prepared.height,fps
+    });
     const codecCapabilities=await verifyAcceleratedMobileCodecSupport({
       platform:host.platform,codec:prepared.codec,
       width:prepared.width,height:prepared.height,fps,sampleRate,
-      videoBitrate:exportBitrate(prepared.totalSeconds,{
-        progressive:true,width:prepared.width,height:prepared.height,fps
-      })
+      videoBitrate
     });
     if(isCancelled())throw new Error('Exportación multipista cancelada tras validar códecs.');
     sink=createAcceleratedNativeSink(host,{
@@ -106,7 +107,7 @@ export async function recordExperimentalNativeMultitrack({
     await sink.begin();
     renderOwnsInputs=true;
     const stats=await renderAcceleratedMultitrack({prepared,
-      fps,sampleRate,isCancelled,onProgress:safeProgress,
+      fps,sampleRate,videoBitrate,isCancelled,onProgress:safeProgress,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
     if(stats.container!==prepared.codec.container ||
        stats.audioCodec!==prepared.codec.audioCodec ||

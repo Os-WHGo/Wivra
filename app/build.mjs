@@ -41,11 +41,16 @@ const qaPipeline = acceleratedVendor ? [
   './accelerated-multitrack-renderer.mjs',
   './accelerated-storage-budget.mjs',
   './accelerated-native-codec-probe.mjs',
+  './accelerated-runtime-identity.mjs',
+  './accelerated-avc-compatibility.mjs',
+  './accelerated-codec-diagnostic.mjs',
+  './accelerated-codec-diagnostic-journal.mjs',
   './accelerated-native-multitrack-export.mjs'
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';
 const qaIOSHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-ios-host.mjs', import.meta.url), 'utf8')) : '';
-const qaUI = qaPipeline ? strip(readFileSync(new URL('./accelerated-qa-export-ui.mjs', import.meta.url), 'utf8')) : '';
+const qaUI = qaPipeline ? ['./accelerated-qa-export-ui.mjs','./accelerated-codec-diagnostic-ui.mjs']
+  .map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaSidecar = qaPipeline ?
   '\n;(() => {\n' + qaPipeline +
   '\nconst findAndroid = (() => {\n' + qaAndroidHost + '\nreturn detectAcceleratedAndroidHost;\n})();' +
@@ -58,7 +63,8 @@ const qaSidecar = qaPipeline ?
   '\n}' +
   '\nconst nativeHost = () => findAndroid() ?? findIOS();' +
   '\nconst saveToPhotos = ({saved,userConfirmed}) => saveVerifiedAcceleratedVideoToPhotos({host:nativeHost(),saved,userConfirmed});' +
-  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos};' +
+  '\nconst diagnoseCodecs = options => runAcceleratedCodecDiagnostic({...options,M:globalThis.Mediabunny});' +
+  '\nconst api = {recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos, diagnoseCodecs};' +
   '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n' + qaUI + '\n})();\n' : '';
 
 mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });

@@ -121,6 +121,97 @@ test('actual multi-source composition renders overlay/caption frames and offset 
   assert.deepEqual(writes.map(x=>x[0]),[0,8]);
  }finally {globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
 });
+
+test('native encoders use the preflight AVC profile and FPS-aware level, including stereo AAC',async()=>{
+ const prior=globalThis.document,priorAudio=globalThis.AudioBuffer;
+ globalThis.AudioBuffer=PCM;
+ try {
+  for(const [w,h,fps,fullCodecString] of [
+   [640,360,30,'avc1.42E01F'],
+   [1280,720,60,'avc1.42E020'],
+   [1920,1080,60,'avc1.64002A']
+  ]){
+   const M=fakeM(),p=proj(),{document}=context(),selected={};
+   globalThis.document=document;
+   const Video=M.CanvasSource,Audio=M.AudioBufferSource;
+   M.CanvasSource=class extends Video {
+    constructor(canvas,options){super();selected.video=options;}
+   };
+   M.AudioBufferSource=class extends Audio {
+    constructor(options){super();selected.audio=options;}
+   };
+   const prepared=await prepareAcceleratedMultitrack({project:p,
+    media:{...media,main:{...media.main,w,h}},M,imageFactory,platform:'ios'});
+   await renderAcceleratedMultitrack({prepared,fps,sampleRate:8000,
+    writeAt:async(position,bytes)=>bytes.length});
+   assert.equal(selected.video.fullCodecString,fullCodecString);
+   assert.equal(selected.audio.fullCodecString,'mp4a.40.2');
+   assert.doesNotThrow(()=>selected.video.onEncoderConfig({
+    codec:fullCodecString,width:w,height:h,framerate:fps,
+    bitrate:selected.video.bitrate,avc:{format:'avc'}}));
+   assert.doesNotThrow(()=>selected.audio.onEncoderConfig({
+    codec:'mp4a.40.2',sampleRate:8000,numberOfChannels:2,bitrate:128000}));
+  }
+ }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
+});
+
+test('a native encoder profile, FPS, bitrate or audio-channel deviation aborts before finalization',async()=>{
+ const prior=globalThis.document,priorAudio=globalThis.AudioBuffer;
+ globalThis.AudioBuffer=PCM;
+ try {
+  for(const [kind,patch] of [
+   ['video',{codec:'avc1.64001F'}],['video',{framerate:24}],
+   ['video',{bitrate:1}],['video',{avc:{format:'annexb'}}],
+   ['audio',{numberOfChannels:1}],['audio',{sampleRate:44100}]
+  ]){
+   const M=fakeM(),{document}=context();
+   globalThis.document=document;
+   const Video=M.CanvasSource,Audio=M.AudioBufferSource,Output=M.Output;
+   M.CanvasSource=class extends Video {
+    constructor(canvas,options){super();this.options=options;}
+    async add(t,d){
+     if(kind==='video')this.options.onEncoderConfig({
+      codec:this.options.fullCodecString,width:640,height:360,framerate:30,
+      bitrate:this.options.bitrate,avc:{format:'avc'},...patch});
+     return super.add(t,d);
+    }
+   };
+   M.AudioBufferSource=class extends Audio {
+    constructor(options){super();this.options=options;}
+    async add(buffer){
+     if(kind==='audio')this.options.onEncoderConfig({codec:'mp4a.40.2',
+      sampleRate:8000,numberOfChannels:2,bitrate:128000,...patch});
+     return super.add(buffer);
+    }
+   };
+   M.Output=class extends Output {async cancel(){M.events.push(['cancel']);}};
+   const prepared=await prepareAcceleratedMultitrack({project:proj(),media,M,
+    imageFactory,platform:'ios'});
+   await assert.rejects(renderAcceleratedMultitrack({prepared,sampleRate:8000,
+    writeAt:async(position,bytes)=>bytes.length}),/differs from native codec preflight/);
+   assert.equal(M.events.some(event=>event[0]==='finalize'),false);
+   assert.equal(M.events.filter(event=>event[0]==='cancel').length,1);
+   assert.equal(M.events.filter(event=>event[0]==='dispose').length,3);
+  }
+ }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
+});
+
+test('desktop long-form QA retains its original codec negotiation',async()=>{
+ const M=fakeM(),{document}=context(),prior=globalThis.document,
+  priorAudio=globalThis.AudioBuffer,selected={};
+ globalThis.document=document;globalThis.AudioBuffer=PCM;
+ const Video=M.CanvasSource,Audio=M.AudioBufferSource;
+ M.CanvasSource=class extends Video {constructor(canvas,options){super();selected.video=options;}};
+ M.AudioBufferSource=class extends Audio {constructor(options){super();selected.audio=options;}};
+ try{
+  const prepared=await prepareAcceleratedMultitrack({project:proj(),media,M,
+   imageFactory,platform:'qa',longSoakQA:true,maxSeconds:3600});
+  await renderAcceleratedMultitrack({prepared,sampleRate:8000,
+   writeAt:async(position,bytes)=>bytes.length});
+  assert.equal(Object.hasOwn(selected.video,'fullCodecString'),false);
+  assert.equal(Object.hasOwn(selected.audio,'onEncoderConfig'),false);
+ }finally{globalThis.document=prior;globalThis.AudioBuffer=priorAudio;}
+});
 test('fail closed before starting output when WAV, source, effects or format are missing',async()=>{
  const M=fakeM(),p=proj();
  for(const change of [
