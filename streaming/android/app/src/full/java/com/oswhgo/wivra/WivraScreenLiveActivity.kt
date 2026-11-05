@@ -122,6 +122,7 @@ class WivraScreenLiveActivity : ComponentActivity() {
         root.addView(TextView(this).apply {
             text = getString(R.string.slive_heading)
             textSize = 19f
+            isAccessibilityHeading = true   // W87 (Claude): TalkBack heading
         })
         root.addView(TextView(this).apply {
             text = getString(R.string.slive_intro)

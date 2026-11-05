@@ -682,3 +682,13 @@ Fundido cruzado real: el clip siguiente aparece poco a poco sobre el anterior. C
 {} cortes quedaron sin fundido: el clip no tiene la misma forma que el video final o hay un hueco. || {} tagli sono rimasti senza dissolvenza: il clip non ha la stessa forma del video finale o c’è un vuoto.
 Ningún corte admite fundido cruzado: los clips deben tener la misma forma que el video final (por ejemplo, verticales en 9:16). || Nessun taglio ammette la dissolvenza incrociata: i clip devono avere la stessa forma del video finale (per esempio, verticali in 9:16).
 Las {} filas de capas están ocupadas: borra o junta una capa para poder hacer fundidos cruzados. || Le {} righe di livelli sono occupate: elimina o unisci un livello per fare dissolvenze incrociate.
+Permisos, solo cuando los uses || Permessi, solo quando li usi
+Cámara y micrófono || Fotocamera e microfono
+Para grabar o transmitir. Puedes grabar sin sonido. || Per registrare o trasmettere. Puoi registrare senza audio.
+Fotos o Galería || Foto o Galleria
+Para guardar tus videos terminados. || Per salvare i tuoi video finiti.
+Pantalla (Android) || Schermo (Android)
+Solo si eliges transmitir tu pantalla; Android pregunta cada vez. || Solo se scegli di trasmettere lo schermo; Android lo chiede ogni volta.
+Gafas Ray-Ban Meta || Occhiali Ray-Ban Meta
+Solo si las conectas, con la app Meta AI. || Solo se li colleghi, con l’app Meta AI.
+Puedes cambiar cualquier permiso en los Ajustes del teléfono. || Puoi cambiare qualsiasi permesso nelle Impostazioni del telefono.

@@ -204,6 +204,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val heading = TextView(this).apply {
             text = getString(R.string.plive_heading)
             textSize = 19f
+            isAccessibilityHeading = true   // W87 (Claude): TalkBack heading
         }
         root.addView(heading)
         root.addView(TextView(this).apply {
@@ -253,6 +254,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         status = TextView(this).apply {
             text = getString(R.string.plive_idle)
             textSize = 15f
+            // W87 (Claude): TalkBack reads connection, reconnection and copy changes.
+            accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         root.addView(status)
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -283,7 +286,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             text = getString(R.string.plive_review_pending)
             setOnClickListener { reviewPendingVideo() }
         })
-        preview = SurfaceView(this)
+        preview = SurfaceView(this).apply { contentDescription = getString(R.string.plive_preview_description) }
         root.addView(preview, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
         ))

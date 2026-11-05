@@ -402,4 +402,5 @@
     <string name="slive_on_air_both_mic">直播中 · 屏幕和摄像头（有麦克风，无本地 MP4）。</string>
     <string name="slive_on_air_camera">直播中 · 摄像头（无音频，无本地 MP4）。</string>
     <string name="slive_on_air_camera_mic">直播中 · 摄像头（有麦克风，无本地 MP4）。</string>
+    <string name="plive_preview_description">LIVE 摄像头预览</string>
 </resources>

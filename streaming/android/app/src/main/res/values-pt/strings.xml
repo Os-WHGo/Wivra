@@ -402,4 +402,5 @@
     <string name="slive_on_air_both_mic">AO VIVO · tela e câmera (com microfone, sem MP4 local).</string>
     <string name="slive_on_air_camera">AO VIVO · câmera (sem áudio, sem MP4 local).</string>
     <string name="slive_on_air_camera_mic">AO VIVO · câmera (com microfone, sem MP4 local).</string>
+    <string name="plive_preview_description">Pré-visualização da câmera para o LIVE</string>
 </resources>
