@@ -271,16 +271,18 @@ object WivraRandomExportStore {
     // codec/readback work. This is defense-in-depth, not immutable inode proof.
     private data class RecoveryStamp(val bytes: Long, val modifiedMs: Long)
 
-    private fun recoveryStamp(file: File, root: File): RecoveryStamp? {
+    private fun recoveryStamp(file: File, root: File): RecoveryStamp? = try {
         if (!isRecoverableFilename(file.name) || !file.isFile ||
             Files.isSymbolicLink(file.toPath()) || file.canonicalFile.parentFile != root)
-            return null
-        val bytes = file.length()
-        val modified = file.lastModified()
-        if (bytes <= 0L || bytes > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES ||
-            modified <= 0L) return null
-        return RecoveryStamp(bytes, modified)
-    }
+            null
+        else {
+            val bytes = file.length()
+            val modified = file.lastModified()
+            if (bytes <= 0L || bytes > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES ||
+                modified <= 0L) null
+            else RecoveryStamp(bytes, modified)
+        }
+    } catch (_: Exception) { null }
 
     // Filter cheap but important file/path checks BEFORE applying the bounded
     // 100-result limit. Noise and symlinks must not hide a legitimate recording.
