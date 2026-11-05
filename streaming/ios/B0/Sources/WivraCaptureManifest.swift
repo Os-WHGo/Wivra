@@ -76,7 +76,8 @@ struct WivraCaptureManifest: Codable {
     static func write(videoURL: URL, tracks: [WivraCaptureTrack],
                       mergedURL: URL?, muxedFromTrackIDs: [String] = [],
                       cameraSource: String = "meta-dat-hevc",
-                      multicam: WivraCaptureMulticam? = nil) throws -> URL {
+                      multicam: WivraCaptureMulticam? = nil,
+                      writeOnce: Bool = false) throws -> URL {
         var ids = Set<String>()
         var recordedChannels = Set<String>()
         for track in tracks {
@@ -123,7 +124,19 @@ struct WivraCaptureManifest: Codable {
         )
         let result = videoURL.deletingPathExtension().appendingPathExtension("wivra.json")
         let data = try JSONEncoder().encode(record)
-        try data.write(to: result, options: .atomic)
+        if writeOnce {
+            // W70: the recovery path must never replace a manifest created by
+            // an active or competing finalizer. Atomic rename alone can overwrite.
+            // Link a same-directory staged inode to the absent destination:
+            // linkItem fails atomically when the destination already exists.
+            let temporary = result.deletingLastPathComponent()
+                .appendingPathComponent(".wivra-\(UUID().uuidString).staging")
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            try data.write(to: temporary, options: .atomic)
+            try FileManager.default.linkItem(at: temporary, to: result)
+        } else {
+            try data.write(to: result, options: .atomic)
+        }
         return result
     }
 
