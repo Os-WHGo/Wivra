@@ -77,6 +77,8 @@ jobs:
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Exercise synthetic exact AVC AAC MP4 diagnostics and safe failures (Linux engines only)
+        env:
+          DEBUG: pw:browser
         run: |
           node --test tools/accelerated-codec-diagnostic.test.cjs
           node tools/browser-accelerated-codec-diagnostic.cjs

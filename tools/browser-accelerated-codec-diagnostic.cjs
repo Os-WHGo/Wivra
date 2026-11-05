@@ -91,39 +91,73 @@ async function runBrowserDiagnostics(){
    if(name==='webkit'&&!fs.existsSync(engine.executablePath())){
     result.browsers.push({engine:name,platform:'linux',available:false,reason:'browser-not-installed'});continue;
    }
-   let browser;
+   // Retain the engine and active case BEFORE crossing into the browser. A
+   // crashed codec process must leave honest partial evidence, not disappear
+   // from an artifact that contains only the preceding successful engine.
+   const record={engine:name,platform:'linux',available:false,completed:false,
+    phase:'launch',events:{pageCrashed:false,browserDisconnected:false},cases:[],faultInjection:[]};
+   result.browsers.push(record);
+   let browser,page,activeCase,closing=false;
+   const begin=(trace,phase)=>{
+    record.phase=phase;activeCase=trace;trace.status='running';trace.currentStage='environment';
+    console.log('[Wivra codec QA] '+name+' '+trace.name+' started');
+   };
+   const onStage=(caseName,stage)=>{
+    if(activeCase?.name!==caseName||!STAGES.includes(stage))return;
+    activeCase.lastCompletedStage=stage;
+    activeCase.currentStage=STAGES[STAGES.indexOf(stage)+1]||'completed';
+    console.log('[Wivra codec QA] '+name+' '+activeCase.name+' passed '+stage);
+   };
    try{
+    console.log('[Wivra codec QA] '+name+' launching');
     browser=await engine.launch({headless:true});
-    const page=await browser.newPage();
+    record.available=true;record.phase='page-setup';
+    browser.on('disconnected',()=>{
+     if(closing)return;
+     record.events.browserDisconnected=true;
+     console.log('[Wivra codec QA] '+name+' browser disconnected unexpectedly');
+    });
+    page=await browser.newPage();
+    page.on('crash',()=>{
+     record.events.pageCrashed=true;
+     console.log('[Wivra codec QA] '+name+' page process crashed');
+    });
+    await page.exposeFunction('__wivraDiagnosticStage',onStage);
     await page.goto(base+'/?private='+privateMarker);
     await page.addScriptTag({url:base+'/bundle/mediabunny.cjs'});
-    const cases=[];
+    const cases=record.cases;
     for(const sample of [
      {name:'short-avc-aac',width:320,height:240,fps:30},
      {name:'1080p-avc-aac',width:1920,height:1080,fps:30},
      {name:'cancel-before-start',width:320,height:240,fps:30,cancelled:true},
      {name:'retry-after-cancel',width:320,height:240,fps:30}
     ]){
+     const trace={name:sample.name};cases.push(trace);begin(trace,'diagnostic');
      let timer;
      const report=await Promise.race([
       page.evaluate(async sample=>{
        const {runAcceleratedCodecDiagnostic}=await import('/app/accelerated-codec-diagnostic.mjs');
        return runAcceleratedCodecDiagnostic({M:globalThis.Mediabunny,
         width:sample.width,height:sample.height,fps:sample.fps,
-        timeoutMs:15000,isCancelled:()=>sample.cancelled===true});
+        timeoutMs:15000,isCancelled:()=>sample.cancelled===true,
+        onStage:stage=>{globalThis.__wivraDiagnosticStage(sample.name,stage).catch(()=>{});}});
       },sample),
       new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Synthetic diagnostic exceeded browser deadline')),25000);})
      ]).finally(()=>clearTimeout(timer));
      validateDiagnosticReport(report,{cancelled:sample.cancelled===true,privateMarker});
-     cases.push({name:sample.name,report});
+     trace.report=report;trace.status='completed';trace.currentStage=report.failedStage||'completed';
+     console.log('[Wivra codec QA] '+name+' '+sample.name+' '+report.outcome+
+      (report.code?' '+report.code:''));
     }
     assert.equal(cases[0].report.outcome,cases[3].report.outcome,'Cancellation changed codec availability on retry');
     assert.equal(cases[0].report.code,cases[3].report.code,'Cancellation changed the codec failure on retry');
     assert.equal(cases[0].report.failedStage,cases[3].report.failedStage,'Cancellation changed the failed verification stage');
     // These intentionally fake encoder failures. They exercise cleanup and
     // error handling only and MUST NOT become codec compatibility evidence.
-    const faultInjection=[];
+    const faultInjection=record.faultInjection;
     for(const scenario of ['encoder-constructor-error','encoder-configure-error','support-timeout','cancel-hanging-support']){
+     const trace={name:scenario,syntheticFailureOnly:true,compatibilityEvidence:false};
+     faultInjection.push(trace);begin(trace,'fault-injection');
      const report=await page.evaluate(async({scenario,privateMarker})=>{
       const {runAcceleratedCodecDiagnostic}=await import('/app/accelerated-codec-diagnostic.mjs');
       const originalVideo=globalThis.VideoEncoder,originalAudio=globalThis.AudioEncoder;
@@ -143,7 +177,8 @@ async function runBrowserDiagnostics(){
        globalThis.VideoEncoder=FailingEncoder;globalThis.AudioEncoder=FailingEncoder;
        if(scenario==='cancel-hanging-support')timer=setTimeout(()=>{cancelled=true;},40);
        return await runAcceleratedCodecDiagnostic({M:globalThis.Mediabunny,
-        timeoutMs:scenario==='support-timeout'?100:1000,isCancelled:()=>cancelled});
+        timeoutMs:scenario==='support-timeout'?100:1000,isCancelled:()=>cancelled,
+        onStage:stage=>{globalThis.__wivraDiagnosticStage(scenario,stage).catch(()=>{});}});
       }finally{
        clearTimeout(timer);globalThis.VideoEncoder=originalVideo;globalThis.AudioEncoder=originalAudio;
       }
@@ -153,17 +188,22 @@ async function runBrowserDiagnostics(){
      const expected=scenario==='support-timeout'?'timeout':scenario==='cancel-hanging-support'?'cancelled':'encode-error';
      assert.equal(report.code,expected,'Injected failure was not categorized safely');
      assert.equal(report.failedStage,scenario.includes('support')?'exact-support':'encode');
-     const retry=await page.evaluate(async()=>{
+     trace.report=report;trace.status='failed-as-expected';
+     trace.retryTrace={name:scenario+'-retry'};begin(trace.retryTrace,'retry-after-fault');
+     const retry=await page.evaluate(async caseName=>{
       const {runAcceleratedCodecDiagnostic}=await import('/app/accelerated-codec-diagnostic.mjs');
-      return runAcceleratedCodecDiagnostic({M:globalThis.Mediabunny,timeoutMs:15000});
-     });
+      return runAcceleratedCodecDiagnostic({M:globalThis.Mediabunny,timeoutMs:15000,
+       onStage:stage=>{globalThis.__wivraDiagnosticStage(caseName,stage).catch(()=>{});}});
+     },scenario+'-retry');
      validateDiagnosticReport(retry,{privateMarker});
      assert.notEqual(retry.code,'diagnostic-busy','A failed diagnostic retained its single-run lock');
      assert.equal(retry.outcome,cases[0].report.outcome,'Injected codec state survived cleanup');
      assert.equal(retry.code,cases[0].report.code,'Injected codec failure survived cleanup');
      assert.equal(retry.failedStage,cases[0].report.failedStage,'Injected verification state survived cleanup');
-     faultInjection.push({name:scenario,syntheticFailureOnly:true,compatibilityEvidence:false,report,retry});
+     trace.retry=retry;trace.retryTrace.status='completed';
     }
+    record.fileValidationTrace={name:'corrupt-file-validation'};
+    begin(record.fileValidationTrace,'file-validation');
     const fileValidation=await page.evaluate(async()=>{
      const {validateDiagnosticMp4}=await import('/app/accelerated-codec-diagnostic.mjs');
      const {fmp4AddDurationAndIndex,inspectExport}=await import('/app/media-container.mjs');
@@ -182,9 +222,22 @@ async function runBrowserDiagnostics(){
      return {syntheticFixture:true,structuralValidationOnly:true,validFixtureAccepted:true,rejected};
     });
     assert.deepEqual(fileValidation.rejected,['empty','truncatedHeader','truncatedMedia','corruptBoxSize']);
-    result.browsers.push({engine:name,platform:'linux',available:true,cases,faultInjection,fileValidation});
+    record.fileValidation=fileValidation;record.fileValidationTrace.status='completed';
+    record.completed=true;record.phase='completed';activeCase=null;
+    console.log('[Wivra codec QA] '+name+' completed');
     await page.close();
-   }finally{await browser?.close();}
+   }catch(error){
+    // Preserve standardized failure context only. Playwright's error text can
+    // contain page URLs, filesystem paths and browser stderr; it is not part
+    // of the downloadable privacy-safe diagnostic report.
+    record.failureCode=record.events.pageCrashed||record.events.browserDisconnected||page?.isClosed()
+     ?'browser-process-closed':error.message==='Synthetic diagnostic exceeded browser deadline'
+      ?'browser-deadline':error.name==='AssertionError'?'report-invariant-error'
+       :record.phase==='launch'?'browser-launch-failed':'browser-operation-failed';
+    if(activeCase){activeCase.status='harness-failed';activeCase.failureCode=record.failureCode;}
+    console.log('[Wivra codec QA] '+name+' '+record.phase+' '+record.failureCode);
+    throw error;
+   }finally{closing=true;await browser?.close();}
   }
   assert.ok(result.browsers.some(item=>item.available),'No real browser diagnostic executed');
   result.pass=true;
