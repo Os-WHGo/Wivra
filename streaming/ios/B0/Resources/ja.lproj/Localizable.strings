@@ -106,3 +106,14 @@
 "ios.capture.share_segment_only" = "このセグメントのみ共有";
 "ios.capture.take_not_finalized" = "撮影全体の完了を確認できません。セグメントはWivraに保持され、自動結合や写真への公開は行いません。";
 "ios.capture.dat_signal_interrupted" = "Ray-Banの映像信号が途切れたため、ファイル保護のため録画を終了しました。セグメントが不完全な場合があります。書き出し前に確認してください。";
+
+"ios.library.multicam_recovery_title" = "未完了のデュアルカメラ録画";
+"ios.library.multicam_recovery_note" = "中断した録画のファイルが保存されています。編集画面に復元する前に検証してください。削除や写真への保存は行いません。";
+"ios.library.multicam_verify" = "検証して復元";
+"ios.library.multicam_verifying" = "MOVのトラックとフレームを検証中...";
+"ios.library.multicam_share_unverified" = "未検証のメインMOVを共有";
+"ios.library.multicam_share_secondary" = "未検証のサブMOVを共有";
+"ios.library.multicam_recovered_both" = "両方のカメラ映像を検証し、編集画面に復元しました。";
+"ios.library.multicam_recovered_main" = "メイン映像のみ復元しました。サブ映像の原本はWivraに残ります。";
+"ios.library.multicam_secondary_only" = "サブカメラのMOVのみ検証できました。自動では取り込みません。";
+"ios.library.multicam_failed" = "復元を検証または保存できませんでした。原本は変更されていません。";
