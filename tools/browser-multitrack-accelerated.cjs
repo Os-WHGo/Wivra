@@ -266,6 +266,24 @@ const server=http.createServer((req,res)=>{
    preservedBlackGap:!gap||gapRgb.every(x=>x<30),
    firstOrange:first[0]>first[2]+25,
    secondBlue:second[2]>second[0]+25};
+  // W72: decode both sides of the LAST real edit transition from the
+  // finished file. Duration metadata and a decoded first scene alone cannot
+  // prove the output remains decodable or correctly ordered at 10/20/30/60 min.
+  // Every long fixture has 120 alternating clips: #118 orange, #119 blue.
+  if(longSoak){
+   const previousAtSeconds=seconds-seconds/120-.25;
+   const finalAtSeconds=seconds-.25;
+   const previousRGB=pixel(previousAtSeconds);
+   const finalRGB=pixel(finalAtSeconds);
+   report.scenes.tailTransition={
+    previousAtSeconds,finalAtSeconds,previousRGB,finalRGB,
+    previousOrange:previousRGB[0]>previousRGB[2]+25,
+    finalBlue:finalRGB[2]>finalRGB[0]+25
+   };
+   if(!report.scenes.tailTransition.previousOrange||
+      !report.scenes.tailTransition.finalBlue)
+    throw Error('Long accelerated tail transition was not independently decodable.');
+  }
   if(sharedSource){
    const overlay=pixel(.2,150,110);
    report.scenes.sharedSourceOverlayRGB=overlay;
@@ -392,8 +410,10 @@ const server=http.createServer((req,res)=>{
      report.resources.peakOutputBytes!==highWater||
      report.browser.result.videoFrames!==seconds*30||
      report.browser.result.audioBlocks!==seconds||
-     report.audio.tailVoice<=.015)
-    throw Error('Long accelerated resources/video/audio validation failed: '+
+     report.audio.tailVoice<=.015||
+     report.scenes.tailTransition?.previousOrange!==true||
+     report.scenes.tailTransition?.finalBlue!==true)
+    throw Error('Long accelerated resources/video/audio/tail validation failed: '+
      JSON.stringify(report));
   }
   console.log(JSON.stringify(report,null,2));
