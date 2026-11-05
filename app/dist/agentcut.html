@@ -541,6 +541,7 @@ body.dock .back{pointer-events:none;background:transparent}
   <select id="expLoud"><option value="off">Como está</option><option value="balanced">Parejo y fuerte (para reels)</option><option value="quiet">Parejo y suave</option></select>
   <p class="m" id="expLoudInfo">Mide el sonido de todo el video y lo sube o baja por igual, sin deformar la voz. No cambia tus originales.</p>
   <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowAudioGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad.</span></label>
+  <label class="m" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input type="checkbox" id="expAllowOverlayGaps" style="margin-top:3px;flex:0 0 auto"><span>Permitir exportar aunque falte un video, GIF o imagen superpuesta. Podrían desaparecer logos o tomas. Desmarcado por seguridad.</span></label>
   <div id="expSaveRow" style="display:none;margin:8px 0"><label for="expSave" style="display:block">Cómo guardar</label>
     <select id="expSave"><option value="auto">Directo al teléfono, por partes (nuevo, beta)</option><option value="memory">En memoria (anterior)</option></select>
     <p class="m" id="expSaveInfo">Por partes: cada segundo grabado se escribe en el teléfono y se comprueba al final; usa poca memoria. En memoria: el método anterior, todo el video se guarda en la RAM hasta terminar.</p></div>
@@ -1930,10 +1931,28 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
     get platform() { return host.platform; },
     async begin() {
       if (state !== 'idle') throw new Error('El guardado ya empezó.');
-      if (typeof host.hello === 'function') await host.hello();
-      const r = await host.request({ op: 'begin', mime, ext, estimatedBytes: Math.max(0, Math.round(estimatedBytes || 0)) });
-      if (!Number.isInteger(r.token) || r.token <= 0) throw new Error('El guardado nativo no devolvió una sesión válida.');
-      token = r.token; info = r; state = 'open';
+      // Lock synchronously: a second begin() or user cancellation can occur
+      // while native hello/begin is still waiting for its asynchronous reply.
+      state = 'starting';
+      let r;
+      try {
+        if (typeof host.hello === 'function') await host.hello();
+        if (state === 'aborted') throw new Error('Exportación cancelada durante el inicio.');
+        r = await host.request({ op: 'begin', mime, ext, estimatedBytes: Math.max(0, Math.round(estimatedBytes || 0)) });
+        if (!Number.isInteger(r?.token) || r.token <= 0) throw new Error('El guardado nativo no devolvió una sesión válida.');
+      } catch (e) {
+        if (state !== 'aborted') { state = 'failed'; fail(e); }
+        throw e;
+      }
+      token = r.token; info = r;
+      if (state === 'aborted') {
+        // Cancellation may win while the native begin() is creating its file.
+        // Always close THAT newly returned token, never revive this sink.
+        try { await host.request({ op: 'abort', token, reason: 'cancelled-before-begin-completed' }); }
+        catch { /* native startup orphan cleanup handles an unreachable bridge */ }
+        throw new Error('Exportación cancelada durante el inicio.');
+      }
+      state = 'open';
       return r;
     },
     push(blob) {
@@ -1943,9 +1962,12 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
       receivedBytes += size; queuedBytes += size; peakQueuedBytes = Math.max(peakQueuedBytes, queuedBytes);
       if (queuedBytes > maxQueuedBytes) return fail(new Error('El almacenamiento del teléfono no sigue el ritmo de la grabación. Libera espacio o cierra otras apps.'));
       chain = chain.then(async () => {
-        if (error) return;
+        if (error || state !== 'open') return;
         const prepared = typeof host.readChunk === 'function' ? await host.readChunk(blob, token, seq) : null;
         const bytes = prepared ? prepared.bytes : new Uint8Array(await blob.arrayBuffer());
+        // Reading a large Blob can yield control: a cancel may have arrived in
+        // the meantime. Never send a fragment after cancellation.
+        if (error || state !== 'open') return;
         if (bytes.length !== size) throw new Error('Un fragmento cambió de tamaño al leerlo.');
         const next = crc32Update(crc, bytes);
         const r = prepared ? await prepared.send() : await host.sendChunk({ token, seq, bytes });
@@ -1957,6 +1979,9 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
     async finish({ timeoutMs, expectedDurationMs = 0, expectAudio = false } = {}) {
       if (state !== 'open') throw error || new Error('El guardado no está abierto.');
       await chain;
+      // A user may cancel while finish() waits for native chunks. In that case
+      // never begin finalization after abort() has already claimed the session.
+      if (state !== 'open') throw error || new Error('Exportación cancelada antes de finalizar.');
       if (error) throw error;
       if (sentBytes !== receivedBytes) throw new Error('No se escribieron todos los fragmentos grabados.');
       state = 'finishing';
@@ -1976,8 +2001,17 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
     /** Idempotente. Borra el archivo parcial en el nativo; nunca lanza. */
     async abort(reason = 'cancelled') {
       if (state === 'idle' || state === 'done' || state === 'aborted') { if (state === 'idle') state = 'aborted'; return; }
+      // Native finish may already be verifying/repairing a published recording.
+      // Never race its read/rename/publish with deletion of the underlying file.
+      if (state === 'finishing') return;
       const hadToken = token > 0; state = 'aborted';
+      // If begin() is in flight it will abort its newly created native file as
+      // soon as the token arrives. There is nothing to address yet.
       if (!hadToken) return;
+      // A Blob read or a native chunk may already be in flight. Wait for it to
+      // settle before deleting the pending file; otherwise a late native chunk
+      // could race the abort and leave a confusing or dangling session.
+      try { await chain; } catch { /* still attempt native cleanup */ }
       try { await host.request({ op: 'abort', token, reason: String(reason).slice(0, 120) }); } catch { /* el nativo limpia huérfanos al iniciar */ }
     },
     stats: () => ({ state, seq, sentBytes, receivedBytes, queuedBytes, peakQueuedBytes, crc32: crc, info }),
@@ -1988,6 +2022,17 @@ function createProgressiveExportSink(host, { mime = '', ext = '', estimatedBytes
 /** Pide al nativo abrir el menú de compartir/guardar del archivo ya verificado. */
 function shareSavedExport(host, token) {
   return host.request({ op: 'share', token });
+}
+
+/** Guarda directamente en Fotos en iOS, sin abrir la hoja Compartir.
+ * Requiere un token de exportación finalizada y verificada; nunca solicita acceso de lectura.
+ * En Android el usuario puede usar el guardado nativo MediaStore existente. */
+function saveExportToPhotos(host, token) {
+  if (!host || host.platform !== 'ios') return Promise.reject(new Error('Guardar en Fotos directamente solo está disponible en iPhone.'));
+  if (!Number.isInteger(token) || token <= 0) return Promise.reject(new Error('La exportación no tiene una sesión válida.'));
+  // The initial add-only permission dialog is controlled by the user. A 30-second
+  // transport timeout would report failure while the iOS prompt is still open.
+  return host.request({ op: 'savePhotos', token }, 5 * 60 * 1000);
 }
 
 // Wivra · contenedores de exportación sin dependencias. MediaRecorder escribe WebM y MP4
@@ -2318,9 +2363,451 @@ function finalizeExportBytes(bytes, { maxBytes = 512 * 1024 * 1024 } = {}) {
   } catch (e) { return { bytes: b, fixed: false, reason: e.message }; }
 }
 
+// WebCodecs/Mediabunny currently exists only as an isolated benchmark.
+// Do not allow a caller to claim the renderer is implemented by passing flags.
+// Flip this only in the commit that wires the full production renderer.
+const ACCELERATED_EXPORT_IMPLEMENTED = false;
+function selectExportEngine({ requested = 'auto', webCodecs = false, mediabunny = false, fullTimelineRenderer = false, nativeRandomAccess = false, verifiedOnDevice = false } = {}) {
+  if (!['auto', 'webcodecs', 'mediarecorder'].includes(requested)) throw new Error('Motor de exportación desconocido.');
+  const ready = ACCELERATED_EXPORT_IMPLEMENTED && webCodecs && mediabunny && fullTimelineRenderer && nativeRandomAccess && verifiedOnDevice;
+  if (requested === 'mediarecorder' || !ready) return { engine: 'mediarecorder', fallback: false, ready: false, reason: 'Motor acelerado pendiente de integración y validación completa.' };
+  return { engine: 'webcodecs', fallback: true, ready: true };
+}
+
+// Wivra accelerated export, first SHARED WebCodecs+Mediabunny cut renderer.
+// Extracted from Claude's tools/export-engine-benchmark.cjs (Mediabunny 1.61.6).
+// This module is intentionally NOT selected by the production recordProject:
+// it lacks overlays, video speed, loudness, layered audio, native random-write
+// v2, bundled offline library and device QA. Do not claim beta acceleration.
+// Always keep original MediaRecorder pipeline until the full timeline is proven.
+//
+// M = locally bundled Mediabunny, injected rather than downloaded at runtime.
+// writeAt(position, Uint8Array) must write atomically at arbitrary offsets.
+// In particular MP4 moov/header fixes can OVERWRITE previously written bytes.
+// The legacy append-only CRC sink must never be used for this transport.
+const ACCELERATED_CUT_RENDERER_VERSION = 1;
+
+function acceleratedCutEligibility(project, media, { maxSeconds = 120, maxCuts = 80,
+  loudnessGainDb = 0 } = {}) {
+  const deny = reason => ({ eligible: false, reason });
+  const clips = project?.clips;
+  if (!Array.isArray(clips) || !clips.length || clips.length > maxCuts) return deny('clip-count');
+  if ((project.overlayClips || []).length || (project.audioClips || []).length ||
+      (project.texts || []).length) return deny('other-tracks');
+  if (Math.abs(Number(loudnessGainDb) || 0) > 0.001) return deny('master-audio');
+  if (project.format?.aspect && project.format.aspect !== 'original') return deny('format');
+  if (project.format?.fit && project.format.fit !== 'contain') return deny('fit');
+  if (project.transitions?.length || project.effects?.length) return deny('effects');
+  const first = clips[0], source = media?.[first.asset_id];
+  if (!source || source.kind !== 'video' || !source.url ||
+      !(source.w > 0 && source.h > 0) || !Number.isFinite(source.w * source.h)) return deny('source');
+  const cuts = [];
+  // Whitelist only properties with understood semantics. A new clip effect,
+  // transform, composite, fade or look must NOT silently disappear in fast mode.
+  const safeClipKeys = new Set(['id', 'asset_id', 'start', 'in', 'out', 'volume', 'muted', 'speed']);
+  let nextStart = 0;
+  for (const clip of clips) {
+    const len = clip.out - clip.in;
+    if (Object.keys(clip).some(key => !safeClipKeys.has(key) && clip[key] != null))
+      return deny('unsupported-clip-property');
+    if (clip.asset_id !== first.asset_id || !(len > 0.001) || !Number.isFinite(len) ||
+        !Number.isFinite(clip.start) || !Number.isFinite(clip.in) ||
+        !Number.isFinite(clip.out) || clip.in < 0 ||
+        Math.abs(clip.start - nextStart) > 0.0005) return deny('timeline');
+    // Only clean A/V cuts: reject muted/volume-adjusted audio, speed, filters
+    // and text/effects rather than silently flattening or dropping them.
+    if (clip.muted || (clip.volume != null && clip.volume !== 1) ||
+        (clip.speed != null && clip.speed !== 1) ||
+        clip.filters?.length || clip.filter || clip.effects?.length ||
+        clip.transition || clip.shape || clip.crop) return deny('clip-effects');
+    cuts.push({ in: clip.in, out: clip.out });
+    nextStart += len;
+  }
+  if (!(nextStart > 0) || nextStart > maxSeconds) return deny('duration');
+  return { eligible: true, cuts, sourceUrl: source.url, width: source.w,
+    height: source.h, totalSeconds: nextStart };
+}
+
+/** Validates SDK's random-offset write contract, without changing existing v1. */
+function checkedRandomWrite(writeAt, { maxChunkBytes = 4 * 1024 * 1024 } = {}) {
+  if (typeof writeAt !== 'function') throw new TypeError('Random-access native writer required.');
+  let writes = 0, lastEnd = 0;
+  return {
+    get writes() { return writes; },
+    get highWaterBytes() { return lastEnd; },
+    async write(position, data) {
+      if (!Number.isSafeInteger(position) || position < 0 || !(data instanceof Uint8Array) ||
+          !data.length || data.byteLength > maxChunkBytes ||
+          position + data.byteLength > Number.MAX_SAFE_INTEGER)
+        throw new Error('Invalid accelerated random-access write.');
+      const n = await writeAt(position, data);
+      // Native must acknowledge actual write length, never assume success.
+      if (n !== data.byteLength) throw new Error('Incomplete accelerated media write.');
+      writes++;
+      lastEnd = Math.max(lastEnd, position + n);
+    }
+  };
+}
+
+/**
+ * Renders a single-source cut timeline with source audio preserved.
+ * This is an isolated *executable renderer* shared with the benchmark, not a
+ * production UI/phone export until fully bundled and QA'd.
+ */
+async function renderAcceleratedCuts({
+  M, sourceUrl, cuts, width, height, writeAt,
+  expectedAudio = null, label = '', isCancelled = () => false,
+  videoBitrate = 2_000_000, audioBitrate = 96_000
+}) {
+  if (!M || typeof M.Input !== 'function' || typeof M.StreamTarget !== 'function')
+    throw new Error('Mediabunny unavailable in this offline build.');
+  if (!(width > 0 && height > 0) || !Number.isFinite(width * height))
+    throw new Error('Invalid video dimensions.');
+  if (!Array.isArray(cuts) || !cuts.length ||
+      cuts.some(c => !Number.isFinite(c.in) || !Number.isFinite(c.out) ||
+        c.in < 0 || !(c.out > c.in))) throw new Error('Invalid accelerated cuts.');
+  if (isCancelled()) throw new Error('Accelerated export cancelled.');
+  const writer = checkedRandomWrite(writeAt);
+  const input = new M.Input({ source: new M.UrlSource(sourceUrl), formats: M.ALL_FORMATS });
+  let output;
+  try {
+    const video = await input.getPrimaryVideoTrack();
+    const audio = await input.getPrimaryAudioTrack();
+    if (!video) throw new Error('No decodable source video.');
+    if (expectedAudio === true && !audio) throw new Error('Source audio disappeared.');
+    if (expectedAudio === false && audio) throw new Error('Unexpected source audio.');
+    const codec = await M.getFirstEncodableVideoCodec(['avc', 'vp9', 'vp8'],
+      { width, height });
+    if (!codec) throw new Error('No supported WebCodecs video encoder.');
+    const hasAudio = !!audio;
+    const aac = hasAudio && await M.canEncodeAudio('aac');
+    const avc = codec === 'avc' && (!hasAudio || aac);
+    const chosenCodec = avc ? 'avc' :
+      (codec !== 'avc' ? codec :
+        await M.getFirstEncodableVideoCodec(['vp9', 'vp8'], { width, height }));
+    if (!chosenCodec) throw new Error('No valid video and audio codec pair.');
+    if (hasAudio && !avc && !(await M.canEncodeAudio('opus')))
+      throw new Error('No compatible audio codec.');
+    const container = avc ? 'mp4' : 'webm', audioCodec = !hasAudio ? null :
+      (avc ? 'aac' : 'opus');
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const g = canvas.getContext('2d');
+    if (!g) throw new Error('Canvas 2D unavailable.');
+
+    // StreamTarget supports patching offsets. Existing v1 append+CRC cannot.
+    // Await each individual write for backpressure; never ignore native errors.
+    const writable = new WritableStream({
+      write: chunk => writer.write(chunk.position, chunk.data)
+    });
+    output = new M.Output({
+      format: avc ? new M.Mp4OutputFormat({ fastStart: false }) : new M.WebMOutputFormat(),
+      target: new M.StreamTarget(writable, { chunked: true, chunkSize: 1 << 20 })
+    });
+    const videoSource = new M.CanvasSource(canvas,
+      { codec: chosenCodec, bitrate: videoBitrate, keyFrameInterval: 1 });
+    output.addVideoTrack(videoSource, { frameRate: 30 });
+    const audioSource = hasAudio ?
+      new M.AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate }) : null;
+    if (audioSource) output.addAudioTrack(audioSource);
+    await output.start();
+    const videoSink = new M.CanvasSink(video,
+      { width, height, fit: 'contain' });
+    const audioSink = hasAudio ? new M.AudioBufferSink(audio) : null;
+    let position = 0, frames = 0, audioBuffers = 0;
+    for (const cut of cuts) {
+      if (isCancelled()) throw new Error('Accelerated export cancelled.');
+      let cutFrames = 0;
+      for await (const wc of videoSink.canvases(cut.in, cut.out)) {
+        if (isCancelled()) throw new Error('Accelerated export cancelled.');
+        const s = Math.max(wc.timestamp, cut.in);
+        const e = Math.min(wc.timestamp + wc.duration, cut.out);
+        if (!(e > s)) continue;
+        g.drawImage(wc.canvas, 0, 0, width, height);
+        if (label) {
+          g.fillStyle = '#fff'; g.font = '700 28px sans-serif';
+          g.textAlign = 'center'; g.fillText(label, width / 2, height - 30);
+        }
+        await videoSource.add(position + s - cut.in, e - s);
+        frames++; cutFrames++;
+      }
+      if (!cutFrames) throw new Error('Source cut produced no video frames.');
+      if (audioSink) {
+        for await (const wb of audioSink.buffers(cut.in, cut.out)) {
+          if (isCancelled()) throw new Error('Accelerated export cancelled.');
+          const b = wb.buffer;
+          const s = Math.max(wb.timestamp, cut.in);
+          const e = Math.min(wb.timestamp + wb.duration, cut.out);
+          if (!(e > s)) continue;
+          const from = Math.round((s - wb.timestamp) * b.sampleRate);
+          const length = Math.round((e - s) * b.sampleRate);
+          if (!length) continue;
+          const part = new AudioBuffer({ length, sampleRate: b.sampleRate,
+            numberOfChannels: b.numberOfChannels });
+          for (let ch = 0; ch < b.numberOfChannels; ch++) {
+            part.copyToChannel(b.getChannelData(ch).subarray(from, from + length), ch);
+          }
+          await audioSource.add(part); audioBuffers++;
+        }
+      }
+      position += cut.out - cut.in;
+    }
+    if (hasAudio && !audioBuffers) throw new Error('Audio decoding yielded no samples.');
+    if (isCancelled()) throw new Error('Accelerated export cancelled.');
+    await output.finalize();
+    return { engine: 'webcodecs-mediabunny', container, videoCodec: chosenCodec,
+      audioCodec, durationSeconds: position, frames, audioBuffers,
+      writes: writer.writes, outputBytes: writer.highWaterBytes };
+  } catch (error) {
+    // Caller MUST abort its new random-access temporary file on any failure.
+    // Never auto-publish partial MP4 or fall back after native writer opened.
+    throw error;
+  }
+}
+
+// Wivra P0-W - protocol v2 random access storage adapter for Mediabunny.
+// This is NOT the existing v1 sequential MediaRecorder protocol.
+// No production native host advertises v2 yet: attempting to use it must fail.
+// The caller owns the temporary v2 file, never any existing user's media.
+//
+// Only a native host that explicitly confirms protocol 2 + randomWrite may
+// be used. The native implementation will hash/inspect the *final patched*
+// container, not incrementally CRC chunks whose headers may be overwritten.
+const ACCELERATED_NATIVE_PROTOCOL = 2;
+const ACCELERATED_NATIVE_MAX_WRITE_BYTES = 1024 * 1024;
+// Back-pressure on unsent v2 chunks. Without this, an impatient WebCodecs
+// producer could retain an unbounded queue of full-sized JS Uint8Arrays.
+const ACCELERATED_NATIVE_MAX_PENDING_BYTES = 8 * 1024 * 1024;
+// Must match Android v2's filesystem capacity ceiling; do not send offset
+// values that native must reject after potentially expensive encoding.
+const ACCELERATED_NATIVE_MAX_OUTPUT_BYTES = 16 * 1024 * 1024 * 1024;
+
+function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
+  expectAudio = false, estimatedBytes = 0 } = {}) {
+  if (!host || typeof host.request !== 'function' || typeof host.sendWriteAt !== 'function') {
+    throw new Error('No existe un puente nativo de escritura aleatoria v2.');
+  }
+  if (!['video/mp4', 'video/webm'].includes(mime)) throw new Error('Contenedor acelerado inválido.');
+  if (!(expectedDurationMs > 0 && Number.isFinite(expectedDurationMs)) ||
+      !(estimatedBytes >= 0 && Number.isSafeInteger(estimatedBytes) &&
+        estimatedBytes <= ACCELERATED_NATIVE_MAX_OUTPUT_BYTES))
+    throw new Error('Duración/tamaño estimado inválido.');
+  let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
+  let pending = Promise.resolve(), failure = null, committing = false;
+  let pendingBytes = 0;
+  // A large random write can leave an unwritten hole before the patched MP4
+  // footer. Native MUST independently check this same invariant before rename.
+  let covered = [];
+  const markCovered = (start, end) => {
+    const merged = [];
+    for (const [a, b] of [...covered, [start, end]].sort((x, y) => x[0] - y[0])) {
+      const last = merged[merged.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+      else merged.push([a, b]);
+    }
+    covered = merged;
+  };
+  const request = (op, data = {}) => host.request({ protocol: ACCELERATED_NATIVE_PROTOCOL, op, ...data });
+  const abortToken = async (id) => {
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    await request('abortRandom', { token: id });
+  };
+  return {
+    get state() { return state; },
+    get maxEnd() { return maxEnd; },
+    get writeBytes() { return writeBytes; },
+    get pendingBytes() { return pendingBytes; },
+    async begin() {
+      if (state !== 'idle') throw new Error('La sesión acelerada ya se inició.');
+      state = 'starting';
+      try {
+        const caps = await request('helloRandom');
+        if (state === 'aborted') throw new Error('Inicio cancelado.');
+        if (caps?.protocol !== ACCELERATED_NATIVE_PROTOCOL || caps?.randomWrite !== true)
+          throw new Error('El puente no ofrece escritura aleatoria verificada.');
+        const result = await request('beginRandom', { mime, estimatedBytes });
+        if (!Number.isSafeInteger(result?.token) || result.token <= 0)
+          throw new Error('Token de exportación acelerada inválido.');
+        token = result.token;
+        if (state === 'aborted') {
+          await abortToken(token); token = null;
+          throw new Error('Inicio cancelado.');
+        }
+        state = 'open';
+        return { token };
+      } catch (e) {
+        if (state !== 'aborted') { state = 'failed'; failure = e; }
+        throw e;
+      }
+    },
+    async writeAt(position, bytes) {
+      if (state !== 'open') throw failure || new Error('No hay sesión de escritura abierta.');
+      if (!Number.isSafeInteger(position) || position < 0 ||
+          !(bytes instanceof Uint8Array) || bytes.length === 0 ||
+          bytes.length > ACCELERATED_NATIVE_MAX_WRITE_BYTES ||
+          position + bytes.length > ACCELERATED_NATIVE_MAX_OUTPUT_BYTES)
+        throw new Error('Desplazamiento o bloque acelerado inválido.');
+      if (pendingBytes + bytes.byteLength > ACCELERATED_NATIVE_MAX_PENDING_BYTES)
+        throw new Error('Cola de escritura acelerada excede memoria segura.');
+      // Copy once, since Mediabunny may recycle the chunk buffer after write.
+      // The counter includes in-flight and queued chunks until the native ack.
+      const data = new Uint8Array(bytes);
+      pendingBytes += data.byteLength;
+      const id = seq++;
+      const expectedEnd = position + data.byteLength;
+      const action = pending.then(async () => {
+        if ((state !== 'open' && state !== 'finishing') || failure)
+          throw failure || new Error('Sesión cancelada antes de escribir.');
+        const r = await host.sendWriteAt({ protocol: ACCELERATED_NATIVE_PROTOCOL,
+          token, seq: id, position, bytes: data });
+        if (r?.seq !== id || r?.writtenBytes !== data.byteLength ||
+            r?.maxEnd !== Math.max(maxEnd, expectedEnd))
+          throw new Error('El puente confirmó un bloque aleatorio diferente.');
+        maxEnd = Math.max(maxEnd, expectedEnd);
+        markCovered(position, expectedEnd);
+        writeBytes += data.byteLength;
+        return data.byteLength;
+      }).finally(() => { pendingBytes -= data.byteLength; });
+      // Prevent unhandled rejection on next chained write, but still notify
+      // this caller and make subsequent operations fail closed.
+      pending = action.catch(e => { failure ||= e; });
+      return action;
+    },
+    async finish() {
+      if (state !== 'open') throw failure || new Error('La sesión no está abierta.');
+      state = 'finishing';
+      await pending;
+      // Cancellation can land while the pending writes are draining. An abort
+      // must NEVER be followed by a late finishRandom (which could publish).
+      if (state !== 'finishing') throw failure || new Error('Exportación acelerada cancelada.');
+      if (failure) { state = 'failed'; throw failure; }
+      if (!writeBytes || !maxEnd) { state = 'failed'; throw new Error('Archivo acelerado vacío.'); }
+      if (covered.length !== 1 || covered[0][0] !== 0 || covered[0][1] !== maxEnd) {
+        state = 'failed';
+        throw new Error('Archivo acelerado incompleto: existen rangos sin escribir.');
+      }
+      // From this point native may verify/rename. Abort must not race the
+      // atomic publish: the caller may abort only after failure is reported.
+      committing = true;
+      let saved;
+      try {
+        saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
+          expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
+        // SHA-256 is computed by native from the ACTUAL final file after all
+        // arbitrary header patches. A mere positive byte count is insufficient.
+        // Native Android and iOS also enforce this duration window. Re-check
+        // the reply in JS so a stale/incompatible v2 bridge cannot label a
+        // shortened or desynchronized recording as fully verified.
+        const durationToleranceMs = Math.max(1500,Math.min(5000,
+          Math.floor(expectedDurationMs / 100)));
+        if (saved?.verified !== true || saved?.bytes !== maxEnd ||
+            !/^[0-9a-f]{64}$/i.test(saved?.sha256 || '') ||
+            saved?.media?.video !== true ||
+            !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
+            Math.abs(saved.media.durationMs - expectedDurationMs) > durationToleranceMs ||
+            (expectAudio && saved.media.audio !== true)) {
+          throw new Error('El archivo acelerado no superó integridad y decodificación.');
+        }
+        state = 'done'; token = null;
+        return saved;
+      } catch (e) { committing = false; state = 'failed'; failure ||= e; throw e; }
+    },
+    async abort() {
+      if (state === 'done' || state === 'aborted' || committing) return;
+      state = 'aborted';
+      await pending;
+      const id = token; token = null;
+      if (id != null) {
+        try { await abortToken(id); } catch { /* native orphan cleanup is mandatory */ }
+      }
+    }
+  };
+}
+
+
+
+// Wivra P0-W: bounded in-memory random access adapter ONLY for controlled QA.
+// Not the native long-video exporter. No offline Mediabunny SDK without an
+// explicitly pinned build, and no automatic switch from MediaRecorder.
+const ACCELERATED_QA_MAX_BYTES = 96 * 1024 * 1024;
+
+function createBoundedRandomMemoryWriter({ maximumBytes = ACCELERATED_QA_MAX_BYTES } = {}) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1024)
+    throw new Error('Límite de memoria acelerada inválido.');
+  let data = new Uint8Array(0), highest = 0, covered = [];
+  const addInterval = (start, end) => {
+    const merged = [];
+    for (const [s,e] of [...covered, [start,end]].sort((a,b)=>a[0]-b[0])) {
+      const prev = merged[merged.length-1];
+      if (prev && s <= prev[1]) prev[1] = Math.max(prev[1],e);
+      else merged.push([s,e]);
+    }
+    covered = merged;
+  };
+  return {
+    get highWaterBytes() { return highest; },
+    async writeAt(position, bytes) {
+      if (!Number.isSafeInteger(position) || position < 0 ||
+          !(bytes instanceof Uint8Array) || !bytes.length ||
+          position + bytes.length > maximumBytes) throw new Error('Límite de exportación rápida en memoria excedido.');
+      const end = position + bytes.length;
+      if (end > data.length) {
+        let size = Math.max(1024, data.length || 1024);
+        while (size < end) size = Math.min(maximumBytes, size * 2);
+        if (size < end) throw new Error('Memoria insuficiente para exportación acelerada.');
+        const enlarged = new Uint8Array(size); enlarged.set(data); data = enlarged;
+      }
+      data.set(bytes,position); highest = Math.max(highest,end);
+      addInterval(position,end);
+      return bytes.length;
+    },
+    finalize() {
+      // Patches are legal. Holes are not: an all-zero missing MP4 region could
+      // otherwise pass as a valid-looking Blob without ever being written.
+      if (!highest || covered.length !== 1 || covered[0][0] !== 0 || covered[0][1] !== highest)
+        throw new Error('Exportación acelerada incompleta: faltan bytes.');
+      return data.slice(0,highest);
+    }
+  };
+}
+
+/** Executable cut-only QA path; unsupported edits FAIL before opening output. */
+async function recordExperimentalAcceleratedProject({
+  project, media, M, isCancelled = () => false, loudnessGainDb = 0,
+  maxOutputBytes = ACCELERATED_QA_MAX_BYTES, onProgress = () => {}
+}) {
+  const selected = acceleratedCutEligibility(project,media,{loudnessGainDb});
+  if (!selected.eligible) throw new Error('Montaje no compatible con aceleración experimental: '+selected.reason);
+  if (!M || !M.Output) throw new Error('Mediabunny no está incorporado en esta compilación offline.');
+  const writer = createBoundedRandomMemoryWriter({maximumBytes:maxOutputBytes});
+  const t0 = typeof performance === 'object' ? performance.now() : Date.now();
+  const stats = await renderAcceleratedCuts({
+    M, sourceUrl:selected.sourceUrl,cuts:selected.cuts,width:selected.width,
+    height:selected.height,writeAt:(pos,bytes)=>writer.writeAt(pos,bytes),
+    expectedAudio:null,isCancelled
+  });
+  if (isCancelled()) throw new Error('Exportación acelerada cancelada.');
+  const bytes = writer.finalize();
+  if (bytes.length < 1000) throw new Error('Salida acelerada vacía o incompleta.');
+  const mime = stats.container === 'mp4' ? 'video/mp4' : 'video/webm';
+  onProgress({t:selected.totalSeconds,total:selected.totalSeconds,pct:1});
+  return {
+    blob:new Blob([bytes],{type:mime}),mime,ext:stats.container,
+    w:selected.width,h:selected.height,
+    seconds:((typeof performance === 'object' ? performance.now() : Date.now())-t0)/1000,
+    hasAudio:!!stats.audioCodec,skippedAudio:[],skippedOverlay:[],
+    textBeyondEnd:false,
+    // Never let a QA-only output claim the native verified/gallery status.
+    experimental:true,verifiedOnDevice:false,
+    acceleration:stats
+  };
+}
+
 // Wivra · exportación en el propio teléfono. Sin servidor y sin librerías: el navegador
 // reproduce cada clip (con su audio), se dibuja en un canvas con los textos y se graba con MediaRecorder.
 // Va en tiempo real (un video de 20 s tarda unos 20 s). Los originales no se tocan. — Claude
+
+
 
 
 
@@ -2616,10 +3103,24 @@ function drawTexts(g, list, W, H, zone = TEXT_ZONES.normal) {
 
 const once = (el, ev) => new Promise((res) => el.addEventListener(ev, res, { once: true }));
 const frame = () => new Promise((res) => requestAnimationFrame(res));
-/** Bits por segundo de la exportación: 8 Mbps hasta 2 min; en videos más largos baja (mín. 3 Mbps) para que el archivo en memoria no pase de ~120 MB. */
+/** Bitrate requested from MediaRecorder; it may choose a different actual value.
+ * In-memory fallback still caps long videos to avoid filling JS heap. */
 const EXPORT_BPS = 8_000_000, EXPORT_FULL_SECONDS = 120, EXPORT_MIN_BPS = 3_000_000;
-const exportBitrate = (seconds) => Math.round(Math.max(EXPORT_MIN_BPS, Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
-const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) * Math.max(0, seconds || 0) / 8 / 1e6));
+// For native progressive storage, use resolution and FPS, NOT duration, to set
+// the requested bitrate: an hour-long 1080p montage should not become blurrier
+// merely because it is long. Reference: 1080p/30 SDR at ~8 Mbps. Constrain
+// unexpected source dimensions before passing them to MediaRecorder.
+function exportBitrate(seconds, { progressive = false, width = 0, height = 0, fps = 30 } = {}) {
+  if (!progressive) return Math.round(Math.max(EXPORT_MIN_BPS,
+    Math.min(EXPORT_BPS, EXPORT_BPS * EXPORT_FULL_SECONDS / Math.max(1, seconds || 0))));
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+    return EXPORT_BPS; // preserve compatibility with existing project callers
+  const pixels = Math.min(7680 * 4320, Math.max(320 * 240, width * height));
+  const frameFactor = Number.isFinite(fps) && fps > 45 ? 1.5 : 1;
+  const target = EXPORT_BPS * Math.sqrt(pixels / (1920 * 1080)) * frameFactor;
+  return Math.round(Math.max(2_500_000, Math.min(24_000_000, target)) / 250_000) * 250_000;
+}
+const exportSizeMB = (seconds, options = {}) => Math.max(1, Math.round(exportBitrate(seconds, options) * Math.max(0, seconds || 0) / 8 / 1e6));
 /** Advisory only: in memory mode MediaRecorder chunks and final Blob remain buffered
  * until export ends. In progressive mode (native sink) only a bounded queue stays in
  * memory, so the risk is free storage, not RAM.
@@ -2627,14 +3128,14 @@ const exportSizeMB = (seconds) => Math.max(1, Math.round(exportBitrate(seconds) 
  * The warning does not certify any duration or block the owner's export.
  */
 function exportMemoryRisk(seconds, { progressive = false } = {}) {
-  const estimatedMB = exportSizeMB(seconds);
+  const estimatedMB = exportSizeMB(seconds, { progressive });
   if (progressive) return { estimatedMB, level: 'normal', bufferedUntilComplete: false, storageMB: estimatedMB };
   return {estimatedMB,
     level: estimatedMB >= 1024 ? 'critical' : estimatedMB >= 256 ? 'elevated' : 'normal',
     bufferedUntilComplete: true};
 }
 /** Bytes estimados del archivo (video + ~128 kbps de audio), para que el nativo compruebe espacio libre. */
-const exportEstimatedBytes = (seconds) => Math.round((exportBitrate(seconds) + 128_000) * Math.max(0, seconds || 0) / 8);
+const exportEstimatedBytes = (seconds, options = {}) => Math.round((exportBitrate(seconds, options) + 128_000) * Math.max(0, seconds || 0) / 8);
 /** Espera un evento con tiempo límite. Si se cancela mientras espera, termina (antes un video que no cargaba dejaba la exportación sin poder cancelarse). */
 function waitEvent(el, ev, { ms = 15000, isCancelled = () => false, what = 'Un video' } = {}) {
   return new Promise((res, rej) => {
@@ -2747,7 +3248,44 @@ function exportAudioPreflight(project, media, { hasAudio = true, decodedAudioIds
 }
 // saveMode: 'auto' = escribe progresivamente en el teléfono si hay puente nativo (si no, en memoria);
 // 'memory' = exportación anterior (Blob en memoria). exportHost permite inyectar el puente en pruebas.
-async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, saveMode = 'auto', exportHost }) {
+/** Missing overlay media must not silently disappear from a final video.
+ * The UI may request an explicit, one-export opt-in to an incomplete result. */
+function exportOverlayPreflight(project, loadedOverlayIds = []) {
+  const loaded = new Set(loadedOverlayIds);
+  const missingOverlay = [...new Set((project.overlayClips || [])
+    .filter(c => !loaded.has(c.id)).map(c => c.id))];
+  return { overlayBlocked: missingOverlay.length > 0, missingOverlay };
+}
+
+async function recordProject({ project, media, onProgress = () => {}, isCancelled = () => false, fps = 30, loudnessGainDb = 0, allowIncompleteAudio = false, allowIncompleteOverlay = false, saveMode = 'auto', exportHost, exportEngine = 'auto', experimentalAccelerated = false, acceleratedExpectAudio }) {
+  // Explicit QA-only path. Not reachable through ordinary editor UI and not
+  // turned on by exportEngine=auto/webcodecs. This preserves ALL production
+  // MediaRecorder behavior while the new native protocol/full timeline is built.
+  if (experimentalAccelerated === true) {
+    // Preserve Claude's original in-memory cut-only QA path unchanged.
+    if (saveMode === 'memory') return recordExperimentalAcceleratedProject({
+      project, media, M: globalThis.Mediabunny, onProgress, isCancelled, loudnessGainDb
+    });
+    // Explicit QA native path: the standard editor contains no sidecar, so
+    // production never changes engines due to runtime flags or WebView APIs.
+    // Never silently disregard the stable editor's loudness/incomplete flags.
+    if (saveMode !== 'auto' || allowIncompleteAudio || allowIncompleteOverlay ||
+        !Number.isFinite(loudnessGainDb) || Math.abs(loudnessGainDb) > 0.001)
+      throw new Error('Acelerador experimental: mezcla de volumen, guardado o medios incompletos sin paridad.');
+    const qa = globalThis.WivraAcceleratedQA;
+    if (typeof qa?.recordOnNative !== 'function')
+      throw new Error('La exportación acelerada experimental todavía no dispone de guardado nativo en esta compilación: acelerador multipista QA no incluido.');
+    if (typeof acceleratedExpectAudio !== 'boolean')
+      throw new Error('Acelerador experimental: declarar explícitamente presencia de audio.');
+    return qa.recordOnNative({
+      project, media, expectAudio: acceleratedExpectAudio,
+      experimentalAccelerated: true, fps, isCancelled, onProgress
+    });
+  }
+  // The accelerated prototype has not yet been ported to the full timeline renderer.
+  // Keep the proven recorder until a device-validated implementation exists.
+  const engineSelection = selectExportEngine({ requested: exportEngine });
+  if (engineSelection.engine !== 'mediarecorder') throw new Error('Motor acelerado no disponible en esta compilación.');
   const mainLane=validateMainVideoExport(project);
   if(!mainLane.ok){
     if(mainLane.reason==='overlap')throw new Error('Dos clips de video principales se superponen ('+
@@ -2809,7 +3347,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   const host = saveMode === 'memory' ? null : (exportHost === undefined ? detectExportHost() : exportHost);
   const mime = pickMime((t) => MediaRecorder.isTypeSupported(t), { platform: host?.platform || (/iPhone|iPad|iPod/.test(globalThis.navigator?.userAgent || '') ? 'ios' : '') });
   if (host) {
-    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total) });
+    sink = createProgressiveExportSink(host, { mime: mime || 'video/webm', ext: extFor(mime), estimatedBytes: exportEstimatedBytes(plan.total, { progressive: true, width: W, height: H, fps }) });
     try { await sink.begin(); }
     catch (error) {
       await sink.abort('begin');
@@ -2819,12 +3357,25 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
       throw new Error('No se pudo preparar el archivo en el teléfono: ' + (error?.message || 'error') + ' Puedes liberar espacio o elegir «En memoria (anterior)».');
     }
   }
+  // Cancellation requested from the UI while native begin() was pending must
+  // not go on to decode overlays or start MediaRecorder after that request.
+  if (isCancelled()) {
+    if (sink) await sink.abort('cancelled-before-recorder');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return { cancelled: true };
+  }
   // Videos superpuestos: un <video> oculto por clip, sincronizado con el tiempo del timeline; su audio se mezcla igual que el de las pistas.
   const oList = [], skippedOverlay = [];
   for (const c of (project.overlayClips || [])) {
     const m = media[c.asset_id]; if (!m) { skippedOverlay.push(c.id); continue; }
     if (m.kind === 'image') {      // logo/foto/GIF: sin audio ni tiempo propio; el GIF se anima solo al dibujarlo
-      if (m.gif) { oList.push({ el: m.makeEl(), c }); continue; }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
+      if (m.gif) {
+        try { const el = m.makeEl(); if (!el) throw new Error('GIF sin fotogramas'); oList.push({ el, c }); }
+        catch { skippedOverlay.push(c.id); }
+        continue;
+      }     // GIF animado: lo dibuja el lector propio, fotograma exacto por instante
       const im = imageEl(new Image()); im.src = m.url; im.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none'; document.body.appendChild(im);
       try { await im.decode(); oList.push({ el: im, c }); } catch { im.remove(); skippedOverlay.push(c.id); }
       continue;
@@ -2838,6 +3389,18 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
     } catch { el.remove(); skippedOverlay.push(c.id); }
   }
   oList.sort((a, b) => a.c.track - b.c.track || a.c.start - b.c.start);
+  const overlayPreflight = exportOverlayPreflight(project, oList.map(o => o.c.id));
+  if (isCancelled() || (overlayPreflight.overlayBlocked && !allowIncompleteOverlay)) {
+    // Return BEFORE constructing MediaRecorder. If native export already opened
+    // a pending row, abort it; never publish a canceled or visually incomplete file.
+    const cancelledBeforeRecorder = isCancelled();
+    if (sink) await sink.abort(cancelledBeforeRecorder ? 'cancelled-before-recorder' : 'missing-overlay');
+    stream.getTracks().forEach(track => { try { track.stop(); } catch {} });
+    oList.forEach(o => { try { o.el.pause?.(); } catch {} try { o.el.remove?.(); } catch {} });
+    ev.remove();
+    try { if (ac) await ac.close(); } catch {}
+    return cancelledBeforeRecorder ? { cancelled: true } : overlayPreflight;
+  }
   const overlayTick = (t) => {
     const draw = [];
     for (const o of oList) {
@@ -2864,7 +3427,7 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
 
   let rec;
   try {
-    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total) } : { videoBitsPerSecond: exportBitrate(plan.total) });
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) } : { videoBitsPerSecond: exportBitrate(plan.total, { progressive: !!sink, width: W, height: H, fps }) });
   } catch (error) {
     // Some WebViews advertise a container through isTypeSupported(), then
     // throw from the constructor. This is before the main recording try/finally.
@@ -3053,12 +3616,408 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
   return { blob, container, verification, mime: type, ext: extFor(type), w: W, h: H, seconds: r2((performance.now() - t0) / 1000), hasAudio, textBeyondEnd: plan.textBeyondEnd, skippedAudio, skippedOverlay };
 }
 
+// Wivra multicamera plan: camera inventory, dual/single decision, Picture-in-
+// Picture geometry, selected-audio policy and disconnect recovery.
+// Pure functions, no imports beyond the source capability contract, usable by
+// Node tests and by both mobile WebViews. Nothing here proves that a phone can
+// run two cameras: only a native runtime inventory (provenance 'runtime') may
+// enable a dual plan, and only a recorded, verified take proves it worked.
+// — Claude
+
+
+
+const CAMERA_FACINGS = Object.freeze(['back', 'front', 'external', 'unknown']);
+const CAPTURE_MODES = Object.freeze(['dual-composited', 'dual-separate', 'single', 'none']);
+const PIP_CORNERS = Object.freeze(['bottom-right', 'bottom-left', 'top-left', 'top-right']);
+const AUDIO_CHOICES = Object.freeze(['primary', 'secondary', 'none']);
+const CAMERA_LOSS_REASONS = Object.freeze([
+  'disconnected', 'in-use', 'max-cameras', 'fatal', 'disabled', 'thermal', 'interrupted', 'unknown'
+]);
+
+const MC_SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const MC_PLATFORMS = ['android', 'ios'];
+const mcHas = (list, v) => list.includes(v);
+const mcClamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+const mcRound6 = n => Math.round(n * 1e6) / 1e6;
+
+/**
+ * Validates the report a native host produces from CameraManager /
+ * CameraX availableConcurrentCameraInfos (Android) or AVCaptureDevice
+ * DiscoverySession + AVCaptureMultiCamSession (iOS). Unknown fields are
+ * dropped; malformed cameras or pairs are discarded, never repaired into a
+ * claim. A non-runtime report (catalog, test fixture, old manifest) can list
+ * cameras but never enables concurrency.
+ */
+function normalizeCameraInventory(report) {
+  const errors = [];
+  const platform = mcHas(MC_PLATFORMS, report?.platform) ? report.platform : 'unknown';
+  if (platform === 'unknown') errors.push('unknown-platform');
+  const runtime = report?.provenance === 'runtime' &&
+    typeof report?.sessionId === 'string' && MC_SAFE_ID.test(report.sessionId);
+  const cameras = [];
+  const seen = new Set();
+  for (const c of Array.isArray(report?.cameras) ? report.cameras : []) {
+    if (typeof c?.id !== 'string' || !MC_SAFE_ID.test(c.id) || seen.has(c.id)) {
+      errors.push('invalid-camera');
+      continue;
+    }
+    seen.add(c.id);
+    cameras.push({
+      id: c.id,
+      facing: mcHas(CAMERA_FACINGS, c.facing) ? c.facing : 'unknown',
+      label: typeof c.label === 'string' ? c.label.slice(0, 80) : ''
+    });
+  }
+  const pairs = [];
+  const pairKeys = new Set();
+  for (const p of Array.isArray(report?.concurrentPairs) ? report.concurrentPairs : []) {
+    if (!Array.isArray(p) || p.length !== 2 || p[0] === p[1] ||
+        !seen.has(p[0]) || !seen.has(p[1])) {
+      errors.push('invalid-pair');
+      continue;
+    }
+    const key = [...p].sort().join('|');
+    if (pairKeys.has(key)) continue;
+    pairKeys.add(key);
+    pairs.push([p[0], p[1]]);
+  }
+  return {
+    platform,
+    runtime,
+    sessionId: runtime ? report.sessionId : null,
+    cameras,
+    // Without runtime provenance a listed pair is only a hint.
+    concurrentPairs: runtime ? pairs : [],
+    multiCamSupported: runtime && report?.multiCamSupported === true,
+    errors
+  };
+}
+
+const mcByFacing = (inv, facing) => inv.cameras.find(c => c.facing === facing);
+
+/**
+ * Decides how to record. Android with a CameraX concurrent pair composes the
+ * Picture-in-Picture natively into ONE file (CompositionSettings). iOS with
+ * AVCaptureMultiCamSession records TWO files on one clock and the editor
+ * composes them (overlay track). Everything else falls back to one camera
+ * with an explicit reason, so the owner still gets a valid recording.
+ */
+function planCameraCapture(inventoryIn, {
+  want = 'dual', primaryFacing = 'back', secondaryFacing = 'front'
+} = {}) {
+  const inv = inventoryIn?.cameras && 'runtime' in inventoryIn
+    ? inventoryIn : normalizeCameraInventory(inventoryIn);
+  if (inv.cameras.length === 0) {
+    return { mode: 'none', primaryId: null, secondaryId: null, composition: 'none', reason: 'no-camera' };
+  }
+  const primary = mcByFacing(inv, primaryFacing) || inv.cameras[0];
+  const single = reason => ({
+    mode: 'single', primaryId: primary.id, secondaryId: null, composition: 'none', reason
+  });
+  if (want !== 'dual') return single('single-requested');
+  if (inv.cameras.length < 2) return single('one-camera');
+  if (!inv.runtime) return single('unverified-inventory');
+
+  if (inv.platform === 'android') {
+    // Prefer the requested facings, then any supported pair that keeps the
+    // requested primary, then any pair at all.
+    const wanted = mcByFacing(inv, secondaryFacing);
+    const match = (a, b) => inv.concurrentPairs.find(p =>
+      (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
+    let pair = wanted && wanted.id !== primary.id ? match(primary.id, wanted.id) : null;
+    let p = primary.id;
+    let s = pair ? wanted.id : null;
+    if (!pair) {
+      pair = inv.concurrentPairs.find(x => x.includes(primary.id)) || inv.concurrentPairs[0];
+      if (pair) {
+        // The requested primary is in no pair: keep the requested FACING.
+        const facingOf = id => inv.cameras.find(c => c.id === id)?.facing;
+        p = pair.includes(primary.id) ? primary.id
+          : (pair.find(id => facingOf(id) === primaryFacing) || pair[0]);
+        s = pair[0] === p ? pair[1] : pair[0];
+      }
+    }
+    if (!pair) return single('no-concurrent-pair');
+    return { mode: 'dual-composited', primaryId: p, secondaryId: s, composition: 'native', reason: 'concurrent-pair' };
+  }
+  if (inv.platform === 'ios') {
+    if (!inv.multiCamSupported) return single('multicam-unsupported');
+    const secondary = mcByFacing(inv, secondaryFacing);
+    if (!secondary || secondary.id === primary.id) return single('no-secondary-facing');
+    return { mode: 'dual-separate', primaryId: primary.id, secondaryId: secondary.id, composition: 'editor', reason: 'multicam-session' };
+  }
+  return single('unknown-platform');
+}
+
+/**
+ * Phone camera + another frame source (for example Ray-Ban Meta through the
+ * Wearables Device Access Toolkit). Allowed only when the shared source
+ * capability contract holds runtime evidence of concurrent frames for every
+ * source; otherwise the owner records with ONE source and is told why.
+ */
+function planPhoneWithWearable(phoneSource, wearableSource, { compositorValidated = false } = {}) {
+  const check = validateMultiSourcePlan([phoneSource, wearableSource], { compositorValidated });
+  if (check.ok) {
+    return { mode: 'dual-separate', composition: 'editor', sources: [phoneSource.id, wearableSource.id], reason: 'validated' };
+  }
+  // Fall back to whichever single source has verified frames. Phone first:
+  // it does not depend on a Bluetooth/Wi-Fi link to the glasses.
+  const solo = [phoneSource, wearableSource].find(s => validateMultiSourcePlan([s]).ok);
+  return {
+    mode: solo ? 'single' : 'none',
+    composition: 'none',
+    sources: solo ? [solo.id] : [],
+    reason: check.reason
+  };
+}
+
+/**
+ * Picture-in-Picture rectangle in normalized frame units (origin top-left,
+ * 0..1). The inset keeps the frame's aspect ratio (same scale on both axes),
+ * which is what CameraX requires to avoid stretching. `margin` is a fraction
+ * of the frame width; vertically it is corrected so both margins look equal.
+ */
+function pipLayout({ corner = 'bottom-right', scale = 0.3, margin = 0.04, frameWidth = 1080, frameHeight = 1920 } = {}) {
+  if (!mcHas(PIP_CORNERS, corner)) throw new TypeError('Unknown PiP corner');
+  if (!(frameWidth > 0) || !(frameHeight > 0)) throw new TypeError('Invalid frame size');
+  const s = mcClamp(Number(scale) || 0.3, 0.15, 0.5);
+  const mx = mcClamp(Number(margin) || 0, 0, 0.1);
+  const my = mx * frameWidth / frameHeight;
+  const left = corner.endsWith('left');
+  const top = corner.startsWith('top');
+  return {
+    corner,
+    x: mcRound6(left ? mx : 1 - mx - s),
+    y: mcRound6(top ? my : 1 - my - s),
+    w: mcRound6(s),
+    h: mcRound6(s)
+  };
+}
+
+/**
+ * CameraX CompositionSettings use normalized device coordinates: origin at the
+ * centre, X right, Y up, range -1..1, offset applied after scale. A primary
+ * camera fills the frame with scale 1 and offset 0.
+ */
+function toCameraXComposition(rect) {
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  return {
+    offsetX: mcRound6(cx * 2 - 1),
+    offsetY: mcRound6(1 - cy * 2),
+    scaleX: mcRound6(rect.w),
+    scaleY: mcRound6(rect.h)
+  };
+}
+
+/** Same rectangle as an editor overlay clip (x, y = centre; scale = width). */
+function toEditorOverlay(rect) {
+  return { x: mcRound6(rect.x + rect.w / 2), y: mcRound6(rect.y + rect.h / 2), scale: mcRound6(rect.w) };
+}
+
+function nextPipCorner(corner) {
+  const i = PIP_CORNERS.indexOf(corner);
+  return PIP_CORNERS[(i + 1) % PIP_CORNERS.length];
+}
+
+/**
+ * Editor operations that compose two separately recorded takes (iOS dual
+ * session, or phone + glasses) as main video + Picture-in-Picture layer.
+ * `secondaryOffsetMs` = secondary first frame - primary first frame, measured
+ * on one native monotonic clock. Only the selected audio stays audible; the
+ * other source is muted, never mixed by accident.
+ */
+function pipOverlayOp({
+  secondaryAssetId, primaryDurationS, secondaryDurationS,
+  secondaryOffsetMs = 0, corner = 'bottom-right', scale = 0.3,
+  frameWidth = 1080, frameHeight = 1920, audio = 'primary', at = 0
+}) {
+  if (typeof secondaryAssetId !== 'string' || !secondaryAssetId) throw new TypeError('A secondary asset is required');
+  if (!(primaryDurationS > 0) || !(secondaryDurationS > 0)) throw new TypeError('Durations must be positive');
+  if (!Number.isFinite(secondaryOffsetMs)) throw new TypeError('Offset must be finite');
+  if (!mcHas(AUDIO_CHOICES, audio)) throw new TypeError('Unknown audio choice');
+  if (!Number.isFinite(at) || at < 0) throw new TypeError('Timeline position must be >= 0');
+  const offsetS = secondaryOffsetMs / 1000;
+  // Secondary started later: place it later. Started earlier: skip its head.
+  const start = mcRound6(Math.max(0, offsetS));
+  const tin = mcRound6(Math.max(0, -offsetS));
+  const visible = Math.min(secondaryDurationS - tin, primaryDurationS - start);
+  if (!(visible > 0.05)) return { ok: false, reason: 'no-overlap', op: null };
+  const rect = pipLayout({ corner, scale, frameWidth, frameHeight });
+  const overlay = toEditorOverlay(rect);
+  return {
+    ok: true,
+    overlapS: mcRound6(visible),
+    op: {
+      op: 'add_overlay_clip', asset_id: secondaryAssetId, start: mcRound6(at + start), in: tin,
+      out: mcRound6(tin + visible), track: 1, ...overlay,
+      // Only the selected source stays audible: never two cameras at once.
+      muted: audio !== 'secondary'
+    }
+  };
+}
+
+function buildPipEditorOps(options) {
+  const { primaryAssetId, secondaryAssetId, audio = 'primary', at = 0 } = options;
+  if (typeof primaryAssetId !== 'string' || typeof secondaryAssetId !== 'string' ||
+      primaryAssetId === secondaryAssetId) throw new TypeError('Two distinct assets are required');
+  const overlay = pipOverlayOp(options);
+  if (!overlay.ok) return { ok: false, reason: overlay.reason, ops: [] };
+  const ops = [{ op: 'add_clip', asset_id: primaryAssetId, start: mcRound6(at) }, overlay.op];
+  // The main clip id only exists after add_clip runs, so muting the main
+  // lane is a second step (see applyPipComposition).
+  return { ok: true, ops, muteMainAudio: audio !== 'primary', overlapS: overlay.overlapS };
+}
+
+/**
+ * Applies the composition with the editor's own atomic operations. Returns
+ * the new project (the input is not modified) or the editor's error.
+ */
+function applyPipComposition(project, options) {
+  const plan = buildPipEditorOps(options);
+  if (!plan.ok) return { ok: false, code: plan.reason };
+  const first = applyBatch(project, plan.ops);
+  if (!first.ok) return first;
+  const mainClipId = first.results[0].id;
+  const overlayClipId = first.results[1].id;
+  if (!plan.muteMainAudio) return { ok: true, project: first.project, mainClipId, overlayClipId, overlapS: plan.overlapS };
+  const muted = applyBatch(first.project, [{ op: 'set_clip_audio', clip_id: mainClipId, muted: true }]);
+  if (!muted.ok) return muted;
+  return { ok: true, project: muted.project, mainClipId, overlayClipId, overlapS: plan.overlapS };
+}
+
+/**
+ * One audio source per recording. A dual camera recording never records two
+ * microphones; a microphone that disappears never silently turns the take
+ * into an unlabelled mute file.
+ */
+function chooseCaptureAudio({ micPermission = false, wantSound = true, selectedInputAvailable = true } = {}) {
+  if (!wantSound) return { audio: 'none', reason: 'owner-chose-silent' };
+  if (!micPermission) return { audio: 'none', reason: 'mic-permission-denied', warn: true };
+  if (!selectedInputAvailable) return { audio: 'system-default', reason: 'selected-input-missing', warn: true };
+  return { audio: 'selected', reason: 'ok' };
+}
+
+/**
+ * Recovery state machine shared by both platforms. Native code performs the
+ * actions; this function only decides them, so the decisions are testable.
+ * Phases: preview → recording → finalizing → (recording | stopped).
+ */
+function createMulticamSession(plan) {
+  const active = [plan?.primaryId, plan?.secondaryId].filter(Boolean);
+  return {
+    phase: active.length ? 'preview' : 'stopped',
+    mode: plan?.mode || 'none',
+    active,
+    takes: [],
+    takeIndex: 0,
+    resumeAfterFinalize: false,
+    dualAvailableAgain: false,
+    actions: [],
+    notices: []
+  };
+}
+
+function multicamReduce(state, event) {
+  const s = { ...state, active: [...state.active], takes: [...state.takes], actions: [], notices: [] };
+  switch (event?.type) {
+    case 'record-start': {
+      if (s.phase !== 'preview' || s.active.length === 0) return s;
+      s.phase = 'recording';
+      s.takeIndex += 1;
+      s.actions.push({ do: 'start-recording', take: s.takeIndex, continuation: false });
+      return s;
+    }
+    case 'record-stop': {
+      if (s.phase !== 'recording') return s;
+      s.phase = 'finalizing';
+      s.resumeAfterFinalize = false;
+      s.actions.push({ do: 'finalize-take', take: s.takeIndex });
+      return s;
+    }
+    case 'camera-lost': {
+      if (!s.active.includes(event.cameraId)) return s;
+      const reason = mcHas(CAMERA_LOSS_REASONS, event.reason) ? event.reason : 'unknown';
+      s.active = s.active.filter(id => id !== event.cameraId);
+      const remaining = s.active[0] || null;
+      s.notices.push({ kind: 'camera-lost', cameraId: event.cameraId, reason });
+      if (s.phase === 'recording') {
+        // Close the current file first: it holds valid frames up to the loss.
+        s.phase = 'finalizing';
+        s.resumeAfterFinalize = remaining !== null;
+        s.actions.push({ do: 'finalize-take', take: s.takeIndex });
+      }
+      if (remaining) {
+        s.mode = 'single';
+        s.actions.push({ do: 'rebind-single', cameraId: remaining });
+      } else {
+        s.mode = 'none';
+        s.resumeAfterFinalize = false;
+        if (s.phase !== 'finalizing') s.phase = 'stopped';
+        s.actions.push({ do: 'release-cameras' });
+      }
+      return s;
+    }
+    case 'take-finalized': {
+      if (s.phase !== 'finalizing') return s;
+      const bytes = Number(event.bytes) || 0;
+      const status = event.verified === true ? 'kept'
+        : bytes > 0 ? 'needs-review' // never delete bytes that may be playable
+        : 'empty';
+      s.takes.push({ take: s.takeIndex, status, durationMs: Number(event.durationMs) || 0, mode: event.mode || state.mode });
+      if (status === 'empty') s.actions.push({ do: 'delete-empty-placeholder', take: s.takeIndex });
+      if (s.resumeAfterFinalize && s.active.length > 0) {
+        s.phase = 'recording';
+        s.takeIndex += 1;
+        s.actions.push({ do: 'start-recording', take: s.takeIndex, continuation: true });
+      } else {
+        s.phase = s.active.length > 0 ? 'preview' : 'stopped';
+      }
+      s.resumeAfterFinalize = false;
+      return s;
+    }
+    case 'camera-restored': {
+      // Never interrupt a running single-camera take to go back to dual: the
+      // owner decides after stopping.
+      if (s.phase === 'recording' || s.phase === 'finalizing') {
+        s.dualAvailableAgain = true;
+        s.notices.push({ kind: 'dual-available-after-stop', cameraId: event.cameraId });
+      } else {
+        s.dualAvailableAgain = false;
+        s.actions.push({ do: 'replan' });
+      }
+      return s;
+    }
+    default:
+      return s;
+  }
+}
+
+/**
+ * Screen capture always requires the platform consent dialog for THIS session
+ * (Android MediaProjection, iOS ReplayKit). A previous consent, a setting or a
+ * WebView message is never enough.
+ */
+function screenCaptureGate({ platform, consentResult = null, sessionId = null, purpose = 'recording' } = {}) {
+  if (!mcHas(MC_PLATFORMS, platform)) return { allowed: false, reason: 'unknown-platform' };
+  if (!['recording', 'live'].includes(purpose)) return { allowed: false, reason: 'unknown-purpose' };
+  if (platform === 'ios' && purpose === 'recording') {
+    // No ReplayKit broadcast extension is compiled in Wivra iOS yet.
+    return { allowed: false, reason: 'not-implemented-ios' };
+  }
+  const fresh = consentResult?.granted === true && typeof sessionId === 'string' &&
+    MC_SAFE_ID.test(sessionId) && consentResult?.sessionId === sessionId;
+  return fresh ? { allowed: true, reason: 'consented-this-session' }
+    : { allowed: false, reason: 'needs-system-consent' };
+}
+
 // Wivra · lector del manifiesto de captura (.wivra.json). Solo valida y normaliza: no abre archivos ni toca el timeline.
 // Formato canónico provisional = el que escribe WivraCaptureManifest.swift (PR #50, ChatGPT); contrato en
 // streaming/contracts/wivra-manifest-v2.schema.json (copia en app/tests/fixtures/). v1 = el del PR #48 (un video + a lo sumo un audio).
 // Siempre devuelve una sola forma interna para que el editor tenga un solo camino. — Claude
 
 const ROLES = Object.freeze(['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other']);
+const MULTICAM_CORNERS = ['bottom-right', 'bottom-left', 'top-left', 'top-right'];
 const isName = (s) => typeof s === 'string' && s.length > 0 && s.length <= 255 && !/[\/\\\0\r\n]/.test(s) && s !== '.' && s !== '..';
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const nul = (v) => v === undefined || v === null;
@@ -3121,11 +4080,38 @@ function parseManifest(input) {
       if (channels.includes(null) || new Set(channels).size !== channels.length)
         errors.push(`Varias pistas usan ${f} sin canales exclusivos: audio duplicado.`);
     }
-    const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs']);
+    const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs', 'multicam']);
     for (const k of Object.keys(m)) if (!known.has(k)) warnings.push(`Campo desconocido ignorado: ${k}.`);
   }
+  // Optional two-camera block (iPhone MultiCam): a second MOV recorded on the
+  // same clock. A broken block never blocks the main camera: it is dropped
+  // with a warning, so the owner still gets the primary take. — Claude
+  let multicam = null;
+  if (v === 2 && !nul(m.multicam)) {
+    const mc = m.multicam, problems = [];
+    if (!mc || typeof mc !== 'object' || Array.isArray(mc)) problems.push('no es un objeto');
+    else {
+      if (mc.schema !== 'wivra-multicam-v1') problems.push('schema no soportado');
+      const used = new Set([m.originalVideoFile, m.muxedVideoFile, ...tracks.map(t => t.file)]);
+      if (!isName(mc.secondaryVideoFile)) problems.push('secondaryVideoFile inválido');
+      else if (used.has(mc.secondaryVideoFile)) problems.push('secondaryVideoFile repite otro archivo de la captura');
+      if (!nul(mc.secondaryOffsetSeconds) && !(isNum(mc.secondaryOffsetSeconds) && Math.abs(mc.secondaryOffsetSeconds) <= 10)) problems.push('desfase fuera de ±10 s');
+      if (!nul(mc.corner) && !MULTICAM_CORNERS.includes(mc.corner)) problems.push('esquina desconocida');
+      if (!nul(mc.audio) && !['primary', 'secondary', 'none'].includes(mc.audio)) problems.push('audio desconocido');
+    }
+    if (problems.length) warnings.push('Datos de la segunda cámara ignorados (' + problems.join(', ') + '): se importa solo la cámara principal.');
+    else multicam = {
+      secondaryVideoFile: mc.secondaryVideoFile,
+      offsetSeconds: isNum(mc.secondaryOffsetSeconds) ? mc.secondaryOffsetSeconds : 0,
+      offsetKnown: isNum(mc.secondaryOffsetSeconds),
+      corner: mc.corner || 'bottom-right',
+      audio: mc.audio || 'primary',
+      primaryPosition: typeof mc.primaryPosition === 'string' ? mc.primaryPosition.slice(0, 16) : 'unknown',
+      secondaryPosition: typeof mc.secondaryPosition === 'string' ? mc.secondaryPosition.slice(0, 16) : 'unknown'
+    };
+  }
   if (errors.length) return { ok: false, errors, warnings };
-  return { ok: true, errors: [], warnings, manifest: { schemaVersion: 2, sourceVersion: v, captureID: m.captureID, cameraSource: String(m.cameraSource || 'unknown'), audioSource: String(m.audioSource || 'unknown'),
+  return { ok: true, errors: [], warnings, manifest: { multicam, schemaVersion: 2, sourceVersion: v, captureID: m.captureID, cameraSource: String(m.cameraSource || 'unknown'), audioSource: String(m.audioSource || 'unknown'),
     selectedInputName: m.selectedInputName ?? null, videoFile: m.originalVideoFile, muxedVideoFile: m.muxedVideoFile ?? null, createdAt: m.createdAtISO8601, tracks, muxedFromTrackIDs: muxedFrom } };
 }
 
@@ -3644,6 +4630,9 @@ function fxRender(src, f, t, maxSide = 1280) {      // maxSide: 1280 basta para 
   const S = fxInit(); if (!S || !src) return null;
   const [w0, h0] = fxDims(src); if (!(w0 > 0 && h0 > 0)) return null;
   const k = Math.min(1, Math.min(4096, maxSide) / Math.max(w0, h0)), w = Math.max(2, Math.round(w0 * k)), h = Math.max(2, Math.round(h0 * k)), { cv, gl, u } = S;
+  // Context loss is synchronous before its event is delivered. A non-null
+  // canvas is not evidence of a rendered filter while WebGL is lost.
+  if (gl.isContextLost()) return null;
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { return null; }
   const F = (n) => (f && f[n]) || 0;
@@ -3652,7 +4641,7 @@ function fxRender(src, f, t, maxSide = 1280) {      // maxSide: 1280 basta para 
   gl.uniform1f(u.W, F('warmth')); gl.uniform1f(u.Fd, F('fade')); gl.uniform1f(u.V, F('vignette')); gl.uniform1f(u.G, F('grain'));
   gl.uniform1f(u.seed, (Math.floor((t || 0) * 24) % 997) * 0.37);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  return cv;
+  return gl.isContextLost() ? null : cv;
 }
 
 // Wivra · conexión directa con una IA (sin copiar y pegar). Un solo contrato "OpenAI compatible"
@@ -6316,6 +7305,13 @@ async function importCapture(files) {
       else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
     }
     for (const t of tracks) await openTrack(t);
+    // Two-camera capture (iPhone MultiCam): open the second MOV now; if it is
+    // missing or unreadable, the main camera is imported alone. — Claude
+    let pipSecondary = null;
+    if (m.multicam) {
+      pipSecondary = byName.has(m.multicam.secondaryVideoFile) ? await open(m.multicam.secondaryVideoFile, 'video') : null;
+      if (!pipSecondary) notes.push('La segunda cámara no está o no se pudo leer: se importó solo la cámara principal. Los archivos originales no se modificaron.');
+    }
     const plan = { videoFile, audioTracks: tracks };
     if (session !== stagingSession || (captureSession && session !== captureSession)) {
       say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
@@ -6330,6 +7326,23 @@ async function importCapture(files) {
       return;
     }
     out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
+    if (pipSecondary) {
+      // Same geometry and audio rule as core/multicam-plan.mjs (applyPipComposition).
+      const mainMedia = media[assets[videoFile].id] || {};
+      const pip = pipOverlayOp({
+        secondaryAssetId: pipSecondary.id, primaryDurationS: assets[videoFile].duration,
+        secondaryDurationS: pipSecondary.duration,
+        secondaryOffsetMs: (m.multicam.offsetKnown ? m.multicam.offsetSeconds : 0) * 1000,
+        corner: m.multicam.corner, scale: 0.3,
+        frameWidth: mainMedia.w || 1080, frameHeight: mainMedia.h || 1920,
+        audio: m.multicam.audio === 'secondary' ? 'secondary' : 'primary', at: startAt
+      });
+      if (pip.ok) {
+        out.ops.push(pip.op);
+        notes.push('Captura de dos cámaras: video principal + recuadro de la segunda cámara. Solo suena la cámara principal.');
+        if (!m.multicam.offsetKnown) notes.push('No se conoce el desfase entre cámaras: el recuadro empieza con el video principal. Ajústalo a mano si hace falta.');
+      } else notes.push('Las dos cámaras no coinciden en el tiempo: se importó solo la cámara principal.');
+    }
     if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
     const first = !session.project.clips.length;
     $('stage').classList.add('on');
@@ -7299,6 +8312,7 @@ $('bExp').onclick = () => {
         : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
+  $('expAllowOverlayGaps').checked = false; // Explicit consent applies to one export only.
   $('expGo').style.display = 'block'; $('expBar').style.display = 'none'; $('expDone').style.display = 'none'; $('expMsg').textContent = ''; $('expLoudDone').textContent = '';
   openSheet('sExp');
 };
@@ -7334,7 +8348,7 @@ $('expGo').onclick = async () => {
       $('expMsg').textContent = 'El proyecto o sus archivos cambiaron durante el análisis de audio. Revisa la línea de tiempo y vuelve a exportar.';
       return;
     }
-    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
+    const r = await recordProject({ project: exportSession.project, media, isCancelled: () => expCancel, allowIncompleteAudio: $('expAllowAudioGaps').checked, allowIncompleteOverlay: $('expAllowOverlayGaps').checked, loudnessGainDb: loud && loud.ok ? loud.gainDb : 0, saveMode: $('expSave').value === 'memory' ? 'memory' : 'auto',
       onProgress: ({ pct, t, total }) => { $('expFill').style.width = (pct * 100).toFixed(0) + '%'; $('expPct').textContent = `${fmt(t)} / ${fmt(total)} s`; } });
     $('expBar').style.display = 'none';
     if (r.audioBlocked) {
@@ -7349,14 +8363,40 @@ $('expGo').onclick = async () => {
         'Puedes revisar/reimportar las pistas, o marcar la casilla para aceptar expresamente una exportación incompleta.';
       return;
     }
+    if (r.overlayBlocked) {
+      $('expGo').style.display = 'block'; $('expMsg').className = 'bad';
+      $('expMsg').textContent = 'Exportación detenida ANTES de grabar para no perder imágenes o videos superpuestos. ' +
+        r.missingOverlay.length + ' capa(s) no se pudieron preparar. Reimporta los archivos o marca expresamente la casilla para continuar sin esas capas.';
+      return;
+    }
     if (r.cancelled) { $('expGo').style.display = 'block'; $('expMsg').textContent = 'Exportación cancelada.'; return; }
     if (r.interrupted) { $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez'; $('expMsg').className = 'bad'; $('expMsg').textContent = 'La exportación se detuvo porque saliste de la app o se apagó la pantalla. Vuelve a exportar con Wivra abierto y la pantalla encendida.'; return; }
     if (expUrl) { URL.revokeObjectURL(expUrl); expUrl = null; }
+    document.getElementById('expSavePhotos')?.remove();
     if (r.saved) {   // guardado por partes: el archivo ya está en el teléfono y verificado; no hay Blob en memoria
       const token = r.saved.token, host = detectExportHost();
       $('expVid').removeAttribute('src'); $('expVid').style.display = 'none'; $('expDl').style.display = 'none';
       $('expShare').textContent = 'Abrir o compartir';
       $('expShare').onclick = async () => { try { await shareSavedExport(host, token); } catch (e) { $('expMsg').textContent = 'No se pudo abrir el menú de compartir: ' + e.message; } };
+      // iOS: explicit add-only Photos save, while keeping the local Wivra file and Share.
+      const previousPhotosButton = document.getElementById('expSavePhotos');
+      if (previousPhotosButton) previousPhotosButton.remove();
+      if (host?.platform === 'ios' && r.ext === 'mp4') {
+        const photosButton = document.createElement('button');
+        photosButton.id = 'expSavePhotos'; photosButton.type = 'button';
+        photosButton.textContent = 'Guardar en Fotos';
+        photosButton.onclick = async () => {
+          photosButton.disabled = true;
+          try {
+            await saveExportToPhotos(host, token);
+            photosButton.textContent = 'Guardado en Fotos ✓';
+          } catch (e) {
+            photosButton.disabled = false;
+            $('expMsg').textContent = 'No se pudo guardar en Fotos: ' + e.message;
+          }
+        };
+        $('expShare').insertAdjacentElement('afterend', photosButton);
+      }
       $('expDone').style.display = 'block'; $('expGo').style.display = 'block'; $('expGo').textContent = 'Exportar otra vez';
       $('expMsg').className = r.hasAudio ? 'ok' : 'bad';
       $('expMsg').textContent = `Guardado y verificado: ${r.saved.displayName || 'video'} (${r.saved.location || 'en el teléfono'}), ${r.w}×${r.h}, ${r.ext.toUpperCase()}, ${(r.saved.bytes / 1e6).toFixed(1)} MB, ${fmt(r.seconds)} s.` + (r.hasAudio ? '' : ' Sin audio: este navegador no dejó grabar el sonido.') + (r.textBeyondEnd ? ' Hay texto después del final del video; no se ve.' : '') + (r.skippedAudio && r.skippedAudio.length ? ' ' + r.skippedAudio.length + ' pista(s) de audio no se pudieron decodificar y NO suenan en el resultado.' : '') + (r.skippedOverlay && r.skippedOverlay.length ? ' ' + r.skippedOverlay.length + ' video(s) superpuesto(s) no se pudieron leer y NO aparecen en el resultado.' : '') + (r.verification && r.verification.warnings.length ? ' Aviso: ' + r.verification.warnings.join(' ') : '') + ' Revísalo antes de publicar.';

@@ -58,3 +58,17 @@ test('entry only after the iPhone camera released AVFoundation; files stay local
   assert.match(capture, /appendingPathComponent\("WivraIPhoneMedia", isDirectory: true\)/);
   assert.doesNotMatch(capture + screen, /URLSession|http:|https:|PHPhotoLibrary/);
 });
+
+test('a clean dual take reaches the editor through the existing capture import', () => {
+  const manifest = read(src + 'WivraCaptureManifest.swift');
+  const library = read(src + 'WivraNativeCaptureLibrary.swift');
+  const editor = read(src + 'WivraEmbeddedEditorScreen.swift');
+  assert.match(capture, /if mainStatus == \.kept \{[\s\S]*?WivraCaptureManifest\.write\(videoURL: a, tracks: \[\], mergedURL: nil,\s*cameraSource: "iphone-avfoundation", multicam: inset\)/);
+  assert.match(capture, /guard let b = secondaryURL, insetStatus == \.kept else \{ return nil \}/);
+  assert.match(manifest, /var multicam: WivraCaptureMulticam\? = nil/);
+  assert.match(manifest, /abs\(\$0\) <= 10/);
+  assert.match(library, /var secondaryVideoURL: URL\? = nil/);
+  assert.match(editor, /selected\.secondaryVideoURL\.map \{ \[\$0\] \} \?\? \[\]/);
+  assert.match(editor, /if !ok, file\.lastPathComponent == optionalSecondary \{\s*dropped = url/);
+  assert.match(editor, /return dropped\.map \{ d in urls\.filter \{ \$0 != d \} \} \?\? urls/);
+});

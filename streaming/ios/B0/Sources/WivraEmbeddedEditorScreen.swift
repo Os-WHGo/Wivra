@@ -113,8 +113,19 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         var declaredNames = Set(trackNames)
         declaredNames.insert(original)
         if let muxed = declared["muxedVideoFile"] as? String { declaredNames.insert(muxed) }
+        // Optional second camera (Claude): accepted only when it is the exact
+        // declared file; if absent or unreadable the main camera is imported alone.
+        var secondary: String?
+        if let mc = declared["multicam"] as? [String: Any],
+           let second = mc["secondaryVideoFile"] as? String,
+           names.contains(second), !second.hasPrefix("."),
+           !second.contains("/"), !second.contains("\\"), !declaredNames.contains(second) {
+            secondary = second
+            declaredNames.insert(second)
+        }
         guard names == declaredNames else { return nil }
         let root = captureRoot
+        let optionalSecondary = secondary
         return await Task.detached(priority: .userInitiated) { () -> [URL]? in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                              .fileSizeKey, .contentModificationDateKey]
@@ -122,13 +133,19 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                   before.isRegularFile == true, before.isSymbolicLink == false,
                   (before.fileSize ?? 0) > 0 else { return nil }
             var videos = 0
+            var dropped: URL?
             for url in urls.dropFirst() {
                 let file = url.standardizedFileURL
                 guard file.deletingLastPathComponent() == root,
                       file.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent() == root else { return nil }
                 switch file.pathExtension.lowercased() {
                 case "mov", "mp4":
-                    guard await WivraCaptureMediaVerifier.verifyFile(file, in: root) else { return nil }
+                    let ok = await WivraCaptureMediaVerifier.verifyFile(file, in: root)
+                    if !ok, file.lastPathComponent == optionalSecondary {
+                        dropped = url // never fail the main take because of the inset camera
+                        continue
+                    }
+                    guard ok else { return nil }
                     videos += 1
                 case "caf", "wav", "m4a":
                     guard WivraCaptureMediaVerifier.verifyAudioFile(file, in: root) else { return nil }
@@ -141,7 +158,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                   after.isRegularFile == true, after.isSymbolicLink == false,
                   after.fileSize == before.fileSize,
                   after.contentModificationDate == before.contentModificationDate else { return nil }
-            return urls
+            return dropped.map { d in urls.filter { $0 != d } } ?? urls
         }.value
     }
 
@@ -172,7 +189,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                         return
                     }
                     let urls = [selected.manifestURL, video] +
-                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs
+                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs +
+                        (selected.secondaryVideoURL.map { [$0] } ?? [])
                     Task { @MainActor [weak self] in
                         let checked = await self?.verifiedCaptureURLs(urls)
                         self?.finishSelection(checked)

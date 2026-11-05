@@ -13,6 +13,8 @@ struct WivraStoredCapture: Identifiable {
     let alternateVideoURL: URL?
     let audioURLs: [URL]
     let missing: [String]
+    // Second camera of an iPhone MultiCam take, when present and declared (Claude).
+    var secondaryVideoURL: URL? = nil
 
     // Segment index is a filename fact, NOT evidence that more files exist.
     // A short take can have only _part0001.mov and already be complete.
@@ -135,12 +137,19 @@ enum WivraLocalCaptureScanner {
                     let missing = names.sorted().filter {
                         !regularCaptureFile(folder.appendingPathComponent($0), in: folder)
                     }
+                    // An invalid or missing second camera never hides the main take.
+                    let secondaryVideoURL = m.multicam.flatMap { mc -> URL? in
+                        guard mc.isValid(originalVideoFile: m.originalVideoFile, otherFiles: names) else { return nil }
+                        let url = folder.appendingPathComponent(mc.secondaryVideoFile)
+                        return regularCaptureFile(url, in: folder) ? url : nil
+                    }
                     items.append(WivraStoredCapture(
                         id: m.captureID, recordedAt: date,
                         source: m.cameraSource == "iphone-avfoundation" ? "iPhone" : "Ray-Ban Meta",
                         manifestURL: manifestURL, videoURL: video,
                         alternateVideoURL: alternateVideoURL,
-                        audioURLs: audioURLs, missing: missing
+                        audioURLs: audioURLs, missing: missing,
+                        secondaryVideoURL: secondaryVideoURL
                     ))
                 } catch {
                     rejected += 1
