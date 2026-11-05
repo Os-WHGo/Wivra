@@ -9,13 +9,17 @@ package com.oswhgo.wivra
 object WivraScreenScene {
     enum class Mode { SCREEN_ONLY, SCREEN_CAMERA, CAMERA_ONLY, ENDED }
 
+    /** What to tell the owner; the service turns it into a localized text (W78). */
+    enum class Notice { SCREEN_STOPPED_CAMERA_CONTINUES, SCREEN_STOPPED_ENDED, REVOKED_CAMERA_CONTINUES,
+        REVOKED_ENDED, CAMERA_FAILED_SCREEN_CONTINUES, CAMERA_FAILED_ENDED }
+
     data class State(
         val mode: Mode,
         val cameraWanted: Boolean,
         val screenActive: Boolean,
         val corner: WivraMulticamPolicy.Corner = WivraMulticamPolicy.Corner.BOTTOM_RIGHT,
         val rotation: Int = 90,
-        val notice: String? = null
+        val notice: Notice? = null
     )
 
     data class CameraLayer(val visible: Boolean, val rect: WivraLiveScenes.Rect, val rotation: Int)
@@ -82,22 +86,21 @@ object WivraScreenScene {
     fun screenStoppedByOwner(state: State): State =
         if (state.cameraWanted && state.mode != Mode.ENDED)
             state.copy(mode = Mode.CAMERA_ONLY, screenActive = false,
-                notice = "Pantalla detenida. Sigue la cámara.")
-        else state.copy(mode = Mode.ENDED, screenActive = false, notice = "Pantalla detenida. LIVE terminado.")
+                notice = Notice.SCREEN_STOPPED_CAMERA_CONTINUES)
+        else state.copy(mode = Mode.ENDED, screenActive = false, notice = Notice.SCREEN_STOPPED_ENDED)
 
     /** Android revoked the projection: the screen can only come back with a new consent. */
     fun screenRevoked(state: State): State = screenStoppedByOwner(state).copy(
         notice = if (state.cameraWanted && state.mode != Mode.ENDED)
-            "Android canceló la captura de pantalla. Sigue la cámara; para volver a compartir hace falta un permiso nuevo."
-        else "Android canceló la captura de pantalla. Para reanudar debes conceder un nuevo permiso."
+            Notice.REVOKED_CAMERA_CONTINUES else Notice.REVOKED_ENDED
     )
 
     /** The camera failed or was taken by another app: the screen continues. */
     fun cameraFailed(state: State): State = when (state.mode) {
         Mode.SCREEN_CAMERA, Mode.SCREEN_ONLY -> state.copy(mode = Mode.SCREEN_ONLY, cameraWanted = false,
-            notice = "La cámara no está disponible. Sigue solo la pantalla.")
+            notice = Notice.CAMERA_FAILED_SCREEN_CONTINUES)
         Mode.CAMERA_ONLY -> state.copy(mode = Mode.ENDED, cameraWanted = false,
-            notice = "La cámara no está disponible y la pantalla ya estaba detenida. LIVE terminado.")
+            notice = Notice.CAMERA_FAILED_ENDED)
         Mode.ENDED -> state
     }
 }

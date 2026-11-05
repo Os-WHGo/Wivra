@@ -42,7 +42,7 @@ class WivraScreenSceneTest {
         assertEquals(Mode.ENDED, WivraScreenScene.screenStoppedByOwner(WivraScreenScene.start(false, false)).mode)
         val revoked = WivraScreenScene.screenRevoked(withCam)
         assertEquals(Mode.CAMERA_ONLY, revoked.mode)
-        assertTrue(revoked.notice!!.contains("permiso nuevo"))
+        assertEquals(WivraScreenScene.Notice.REVOKED_CAMERA_CONTINUES, revoked.notice)
         // Hiding the camera is impossible when it is the only thing on air.
         assertEquals(Mode.CAMERA_ONLY, WivraScreenScene.toggleCamera(camOnly).mode)
         assertEquals(Mode.SCREEN_ONLY, WivraScreenScene.toggleCamera(withCam).mode)
