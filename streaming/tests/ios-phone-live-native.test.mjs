@@ -136,7 +136,9 @@ test('iPhone LIVE crash recovery validates persisted microphone intent, not just
   assert.match(source,/Audio no confirmado: grabación anterior o registro incompleto/);
   assert.match(liveReceipt,/audioRequired: Bool/);
   assert.match(liveReceipt,/schemaVersion: 1/);
-  assert.match(liveReceipt,/\.write\(to: receipt, options: \[\.atomic\]\)/);
+  assert.match(liveReceipt,/\.write\(to: temporary, options: \[\.atomic\]\)/);
+  assert.match(liveReceipt,/FileManager\.default\.linkItem\(at: temporary, to: receipt\)/);
+  assert.doesNotMatch(liveReceipt,/\.write\(to: receipt, options: \[\.atomic\]\)/);
   assert.match(liveReceipt,/values\.isSymbolicLink == false, values\.isRegularFile == true/);
   assert.match(liveReceipt,/size > 0, size <= 256/);
 });
