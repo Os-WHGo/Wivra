@@ -675,3 +675,10 @@ Un proyecto de || Un progetto di
 Makers Unbound || Makers Unbound
 Reel, collage, Top 3… || Reel, collage, Top 3…
 Agrega tus videos o fotos con «Agregar» y después elige una plantilla. || Aggiungi i tuoi video o foto con «Aggiungi» e poi scegli un modello.
+Fundido cruzado || Dissolvenza incrociata
+Fundido cruzado aplicado. Puedes deshacerlo. || Dissolvenza incrociata applicata. Puoi annullarla.
+Fundido cruzado real: el clip siguiente aparece poco a poco sobre el anterior. Cada corte acorta el video {} s; el sonido sigue cortando en el corte. || Vera dissolvenza incrociata: il clip successivo appare a poco a poco sul precedente. Ogni taglio accorcia il video di {} s; il suono taglia ancora al taglio.
+{} corte quedó sin fundido: el clip no tiene la misma forma que el video final o hay un hueco. || {} taglio è rimasto senza dissolvenza: il clip non ha la stessa forma del video finale o c’è un vuoto.
+{} cortes quedaron sin fundido: el clip no tiene la misma forma que el video final o hay un hueco. || {} tagli sono rimasti senza dissolvenza: il clip non ha la stessa forma del video finale o c’è un vuoto.
+Ningún corte admite fundido cruzado: los clips deben tener la misma forma que el video final (por ejemplo, verticales en 9:16). || Nessun taglio ammette la dissolvenza incrociata: i clip devono avere la stessa forma del video finale (per esempio, verticali in 9:16).
+Las {} filas de capas están ocupadas: borra o junta una capa para poder hacer fundidos cruzados. || Le {} righe di livelli sono occupate: elimina o unisci un livello per fare dissolvenze incrociate.

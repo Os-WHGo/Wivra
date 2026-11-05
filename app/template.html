@@ -1091,9 +1091,16 @@ $('fxIn').addEventListener('click', (e) => { const b = e.target.closest('button'
 $('fxOut').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.disabled) fxCommit({ outro: b.dataset.v }); });
 $('fxDur').addEventListener('input', () => { $('fxDurTxt').textContent = $('fxDur').value; });
 $('fxDur').addEventListener('change', () => fxCommit({ dur: Number($('fxDur').value) }));
-$('fxCut').innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}">${n}</button>`).join('');
+$('fxCut').innerHTML = Object.entries(FX_NAMES).map(([k, n]) => `<button type="button" data-v="${k}">${n}</button>`).join('') + '<button type="button" data-v="xfade">Fundido cruzado</button>';   // W85: mezcla real de los dos clips
 $('fxCut').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || !session) return;
+  if (b.dataset.v === 'xfade') {      // W85 (Claude): fundido cruzado real con capas normales (un solo deshacer)
+    const xp = planCrossfades(session.project, Number($('fxDur').value), (id) => (media[id] && media[id].w > 0 ? { w: media[id].w, h: media[id].h } : null));
+    if (!xp.ok) { $('fxCutOut').textContent = xp.error; say(xp.error, 'bad'); return; }
+    const xr = edit(xp.ops, { ripple: false }); if (!xr.ok) { $('fxCutOut').textContent = 'No se pudo: ' + xr.message; return; }
+    const out = $('fxCutOut'); out.replaceChildren(); for (const line of xp.warnings) { const sp = document.createElement('span'); sp.textContent = line + ' '; out.appendChild(sp); }
+    fxSync(); syncOverlays(); render(); say('Fundido cruzado aplicado. Puedes deshacerlo.', 'ok'); return;
+  }
   const plan = planCutTransitions(session.project, b.dataset.v, Number($('fxDur').value));
   if (!plan.ok) { $('fxCutOut').textContent = plan.error; say(plan.error, 'bad'); return; }
   const r = edit(plan.ops, { ripple: false }); if (!r.ok) { $('fxCutOut').textContent = 'No se pudo: ' + r.message; return; }

@@ -222,7 +222,9 @@ export function overlayAt(c, t) {
 const ease = (p) => { const q = Math.max(0, Math.min(1, p)); return q * q * (3 - 2 * q); };
 export function fxAt(c, t) {
   const o = { alpha: 1, dx: 0, scale: 1 }; if (!c || (!c.fxIn && !c.fxOut)) return o;
-  const len = clipLength(c), rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, len / 2));
+  // Half the clip only when it has BOTH an intro and an outro; a lone intro (W85 cross-dissolve layer) may last the whole clip.
+  const both = c.fxIn && c.fxIn !== 'none' && c.fxOut && c.fxOut !== 'none';
+  const len = clipLength(c), rel = t - c.start, d = Math.max(0.05, Math.min(typeof c.fxDur === 'number' ? c.fxDur : 0.5, both ? len / 2 : len));
   const apply = (kind, p, sign) => {
     if (!kind || kind === 'none' || p >= 1) return; const e = ease(p);
     if (kind === 'fade') o.alpha *= e; else if (kind === 'slide') o.dx += sign * (e - 1); else if (kind === 'zoom') { o.alpha *= e; o.scale *= 0.6 + 0.4 * e; }
