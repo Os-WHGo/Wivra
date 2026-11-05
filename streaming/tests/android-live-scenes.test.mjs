@@ -51,3 +51,16 @@ test('the existing LIVE safety rules are untouched', () => {
   assert.match(live, /setTitle\("Confirmar emisión pública"\)/);
   assert.match(live, /stopAndReview\(\)/);
 });
+
+test('video sound goes into the LIVE mix without extra permission or capture', () => {
+  const feed = read(dir + 'WivraVideoAudioFeed.kt');
+  const mix = read(dir + 'WivraPcmMix.kt');
+  assert.match(feed, /class WivraSceneAudioEffect : CustomAudioEffect\(\)/);
+  assert.match(feed, /MediaCodec\.createDecoderByType/);
+  assert.match(feed, /ring\.free\(\) < outRate \* outChannels \/ 5/, 'bounded read-ahead');
+  assert.match(ctl, /m\.setAudioEffect\(effect\)/);
+  assert.match(ctl, /runCatching \{ mp\.setVolume\(0f, 0f\) \}/, 'silent on the phone, no echo into the mic');
+  assert.match(ctl, /El sonido del video necesita el audio del LIVE \(micrófono\) activado/);
+  assert.match(mix, /coerceIn\(Short\.MIN_VALUE\.toInt\(\), Short\.MAX_VALUE\.toInt\(\)\)/, 'clamp, never wrap');
+  assert.doesNotMatch(feed + ctl, /MediaProjection|AudioPlaybackCapture|createScreenCaptureIntent/);
+});
