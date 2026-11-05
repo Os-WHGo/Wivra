@@ -61,11 +61,11 @@ test('iPhone LIVE uses existing Photos journal and blocks duplicate attempts pen
  assert.match(ui,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
  assert.match(ui,/try await WivraPhotosSaveJournal\.shared\.confirmManuallyPresent\(for: file\)/);
  assert.match(ui,/try await WivraPhotosSaveJournal\.shared\.authorizeRetryAfterManualAbsence\(for: file\)/);
- assert.match(ui,/Button\("Ya aparece en Fotos"\)/);
- assert.match(ui,/Button\("No aparece, permitir reintento", role: \.destructive\)/);
- assert.match(ui,/Comprueba primero que este video no existe en Fotos/);
+ assert.match(ui,/Button\(wivraLiveText\("ios\.plive\.photos_present"\)\)/);
+ assert.match(ui,/Button\(wivraLiveText\("ios\.plive\.photos_not_present"\), role: \.destructive\)/);
+ assert.match(ui,/ios\.plive\.photos_retry_message/);
  assert.match(ui,/\.task\(id: file\) \{ await refreshPhotosReview\(for: file\) \}/);
- assert.match(ui,/photoMessage = "Guardado no confirmado\./);
+ assert.match(ui,/photoMessage = wivraLiveText\("ios\.plive\.photos_unconfirmed"\)/);
  assert.match(journal,/case requiresManualReview/);
  assert.doesNotMatch(ui,/PHPhotoLibrary\.shared\(\)\.performChanges|PHAssetChangeRequest|PHPhotoLibrary\.shared\(\)\.fetchAssets/);
 });
@@ -76,7 +76,7 @@ test('recovered LIVE clips require verified microphone intent before offering Ph
  assert.match(ui,/requireAudio: expectation == \.required/);
  assert.match(ui,/if expectation == \.unknown \{ uncertainAudio\.insert\(file\) \}/);
  assert.match(ui,/if controller\.audioUncertainVideos\.contains\(file\) \{/);
- assert.match(ui,/Audio no confirmado: grabación anterior o registro incompleto/);
+ assert.match(ui,/ios\.plive\.audio_uncertain/);
  assert.match(ui,/else \{\s*photosControls\(for: file\)/);
  assert.match(ui,/ShareLink\(item: file\)/);
  assert.doesNotMatch(ui,/FileManager\.default\.removeItem\(at: file\)/);

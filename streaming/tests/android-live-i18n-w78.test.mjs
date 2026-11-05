@@ -66,3 +66,32 @@ test('screen LIVE keeps its safety wording in every language', () => {
     }
   }
 });
+
+// iPhone camera LIVE (ChatGPT's WivraIPhoneLiveScreen), localized with ios.plive.* keys.
+const iosRoot = new URL('../ios/B0/', import.meta.url);
+const iosLive = readFileSync(new URL('Sources/WivraIPhoneLiveScreen.swift', iosRoot), 'utf8');
+const strings = l => new Map([...readFileSync(new URL(`Resources/${l}.lproj/Localizable.strings`, iosRoot), 'utf8')
+  .matchAll(/^"([^"]+)" = "((?:[^"\\]|\\.)*)";$/gm)].map(m => [m[1], m[2]]));
+
+test('no hard-coded Spanish user text remains in the iPhone LIVE screen', () => {
+  assert.doesNotMatch(iosLive, /(?<![A-Za-z])(Text|Button|Toggle|Section|ProgressView|SecureField|navigationTitle|alert)\("|(?<![A-Za-z])status = "|photoMessage = "|confirmationDialog\(\s*"/);
+  assert.match(iosLive, /String\(format: wivraLiveText\(saveLocalCopy \? "ios\.plive\.reconnect_copy" : "ios\.plive\.reconnect"\)/);
+});
+
+test('iPhone LIVE keeps its safety wording in every language', () => {
+  const es = strings('es');
+  assert.match(es.get('ios.plive.reconnect_copy'), /La copia MP4 privada sigue grabando/);
+  assert.match(es.get('ios.plive.gave_up'), /No se pudo recuperar el LIVE tras varios intentos/);
+  assert.match(es.get('ios.plive.stopped_no_copy'), /VOD remoto/);
+  assert.match(es.get('ios.plive.unverified_note'), /no se publicará automáticamente/i);
+  assert.match(es.get('ios.plive.photos_retry_message'), /la copia local nunca se elimina/);
+  for (const l of ['es', 'en', 'fr', 'de', 'it', 'pt', 'ja', 'zh']) {
+    const d = strings(l);
+    for (const k of ['ios.plive.on_air_no_copy', 'ios.plive.stopped_no_copy', 'ios.plive.key_note', 'ios.plive.confirm_with_copy', 'ios.plive.confirm_without_copy']) {
+      assert.ok(/VOD|回放/.test(d.get(k) || ''), `${l} ${k} mentions VOD`);
+    }
+    assert.match(d.get('ios.plive.reconnect_copy'), /%1\$d[\s\S]*%2\$d|%3\$d[\s\S]*%1\$d/);
+    assert.ok(/MP4/.test(d.get('ios.plive.reconnect_copy')), `${l} reconnect keeps the MP4 note`);
+    assert.doesNotMatch(d.get('ios.plive.endpoint_placeholder'), /rtmps?:\/\/[^/]+\/[^/]+\/[a-z0-9]{8,}/i, 'placeholder is not a real key');
+  }
+});

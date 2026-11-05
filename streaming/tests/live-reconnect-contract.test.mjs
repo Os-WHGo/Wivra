@@ -41,7 +41,7 @@ test('iPhone no longer shows "LIVE activo" after a drop: it watches, retries, re
   assert.match(ios, /watchConnection\(endpoint, liveConnection, liveStream, current, saveLocalCopy\)/);
   assert.match(ios, /for await event in await connection\.status/);
   assert.match(ios, /if await connection\.connected \{ continue \}/);
-  assert.match(ios, /No se pudo recuperar el LIVE tras varios intentos/);
+  assert.match(ios, /ios\.plive\.gave_up/);
   assert.match(ios, /connectionWatcher\?\.cancel\(\)\s*connectionWatcher = nil\s*onAir = false/);
   const watcher = ios.slice(ios.indexOf('private func watchConnection'), ios.indexOf('private func hasRecordingReserve'));
   assert.doesNotMatch(watcher, /print\(|NSLog|os_log|Logger|recorder|stopRecording/);
