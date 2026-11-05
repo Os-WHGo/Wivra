@@ -39,3 +39,11 @@ test('emulator screenshots: debuggable builds only, PNG-only upload, no APK arti
   assert.match(wf, /test -z "\$\(find "\$RUNNER_TEMP\/wivra-screens" -type f ! -name '\*\.png'\)"/);
   assert.doesNotMatch(wf, /path:[^\n]*\.apk|assembleRelease|bundleRelease|play-publisher/);
 });
+
+test('owner APK: only with the owner-approved label, Android debug only, no iPhone or store build', () => {
+  const wf = readFileSync(new URL('../../.github/workflows/wivra-android-owner-apk.yml', import.meta.url), 'utf8');
+  assert.match(wf, /types: \[labeled\]/);
+  assert.match(wf, /if: \$\{\{ github\.event\.label\.name == 'wivra-android-apk' \}\}/);
+  assert.match(wf, /:app:assembleFullDebug/);
+  assert.doesNotMatch(wf, /xcodebuild|\.ipa|assembleRelease|bundleRelease|gh release|softprops|push:/);
+});

@@ -1,0 +1,61 @@
+name: Wivra Android APK for the owner's physical test
+# W81 (Claude): the owner authorized an Android APK for the first physical test
+# (05-11-2026). Only when the owner-approved PR label 'wivra-android-apk' is
+# added: one debug-signed APK of the full app, with its SHA-256. No iPhone
+# installer, no Play Store, no release signing, no public release.
+on:
+  pull_request:
+    types: [labeled]
+permissions:
+  contents: read
+jobs:
+  apk:
+    if: ${{ github.event.label.name == 'wivra-android-apk' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install free Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build the editor and run the editor + native contract suites
+        run: |
+          set -eu
+          node app/build.mjs
+          node --test app/tests/*.test.mjs
+          node --test streaming/tests/*.test.mjs
+      - name: Build the full debug APK and its JVM tests
+        run: gradle -p streaming/android :app:testFullDebugUnitTest :app:assembleFullDebug --no-daemon --stacktrace
+      - name: Name the APK and print its SHA-256
+        run: |
+          set -eu
+          mkdir -p owner-apk
+          short=$(git rev-parse --short HEAD)
+          cp streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk "owner-apk/Wivra-prueba-${short}.apk"
+          cd owner-apk
+          sha256sum *.apk | tee SHA256.txt
+          cat > LEEME.txt <<EOF
+          Wivra · APK de prueba (debug) para el propietario. Commit ${short}.
+          No es una versión de tienda. Se instala permitiendo "fuentes desconocidas".
+          Huella SHA-256 en SHA256.txt.
+          EOF
+      - name: Upload the APK (14 days, visible only to signed-in GitHub users)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wivra-Android-prueba
+          path: owner-apk/
+          if-no-files-found: error
+          retention-days: 14
