@@ -67,7 +67,7 @@ test('Ray-Ban publication stages a durable reusable copy receipt before visibili
 test('native verifyFile bridges are scoped to the bundled main frame and matching session', () => {
   const bridge = read(android + 'WivraCaptureVerificationBridge.kt');
   assert.match(bridge, /!isMainFrame/);
-  assert.match(bridge, /view\.url != WivraExportBridge\.EDITOR_URL/);
+  assert.match(bridge, /!WivraExportBridge\.isEditor\(view\.url\)/);
   assert.match(bridge, /wivra_rayban_\$\{id\}_part/);
   assert.match(bridge, /WivraCaptureMediaVerifier\.verifyFile/);
   assert.match(bridge, /io\.shutdownNow\(\)/);

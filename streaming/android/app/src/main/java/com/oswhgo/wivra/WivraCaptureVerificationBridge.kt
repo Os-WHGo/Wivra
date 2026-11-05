@@ -20,7 +20,7 @@ class WivraCaptureVerificationBridge(private val webView: WebView) {
     fun install() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         WebViewCompat.addWebMessageListener(webView, "WivraCaptureNative", setOf("*")) { view, message, _, isMainFrame, reply ->
-            if (disposed || !isMainFrame || view.url != WivraExportBridge.EDITOR_URL) return@addWebMessageListener
+            if (disposed || !isMainFrame || !WivraExportBridge.isEditor(view.url)) return@addWebMessageListener
             val data = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
             val rid = data.optLong("rid", -1)
             if (rid < 0 || data.optInt("v") != 1 || data.optString("op") != "verifyFile") return@addWebMessageListener
@@ -34,7 +34,7 @@ class WivraCaptureVerificationBridge(private val webView: WebView) {
                     WivraCaptureMediaVerifier.verifyFile(File(root, name), root, requireHevc = true).valid
                 }.getOrDefault(false)
                 main.post {
-                    if (!disposed && webView.url == WivraExportBridge.EDITOR_URL) {
+                    if (!disposed && WivraExportBridge.isEditor(webView.url)) {
                         runCatching { reply.postMessage(JSONObject().put("rid", rid).put("verified", valid).toString()) }
                     }
                 }

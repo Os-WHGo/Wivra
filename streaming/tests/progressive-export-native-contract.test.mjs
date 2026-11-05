@@ -32,7 +32,7 @@ test('Android channel is AndroidX WebMessageListener, main frame of the bundled 
   assert.match(gradle, /implementation 'androidx\.webkit:webkit:1\.12\.1'/);
   assert.doesNotMatch(main + bridge, /\.addJavascriptInterface\(/);
   assert.match(bridge, /WebViewCompat\.addWebMessageListener\(webView, JS_OBJECT/);
-  assert.match(bridge, /if \(!isMainFrame \|\| view\.url != EDITOR_URL \|\| disposed\) return@addWebMessageListener/);
+  assert.match(bridge, /if \(!isMainFrame \|\| !isEditor\(view\.url\) \|\| disposed\) return@addWebMessageListener/);
   assert.match(bridge, /const val EDITOR_URL = "file:\/\/\/android_asset\/agentcut\.html"/);
   // Installed before the page loads, disposed (partial deleted) with the Activity.
   assert.ok(main.indexOf('exportBridge.install()') > 0 && main.indexOf('exportBridge.install()') < main.indexOf('editor.loadUrl('));
