@@ -84,10 +84,12 @@ Rama `claude/wivra-w64-multicam-editor-audio-20261105`, PR en borrador #173. Bas
 |---|---|---|
 | core | 118/118 | Lógica |
 | app (incluye `capture-multicam.test.mjs`) | 636/636 | Lógica y contrato |
-| streaming (contratos Android/iOS) | 444/444 + 2 nuevas | Contrato |
+| streaming (contratos Android/iOS) | 446/446 | Contrato |
 | JVM (escenas, mezclador PCM, multicámara) | 10/10 en local | Lógica |
 | Editor real en Chromium: importación del par (`tools/browser-multicam-import.cjs`) | 7/7 | Navegador, medios sintéticos |
-| CI del PR #173 | Ver el PR (SHA exacto) | Compilación Android/iOS |
+| CI del PR #173 en `9a2fe7c` | **12/12 workflows en verde**: Android (full y capture, pruebas unitarias), iOS (pruebas de humo Swift 6 de multicámara, manifiesto y escenas; Simulator y arm64 genérico), importación multicámara en el editor, matriz de navegador de Codex, Preflight, Beta Assembly (sin paquetes), App, Core, Director ×2, Visual Evidence y Chat-First | Compilación y contratos |
+
+Corrección durante el cierre: una prueba W63 de ChatGPT exige `scenes.attach(to: capture)`. La firma se mantuvo y el dato del micrófono se pasa en una línea aparte, así que la prueba de ChatGPT no se modificó.
 
 ## 6. Siguiente macrobloque exacto
 
