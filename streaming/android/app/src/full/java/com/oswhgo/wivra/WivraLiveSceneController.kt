@@ -63,7 +63,20 @@ class WivraLiveSceneController(
     private var feed: WivraVideoAudioFeed? = null
     private val effect = WivraSceneAudioEffect()
     private val buttons = mutableMapOf<String, Button>()
-    private val note = TextView(activity).apply { textSize = 13f }
+    // Polite live region: camera/video changes are announced by TalkBack.
+    private val note = TextView(activity).apply {
+        textSize = 13f
+        accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
+    }
+
+    private fun sceneLabel(id: String): String = activity.getString(when (id) {
+        "camera-video" -> R.string.scene_camera_video
+        "split" -> R.string.scene_split
+        "video" -> R.string.scene_video
+        "camera-image" -> R.string.scene_camera_image
+        "image" -> R.string.scene_image
+        else -> R.string.scene_camera
+    })
 
     private val pickVideo = activity.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) loadVideo(uri)
@@ -74,11 +87,15 @@ class WivraLiveSceneController(
 
     val panel: LinearLayout = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
-        addView(TextView(activity).apply { text = "Escenas del LIVE"; textSize = 15f })
+        addView(TextView(activity).apply {
+            text = activity.getString(R.string.scene_panel_title); textSize = 15f
+            isFocusable = true; accessibilityHeading = true
+        })
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         for (p in WivraLiveScenes.PRESETS) {
             val b = Button(activity).apply {
-                text = p.label
+                text = sceneLabel(p.id)
+                minHeight = (48 * resources.displayMetrics.density).toInt()
                 setOnClickListener { select(p.id) }
             }
             buttons[p.id] = b
@@ -86,7 +103,8 @@ class WivraLiveSceneController(
         }
         addView(HorizontalScrollView(activity).apply { addView(row) })
         addView(Button(activity).apply {
-            text = "Fuentes: elegir video o imagen…"
+            text = activity.getString(R.string.scene_sources_button)
+            minHeight = (48 * resources.displayMetrics.density).toInt()
             setOnClickListener { showSources() }
         })
         addView(note)
@@ -121,7 +139,7 @@ class WivraLiveSceneController(
     fun select(id: String) {
         if (id == current) return
         if (id !in available()) {
-            note.text = "Esa escena necesita una fuente: elige un video o una imagen antes de iniciar el LIVE."
+            note.text = activity.getString(R.string.scene_needs_source)
             return
         }
         val before = WivraLiveScenes.preset(current)
@@ -160,7 +178,7 @@ class WivraLiveSceneController(
         runCatching { mp.start() }
         if (!isLive()) return
         if (mic() == null) {
-            note.text = "El sonido del video necesita el audio del LIVE (micrófono) activado."
+            note.text = activity.getString(R.string.scene_video_needs_mic)
             return
         }
         if (feed == null) newFeed()
@@ -216,18 +234,18 @@ class WivraLiveSceneController(
 
     private fun showSources() {
         if (isLive()) {
-            note.text = "Durante el LIVE solo se cambian escenas. Elige videos e imágenes antes de iniciar."
+            note.text = activity.getString(R.string.scene_only_switch_during_live)
             return
         }
         val options = arrayOf(
-            "Elegir video del teléfono",
-            "Elegir imagen (logo, QR, pausa)",
-            "Mover recuadro de esquina",
-            if (videoSoundToLive) "Sonido del video: va al LIVE" else "Sonido del video: silencio",
-            "Quitar video e imagen"
+            activity.getString(R.string.scene_pick_video),
+            activity.getString(R.string.scene_pick_image),
+            activity.getString(R.string.scene_move_inset),
+            activity.getString(if (videoSoundToLive) R.string.scene_video_sound_on else R.string.scene_video_sound_off),
+            activity.getString(R.string.scene_remove_sources)
         )
         AlertDialog.Builder(activity)
-            .setTitle("Fuentes de las escenas")
+            .setTitle(R.string.scene_sources_title)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> pickVideo.launch(arrayOf("video/*"))
@@ -257,7 +275,7 @@ class WivraLiveSceneController(
                 videoSize = if (mp.videoWidth > 0 && mp.videoHeight > 0) mp.videoWidth to mp.videoHeight else null
                 // Silent on the phone: the sound goes into the LIVE mix instead.
                 runCatching { mp.setVolume(0f, 0f) }
-                note.text = "Video listo. Elige una escena con video."
+                note.text = activity.getString(R.string.scene_video_ready)
                 apply(current)
                 refresh()
             }
@@ -265,22 +283,22 @@ class WivraLiveSceneController(
                 if (player === mp) {
                     videoEnded = true
                     feed?.stop(); feed = null; effect.feed = null; effect.active = false
-                    fallback(WivraLiveScenes.Slot.VIDEO, "El video terminó: de vuelta a la cámara.")
+                    fallback(WivraLiveScenes.Slot.VIDEO, activity.getString(R.string.scene_video_ended))
                 }
             }
             mp.setOnErrorListener { _, _, _ ->
                 if (player === mp) {
                     playerReady = false
-                    fallback(WivraLiveScenes.Slot.VIDEO, "El video no se pudo reproducir: de vuelta a la cámara.")
+                    fallback(WivraLiveScenes.Slot.VIDEO, activity.getString(R.string.scene_video_failed))
                     refresh()
                 }
                 true
             }
             mp.prepareAsync()
-            note.text = "Preparando el video…"
+            note.text = activity.getString(R.string.scene_video_preparing)
         } catch (_: Exception) {
             releasePlayer()
-            note.text = "No se pudo abrir ese video."
+            note.text = activity.getString(R.string.scene_video_open_failed)
         }
     }
 
@@ -293,12 +311,12 @@ class WivraLiveSceneController(
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             }
         } catch (_: Exception) {
-            note.text = "No se pudo abrir esa imagen."
+            note.text = activity.getString(R.string.scene_image_open_failed)
             return
         }
         image = bitmap
         imageLayer?.setImage(bitmap)
-        note.text = "Imagen lista. Elige una escena con imagen."
+        note.text = activity.getString(R.string.scene_image_ready)
         apply(current)
         refresh()
     }
@@ -311,7 +329,7 @@ class WivraLiveSceneController(
         imageLayer?.setImage(null)
         image = null
         apply(current)
-        note.text = "Fuentes quitadas."
+        note.text = activity.getString(R.string.scene_sources_removed)
         refresh()
     }
 
@@ -320,7 +338,15 @@ class WivraLiveSceneController(
         for ((id, b) in buttons) {
             b.isEnabled = id in ok
             b.alpha = if (id == current) 1f else 0.75f
-            b.text = (if (id == current) "● " else "") + (WivraLiveScenes.preset(id)?.label ?: id)
+            b.text = (if (id == current) "● " else "") + sceneLabel(id)
+            // TalkBack: name + state, not just a dot.
+            val state = activity.getString(when {
+                id == current -> R.string.scene_state_on_air
+                id in ok -> R.string.scene_state_available
+                else -> R.string.scene_state_needs_source
+            })
+            b.contentDescription = activity.getString(R.string.scene_content_description, sceneLabel(id), state)
+            b.isSelected = id == current
         }
     }
 
