@@ -19,7 +19,10 @@ function report(minutes=10){
   ffprobe:{duration:seconds+.02,video:true,audio:true,codecs:['video:vp9','audio:opus']},
   containerInspection:{video:true,audio:true,declaresDuration:true,
    seekIndex:true,container:'webm',durationMs:seconds*1000+20},
-  scenes:{firstOrange:true,secondBlue:true,preservedBlackGap:true},
+  scenes:{firstOrange:true,secondBlue:true,preservedBlackGap:true,
+   tailTransition:{previousAtSeconds:seconds-seconds/120-.25,
+    finalAtSeconds:seconds-.25,previousRGB:[220,120,10],
+    finalRGB:[10,80,210],previousOrange:true,finalBlue:true}},
   audio:{beforeVoice:0,afterVoice:.06,tailVoice:.06,recordedSeconds:seconds+.02,voiceGap:0,voiceAfter:.06,voiceTail:.06,musicStart:.06,musicMid:.06,musicTail:.06}
  };
 }
@@ -28,10 +31,19 @@ test('requires all 10/20/30/60min reports with exact frames, audio and measured 
  for(const m of MINUTES){
   const r=validateAcceleratedSoakReport(report(m),m);
   assert.equal(r.frames,m*1800);assert.equal(r.samples,2);
+  assert.equal(r.lastDecodedSeconds,m*60-.25);
  }
 });
 for(const [name,mutate] of [
  ['fake phone validation',r=>{r.browser.result.verifiedOnDevice=true;}],
+ ['missing last transition',r=>{delete r.scenes.tailTransition;}],
+ ['wrong last-frame timestamp',r=>{r.scenes.tailTransition.finalAtSeconds-=2;}],
+ ['wrong penultimate timestamp',r=>{r.scenes.tailTransition.previousAtSeconds-=5;}],
+ ['missing decoded final frame',r=>{r.scenes.tailTransition.finalRGB=[];}],
+ ['final scene wrong color',r=>{r.scenes.tailTransition.finalRGB=[200,15,10];}],
+ ['penultimate scene wrong color',r=>{r.scenes.tailTransition.previousRGB=[1,10,220];}],
+ ['false last scene claim',r=>{r.scenes.tailTransition.finalBlue=false;}],
+ ['fabricated penultimate color',r=>{r.scenes.tailTransition.previousRGB=[-4,99,1];}],
  ['incomplete voice',r=>{r.audio.voiceTail=0;}],
  ['missing continuous music tail',r=>{r.audio.musicTail=0;}],
  ['missing continuous music mid',r=>{r.audio.musicMid=0;}],
