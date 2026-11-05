@@ -258,7 +258,10 @@ public final class MainActivity extends Activity {
     private void showCameraSourceChooser() {
         final String[] options = {
             getString(R.string.source_meta_option),
-            getString(R.string.source_phone_option)
+            getString(R.string.source_phone_option),
+            // Offered to every phone with a camera; the screen itself checks
+            // this phone's concurrent pairs and falls back to one camera.
+            getString(R.string.source_dual_option)
         };
         new AlertDialog.Builder(this)
             .setTitle(R.string.source_camera_title)
@@ -267,6 +270,8 @@ public final class MainActivity extends Activity {
             .setItems(options, (dialog, selected) -> {
                 if (selected == 0) {
                     launchRayBanCameraFromDirector();
+                } else if (selected == 2 && hasPhoneCameraHardware()) {
+                    startActivity(new Intent(this, WivraDualCameraActivity.class));
                 } else if (hasPhoneCameraHardware()) {
                     launchPhoneCameraFromDirector();
                 } else {

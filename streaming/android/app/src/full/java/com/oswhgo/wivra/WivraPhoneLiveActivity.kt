@@ -67,6 +67,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var flipCameraButton: Button
     private var stream: RtmpStream? = null
     private var cameraVideoSource: Camera2Source? = null
+    // LIVE scenes (Claude): layers over the camera; sources chosen before going live.
+    private lateinit var scenes: WivraLiveSceneController
     private var pendingFile: File? = null
     private var saveLocalCopy = false
     private var localCopyFinalized = false
@@ -278,6 +280,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { togglePhoneCamera() }
         }
         root.addView(flipCameraButton)
+        scenes = WivraLiveSceneController(this) { initiatedByUser }
+        root.addView(scenes.panel)
         root.addView(Button(this).apply {
             text = "Revisar capturas locales pendientes"
             setOnClickListener { reviewPendingVideo() }
@@ -295,7 +299,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 if (prepared && !stopping && stream?.isOnPreview != true) {
-                    runCatching { stream?.startPreview(preview) }
+                    runCatching { stream?.startPreview(preview); scenes.reattach() }
                 }
                 if (!initiatedByUser) startButton.isEnabled = cameraReadyForLive()
             }
@@ -424,7 +428,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             stream = publisher
             prepared = true
             flipCameraButton.isEnabled = true
-            if (preview.holder.surface.isValid) publisher.startPreview(preview)
+            scenes.bind(publisher)
+            if (preview.holder.surface.isValid) {
+                publisher.startPreview(preview)
+                scenes.reattach()
+            }
             setStatus(if (cameraReadyForLive())
                 "Vista previa de cámara activa. Ninguna transmisión iniciada."
                 else "Codificador preparado; esperando vista previa de cámara activa."
@@ -571,6 +579,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             localCopyOption.isEnabled = false
             endpointInput.isEnabled = false
             publisher.startStream(address)
+            scenes.reapply() // e.g. the pause scene mutes the mic chosen just now
             storageHandler.removeCallbacks(storageCheck)
             storageHandler.postDelayed(storageCheck, 10_000L)
             // Never log or persist the URL, including on failure.
@@ -789,6 +798,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         runCatching {
             if (stream?.isOnPreview == true) stream?.stopPreview()
         }
+        scenes.onHostStop()
         super.onStop()
     }
 
@@ -800,7 +810,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         }
         if (prepared && !isFinishing && preview.holder.surface.isValid &&
             stream?.isOnPreview != true) {
-            runCatching { stream?.startPreview(preview) }
+            runCatching { stream?.startPreview(preview); scenes.reattach() }
         }
         if (::startButton.isInitialized && !initiatedByUser) {
             startButton.isEnabled = cameraReadyForLive() && !mediaBusy
@@ -815,6 +825,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         storageHandler.removeCallbacks(storageCheck)
         if (initiatedByUser || stream?.isStreaming == true ||
             stream?.isRecording == true) stopAndReview()
+        if (::scenes.isInitialized) scenes.release()
         runCatching { stream?.release() }
         stream = null
         cameraVideoSource = null
