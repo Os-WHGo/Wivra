@@ -370,10 +370,16 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                 guard let self, self.isFinishing,
                       self.primaryURL == result.primaryURL,
                       self.secondaryURL == result.secondaryURL else { return }
+                // Re-read sizes on the main actor after the async verifier,
+                // without crossing actors with the closure from above.
+                let mainBytes = (try? FileManager.default.attributesOfItem(
+                    atPath: result.primaryURL.path)[.size] as? Int64) ?? 0
+                let insetBytes = (try? FileManager.default.attributesOfItem(
+                    atPath: result.secondaryURL.path)[.size] as? Int64) ?? 0
                 let mainStatus = WivraMultiCamPolicy.classifyTake(
-                    bytes: bytes(result.primaryURL), finishedWithoutError: mainVerified)
+                    bytes: mainBytes, finishedWithoutError: mainVerified)
                 let insetStatus = WivraMultiCamPolicy.classifyTake(
-                    bytes: bytes(result.secondaryURL), finishedWithoutError: secondaryVerified)
+                    bytes: insetBytes, finishedWithoutError: secondaryVerified)
                 self.finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
                                 offsetMilliseconds: result.secondaryOffsetSeconds.map { $0 * 1000 })
             }
