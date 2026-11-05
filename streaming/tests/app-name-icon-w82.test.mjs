@@ -21,3 +21,13 @@ test('Android: label Wivra and an adaptive icon drawn from the W logo', () => {
   assert.match(icon, /<foreground android:drawable="@drawable\/ic_launcher_foreground" \/>/);
   assert.match(r('../android/app/src/main/res/drawable/ic_launcher_foreground.xml').toString(), /M33,40 L42,70 L54,48 L66,70 L75,40/);
 });
+
+test('Makers Unbound logo (owner-supplied, white) in the editor home, splash, settings and iPhone home', () => {
+  const tpl = r('../../app/template.html').toString();
+  assert.equal((tpl.match(/class="mulogo" role="img" aria-label="Makers Unbound"/g) || []).length, 3);
+  assert.match(tpl, /\.mulogo \{[^}]*background:url\(data:image\/png;base64,/);
+  const home = r('../ios/B0/Sources/WivraHomeScreen.swift').toString();
+  assert.match(home, /Image\("MakersUnbound"\)/);
+  const png = r('../ios/B0/Resources/Assets.xcassets/MakersUnbound.imageset/makers-unbound-white.png');
+  assert.equal(png.toString('latin1', 1, 4), 'PNG');
+});

@@ -53,6 +53,17 @@ struct WivraHomeScreen: View {
                         .font(.footnote)
                         .foregroundStyle(WivraTheme.muted)
                         .padding(.top, 4)
+                    // W82 (Claude): Makers Unbound logo, white version supplied by the owner.
+                    VStack(spacing: 6) {
+                        Text("ios.home.made_by").font(.caption).foregroundStyle(WivraTheme.muted)
+                        Image("MakersUnbound")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 78)
+                            .accessibilityLabel(Text(verbatim: "Makers Unbound"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 18)
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 110)
