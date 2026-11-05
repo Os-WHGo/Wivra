@@ -22,7 +22,7 @@ test('iOS offers every shared preset in the same order', () => {
 });
 
 test('opt-in: without scenes the LIVE pipeline is unchanged', () => {
-  assert.match(live, /if let scenes, scenes\.enabled \{ await scenes\.attach\(to: capture\) \}/);
+  assert.match(live, /if let scenes, scenes\.enabled \{ await scenes\.attach\(to: capture, microphone: microphone\) \}/);
   assert.match(scenes, /guard enabled, !attached else \{ return \}/);
   assert.match(scenes, /setVideoMixerSettings\(VideoMixerSettings\(mode: \.offscreen\)\)/);
   assert.match(live, /await scenes\?\.detach\(\)/);
@@ -58,4 +58,11 @@ test('video sound: track 1 of a multi-track mixer, paced, no extra capture', () 
   assert.match(scenes, /AVLinearPCMBitDepthKey: 16/);
   assert.match(scenes, /audioFeeder\?\.cancel\(\)/);
   assert.doesNotMatch(scenes, /RPScreenRecorder|ReplayKit|RPBroadcast/);
+});
+
+test('the owner decides whether the video sound goes on air; no mic = picture only, stated', () => {
+  assert.match(scenes, /Toggle\("Sonido del video en el LIVE", isOn: \$scenes\.videoSoundToLive\)/);
+  assert.match(scenes, /if let mixer, videoSoundToLive, liveHasMicrophone \{/);
+  assert.match(scenes, /Sin micrófono en el LIVE: el video se ve, pero su sonido no se transmite/);
+  assert.match(scenes, /func stopVideoSound\(\) async/);
 });

@@ -105,7 +105,7 @@ final class WivraIPhoneLiveController {
             }
             includesMicrophone = microphone
             mixer = capture
-            if let scenes, scenes.enabled { await scenes.attach(to: capture) }
+            if let scenes, scenes.enabled { await scenes.attach(to: capture, microphone: microphone) }
             if let preview { await capture.addOutput(preview) }
             phase = .ready
             status = "Cámara preparada. Ningún video se ha transmitido."

@@ -148,6 +148,10 @@ struct WivraPickedMovie: Transferable {
 @Observable
 final class WivraLiveSceneModel {
     var enabled = false
+    /// Owner's choice: the video's sound goes into the LIVE mix or not.
+    var videoSoundToLive = true
+    /// The LIVE has a microphone track; without it there is no audio to mix into.
+    private(set) var liveHasMicrophone = false
     private(set) var current = "camera"
     private(set) var note = ""
     private(set) var videoURL: URL?
@@ -165,9 +169,10 @@ final class WivraLiveSceneModel {
     }
 
     /// Called by the LIVE controller once its MediaMixer runs (only if enabled).
-    func attach(to mixer: MediaMixer) async {
+    func attach(to mixer: MediaMixer, microphone: Bool) async {
         guard enabled, !attached else { return }
         self.mixer = mixer
+        liveHasMicrophone = microphone
         await mixer.setVideoMixerSettings(VideoMixerSettings(mode: .offscreen))
         let created = await Task { @ScreenActor in WivraLiveSceneLayers() }.value
         await Task { @ScreenActor in created.install(on: await mixer.screen) }.value
@@ -241,10 +246,14 @@ final class WivraLiveSceneModel {
             return
         }
         audioFeeder?.cancel()
-        if let mixer {
+        audioFeeder = nil
+        if let mixer, videoSoundToLive, liveHasMicrophone {
             audioFeeder = Task.detached(priority: .userInitiated) {
                 await WivraVideoAudioFeeder.run(url: url, mixer: mixer)
             }
+        } else if videoSoundToLive && !liveHasMicrophone {
+            // Previous behaviour, stated explicitly: picture only.
+            note = "Sin micrófono en el LIVE: el video se ve, pero su sonido no se transmite."
         }
         watcher?.cancel()
         watcher = Task { @MainActor [weak self] in
@@ -300,6 +309,12 @@ final class WivraLiveSceneModel {
     // Kept so a new LIVE session (new layers) shows the chosen image again.
     private var storedImageData: Data?
 
+    /// Stops only the video's sound; the picture keeps playing.
+    func stopVideoSound() async {
+        audioFeeder?.cancel()
+        audioFeeder = nil
+    }
+
     func moveInset() async {
         corner = corner.next
         await apply()
@@ -319,6 +334,12 @@ struct WivraLiveScenePanel: View {
             Toggle("Usar escenas (cámara + video o imagen)", isOn: $scenes.enabled)
                 .disabled(!canToggle)
             if scenes.enabled {
+                Toggle("Sonido del video en el LIVE", isOn: $scenes.videoSoundToLive)
+                    .onChange(of: scenes.videoSoundToLive) { _, on in
+                        if !on { Task { await scenes.stopVideoSound() } }
+                    }
+            }
+            if scenes.enabled {
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(WivraLiveScenePolicy.presets, id: \.id) { p in
@@ -337,7 +358,7 @@ struct WivraLiveScenePanel: View {
                 } else {
                     Text("Durante el LIVE solo se cambian escenas.").font(.footnote)
                 }
-                Text("El sonido del video va al LIVE si el micrófono del LIVE está activado. El video vuelve a empezar cada vez que entras en una escena con video.").font(.footnote).foregroundStyle(.secondary)
+                Text("El sonido del video necesita el micrófono del LIVE activado. El video vuelve a empezar cada vez que entras en una escena con video. En el iPhone no suena por el altavoz.").font(.footnote).foregroundStyle(.secondary)
                 if !scenes.note.isEmpty { Text(scenes.note).font(.footnote) }
             }
         }
