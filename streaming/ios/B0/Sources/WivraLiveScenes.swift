@@ -198,7 +198,7 @@ final class WivraLiveSceneModel {
     func select(_ id: String) async {
         guard id != current else { return }
         guard available.contains(id), attached else {
-            note = attached ? "Esa escena necesita un video o una imagen." : "Activa «Usar escenas» antes de preparar la cámara."
+            note = attached ? NSLocalizedString("ios.live.needs_source", comment: "") : NSLocalizedString("ios.live.enable_first", comment: "")
             return
         }
         let before = WivraLiveScenePolicy.preset(current)
@@ -233,7 +233,7 @@ final class WivraLiveSceneModel {
                 await mixer.setAudioMixerSettings(audio)
             }
         }
-        note = result.micMuted ? "Pausa: imagen en pantalla, micrófono en silencio." : ""
+        note = result.micMuted ? NSLocalizedString("ios.live.pause_note", comment: "") : ""
     }
 
     private func playVideo() async {
@@ -241,7 +241,7 @@ final class WivraLiveSceneModel {
         let started = await Task { @ScreenActor in (try? layers.startVideo(url)) != nil }.value
         guard started else {
             videoURL = nil
-            await fallback("El video no se pudo reproducir: de vuelta a la cámara.")
+            await fallback(NSLocalizedString("ios.live.video_failed", comment: ""))
             return
         }
         audioFeeder?.cancel()
@@ -252,7 +252,7 @@ final class WivraLiveSceneModel {
             }
         } else if videoSoundToLive && !liveHasMicrophone {
             // Previous behaviour, stated explicitly: picture only.
-            note = "Sin micrófono en el LIVE: el video se ve, pero su sonido no se transmite."
+            note = NSLocalizedString("ios.live.no_mic", comment: "")
         }
         watcher?.cancel()
         watcher = Task { @MainActor [weak self] in
@@ -261,7 +261,7 @@ final class WivraLiveSceneModel {
             while !Task.isCancelled {
                 let reading = await Task { @ScreenActor in layers.isVideoReading }.value
                 if !reading {
-                    await self?.fallback("El video terminó: de vuelta a la cámara.")
+                    await self?.fallback(NSLocalizedString("ios.live.video_ended", comment: ""))
                     return
                 }
                 try? await Task.sleep(nanoseconds: 500_000_000)
@@ -283,25 +283,25 @@ final class WivraLiveSceneModel {
         guard let track = try? await asset.loadTracks(withMediaType: .video).first,
               let natural = try? await track.load(.naturalSize),
               let transform = try? await track.load(.preferredTransform) else {
-            note = "Ese archivo no tiene video."
+            note = NSLocalizedString("ios.live.no_video_track", comment: "")
             return
         }
         let oriented = natural.applying(transform)
         videoURL = movie.url
         videoSize = .init(w: abs(oriented.width), h: abs(oriented.height))
-        note = "Video listo."
+        note = NSLocalizedString("ios.live.video_ready", comment: "")
         await apply()
     }
 
     func load(imageData: Data) async {
         guard let cg = UIImage(data: imageData)?.cgImage else {
-            note = "No se pudo abrir esa imagen."
+            note = NSLocalizedString("ios.live.image_failed", comment: "")
             return
         }
         imageSize = .init(w: Double(cg.width), h: Double(cg.height))
         storedImageData = imageData
         if let layers { await Task { @ScreenActor in layers.setImage(imageData) }.value }
-        note = "Imagen lista."
+        note = NSLocalizedString("ios.live.image_ready", comment: "")
         await apply()
     }
 
@@ -329,11 +329,11 @@ struct WivraLiveScenePanel: View {
     @State private var imageItem: PhotosPickerItem?
 
     var body: some View {
-        Section("Escenas") {
-            Toggle("Usar escenas (cámara + video o imagen)", isOn: $scenes.enabled)
+        Section(NSLocalizedString("ios.live.section", comment: "")) {
+            Toggle(NSLocalizedString("ios.live.use_scenes", comment: ""), isOn: $scenes.enabled)
                 .disabled(!canToggle)
             if scenes.enabled {
-                Toggle("Sonido del video en el LIVE", isOn: $scenes.videoSoundToLive)
+                Toggle(NSLocalizedString("ios.live.video_sound", comment: ""), isOn: $scenes.videoSoundToLive)
                     .onChange(of: scenes.videoSoundToLive) { _, on in
                         if !on { Task { await scenes.stopVideoSound() } }
                     }
@@ -342,24 +342,34 @@ struct WivraLiveScenePanel: View {
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(WivraLiveScenePolicy.presets, id: \.id) { p in
-                            Button((scenes.current == p.id ? "● " : "") + p.label) {
+                            Button((scenes.current == p.id ? "● " : "") + wivraSceneTitle(p.id)) {
                                 Task { await scenes.select(p.id) }
                             }
+                            // VoiceOver: name, state and selection, not just a dot.
+                            .accessibilityLabel(wivraSceneTitle(p.id))
+                            .accessibilityValue(scenes.current == p.id ? NSLocalizedString("ios.live.state_on_air", comment: "")
+                                : scenes.available.contains(p.id) ? NSLocalizedString("ios.live.state_available", comment: "")
+                                : NSLocalizedString("ios.live.state_needs_source", comment: ""))
+                            .accessibilityAddTraits(scenes.current == p.id ? .isSelected : [])
                             .buttonStyle(.bordered)
                             .disabled(!scenes.available.contains(p.id) || !scenes.attached)
                         }
                     }
                 }
                 if !isLive {
-                    PhotosPicker("Elegir video", selection: $movieItem, matching: .videos)
-                    PhotosPicker("Elegir imagen (logo, QR, pausa)", selection: $imageItem, matching: .images)
-                    Button("Mover recuadro de esquina") { Task { await scenes.moveInset() } }
+                    PhotosPicker(NSLocalizedString("ios.live.pick_video", comment: ""), selection: $movieItem, matching: .videos)
+                    PhotosPicker(NSLocalizedString("ios.live.pick_image", comment: ""), selection: $imageItem, matching: .images)
+                    Button(NSLocalizedString("ios.live.move_inset", comment: "")) { Task { await scenes.moveInset() } }
                 } else {
-                    Text("Durante el LIVE solo se cambian escenas.").font(.footnote)
+                    Text(NSLocalizedString("ios.live.only_switch", comment: "")).font(.footnote)
                 }
-                Text("El sonido del video necesita el micrófono del LIVE activado. El video vuelve a empezar cada vez que entras en una escena con video. En el iPhone no suena por el altavoz.").font(.footnote).foregroundStyle(.secondary)
-                if !scenes.note.isEmpty { Text(scenes.note).font(.footnote) }
+                Text(NSLocalizedString("ios.live.sound_footnote", comment: "")).font(.footnote).foregroundStyle(.secondary)
+                if !scenes.note.isEmpty { Text(scenes.note).font(.footnote).accessibilityAddTraits(.updatesFrequently) }
             }
+        }
+        // Fallbacks (video ended, no microphone...) are spoken by VoiceOver.
+        .onChange(of: scenes.note) { _, note in
+            if !note.isEmpty { UIAccessibility.post(notification: .announcement, argument: note) }
         }
         .onChange(of: movieItem) { _, item in
             guard let item else { return }
@@ -377,5 +387,18 @@ struct WivraLiveScenePanel: View {
                 }
             }
         }
+    }
+}
+
+/// Localized scene names (ids are shared with core/live-scenes.mjs). — Claude
+func wivraSceneTitle(_ id: String) -> String {
+    switch id {
+    case "camera-video": return NSLocalizedString("ios.live.scene_camera_video", comment: "")
+    case "video-camera": return NSLocalizedString("ios.live.scene_video_camera", comment: "")
+    case "split": return NSLocalizedString("ios.live.scene_split", comment: "")
+    case "video": return NSLocalizedString("ios.live.scene_video", comment: "")
+    case "camera-image": return NSLocalizedString("ios.live.scene_camera_image", comment: "")
+    case "image": return NSLocalizedString("ios.live.scene_image", comment: "")
+    default: return NSLocalizedString("ios.live.scene_camera", comment: "")
     }
 }

@@ -28,10 +28,11 @@ test('All eight iOS localizations carry identical non-empty native keys and plac
 });
 test('Native iOS screens use localized resources without changing Claude editor',()=>{
   const ios = fileURLToPath(new URL('../ios/B0/Sources/', import.meta.url));
-  const swiftPaths = ['WivraEmbeddedEditorScreen.swift','WivraNativeCaptureLibrary.swift','WivraMetaB0App.swift','WivraPhoneNetworkStatus.swift','WivraCaptureStorageGuard.swift','MetaB0Model.swift'];
+  // Claude W77: LIVE scenes and two-camera screens joined the localized set.
+  const swiftPaths = ['WivraEmbeddedEditorScreen.swift','WivraNativeCaptureLibrary.swift','WivraMetaB0App.swift','WivraPhoneNetworkStatus.swift','WivraCaptureStorageGuard.swift','MetaB0Model.swift','WivraLiveScenes.swift','WivraMultiCamScreen.swift'];
   const code = swiftPaths.map(f=>readFileSync(join(ios,f),'utf8')).join('\n');
   const declared = dictionary('es');
-  const refs = new Set([...code.matchAll(/ios\.(?:picker|editor|app|library|record|network|exports|capture)\.[a-z_]+/g)].map(m=>m[0]));
+  const refs = new Set([...code.matchAll(/ios\.(?:picker|editor|app|library|record|network|exports|capture|live|multicam)\.[a-z_]+/g)].map(m=>m[0]));
   assert.equal(refs.size,declared.size);
   for(const key of refs) assert.ok(declared.has(key),'missing locale key: '+key);
   assert.match(code,/NSLocalizedString\("ios\.picker\.title"/);

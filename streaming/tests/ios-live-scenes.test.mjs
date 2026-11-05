@@ -39,14 +39,14 @@ test('HaishinKit layers on ScreenActor; camera inset only for PiP scenes', () =>
 
 test('no empty scene; finished or broken video returns to camera; pause mutes mic', () => {
   assert.match(scenes, /guard available\.contains\(id\), attached else/);
-  assert.match(scenes, /if !reading \{\s*await self\?\.fallback\("El video terminó/);
-  assert.match(scenes, /El video no se pudo reproducir: de vuelta a la cámara/);
+  assert.match(scenes, /if !reading \{\s*await self\?\.fallback\(NSLocalizedString\("ios\.live\.video_ended"/);
+  assert.match(scenes, /NSLocalizedString\("ios\.live\.video_failed"/);
   assert.match(scenes, /mic\.isMuted = result\.micMuted\s*audio\.tracks\[0\] = mic/);
   assert.match(policy, /preset\(current\)\?\.show\[lost\] == nil \? nil : "camera"/);
 });
 
 test('sources picked before LIVE from Photos, private copy, no upload', () => {
-  assert.match(scenes, /if !isLive \{\s*PhotosPicker\("Elegir video"/);
+  assert.match(scenes, /if !isLive \{\s*PhotosPicker\(NSLocalizedString\("ios\.live\.pick_video"/);
   assert.match(scenes, /temporaryDirectory\.appendingPathComponent\("WivraLiveScenes"/);
   assert.doesNotMatch(scenes, /URLSession|http:|https:|PHPhotoLibrary\.shared\(\)\.performChanges/);
 });
@@ -61,8 +61,21 @@ test('video sound: track 1 of a multi-track mixer, paced, no extra capture', () 
 });
 
 test('the owner decides whether the video sound goes on air; no mic = picture only, stated', () => {
-  assert.match(scenes, /Toggle\("Sonido del video en el LIVE", isOn: \$scenes\.videoSoundToLive\)/);
+  assert.match(scenes, /Toggle\(NSLocalizedString\("ios\.live\.video_sound", comment: ""\), isOn: \$scenes\.videoSoundToLive\)/);
   assert.match(scenes, /if let mixer, videoSoundToLive, liveHasMicrophone \{/);
-  assert.match(scenes, /Sin micrófono en el LIVE: el video se ve, pero su sonido no se transmite/);
+  assert.match(scenes, /NSLocalizedString\("ios\.live\.no_mic"/);
   assert.match(scenes, /func stopVideoSound\(\) async/);
+});
+
+test('W77: scenes and two-camera screens are localized and speak to VoiceOver', () => {
+  const mc = read(src + 'WivraMultiCamScreen.swift');
+  assert.match(scenes, /\.accessibilityAddTraits\(scenes\.current == p\.id \? \.isSelected : \[\]\)/);
+  assert.match(scenes, /\.accessibilityValue\(scenes\.current == p\.id/);
+  assert.match(scenes, /UIAccessibility\.post\(notification: \.announcement, argument: note\)/);
+  assert.match(mc, /UIAccessibility\.post\(notification: \.announcement, argument: text\)/);
+  assert.doesNotMatch(scenes + mc, /(Text|Button|Toggle|PhotosPicker|Section)\("[A-ZÁÉÍÓÚ]/, 'no hard-coded Spanish UI text');
+  for (const lang of ['es', 'en', 'fr', 'de', 'it', 'pt', 'ja', 'zh']) {
+    const dict = readFileSync(new URL(`../ios/B0/Resources/${lang}.lproj/Localizable.strings`, import.meta.url), 'utf8');
+    for (const k of ['ios.live.scene_split', 'ios.live.state_on_air', 'ios.multicam.explainer']) assert.ok(dict.includes(`"${k}"`), lang + ' ' + k);
+  }
 });
