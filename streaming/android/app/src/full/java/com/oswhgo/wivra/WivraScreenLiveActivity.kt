@@ -92,11 +92,11 @@ class WivraScreenLiveActivity : ComponentActivity() {
     ) { grants ->
         if (cameraOption.isChecked && grants[Manifest.permission.CAMERA] == false) {
             cameraOption.isChecked = false
-            status.text = "Sin permiso de cámara: se compartirá solo la pantalla."
+            status.text = getString(R.string.screen_no_cam_permission)
         }
         if (micOption.isChecked && grants[Manifest.permission.RECORD_AUDIO] == false) {
             micOption.isChecked = false
-            status.text = "Sin permiso de micrófono: la pantalla se transmite sin audio."
+            status.text = getString(R.string.screen_no_mic_permission)
         }
         val next = afterSourcePermissions
         afterSourcePermissions = null
@@ -144,13 +144,15 @@ class WivraScreenLiveActivity : ComponentActivity() {
             contentDescription = "URL RTMP/RTMPS privada para pantalla LIVE"
         }
         root.addView(endpoint)
-        cameraOption = CheckBox(this).apply { text = "Mostrar mi cámara en un recuadro" }
-        frontOption = CheckBox(this).apply { text = "Usar la cámara frontal" }
-        micOption = CheckBox(this).apply { text = "Incluir mi micrófono" }
+        cameraOption = CheckBox(this).apply { text = getString(R.string.screen_cam_option) }
+        frontOption = CheckBox(this).apply { text = getString(R.string.screen_front_option) }
+        micOption = CheckBox(this).apply { text = getString(R.string.screen_mic_option) }
         root.addView(cameraOption)
         root.addView(frontOption)
         root.addView(micOption)
         status = TextView(this).apply {
+            // TalkBack announces connection, reconnection and camera changes.
+            accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
             text = WivraScreenLiveService.statusMessage
             textSize = 15f
         }
@@ -170,19 +172,19 @@ class WivraScreenLiveActivity : ComponentActivity() {
         })
         // Live controls for the camera layer; the screen can be stopped alone.
         root.addView(Button(this).apply {
-            text = "Dejar de compartir solo la pantalla (sigue la cámara)"
+            text = getString(R.string.screen_stop_only)
             setOnClickListener { sendToService(WivraScreenLiveService.ACTION_STOP_SCREEN) }
         })
         root.addView(Button(this).apply {
-            text = "Mostrar u ocultar mi cámara"
+            text = getString(R.string.screen_toggle_camera)
             setOnClickListener { sendToService(WivraScreenLiveService.ACTION_TOGGLE_CAMERA) }
         })
         root.addView(Button(this).apply {
-            text = "Mover la cámara de esquina"
+            text = getString(R.string.screen_move_camera)
             setOnClickListener { sendToService(WivraScreenLiveService.ACTION_CAMERA_CORNER) }
         })
         root.addView(Button(this).apply {
-            text = "Girar la cámara 90°"
+            text = getString(R.string.screen_rotate_camera)
             setOnClickListener { sendToService(WivraScreenLiveService.ACTION_CAMERA_ROTATE) }
         })
         root.addView(Button(this).apply {
@@ -204,8 +206,8 @@ class WivraScreenLiveActivity : ComponentActivity() {
             .setMessage(
                 "Tu pantalla o la aplicación que elijas puede mostrar datos " +
                     "privados y se transmitirá a un servidor externo. " +
-                    (if (cameraOption.isChecked) "También se transmitirá tu cámara. " else "") +
-                    (if (micOption.isChecked) "También se transmitirá tu micrófono. " else "") +
+                    (if (cameraOption.isChecked) getString(R.string.screen_confirm_camera) + " " else "") +
+                    (if (micOption.isChecked) getString(R.string.screen_confirm_mic) + " " else "") +
                     "Wivra no graba una copia local en este modo. " +
                     "El VOD del proveedor podría no guardarse. " +
                     "Android pedirá permiso en cada nueva sesión. ¿Continuar?"

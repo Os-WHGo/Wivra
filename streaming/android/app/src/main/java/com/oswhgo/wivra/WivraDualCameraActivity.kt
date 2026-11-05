@@ -110,8 +110,11 @@ class WivraDualCameraActivity : ComponentActivity() {
         title = getString(R.string.dual_camera_title)
         viewfinder = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            contentDescription = getString(R.string.dual_camera_title)
         }
         status = TextView(this).apply {
+            // Camera loss, fallback and take results are announced by TalkBack.
+            accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
             setPadding(dp(12), dp(8), dp(12), dp(8))
             textSize = 15f
         }

@@ -37,7 +37,7 @@ test('no empty scene on air; ended or failed video returns to the camera', () =>
 });
 
 test('sources only before going live; nothing persisted or uploaded', () => {
-  assert.match(ctl, /if \(isLive\(\)\) \{\s*note\.text = "Durante el LIVE solo se cambian escenas/);
+  assert.match(ctl, /if \(isLive\(\)\) \{\s*note\.text = activity\.getString\(R\.string\.scene_only_switch_during_live\)/);
   assert.match(live, /WivraLiveSceneController\(this\) \{ initiatedByUser \}/);
   assert.doesNotMatch(ctl, /takePersistableUriPermission|SharedPreferences|http:|https:|putExtra/);
   assert.doesNotMatch(ctl, /\.recycle\(\)/, 'no bitmap recycle while GL may upload it');
@@ -60,7 +60,16 @@ test('video sound goes into the LIVE mix without extra permission or capture', (
   assert.match(feed, /ring\.free\(\) < outRate \* outChannels \/ 5/, 'bounded read-ahead');
   assert.match(ctl, /m\.setAudioEffect\(effect\)/);
   assert.match(ctl, /runCatching \{ mp\.setVolume\(0f, 0f\) \}/, 'silent on the phone, no echo into the mic');
-  assert.match(ctl, /El sonido del video necesita el audio del LIVE \(micrófono\) activado/);
+  assert.match(ctl, /R\.string\.scene_video_needs_mic/);
   assert.match(mix, /coerceIn\(Short\.MIN_VALUE\.toInt\(\), Short\.MAX_VALUE\.toInt\(\)\)/, 'clamp, never wrap');
   assert.doesNotMatch(feed + ctl, /MediaProjection|AudioPlaybackCapture|createScreenCaptureIntent/);
+});
+
+test('W77: scene panel is localized and readable by TalkBack', () => {
+  assert.doesNotMatch(ctl, /note\.text = "/, 'no hard-coded Spanish notes');
+  assert.match(ctl, /accessibilityLiveRegion = android\.view\.View\.ACCESSIBILITY_LIVE_REGION_POLITE/);
+  assert.match(ctl, /b\.contentDescription = activity\.getString\(R\.string\.scene_content_description, sceneLabel\(id\), state\)/);
+  assert.match(ctl, /minHeight = \(48 \* resources\.displayMetrics\.density\)\.toInt\(\)/);
+  assert.match(ctl, /isAccessibilityHeading = true/);
+  for (const id of ['camera', 'camera-video', 'split', 'video', 'camera-image', 'image']) assert.ok(ctl.includes(id === 'camera' ? 'R.string.scene_camera' : `"${id}" -> R.string.scene_`), id);
 });

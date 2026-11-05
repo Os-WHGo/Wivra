@@ -102,8 +102,8 @@ test('camera and microphone are opt-in, permission-gated and never implicit',()=
   // Camera/mic permissions are asked BEFORE the screen consent, then the same consent rules apply.
   assert.match(activity,/afterSourcePermissions = \{ requestScreen\(address\) \}/);
   // The dialog names every extra source that will be broadcast.
-  assert.match(activity,/También se transmitirá tu cámara/);
-  assert.match(activity,/También se transmitirá tu micrófono/);
+  assert.match(activity,/getString\(R\.string\.screen_confirm_camera\)/);
+  assert.match(activity,/getString\(R\.string\.screen_confirm_mic\)/);
 });
 test('the owner can stop only the screen; a revocation keeps the camera, never silently',()=>{
   assert.match(service,/ACTION_STOP_SCREEN -> \{/);
@@ -111,5 +111,5 @@ test('the owner can stop only the screen; a revocation keeps the camera, never s
   assert.match(service,/if \(stopping \|\| screenStoppedOnPurpose\) return@post/);
   assert.match(service,/applyScene\(WivraScreenScene\.screenRevoked\(current\)\)/);
   assert.match(service,/"Dejar de compartir pantalla"/);
-  assert.match(activity,/Dejar de compartir solo la pantalla \(sigue la cámara\)/);
+  assert.match(activity,/getString\(R\.string\.screen_stop_only\)/);
 });

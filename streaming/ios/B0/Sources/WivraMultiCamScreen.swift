@@ -57,40 +57,40 @@ struct WivraMultiCamScreen: View {
                                     .frame(width: geo.size.width * 0.3, height: geo.size.height * 0.3)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .padding(10)
-                                    .accessibilityLabel("Recuadro de la segunda cámara")
+                                    .accessibilityLabel(NSLocalizedString("ios.multicam.inset_label", comment: ""))
                             }
                         }
                     }
                     .frame(height: 420)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .accessibilityLabel("Vista previa de las cámaras del iPhone")
+                    .accessibilityLabel(NSLocalizedString("ios.multicam.preview_label", comment: ""))
 
-                    Text(capture.status).font(.callout)
-                    Text(capture.includesAudio ? "Sonido: micrófono en el video principal" : "Sonido: sin audio")
+                    Text(capture.status).font(.callout).accessibilityAddTraits(.updatesFrequently)
+                    Text(capture.includesAudio ? NSLocalizedString("ios.multicam.sound_mic", comment: "") : NSLocalizedString("ios.multicam.sound_none", comment: ""))
                         .font(.footnote).foregroundStyle(.secondary)
 
                     HStack {
-                        Button(capture.isRecording ? "Detener" : "Grabar") { capture.toggleRecording() }
+                        Button(capture.isRecording ? NSLocalizedString("ios.multicam.stop", comment: "") : NSLocalizedString("ios.multicam.record", comment: "")) { capture.toggleRecording() }
                             .buttonStyle(.borderedProminent)
                             .disabled(!capture.isRunning || capture.isFinishing)
-                        Button("Cambiar cámaras") { capture.swapCameras() }
+                        Button(NSLocalizedString("ios.multicam.swap", comment: "")) { capture.swapCameras() }
                             .disabled(capture.isRecording || capture.isFinishing)
-                        Button("Mover recuadro") { capture.moveInset() }
+                        Button(NSLocalizedString("ios.multicam.move_inset", comment: "")) { capture.moveInset() }
                             .disabled(!capture.isDual || capture.isRecording || capture.isFinishing)
                     }
-                    Text("Con dos cámaras se guardan dos videos y un recibo; al abrirlos en el editor se colocan como video principal y recuadro. Solo el principal lleva sonido.")
+                    Text(NSLocalizedString("ios.multicam.explainer", comment: ""))
                         .font(.footnote).foregroundStyle(.secondary)
                     if !capture.inventory.isEmpty {
-                        Text("Cámaras de este iPhone").font(.headline)
+                        Text(NSLocalizedString("ios.multicam.inventory_title", comment: "")).font(.headline).accessibilityAddTraits(.isHeader)
                         ForEach(capture.inventory, id: \.self) { Text($0).font(.footnote) }
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Dos cámaras")
+            .navigationTitle(NSLocalizedString("ios.multicam.title", comment: ""))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { capture.stop(); dismiss() }
+                    Button(NSLocalizedString("ios.multicam.close", comment: "")) { capture.stop(); dismiss() }
                         .disabled(capture.isRecording || capture.isFinishing)
                 }
             }
@@ -98,6 +98,10 @@ struct WivraMultiCamScreen: View {
         .interactiveDismissDisabled(capture.isRecording || capture.isFinishing)
         .onAppear { capture.refreshInventory(); capture.start() }
         .onDisappear { capture.stop() }
+        // Camera loss, fallback to one camera and saved takes are spoken by VoiceOver.
+        .onChange(of: capture.status) { _, text in
+            UIAccessibility.post(notification: .announcement, argument: text)
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             capture.stop()
         }
