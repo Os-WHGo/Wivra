@@ -315,7 +315,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
     <button class="hcard" id="hCapture" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-3h4l1.5 3"/></svg></i><b>Capturar</b><span>Teléfono o Ray-Ban Meta</span></button>
     <button class="hcard live" id="hLive" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></i><b>LIVE</b><span>Transmitir en vivo</span></button>
     <button class="hcard" id="hChat" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></i><b>Chat IA</b><span>Pide cambios al editor</span></button>
-    <button class="hcard" disabled type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5zM3 13l9 5 9-5"/></svg></i><b>Plantillas</b><span>pronto</span></button>
+    <button class="hcard" id="hTemplates" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5zM3 13l9 5 9-5"/></svg></i><b>Plantillas</b><span>Reel, collage, Top 3…</span></button>
   </div>
   <h2 id="hRecent">Proyectos recientes</h2><div id="hList"><p class="m">Cargando…</p></div>
   <div class="mu"><span>Un proyecto de</span><span class="mulogo" role="img" aria-label="Makers Unbound"></span></div>
@@ -3167,6 +3167,7 @@ function homeOpenNative(what) {
 $('hCapture').onclick = () => homeOpenNative('capture');
 $('hLive').onclick = () => homeOpenNative('live');
 $('hChat').onclick = () => { location.hash = '#new-ai'; };
+$('hTemplates').onclick = () => { location.hash = '#new-templates'; };   // W84: las plantillas ya existen en «Tus videos»
 $('tHome').onclick = () => { $('home').scrollTo({ top: 0, behavior: 'smooth' }); };
 $('tProj').onclick = () => { $('hRecent').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 $('tNew').onclick = () => $('hEditor').click();
@@ -3225,9 +3226,10 @@ $('missDone').onclick = () => closeSheets();
   $('home').style.display = 'none';
   try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
   if (pid) { pzPid = pid; await pzRestore(pid); return; }
-  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director / #new-ai
+  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director / #new-ai / #new-templates
   if (h === '#new-director') { refreshDirectorAssets(); openSheet('sDirector'); }
   if (h === '#new-ai') openSheet('sAI');
+  if (h === '#new-templates') { renderVids(); $('tpBox').open = true; openSheet('sVids'); $('tpInfo').textContent = 'Agrega tus videos o fotos con «Agregar» y después elige una plantilla.'; }
 })();
 
 loadShootPlan();
