@@ -55,10 +55,13 @@ El sonido del video **va al live** en los dos teléfonos, sin pedir permisos nue
 
 ## Pruebas
 
-- Core 118/118 y streaming 435/435 en local.
-- JVM `WivraLiveScenesTest` 3/3 en local.
-- CI en `4fe792b`: **8/8 workflows en verde**: Android (variantes full y capture, pruebas unitarias), iOS (prueba de humo de escenas en Swift 6, Simulator y arm64 genérico), Preflight, Beta Assembly (sin paquetes), App, Core y Director ×2.
-- El CI encontró un error de Swift 6 y se corrigió: una constante de tamaño quedaba atada al hilo de HaishinKit (`nonisolated static let frame`).
+- Local: core 118/118, streaming 437/437 y JVM 10/10 (escenas, mezclador PCM y multicámara).
+- CI en `4fe792b` (escenas) y en `cbbc2da` (sonido del video): **8/8 workflows en verde** en los dos.
+  - Android: variantes full y capture, pruebas unitarias.
+  - iOS: pruebas de humo en Swift 6, Simulator y arm64 genérico.
+  - Preflight, Beta Assembly (sin paquetes), App, Core y Director ×2.
+- Errores que encontró el CI y se corrigieron: en Swift 6, una constante de tamaño atada al hilo de HaishinKit (`nonisolated static let frame`).
+- Cambio coordinado en una prueba de ChatGPT (`ios-phone-live-native.test.mjs`): acepta la opción de audio multipista y ahora también exige que la sesión de cámara nunca sea `.multi`.
 
 ## Prueba física (cuando el propietario la autorice)
 
