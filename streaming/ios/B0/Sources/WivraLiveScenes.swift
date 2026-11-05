@@ -18,7 +18,7 @@ import UniformTypeIdentifiers
 @ScreenActor
 final class WivraLiveSceneLayers {
     // Same 16:9 as HaishinKit's default 854x480 output used by Wivra LIVE.
-    static let frame = CGSize(width: 1280, height: 720)
+    nonisolated static let frame = CGSize(width: 1280, height: 720)
     private let backdrop = ImageScreenObject()
     private let video = AssetScreenObject()
     private let image = ImageScreenObject()
