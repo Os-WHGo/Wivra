@@ -36,6 +36,8 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private(set) var secondaryLayer: AVCaptureVideoPreviewLayer?
     private var primaryOutput: AVCaptureMovieFileOutput?
     private var secondaryOutput: AVCaptureMovieFileOutput?
+    // Dual capture uses multiple VideoDataOutputs, never two MovieFileOutputs.
+    private var sampleRecorder: WivraMultiCamSampleRecorder?
 
     private(set) var isDual = false
     private(set) var isRunning = false
@@ -101,6 +103,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private func configure(microphone: Bool) {
         primaryLayer = nil; secondaryLayer = nil
         primaryOutput = nil; secondaryOutput = nil
+        sampleRecorder = nil
         isDual = false
         let primaryPos: AVCaptureDevice.Position = frontIsPrimary ? .front : .back
         let secondaryPos: AVCaptureDevice.Position = frontIsPrimary ? .back : .front
@@ -125,6 +128,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             }
             primaryLayer = nil; secondaryLayer = nil
             primaryOutput = nil; secondaryOutput = nil
+        sampleRecorder = nil
         } else if !forceSingle {
             status = first.reason == "multicam-unsupported"
                 ? "Este iPhone no admite dos cámaras a la vez. Se graba con una."
@@ -137,8 +141,17 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                                microphone: Bool) -> Bool {
         s.beginConfiguration()
         defer { s.commitConfiguration() }
-        let mainOut = AVCaptureMovieFileOutput()
-        let insetOut = AVCaptureMovieFileOutput()
+        // iOS 17 permits two AVCaptureVideoDataOutput instances. Apple limits
+        // MovieFileOutput to one output per session: data buffers + AVAssetWriter
+        // are mandatory for two editable originals on one MultiCam clock.
+        let mainOut = AVCaptureVideoDataOutput()
+        let insetOut = AVCaptureVideoDataOutput()
+        for output in [mainOut, insetOut] {
+            output.alwaysDiscardsLateVideoFrames = true
+            output.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            ]
+        }
         let mainLayer = AVCaptureVideoPreviewLayer(sessionWithNoConnection: s)
         let insetLayer = AVCaptureVideoPreviewLayer(sessionWithNoConnection: s)
         for (device, output, layer) in [(main, mainOut, mainLayer), (inset, insetOut, insetLayer)] {
@@ -155,20 +168,34 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             guard s.canAddConnection(preview) else { return false }
             s.addConnection(preview)
         }
+        var audioOut: AVCaptureAudioDataOutput?
         includesAudio = false
         if microphone, let mic = AVCaptureDevice.default(for: .audio),
            let micInput = try? AVCaptureDeviceInput(device: mic), s.canAddInput(micInput) {
             s.addInputWithNoConnections(micInput)
             if let port = micInput.ports(for: .audio, sourceDeviceType: mic.deviceType,
-                                         sourceDevicePosition: .unspecified).first ?? micInput.ports.first(where: { $0.mediaType == .audio }) {
-                let audio = AVCaptureConnection(inputPorts: [port], output: mainOut)
-                if s.canAddConnection(audio) { s.addConnection(audio); includesAudio = true }
+                                         sourceDevicePosition: .unspecified).first ??
+                          micInput.ports.first(where: { $0.mediaType == .audio }) {
+                let output = AVCaptureAudioDataOutput()
+                if s.canAddOutput(output) {
+                    s.addOutputWithNoConnections(output)
+                    let audio = AVCaptureConnection(inputPorts: [port], output: output)
+                    if s.canAddConnection(audio) {
+                        s.addConnection(audio)
+                        audioOut = output
+                        includesAudio = true
+                    }
+                }
             }
         }
         mainLayer.videoGravity = .resizeAspectFill
         insetLayer.videoGravity = .resizeAspectFill
-        primaryLayer = mainLayer; secondaryLayer = insetLayer
-        primaryOutput = mainOut; secondaryOutput = insetOut
+        primaryLayer = mainLayer
+        secondaryLayer = insetLayer
+        primaryOutput = nil
+        secondaryOutput = nil
+        sampleRecorder = WivraMultiCamSampleRecorder(primary: mainOut, secondary: insetOut,
+                                                     microphone: audioOut)
         return true
     }
 
@@ -204,23 +231,27 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     }
 
     private func startRecording(isContinuation: Bool) {
-        guard isRunning, !isFinishing, let main = primaryOutput else { return }
+        guard isRunning, !isFinishing else { return }
+        guard (isDual ? sampleRecorder != nil : primaryOutput != nil) else { return }
         do {
+            // Resolve both fresh paths before starting either writer.
+            let a = try Self.nextURL()
+            let b = isDual ? try Self.nextURL() : nil
             takeIndex += 1
             continuation = isContinuation
             ownerStopped = false
-            let a = try Self.nextURL()
             primaryURL = a
-            pending = [a: (nil, false, false)]
-            main.startRecording(to: a, recordingDelegate: self)
-            if isDual, let inset = secondaryOutput {
-                let b = try Self.nextURL()
-                secondaryURL = b
-                pending[b] = (nil, false, false)
-                inset.startRecording(to: b, recordingDelegate: self)
-            } else { secondaryURL = nil }
+            secondaryURL = b
+            if isDual, let sink = sampleRecorder, let b {
+                pending = [:]
+                sink.start(primary: a, secondary: b, audioRequired: includesAudio)
+            } else if let output = primaryOutput {
+                pending = [a: (nil, false, false)]
+                output.startRecording(to: a, recordingDelegate: self)
+            } else { return }
             isRecording = true
-            status = isContinuation ? "REC · sigue con una cámara (toma nueva)" : (isDual ? "REC · dos cámaras" : "REC · una cámara")
+            status = isContinuation ? "REC · sigue con una cámara (toma nueva)" :
+                (isDual ? "REC · dos cámaras" : "REC · una cámara")
         } catch {
             status = "No se pudo crear el archivo: " + error.localizedDescription
         }
@@ -231,8 +262,13 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         ownerStopped = owner
         isFinishing = true
         status = "Cerrando los archivos en el iPhone…"
-        primaryOutput?.stopRecording()
-        secondaryOutput?.stopRecording()
+        if isDual, let sink = sampleRecorder {
+            sink.finish { [weak self] result in
+                Task { @MainActor [weak self] in self?.finishedSamples(result) }
+            }
+        } else {
+            primaryOutput?.stopRecording()
+        }
     }
 
     /// Session interruption, runtime error or device loss (see the screen's
@@ -282,6 +318,21 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         Task { @MainActor [weak self] in self?.finished(outputFileURL, failed: failed) }
     }
 
+    private func finishedSamples(_ result: WivraMultiCamSampleRecorder.Result) {
+        guard isFinishing, primaryURL == result.primaryURL,
+              secondaryURL == result.secondaryURL else { return }
+        let size = { (u: URL) -> Int64 in
+            (try? FileManager.default.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? 0
+        }
+        let mainStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(result.primaryURL), finishedWithoutError: result.primaryComplete)
+        let insetStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(result.secondaryURL), finishedWithoutError: result.secondaryComplete)
+        finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
+                   offsetMilliseconds: result.secondaryOffsetSeconds.map { $0 * 1000 })
+    }
+
+    // Stable single-camera MovieFileOutput path retained for older devices.
     private func finished(_ url: URL, failed: Bool) {
         guard pending[url] != nil else { return }
         pending[url]?.finished = true
@@ -290,13 +341,29 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         let size = { (u: URL) -> Int64 in
             (try? FileManager.default.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? 0
         }
-        let mainStatus = WivraMultiCamPolicy.classifyTake(bytes: size(a), finishedWithoutError: !(pending[a]?.error ?? true))
+        let mainStatus = WivraMultiCamPolicy.classifyTake(
+            bytes: size(a), finishedWithoutError: !(pending[a]?.error ?? true))
         var insetStatus: WivraMultiCamTakeStatus?
         var offset: Double?
         if let b = secondaryURL {
-            insetStatus = WivraMultiCamPolicy.classifyTake(bytes: size(b), finishedWithoutError: !(pending[b]?.error ?? true))
-            if let ta = pending[a]?.started, let tb = pending[b]?.started { offset = (tb - ta) * 1000 }
-            if insetStatus == .empty { try? FileManager.default.removeItem(at: b) }
+            insetStatus = WivraMultiCamPolicy.classifyTake(
+                bytes: size(b), finishedWithoutError: !(pending[b]?.error ?? true))
+            if let ta = pending[a]?.started, let tb = pending[b]?.started {
+                offset = (tb - ta) * 1000
+            }
+        }
+        finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
+                   offsetMilliseconds: offset)
+    }
+
+    // Shared finalizer: keep nonempty failed files for manual recovery, and
+    // publish the editor's optional second video only if BOTH writers finished.
+    private func finishTake(mainStatus: WivraMultiCamTakeStatus,
+                            insetStatus: WivraMultiCamTakeStatus?,
+                            offsetMilliseconds offset: Double?) {
+        guard let a = primaryURL else { return }
+        if let b = secondaryURL, insetStatus == .empty {
+            try? FileManager.default.removeItem(at: b)
         }
         if mainStatus == .empty { try? FileManager.default.removeItem(at: a) }
         if mainStatus != .empty {
@@ -305,7 +372,7 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                 primaryFile: a.lastPathComponent, primaryPosition: frontIsPrimary ? "front" : "back",
                 secondaryFile: insetStatus == .empty ? nil : secondaryURL?.lastPathComponent,
                 secondaryPosition: secondaryURL == nil ? nil : (frontIsPrimary ? "back" : "front"),
-                secondaryOffsetMs: offset, offsetSource: "didStartRecording-callback",
+                secondaryOffsetMs: offset, offsetSource: isDual ? "video-sample-pts" : "didStartRecording-callback",
                 audio: includesAudio ? "primary" : "none", corner: corner,
                 continuation: continuation, primaryStatus: mainStatus, secondaryStatus: insetStatus)
             _ = try? WivraMultiCamTakeManifest.write(manifest, beside: a)

@@ -8,6 +8,7 @@ import { pipLayout, toEditorOverlay } from '../../core/multicam-plan.mjs';
 const read = p => readFileSync(new URL(p, import.meta.url), 'utf8');
 const src = '../ios/B0/Sources/';
 const capture = read(src + 'WivraMultiCamCapture.swift');
+const sampleWriter = read(src + 'WivraMultiCamSampleRecorder.swift');
 const policy = read(src + 'WivraMultiCamPolicy.swift');
 const screen = read(src + 'WivraMultiCamScreen.swift');
 const camScreen = read(src + 'WivraIPhoneCameraScreen.swift');
@@ -24,8 +25,11 @@ test('MultiCam only when this iPhone supports it and the session cost fits', () 
 });
 
 test('one microphone, only into the main movie', () => {
-  assert.equal([...capture.matchAll(/AVCaptureConnection\(inputPorts: \[port\], output: mainOut\)/g)].length, 1);
-  assert.doesNotMatch(capture, /output: insetOut\)[\s\S]{0,40}audio/);
+  assert.match(capture, /let mainOut = AVCaptureVideoDataOutput\(\)/);
+  assert.match(capture, /let insetOut = AVCaptureVideoDataOutput\(\)/);
+  assert.match(capture, /let output = AVCaptureAudioDataOutput\(\)/);
+  assert.match(sampleWriter, /Side\(url: primary, audioRequired: audioRequired\)/);
+  assert.match(sampleWriter, /Side\(url: secondary, audioRequired: false\)/);
   assert.match(capture, /audio: includesAudio \? "primary" : "none"/);
 });
 
@@ -35,7 +39,7 @@ test('loss or pressure closes files, keeps bytes and continues with one camera',
   assert.match(capture, /startRecording\(isContinuation: true\)/);
   // Only zero-byte files are removed.
   assert.equal([...capture.matchAll(/removeItem/g)].length, 2);
-  assert.match(capture, /if insetStatus == \.empty \{ try\? FileManager\.default\.removeItem\(at: b\) \}/);
+  assert.match(capture, /if let b = secondaryURL, insetStatus == \.empty \{\s*try\? FileManager\.default\.removeItem\(at: b\)/);
   assert.match(capture, /if mainStatus == \.empty \{ try\? FileManager\.default\.removeItem\(at: a\) \}/);
   assert.match(policy, /if bytes <= 0 \{ return \.empty \}/);
   for (const n of ['AVCaptureSessionWasInterruptedNotification', 'AVCaptureSessionRuntimeErrorNotification', 'AVCaptureSessionInterruptionEndedNotification']) {
@@ -46,7 +50,8 @@ test('loss or pressure closes files, keeps bytes and continues with one camera',
 
 test('pair receipt carries the start offset for the editor PiP; geometry matches JS', () => {
   assert.match(policy, /schema = "wivra-multicam-take-v1"/);
-  assert.match(capture, /offset = \(tb - ta\) \* 1000/);
+  assert.match(sampleWriter, /CMTimeGetSeconds\(CMTimeSubtract\(b, a\)\)/);
+  assert.match(capture, /offsetSource: isDual \? "video-sample-pts" : "didStartRecording-callback"/);
   const o = toEditorOverlay(pipLayout({ corner: 'bottom-right' }));
   assert.match(smoke, new RegExp(`o\\.x == ${o.x} && o\\.y == ${o.y} && o\\.scale == ${o.scale}`));
   assert.match(workflow, /WivraMultiCamPolicySmoke\.swift/);
