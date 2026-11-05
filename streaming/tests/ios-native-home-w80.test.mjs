@@ -73,3 +73,9 @@ test('a failed Meta DAT configuration no longer quits the app at launch', () => 
   assert.match(stub, /var devices: \[MWDATCore\.DeviceIdentifier\] \{ \[\] \}/);
   assert.doesNotMatch(stub, /\.granted|\.registered\b/, 'never fakes a device, registration or permission');
 });
+
+test('full-screen app: a launch screen exists (no 3.5-inch compatibility letterbox)', () => {
+  const plist = readFileSync(new URL('../ios/B0/Info.plist', import.meta.url), 'utf8');
+  assert.match(plist, /<key>UILaunchScreen<\/key><dict\/>/);
+  assert.match(plist, /<key>UIUserInterfaceStyle<\/key><string>Dark<\/string>/);
+});
