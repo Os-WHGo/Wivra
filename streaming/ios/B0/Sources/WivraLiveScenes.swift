@@ -151,7 +151,7 @@ final class WivraLiveSceneModel {
     /// Owner's choice: the video's sound goes into the LIVE mix or not.
     var videoSoundToLive = true
     /// The LIVE has a microphone track; without it there is no audio to mix into.
-    private(set) var liveHasMicrophone = false
+    var liveHasMicrophone = false
     private(set) var current = "camera"
     private(set) var note = ""
     private(set) var videoURL: URL?
@@ -169,10 +169,9 @@ final class WivraLiveSceneModel {
     }
 
     /// Called by the LIVE controller once its MediaMixer runs (only if enabled).
-    func attach(to mixer: MediaMixer, microphone: Bool) async {
+    func attach(to mixer: MediaMixer) async {
         guard enabled, !attached else { return }
         self.mixer = mixer
-        liveHasMicrophone = microphone
         await mixer.setVideoMixerSettings(VideoMixerSettings(mode: .offscreen))
         let created = await Task { @ScreenActor in WivraLiveSceneLayers() }.value
         await Task { @ScreenActor in created.install(on: await mixer.screen) }.value

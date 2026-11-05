@@ -22,7 +22,7 @@ test('iOS offers every shared preset in the same order', () => {
 });
 
 test('opt-in: without scenes the LIVE pipeline is unchanged', () => {
-  assert.match(live, /if let scenes, scenes\.enabled \{ await scenes\.attach\(to: capture, microphone: microphone\) \}/);
+  assert.match(live, /scenes\?\.liveHasMicrophone = microphone\s*if let scenes, scenes\.enabled \{ await scenes\.attach\(to: capture\) \}/);
   assert.match(scenes, /guard enabled, !attached else \{ return \}/);
   assert.match(scenes, /setVideoMixerSettings\(VideoMixerSettings\(mode: \.offscreen\)\)/);
   assert.match(live, /await scenes\?\.detach\(\)/);
