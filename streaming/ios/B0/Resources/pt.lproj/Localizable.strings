@@ -231,3 +231,27 @@
 "ios.plive.photos_needs_review" = "Salvamento anterior não confirmado. Verifique Fotos antes de decidir.";
 "ios.plive.photos_present" = "Já aparece em Fotos";
 "ios.plive.photos_checking" = "Verificando o histórico de Fotos…";
+
+/* Native home (Claude, W80) */
+"ios.home.question" = "O que você quer criar hoje?";
+"ios.home.new_project" = "Novo projeto";
+"ios.home.new_project_sub" = "Editor de vídeo";
+"ios.home.director" = "Diretor IA";
+"ios.home.director_sub" = "Roteiros e ideias";
+"ios.home.capture" = "Capturar";
+"ios.home.capture_sub" = "Câmera do iPhone";
+"ios.home.rayban" = "Ray-Ban Meta";
+"ios.home.rayban_sub" = "Capture com os óculos";
+"ios.home.live" = "LIVE";
+"ios.home.live_sub" = "Transmitir ao vivo";
+"ios.home.chat" = "Chat IA";
+"ios.home.chat_sub" = "Peça mudanças ao editor";
+"ios.home.library" = "Biblioteca";
+"ios.home.captures" = "Minhas capturas";
+"ios.home.captures_sub" = "Gravações salvas no iPhone";
+"ios.home.exports" = "Minhas exportações";
+"ios.home.exports_sub" = "Vídeos prontos para compartilhar";
+"ios.home.privacy" = "Seus vídeos ficam no iPhone. Só o LIVE ou sua IA enviam algo, e sempre com aviso.";
+"ios.home.tab_home" = "Início";
+"ios.home.tab_projects" = "Projetos";
+"ios.home.tab_ai" = "IA";

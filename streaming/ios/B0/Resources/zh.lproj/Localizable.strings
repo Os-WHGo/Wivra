@@ -231,3 +231,27 @@
 "ios.plive.photos_needs_review" = "之前的保存未确认。请先检查“照片”再决定。";
 "ios.plive.photos_present" = "已在“照片”中";
 "ios.plive.photos_checking" = "正在检查“照片”历史…";
+
+/* Native home (Claude, W80) */
+"ios.home.question" = "今天想创作什么？";
+"ios.home.new_project" = "新建项目";
+"ios.home.new_project_sub" = "视频编辑器";
+"ios.home.director" = "AI 导演";
+"ios.home.director_sub" = "脚本和创意";
+"ios.home.capture" = "拍摄";
+"ios.home.capture_sub" = "iPhone 摄像头";
+"ios.home.rayban" = "Ray-Ban Meta";
+"ios.home.rayban_sub" = "用眼镜拍摄";
+"ios.home.live" = "LIVE";
+"ios.home.live_sub" = "直播";
+"ios.home.chat" = "AI 聊天";
+"ios.home.chat_sub" = "让编辑器帮你修改";
+"ios.home.library" = "资料库";
+"ios.home.captures" = "我的拍摄";
+"ios.home.captures_sub" = "保存在 iPhone 上的录制";
+"ios.home.exports" = "我的导出";
+"ios.home.exports_sub" = "可分享的成品视频";
+"ios.home.privacy" = "你的视频留在 iPhone 上。只有 LIVE 或你的 AI 会发送内容，并且一定会提示。";
+"ios.home.tab_home" = "首页";
+"ios.home.tab_projects" = "项目";
+"ios.home.tab_ai" = "AI";

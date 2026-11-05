@@ -231,3 +231,27 @@
 "ios.plive.photos_needs_review" = "以前の保存は未確認です。決める前に写真を確認してください。";
 "ios.plive.photos_present" = "すでに写真にあります";
 "ios.plive.photos_checking" = "写真の履歴を確認しています…";
+
+/* Native home (Claude, W80) */
+"ios.home.question" = "今日は何を作りますか？";
+"ios.home.new_project" = "新しいプロジェクト";
+"ios.home.new_project_sub" = "動画エディター";
+"ios.home.director" = "AIディレクター";
+"ios.home.director_sub" = "台本とアイデア";
+"ios.home.capture" = "撮影";
+"ios.home.capture_sub" = "iPhoneのカメラ";
+"ios.home.rayban" = "Ray-Ban Meta";
+"ios.home.rayban_sub" = "メガネで撮影";
+"ios.home.live" = "LIVE";
+"ios.home.live_sub" = "ライブ配信";
+"ios.home.chat" = "AIチャット";
+"ios.home.chat_sub" = "エディターに変更を頼む";
+"ios.home.library" = "ライブラリ";
+"ios.home.captures" = "撮影した動画";
+"ios.home.captures_sub" = "iPhoneに保存された録画";
+"ios.home.exports" = "書き出した動画";
+"ios.home.exports_sub" = "共有できる完成動画";
+"ios.home.privacy" = "動画はiPhoneの中に残ります。送信するのはLIVEかAIだけで、必ず知らせます。";
+"ios.home.tab_home" = "ホーム";
+"ios.home.tab_projects" = "プロジェクト";
+"ios.home.tab_ai" = "AI";

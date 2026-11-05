@@ -18,6 +18,42 @@ struct WivraMetaB0App: App {
     @State private var showingExportLibrary = false
     @State private var showingUnifiedEditor = false
     @State private var showingPhoneLive = false
+    // W80 (Claude): native home first (owner's mockups); the capture tabs stay underneath.
+    @State private var showingHome = true
+    @State private var editorRoute: WivraEditorRoute = .home
+    @State private var pendingNativeOpen: String?
+
+    private var camerasFree: Bool {
+        model.isReleasedForCameraHandoff && iPhoneCamera.isReleasedForCameraHandoff && pendingCaptureTab == nil
+    }
+
+    private func handleHome(_ action: WivraHomeAction) {
+        guard camerasFree else { return }
+        switch action {
+        case .newProject: editorRoute = .newProject; showingUnifiedEditor = true
+        case .director: editorRoute = .director; showingUnifiedEditor = true
+        case .aiChat: editorRoute = .aiChat; showingUnifiedEditor = true
+        case .capturePhone: showingHome = false; requestCaptureTab(.iPhone)
+        case .captureRayBan: showingHome = false; requestCaptureTab(.meta)
+        case .live: showingPhoneLive = true
+        case .captures: showingCaptureLibrary = true
+        case .exports: showingExportLibrary = true
+        }
+    }
+
+    // The editor asked for a native screen (Capturar / LIVE on its home):
+    // open it only after the editor cover is gone. Nothing starts by itself.
+    private func openPendingNativeScreen() {
+        guard let what = pendingNativeOpen else { return }
+        pendingNativeOpen = nil
+        guard camerasFree else { return }
+        if what == "live" {
+            showingPhoneLive = true
+        } else if what == "capture" {
+            showingHome = false
+            requestCaptureTab(.iPhone)
+        }
+    }
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
     // to the destination until the current camera has released AVFoundation
@@ -74,6 +110,12 @@ struct WivraMetaB0App: App {
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 4) {
                     HStack {
+                        Button {
+                            showingHome = true
+                        } label: {
+                            Label("ios.home.tab_home", systemImage: "house")
+                        }
+                        .accessibilityIdentifier("wivra_back_to_home")
                         Spacer()
                     Button {
                         showingPhoneLive = true
@@ -144,18 +186,41 @@ struct WivraMetaB0App: App {
                     .padding(.horizontal)
                 }
             }
-            .onAppear { phoneNetwork.start() }
+            .overlay {
+                if showingHome {
+                    WivraHomeScreen(camerasFree: camerasFree, onAction: handleHome)
+                }
+            }
+            .onAppear {
+                phoneNetwork.start()
+                #if DEBUG
+                // CI-only screenshots in the iOS Simulator (W80); ignored in normal use.
+                switch ProcessInfo.processInfo.environment["WIVRA_SCREENSHOT"] {
+                case "live": showingPhoneLive = true
+                case "editor": showingUnifiedEditor = true
+                case "capture": showingHome = false
+                default: break
+                }
+                #endif
+            }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
+                    .wivraStyled()
             }
             .sheet(isPresented: $showingExportLibrary) {
                 WivraNativeExportLibraryScreen()
+                    .wivraStyled()
             }
-            .fullScreenCover(isPresented: $showingUnifiedEditor) {
-                WivraEmbeddedEditorScreen()
+            .fullScreenCover(isPresented: $showingUnifiedEditor, onDismiss: {
+                editorRoute = .home
+                openPendingNativeScreen()
+            }) {
+                WivraEmbeddedEditorScreen(route: editorRoute)
+                    .wivraStyled()
             }
             .fullScreenCover(isPresented: $showingPhoneLive) {
                 WivraIPhoneLiveScreen()
+                    .wivraStyled()
             }
             .overlay(alignment: .top) {
                 if pendingCaptureTab != nil {
@@ -173,6 +238,12 @@ struct WivraMetaB0App: App {
             .onChange(of: iPhoneCamera.isReleasedForCameraHandoff) { _, _ in
                 completeCameraHandoffIfReady()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .wivraOpenNative)) { note in
+                guard let what = note.userInfo?["what"] as? String else { return }
+                pendingNativeOpen = what
+                showingUnifiedEditor = false
+            }
+            .wivraStyled()
             .onOpenURL { url in
                 Task { @MainActor in
                     await model.handleMetaCallback(url)
