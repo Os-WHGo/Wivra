@@ -37,6 +37,11 @@
             android:exported="false" android:foregroundServiceType="connectedDevice" />
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
+        <!-- Two phone cameras with a CameraX-composited inset. Portrait for reels;
+             rotation must not recreate the screen and cut a take. — Claude -->
+        <activity android:name=".WivraDualCameraActivity" android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <!-- Keep the registration-callback Activity alive across orientation/size changes;
              Meta AI returns an Activity result, not a transferable foreground token.
              Process death still requires explicit DAT re-registration if needed. -->
