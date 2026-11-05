@@ -129,6 +129,19 @@ struct WivraAcceleratedRecoverySmoke {
                         atPath: linkedAlias.path)) != nil)
         precondition(FileManager.default.fileExists(atPath: finished.url.path))
 
+        // W73: a large directory of unrelated or deceptively named files
+        // must not consume the 200-candidate verification cap. The only
+        // valid sealed MP4 is still the original AVFoundation-verified movie.
+        for index in 0..<240 {
+            let noise = root.appendingPathComponent(
+                String(format: "unrelated-%04d.backup", index))
+            try Data("not a completed Wivra export".utf8).write(to: noise)
+        }
+        for index in 0..<30 {
+            let falseName = root.appendingPathComponent(
+                String(format: "Wivra_Fast_invalid-%04d.mp4", index))
+            try Data([0, 1, 2, 3]).write(to: falseName)
+        }
         let store = WivraAcceleratedExportStore(directory: root,
             freeSpace: { _ in 8_000_000_000 })
         let first = await store.recovered()
