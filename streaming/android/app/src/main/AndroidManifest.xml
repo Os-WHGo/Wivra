@@ -17,7 +17,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Android 13+: optional permission for visible recording controls in notifications. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:allowBackup="false" android:label="Wivra Dev"
+    <application android:allowBackup="false" android:label="Wivra"
+        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Wivra"
         android:usesCleartextTraffic="false">
         <!-- Privacy-first defaults documented by Meta DAT Android. -->

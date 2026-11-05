@@ -16,7 +16,7 @@
        UILaunchScreen enables the full screen; Wivra is a dark app. -->
   <key>UILaunchScreen</key><dict/>
   <key>UIUserInterfaceStyle</key><string>Dark</string>
-  <key>CFBundleDisplayName</key><string>Wivra Meta B0</string>
+  <key>CFBundleDisplayName</key><string>Wivra</string>
   <key>CFBundleURLTypes</key>
   <array><dict>
     <key>CFBundleTypeRole</key><string>Editor</string>
