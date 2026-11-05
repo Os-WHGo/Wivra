@@ -4,7 +4,9 @@
 // object (track 0) used as a small inset. Switching a scene only changes
 // positions and visibility; the RTMP stream is not restarted.
 // Opt-in: without "Usar escenas" the LIVE pipeline stays exactly as before.
-// The video's own sound is not in the stream. Not verified on an iPhone. — Claude
+// The video's own sound is read with AVAssetReader and appended as audio
+// track 1 of the MediaMixer (multi-track mixing, microphone = track 0, which
+// paces the mix). No extra permission. Not verified on an iPhone. — Claude
 import AVFoundation
 import CoreTransferable
 import HaishinKit
@@ -81,6 +83,51 @@ final class WivraLiveSceneLayers {
     var isVideoReading: Bool { video.isReading }
 }
 
+/// A sample buffer handed to the MediaMixer actor; it is created by the
+/// feeder and never touched again after being appended.
+struct WivraSampleBox: @unchecked Sendable { let buffer: CMSampleBuffer }
+
+extension MediaMixer {
+    func wivraAppendAudio(_ box: WivraSampleBox, track: UInt8) {
+        append(box.buffer, track: track)
+    }
+}
+
+/// Reads the video's audio as 16-bit PCM and appends it to the mixer at the
+/// real-time pace (about 0.3 s ahead), as track 1.
+enum WivraVideoAudioFeeder {
+    static func run(url: URL, mixer: MediaMixer) async {
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .audio).first,
+              let reader = try? AVAssetReader(asset: asset) else { return }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false
+        ])
+        output.alwaysCopiesSampleData = true
+        guard reader.canAdd(output) else { return }
+        reader.add(output)
+        guard reader.startReading() else { return }
+        defer { reader.cancelReading() }
+        let start = CFAbsoluteTimeGetCurrent()
+        var fedSeconds = 0.0
+        while !Task.isCancelled, let buffer = output.copyNextSampleBuffer() {
+            let frames = Double(CMSampleBufferGetNumSamples(buffer))
+            let rate = buffer.formatDescription
+                .flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee.mSampleRate } ?? 44_100
+            await mixer.wivraAppendAudio(WivraSampleBox(buffer: buffer), track: 1)
+            fedSeconds += rate > 0 ? frames / rate : 0
+            let ahead = fedSeconds - (CFAbsoluteTimeGetCurrent() - start)
+            if ahead > 0.3 {
+                try? await Task.sleep(nanoseconds: UInt64((ahead - 0.3) * 1_000_000_000))
+            }
+        }
+    }
+}
+
 /// A movie picked from Photos, copied to a private temporary file.
 struct WivraPickedMovie: Transferable {
     let url: URL
@@ -111,6 +158,7 @@ final class WivraLiveSceneModel {
     private var mixer: MediaMixer?
     private var layers: WivraLiveSceneLayers?
     private var watcher: Task<Void, Never>?
+    private var audioFeeder: Task<Void, Never>?
 
     var available: [String] {
         WivraLiveScenePolicy.available(videoLoaded: videoURL != nil, imageLoaded: imageSize != nil)
@@ -132,6 +180,8 @@ final class WivraLiveSceneModel {
     func detach() async {
         watcher?.cancel()
         watcher = nil
+        audioFeeder?.cancel()
+        audioFeeder = nil
         if let layers, let mixer {
             await Task { @ScreenActor in layers.remove(from: await mixer.screen) }.value
         }
@@ -153,6 +203,8 @@ final class WivraLiveSceneModel {
         if after?.show[.video] != nil, before?.show[.video] == nil { await playVideo() }
         if after?.show[.video] == nil, before?.show[.video] != nil, let layers {
             await Task { @ScreenActor in layers.stopVideo() }.value
+            audioFeeder?.cancel()
+            audioFeeder = nil
         }
         await apply()
     }
@@ -168,9 +220,12 @@ final class WivraLiveSceneModel {
         await Task { @ScreenActor in layers.apply(spec, cameraAsInset: inset) }.value
         // The pause scene silences the LIVE microphone; other scenes restore it.
         if let mixer {
+            // Track 0 = microphone only, so the pause never silences a video track.
             var audio = await mixer.audioMixerSettings
-            if audio.isMuted != result.micMuted {
-                audio.isMuted = result.micMuted
+            var mic = audio.tracks[0] ?? AudioMixerTrackSettings()
+            if mic.isMuted != result.micMuted {
+                mic.isMuted = result.micMuted
+                audio.tracks[0] = mic
                 await mixer.setAudioMixerSettings(audio)
             }
         }
@@ -184,6 +239,12 @@ final class WivraLiveSceneModel {
             videoURL = nil
             await fallback("El video no se pudo reproducir: de vuelta a la cámara.")
             return
+        }
+        audioFeeder?.cancel()
+        if let mixer {
+            audioFeeder = Task.detached(priority: .userInitiated) {
+                await WivraVideoAudioFeeder.run(url: url, mixer: mixer)
+            }
         }
         watcher?.cancel()
         watcher = Task { @MainActor [weak self] in
@@ -202,6 +263,8 @@ final class WivraLiveSceneModel {
 
     private func fallback(_ message: String) async {
         guard let to = WivraLiveScenePolicy.fallback(current: current, lost: .video) else { return }
+        audioFeeder?.cancel()
+        audioFeeder = nil
         current = to
         note = message
         await apply()
@@ -274,7 +337,7 @@ struct WivraLiveScenePanel: View {
                 } else {
                     Text("Durante el LIVE solo se cambian escenas.").font(.footnote)
                 }
-                Text("El sonido del video no se transmite todavía.").font(.footnote).foregroundStyle(.secondary)
+                Text("El sonido del video va al LIVE si el micrófono del LIVE está activado. El video vuelve a empezar cada vez que entras en una escena con video.").font(.footnote).foregroundStyle(.secondary)
                 if !scenes.note.isEmpty { Text(scenes.note).font(.footnote) }
             }
         }

@@ -29,9 +29,14 @@ import com.pedro.library.rtmp.RtmpStream
  *
  * - Nothing is uploaded except the RTMP stream itself; picked files are read
  *   once from the system picker and their URIs are not persisted.
- * - The video's own sound is NOT in the stream yet (it can play on the phone
- *   speaker for the presenter). Internal audio capture needs a separate,
- *   consented MediaProjection step.
+ * - The video's own sound goes into the LIVE: its audio track is decoded
+ *   (WivraVideoAudioFeed) and mixed into the LIVE microphone buffer through
+ *   RootEncoder's CustomAudioEffect. No extra permission and no screen or
+ *   internal-audio capture. It needs the LIVE audio (microphone) enabled,
+ *   because that buffer is the stream's only audio track. On the phone the
+ *   video plays silent (no speaker echo into the microphone).
+ * - Before going live the video preview is silent; when the LIVE starts in a
+ *   video scene the video restarts from the beginning with its sound.
  * - Filters are released by RootEncoder whenever the preview stops, so they
  *   are recreated in reattach() each time the preview starts again.
  * Not verified on a physical phone. — Claude
@@ -52,7 +57,11 @@ class WivraLiveSceneController(
     private var image: Bitmap? = null
     private var current = "camera"
     private var corner = WivraMulticamPolicy.Corner.BOTTOM_RIGHT
-    private var videoSoundOnSpeaker = false
+    private var videoSoundToLive = true
+    private var videoUri: Uri? = null
+    private var videoEnded = false
+    private var feed: WivraVideoAudioFeed? = null
+    private val effect = WivraSceneAudioEffect()
     private val buttons = mutableMapOf<String, Button>()
     private val note = TextView(activity).apply { textSize = 13f }
 
@@ -121,13 +130,58 @@ class WivraLiveSceneController(
         apply(id)
         val wantsVideo = WivraLiveScenes.Slot.VIDEO in after.show
         val hadVideo = before?.show?.containsKey(WivraLiveScenes.Slot.VIDEO) == true
-        if (wantsVideo && !hadVideo) runCatching { player?.start() }
-        if (!wantsVideo && hadVideo) runCatching { player?.pause() }
+        if (wantsVideo && !hadVideo) startVideo(fromStart = false)
+        if (!wantsVideo && hadVideo) pauseVideo()
         refresh()
     }
 
-    /** Re-apply the current scene (after the LIVE audio source changed). */
-    fun reapply() = apply(current)
+    private fun mic(): MicrophoneSource? = stream?.audioSource as? MicrophoneSource
+
+    /** A fresh decoder at the start of the file, in the LIVE audio format. */
+    private fun newFeed() {
+        feed?.stop()
+        feed = null
+        effect.feed = null
+        val uri = videoUri ?: return
+        val m = mic() ?: return // no LIVE audio track to mix into
+        val f = WivraVideoAudioFeed(activity.applicationContext, uri,
+            m.sampleRate.takeIf { it > 0 } ?: 44_100, if (m.isStereo) 2 else 1)
+        feed = f
+        effect.feed = f
+    }
+
+    private fun startVideo(fromStart: Boolean) {
+        val mp = player ?: return
+        if (fromStart || videoEnded) {
+            runCatching { mp.seekTo(0) }
+            videoEnded = false
+            feed?.stop(); feed = null; effect.feed = null
+        }
+        runCatching { mp.start() }
+        if (!isLive()) return
+        if (mic() == null) {
+            note.text = "El sonido del video necesita el audio del LIVE (micrófono) activado."
+            return
+        }
+        if (feed == null) newFeed()
+        feed?.play()
+        effect.active = videoSoundToLive
+    }
+
+    private fun pauseVideo() {
+        runCatching { player?.pause() }
+        feed?.pause()
+        effect.active = false
+    }
+
+    /** Called right after the LIVE starts (new audio source). */
+    fun reapply() {
+        apply(current)
+        // Going live in a video scene: the video restarts with its sound.
+        if (WivraLiveScenes.preset(current)?.show?.containsKey(WivraLiveScenes.Slot.VIDEO) == true) {
+            startVideo(fromStart = true)
+        }
+    }
 
     private fun apply(id: String) {
         val layout = WivraLiveScenes.layout(id, frameW, frameH, videoSize,
@@ -136,8 +190,9 @@ class WivraLiveSceneController(
         place(videoLayer, layout.layers.getValue(WivraLiveScenes.Slot.VIDEO))
         place(imageLayer, layout.layers.getValue(WivraLiveScenes.Slot.IMAGE))
         // The pause scene silences the microphone; any other scene restores it.
-        (stream?.audioSource as? MicrophoneSource)?.let { mic ->
-            runCatching { if (layout.micMuted) mic.mute() else mic.unMute() }
+        mic()?.let { m ->
+            runCatching { m.setAudioEffect(effect) }
+            runCatching { if (layout.micMuted) m.mute() else m.unMute() }
         }
     }
 
@@ -154,7 +209,7 @@ class WivraLiveSceneController(
         val to = WivraLiveScenes.fallbackFor(current, slot) ?: return
         current = to
         apply(to)
-        runCatching { player?.pause() }
+        pauseVideo()
         note.text = message
         refresh()
     }
@@ -168,7 +223,7 @@ class WivraLiveSceneController(
             "Elegir video del teléfono",
             "Elegir imagen (logo, QR, pausa)",
             "Mover recuadro de esquina",
-            if (videoSoundOnSpeaker) "Sonido del video: altavoz (no va al LIVE)" else "Sonido del video: silencio",
+            if (videoSoundToLive) "Sonido del video: va al LIVE" else "Sonido del video: silencio",
             "Quitar video e imagen"
         )
         AlertDialog.Builder(activity)
@@ -178,7 +233,7 @@ class WivraLiveSceneController(
                     0 -> pickVideo.launch(arrayOf("video/*"))
                     1 -> pickImage.launch(arrayOf("image/*"))
                     2 -> { corner = corner.next(); apply(current) }
-                    3 -> { videoSoundOnSpeaker = !videoSoundOnSpeaker; applyVolume() }
+                    3 -> { videoSoundToLive = !videoSoundToLive; effect.active = videoSoundToLive && feed != null }
                     4 -> removeSources()
                 }
             }
@@ -186,10 +241,6 @@ class WivraLiveSceneController(
             .show()
     }
 
-    private fun applyVolume() {
-        val v = if (videoSoundOnSpeaker) 1f else 0f
-        runCatching { player?.setVolume(v, v) }
-    }
 
     private fun loadVideo(uri: Uri) {
         releasePlayer()
@@ -197,18 +248,25 @@ class WivraLiveSceneController(
         player = mp
         try {
             mp.setDataSource(activity, uri) // read through the picker grant only
+            videoUri = uri
+            videoEnded = false
             videoLayer?.surface?.let { mp.setSurface(it) }
             mp.setOnPreparedListener {
                 if (player !== mp) return@setOnPreparedListener
                 playerReady = true
                 videoSize = if (mp.videoWidth > 0 && mp.videoHeight > 0) mp.videoWidth to mp.videoHeight else null
-                applyVolume()
+                // Silent on the phone: the sound goes into the LIVE mix instead.
+                runCatching { mp.setVolume(0f, 0f) }
                 note.text = "Video listo. Elige una escena con video."
                 apply(current)
                 refresh()
             }
             mp.setOnCompletionListener {
-                if (player === mp) fallback(WivraLiveScenes.Slot.VIDEO, "El video terminó: de vuelta a la cámara.")
+                if (player === mp) {
+                    videoEnded = true
+                    feed?.stop(); feed = null; effect.feed = null; effect.active = false
+                    fallback(WivraLiveScenes.Slot.VIDEO, "El video terminó: de vuelta a la cámara.")
+                }
             }
             mp.setOnErrorListener { _, _, _ ->
                 if (player === mp) {
@@ -268,7 +326,7 @@ class WivraLiveSceneController(
 
     /** Host screen stopped: the stream stops too; keep sources, pause playback. */
     fun onHostStop() {
-        runCatching { player?.pause() }
+        pauseVideo()
         if (WivraLiveScenes.preset(current)?.show?.containsKey(WivraLiveScenes.Slot.VIDEO) == true) {
             current = "camera"
             refresh()
@@ -276,6 +334,11 @@ class WivraLiveSceneController(
     }
 
     private fun releasePlayer() {
+        feed?.stop()
+        feed = null
+        effect.feed = null
+        effect.active = false
+        videoUri = null
         val mp = player ?: return
         player = null
         playerReady = false

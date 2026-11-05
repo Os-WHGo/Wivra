@@ -41,7 +41,7 @@ test('no empty scene; finished or broken video returns to camera; pause mutes mi
   assert.match(scenes, /guard available\.contains\(id\), attached else/);
   assert.match(scenes, /if !reading \{\s*await self\?\.fallback\("El video terminó/);
   assert.match(scenes, /El video no se pudo reproducir: de vuelta a la cámara/);
-  assert.match(scenes, /audio\.isMuted = result\.micMuted/);
+  assert.match(scenes, /mic\.isMuted = result\.micMuted\s*audio\.tracks\[0\] = mic/);
   assert.match(policy, /preset\(current\)\?\.show\[lost\] == nil \? nil : "camera"/);
 });
 
@@ -49,4 +49,13 @@ test('sources picked before LIVE from Photos, private copy, no upload', () => {
   assert.match(scenes, /if !isLive \{\s*PhotosPicker\("Elegir video"/);
   assert.match(scenes, /temporaryDirectory\.appendingPathComponent\("WivraLiveScenes"/);
   assert.doesNotMatch(scenes, /URLSession|http:|https:|PHPhotoLibrary\.shared\(\)\.performChanges/);
+});
+
+test('video sound: track 1 of a multi-track mixer, paced, no extra capture', () => {
+  assert.match(live, /MediaMixer\(multiTrackAudioMixingEnabled: scenes\?\.enabled == true\)/);
+  assert.match(scenes, /await mixer\.wivraAppendAudio\(WivraSampleBox\(buffer: buffer\), track: 1\)/);
+  assert.match(scenes, /if ahead > 0\.3 \{/);
+  assert.match(scenes, /AVLinearPCMBitDepthKey: 16/);
+  assert.match(scenes, /audioFeeder\?\.cancel\(\)/);
+  assert.doesNotMatch(scenes, /RPScreenRecorder|ReplayKit|RPBroadcast/);
 });
