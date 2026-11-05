@@ -102,23 +102,9 @@ struct WivraMetaB0App: App {
         }
     }
 
-    var body: some Scene {
-        WindowGroup {
-            // W80 (Claude): the native home sits ABOVE the capture tabs and fills the
-            // screen; the tabs stay alive underneath for the camera handoff.
-            ZStack {
-            TabView(selection: Binding(
-                get: { captureTab },
-                set: { requestCaptureTab($0) }
-            )) {
-                MetaB0Screen(model: model)
-                    .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
-                    .tag(WivraCaptureTab.meta)
-                WivraIPhoneCameraScreen(camera: iPhoneCamera)
-                    .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
-                    .tag(WivraCaptureTab.iPhone)
-            }
-            .safeAreaInset(edge: .top) {
+    // W83 (Claude): shortcuts + network notes above EACH capture tab. On iOS 26 an
+    // inset on the TabView itself overlapped the tab content (Ray-Ban title hidden).
+    @ViewBuilder private var captureTopBar: some View {
                 VStack(spacing: 4) {
                     // Five shortcuts no longer fit in one line: scroll sideways instead of
                     // squeezing each label into a vertical column of letters (W80 screenshots).
@@ -206,6 +192,25 @@ struct WivraMetaB0App: App {
                 }
                 .padding(.vertical, 6)
                 .background(.ultraThinMaterial)
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            // W80 (Claude): the native home sits ABOVE the capture tabs and fills the
+            // screen; the tabs stay alive underneath for the camera handoff.
+            ZStack {
+            TabView(selection: Binding(
+                get: { captureTab },
+                set: { requestCaptureTab($0) }
+            )) {
+                MetaB0Screen(model: model)
+                    .safeAreaInset(edge: .top) { captureTopBar }
+                    .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
+                    .tag(WivraCaptureTab.meta)
+                WivraIPhoneCameraScreen(camera: iPhoneCamera)
+                    .safeAreaInset(edge: .top) { captureTopBar }
+                    .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
+                    .tag(WivraCaptureTab.iPhone)
             }
                 if showingHome {
                     WivraHomeScreen(camerasFree: camerasFree, onAction: handleHome)

@@ -215,6 +215,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
         ))
         setContentView(layout)
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(layout)
+        WivraUi.primary(recordingButton)
         refreshControls()
         requireCamera()
     }

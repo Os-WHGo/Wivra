@@ -269,6 +269,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             text = getString(R.string.preview_disclaimer)
         })
         setContentView(ScrollView(this).apply { addView(root) })
+        WivraUi.styleAll(root)   // W83 (Claude): Wivra button look
         refreshButtons()
         // The service owns DAT while recording. Its lifecycle events, not
         // Activity.onStop(), decide when Stop/Connect and pending clips appear.

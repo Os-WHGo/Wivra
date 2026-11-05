@@ -292,6 +292,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { finish() }
         })
         setContentView(root)
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(root)
+        WivraUi.primary(startButton)
         updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {

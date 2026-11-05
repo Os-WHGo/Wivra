@@ -423,6 +423,39 @@ struct WivraIPhoneLiveScreen: View {
     var body: some View {
         NavigationStack {
             Form {
+                // W83 (Claude): the preview leads the screen, as in the owner's mockup,
+                // with a clear EN VIVO badge only while actually on air.
+                Section {
+                    ZStack(alignment: .topLeading) {
+                        if controller.phase == .ready || controller.phase == .connecting ||
+                           controller.phase == .live {
+                            MTHKViewRepresentable(previewSource: controller)
+                                .frame(height: 280)
+                                .accessibilityIdentifier("wivra_ios_live_preview")
+                            Text(wivraLiveText(controller.onAir ? "ios.plive.on_air_badge" : "ios.plive.preview_badge"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(controller.onAir ? Color.red : Color.black.opacity(0.55), in: Capsule())
+                                .padding(10)
+                                .accessibilityAddTraits(.updatesFrequently)
+                        } else {
+                            VStack(spacing: 10) {
+                                Image(systemName: "video.fill").font(.system(size: 34))
+                                    .foregroundStyle(WivraTheme.accentSoft)
+                                Text(wivraLiveText("ios.plive.preview_placeholder"))
+                                    .font(.footnote).multilineTextAlignment(.center)
+                                    .foregroundStyle(WivraTheme.muted)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                            .background(WivraTheme.card)
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    Text(controller.status).accessibilityIdentifier("wivra_ios_live_status")
+                }
                 Section(wivraLiveText("ios.plive.section_camera")) {
                     Text(wivraLiveText("ios.plive.camera_note"))
                     Toggle(wivraLiveText("ios.plive.front_camera"), isOn: $frontCamera)
@@ -436,6 +469,8 @@ struct WivraIPhoneLiveScreen: View {
                         Task { await controller.prepareCamera(microphone: includeMicrophone,
                                                               frontCamera: frontCamera) }
                     }.disabled(!controller.canPrepare)
+                    .buttonStyle(WivraPrimaryButtonStyle())
+                    .listRowBackground(Color.clear)
                 }
                 WivraLiveScenePanel(scenes: scenes,
                                     isLive: controller.phase == .connecting || controller.phase == .live,
@@ -450,9 +485,13 @@ struct WivraIPhoneLiveScreen: View {
                         .font(.caption)
                     Button(wivraLiveText("ios.plive.confirm_button")) { confirmPublication = true }
                         .disabled(!controller.canStart || WivraIOSLiveEndpoint.parse(destination) == nil)
+                        .buttonStyle(WivraPrimaryButtonStyle())
+                        .listRowBackground(Color.clear)
                     Button(wivraLiveText("ios.plive.stop_button")) {
                         Task { await controller.stop() }
                     }.disabled(controller.phase == .idle || controller.phase == .stopping)
+                    .buttonStyle(.bordered).tint(.red)
+                    .frame(maxWidth: .infinity)
                 }
                 Section(wivraLiveText("ios.plive.section_status")) {
                     Button(wivraLiveText("ios.plive.review_button")) {
@@ -473,13 +512,6 @@ struct WivraIPhoneLiveScreen: View {
                             photosControls(for: file)
                         }
                     }
-                    if controller.phase == .ready || controller.phase == .connecting ||
-                       controller.phase == .live {
-                        MTHKViewRepresentable(previewSource: controller)
-                            .frame(height: 240)
-                            .accessibilityIdentifier("wivra_ios_live_preview")
-                    }
-                    Text(controller.status).accessibilityIdentifier("wivra_ios_live_status")
                     if let file = controller.verifiedVideoURL {
                         ShareLink(item: file) {
                             Label(wivraLiveText("ios.plive.share_verified"), systemImage: "square.and.arrow.up")

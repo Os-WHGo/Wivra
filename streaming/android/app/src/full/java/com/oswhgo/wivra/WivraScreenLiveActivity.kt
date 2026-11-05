@@ -185,6 +185,9 @@ class WivraScreenLiveActivity : ComponentActivity() {
             setOnClickListener { finish() }
         })
         setContentView(root)
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(root)
+        WivraUi.primary(startButton)
     }
 
     private fun confirmAndChooseScreen() {

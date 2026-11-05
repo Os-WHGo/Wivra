@@ -146,6 +146,9 @@ class WivraDualCameraActivity : ComponentActivity() {
             addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
             addView(status); addView(row1); addView(row2); addView(row3)
         })
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(row1); WivraUi.styleAll(row2); WivraUi.styleAll(row3)
+        WivraUi.primary(recordButton)
         wantSound = hasPermission(Manifest.permission.RECORD_AUDIO)
         refreshControls()
         if (hasPermission(Manifest.permission.CAMERA)) startProvider()

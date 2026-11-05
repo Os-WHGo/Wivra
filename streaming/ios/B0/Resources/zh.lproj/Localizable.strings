@@ -256,3 +256,6 @@
 "ios.home.tab_projects" = "项目";
 "ios.home.tab_ai" = "AI";
 "ios.home.made_by" = "出品";
+"ios.plive.preview_placeholder" = "准备摄像头后，这里会显示预览。";
+"ios.plive.on_air_badge" = "● 直播中";
+"ios.plive.preview_badge" = "预览";
