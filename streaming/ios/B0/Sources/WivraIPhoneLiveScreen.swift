@@ -21,6 +21,8 @@ final class WivraIPhoneLiveController {
     private(set) var isReviewingSavedVideos = false
 
     private var mixer: MediaMixer?
+    // LIVE scenes (Claude): attached only when the owner enabled them.
+    var scenes: WivraLiveSceneModel?
     private var connection: RTMPConnection?
     private var stream: RTMPStream?
     private var recorder: StreamRecorder?
@@ -102,6 +104,7 @@ final class WivraIPhoneLiveController {
             }
             includesMicrophone = microphone
             mixer = capture
+            if let scenes, scenes.enabled { await scenes.attach(to: capture) }
             if let preview { await capture.addOutput(preview) }
             phase = .ready
             status = "Cámara preparada. Ningún video se ha transmitido."
@@ -219,6 +222,7 @@ final class WivraIPhoneLiveController {
         storageMonitor = nil
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = "Cerrando LIVE y verificando archivos…"
+        await scenes?.detach()
         let localStream = stream
         let localConnection = connection
         let localRecorder = recorder
@@ -336,6 +340,7 @@ extension WivraIPhoneLiveController: MTHKViewRepresentable.PreviewSource {
 struct WivraIPhoneLiveScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var controller = WivraIPhoneLiveController()
+    @State private var scenes = WivraLiveSceneModel()
     @State private var destination = ""
     @State private var includeMicrophone = false
     @State private var frontCamera = false
@@ -363,6 +368,9 @@ struct WivraIPhoneLiveScreen: View {
                                                               frontCamera: frontCamera) }
                     }.disabled(!controller.canPrepare)
                 }
+                WivraLiveScenePanel(scenes: scenes,
+                                    isLive: controller.phase == .connecting || controller.phase == .live,
+                                    canToggle: controller.phase == .idle)
                 Section("Destino RTMP/RTMPS") {
                     SecureField("rtmps://servidor/live/clave", text: $destination)
                         .textContentType(.password)
@@ -416,6 +424,7 @@ struct WivraIPhoneLiveScreen: View {
                 }
             }
             .navigationTitle("LIVE iPhone")
+            .onAppear { controller.scenes = scenes }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cerrar") { Task { await controller.stop(); dismiss() } }
