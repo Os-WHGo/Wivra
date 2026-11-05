@@ -321,15 +321,63 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
     private func finishedSamples(_ result: WivraMultiCamSampleRecorder.Result) {
         guard isFinishing, primaryURL == result.primaryURL,
               secondaryURL == result.secondaryURL else { return }
-        let size = { (u: URL) -> Int64 in
-            (try? FileManager.default.attributesOfItem(atPath: u.path)[.size] as? Int64) ?? 0
+        let root = result.primaryURL.deletingLastPathComponent()
+        let audioRequired = includesAudio
+
+        // Persist a fail-closed receipt BEFORE decoding either MOV. If the
+        // process is suspended, crashes or the verifier is interrupted, both
+        // nonempty originals remain marked needs-review, not "verified".
+        let bytes = { (url: URL) -> Int64 in
+            (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
         }
-        let mainStatus = WivraMultiCamPolicy.classifyTake(
-            bytes: size(result.primaryURL), finishedWithoutError: result.primaryComplete)
-        let insetStatus = WivraMultiCamPolicy.classifyTake(
-            bytes: size(result.secondaryURL), finishedWithoutError: result.secondaryComplete)
-        finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
-                   offsetMilliseconds: result.secondaryOffsetSeconds.map { $0 * 1000 })
+        let primaryProvisional = WivraMultiCamPolicy.classifyTake(
+            bytes: bytes(result.primaryURL), finishedWithoutError: false)
+        let secondaryProvisional = WivraMultiCamPolicy.classifyTake(
+            bytes: bytes(result.secondaryURL), finishedWithoutError: false)
+        if primaryProvisional != .empty {
+            let pendingReceipt = WivraMultiCamTakeManifest(
+                take: takeIndex, mode: "dual-separate",
+                primaryFile: result.primaryURL.lastPathComponent,
+                primaryPosition: frontIsPrimary ? "front" : "back",
+                secondaryFile: secondaryProvisional == .empty ? nil : result.secondaryURL.lastPathComponent,
+                secondaryPosition: frontIsPrimary ? "back" : "front",
+                secondaryOffsetMs: result.secondaryOffsetSeconds.map { $0 * 1000 },
+                offsetSource: "video-sample-pts",
+                audio: audioRequired ? "primary" : "none",
+                corner: corner, continuation: continuation,
+                primaryStatus: primaryProvisional,
+                secondaryStatus: secondaryProvisional)
+            _ = try? WivraMultiCamTakeManifest.write(pendingReceipt, beside: result.primaryURL)
+        }
+        status = "Verificando ambas grabaciones antes de importar al editor…"
+
+        // Full track/sample/boundary verification happens OFF the main actor.
+        // Reuse the canonical capture verifier rather than another MP4 parser:
+        // writer.status == completed and byte count alone do not prove a
+        // readable, complete video or the requested microphone track.
+        Task.detached(priority: .utility) { [weak self] in
+            var mainVerified = false
+            if result.primaryComplete {
+                mainVerified = await WivraCaptureMediaVerifier.verifyFile(
+                    result.primaryURL, in: root, requireAudio: audioRequired)
+            }
+            var secondaryVerified = false
+            if result.secondaryComplete {
+                secondaryVerified = await WivraCaptureMediaVerifier.verifyFile(
+                    result.secondaryURL, in: root, requireAudio: false)
+            }
+            await MainActor.run { [weak self] in
+                guard let self, self.isFinishing,
+                      self.primaryURL == result.primaryURL,
+                      self.secondaryURL == result.secondaryURL else { return }
+                let mainStatus = WivraMultiCamPolicy.classifyTake(
+                    bytes: bytes(result.primaryURL), finishedWithoutError: mainVerified)
+                let insetStatus = WivraMultiCamPolicy.classifyTake(
+                    bytes: bytes(result.secondaryURL), finishedWithoutError: secondaryVerified)
+                self.finishTake(mainStatus: mainStatus, insetStatus: insetStatus,
+                                offsetMilliseconds: result.secondaryOffsetSeconds.map { $0 * 1000 })
+            }
+        }
     }
 
     // Stable single-camera MovieFileOutput path retained for older devices.
