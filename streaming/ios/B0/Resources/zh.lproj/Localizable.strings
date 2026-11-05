@@ -106,3 +106,14 @@
 "ios.capture.share_segment_only" = "仅分享此片段";
 "ios.capture.take_not_finalized" = "无法确认本次拍摄完整。片段保留在Wivra中，不会自动合并或作为完整视频保存到照片。";
 "ios.capture.dat_signal_interrupted" = "Ray-Ban视频信号中断。为保护文件已结束录制。片段可能不完整，请在导出前检查。";
+
+"ios.library.multicam_recovery_title" = "待恢复的双摄像头录像";
+"ios.library.multicam_recovery_note" = "Wivra 保留了录制中断后的文件。恢复到编辑器前请先验证。不会删除文件或保存到照片。";
+"ios.library.multicam_verify" = "验证并恢复";
+"ios.library.multicam_verifying" = "正在验证 MOV 轨道和帧...";
+"ios.library.multicam_share_unverified" = "分享未经验证的主 MOV";
+"ios.library.multicam_share_secondary" = "分享未经验证的副 MOV";
+"ios.library.multicam_recovered_both" = "两路视频均已验证并恢复到编辑器。";
+"ios.library.multicam_recovered_main" = "仅恢复了主视频。第二个原始文件仍保存在 Wivra。";
+"ios.library.multicam_secondary_only" = "仅第二个 MOV 通过验证，未自动导入。";
+"ios.library.multicam_failed" = "无法验证或保存恢复结果。原始文件保持不变。";
