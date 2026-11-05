@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   start.onclick=async()=>{
     if(running)return;
+    if(wivraCodecMatrixRunning){status.textContent='La matriz de seis pruebas está en ejecución.';return;}
     if(!enable.checked){status.textContent='Marca primero la casilla para ejecutar el diagnóstico.';return;}
     const stable=document.getElementById('expGo'),native=document.getElementById('wivraQaStart');
     if(typeof expBusy!=='undefined'&&expBusy || stable?.disabled || native?.disabled){
