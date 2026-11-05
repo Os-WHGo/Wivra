@@ -28,7 +28,11 @@ enum WivraCaptureMediaVerifier {
         } catch { return false }
     }
 
-    static func verifyFile(_ url: URL, in root: URL, diagnostic: @Sendable (String) -> Void = { _ in }) async -> Bool {
+    // LIVE callers may require microphone audio. The same AVAssetReader pass
+    // then verifies nonempty compressed audio samples as well as video.
+    // Camera/video-only callers keep the historical default behavior.
+    static func verifyFile(_ url: URL, in root: URL, requireAudio: Bool = false,
+                           diagnostic: @Sendable (String) -> Void = { _ in }) async -> Bool {
         var phase = "file scope or properties"
         var verified = false
         defer { if !verified { diagnostic(phase) } }
@@ -43,8 +47,13 @@ enum WivraCaptureMediaVerifier {
             let duration = try await asset.load(.duration)
             phase = "video tracks or duration"
             guard tracks.count == 1, duration.isNumeric, duration.seconds > 0 else { return false }
+            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+            phase = "required audio track missing"
+            guard !requireAudio || !audioTracks.isEmpty else { return false }
             let reader = try AVAssetReader(asset: asset)
-            let allTracks = tracks + (try await asset.loadTracks(withMediaType: .audio))
+            // A nonempty track list alone is not enough: the loop below
+            // rejects every track (including requested audio) without samples.
+            let allTracks = tracks + audioTracks
             var outputs: [AVAssetReaderTrackOutput] = []
             for track in allTracks {
                 let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)

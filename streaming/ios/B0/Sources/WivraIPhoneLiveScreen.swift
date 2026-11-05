@@ -17,6 +17,7 @@ final class WivraIPhoneLiveController {
     private(set) var verifiedVideoURL: URL?
     private(set) var unverifiedVideoURL: URL?
     private(set) var savedVideos: [URL] = []
+    private(set) var audioUncertainVideos: Set<URL> = []
     private(set) var isReviewingSavedVideos = false
 
     private var mixer: MediaMixer?
@@ -77,9 +78,22 @@ final class WivraIPhoneLiveController {
                 phase = .idle
                 return
             }
-            try await capture.attachVideo(camera)
+            // Permission alone does not guarantee a usable microphone device.
+            // A requested audio archive must not silently become video-only.
+            var selectedAudioInput: AVCaptureDevice?
             if microphone {
-                try await capture.attachAudio(AVCaptureDevice.default(for: .audio))
+                guard let input = AVCaptureDevice.default(for: .audio) else {
+                    status = "No hay entrada de micrófono disponible. Desactiva audio para grabar solo video."
+                    try? AVAudioSession.sharedInstance().setActive(false,
+                        options: .notifyOthersOnDeactivation)
+                    phase = .idle
+                    return
+                }
+                selectedAudioInput = input
+            }
+            try await capture.attachVideo(camera)
+            if let selectedAudioInput {
+                try await capture.attachAudio(selectedAudioInput)
             }
             await capture.startRunning()
             guard generation == current else {
@@ -135,6 +149,10 @@ final class WivraIPhoneLiveController {
                 let folder = try localFolder()
                 let file = folder.appendingPathComponent(UUID().uuidString)
                     .appendingPathExtension("mp4")
+                // Record the user's mic choice before any media bytes are
+                // written, including when the app is later killed mid-LIVE.
+                try WivraLiveRecordingReceipt.stage(
+                    audioRequired: includesMicrophone, for: file, in: folder)
                 let writer = StreamRecorder()
                 await writer.setMovieFragmentInterval(10.0)
                 await mixer.addOutput(writer)
@@ -218,8 +236,17 @@ final class WivraIPhoneLiveController {
             do {
                 let result = try await localRecorder.stopRecording()
                 if let localMixer { await localMixer.removeOutput(localRecorder) }
-                if let folder = try? localFolder(),
-                   await WivraCaptureMediaVerifier.verifyFile(result, in: folder) {
+                // One verified AVAssetReader pass checks media and, when
+                // microphone was requested, real nonempty audio samples.
+                // A missing/empty audio track must remain private for recovery.
+                let verifiedMedia: Bool
+                if let folder = try? localFolder() {
+                    verifiedMedia = await WivraCaptureMediaVerifier.verifyFile(
+                        result, in: folder, requireAudio: includesMicrophone)
+                } else {
+                    verifiedMedia = false
+                }
+                if verifiedMedia {
                     verifiedVideoURL = result
                     unverifiedVideoURL = nil
                 } else {
@@ -263,17 +290,23 @@ final class WivraIPhoneLiveController {
             return
         }
         var approved: [URL] = []
+        var uncertainAudio: Set<URL> = []
         for file in urls where file.pathExtension.lowercased() == "mp4" {
             guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey,
                 .isSymbolicLinkKey, .fileSizeKey]),
                 values.isRegularFile == true, values.isSymbolicLink == false,
                 (values.fileSize ?? 0) > 0 else { continue }
-            if await WivraCaptureMediaVerifier.verifyFile(file, in: folder) {
+            let expectation = WivraLiveRecordingReceipt.audioExpectation(
+                for: file, in: folder)
+            if await WivraCaptureMediaVerifier.verifyFile(
+                file, in: folder, requireAudio: expectation == .required) {
                 approved.append(file)
+                if expectation == .unknown { uncertainAudio.insert(file) }
             }
         }
         savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
-        status = "Copias MP4 verificadas: \(savedVideos.count). Las demás permanecen privadas."
+        audioUncertainVideos = uncertainAudio
+        status = "Copias MP4 verificadas: \(savedVideos.count). Audio no confirmado en \(uncertainAudio.count). Las demás permanecen privadas."
     }
 
     private func hasRecordingReserve() -> Bool {
@@ -309,6 +342,8 @@ struct WivraIPhoneLiveScreen: View {
     @State private var archiveVideo = true
     @State private var confirmPublication = false
     @State private var savingPhotos = false
+    @State private var photosReview: [URL: WivraPhotosSaveJournal.ReviewStatus] = [:]
+    @State private var pendingPhotosRetry: URL?
     @State private var photoMessage: String?
 
     var body: some View {
@@ -353,6 +388,13 @@ struct WivraIPhoneLiveScreen: View {
                         ShareLink(item: file) {
                             Label("Compartir MP4 recuperado", systemImage: "film.stack")
                         }
+                        if controller.audioUncertainVideos.contains(file) {
+                            Text("Audio no confirmado: grabación anterior o registro incompleto.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            photosControls(for: file)
+                        }
                     }
                     if controller.phase == .ready || controller.phase == .connecting ||
                        controller.phase == .live {
@@ -365,18 +407,7 @@ struct WivraIPhoneLiveScreen: View {
                         ShareLink(item: file) {
                             Label("Compartir MP4 verificado", systemImage: "square.and.arrow.up")
                         }
-                        Button("Guardar MP4 en Fotos") {
-                            savingPhotos = true
-                            Task { @MainActor in
-                                defer { savingPhotos = false }
-                                do {
-                                    try await WivraPhotosLibrary.saveVideo(file)
-                                    photoMessage = "Video guardado en Fotos."
-                                } catch {
-                                    photoMessage = "No se pudo guardar en Fotos; el archivo local se conserva."
-                                }
-                            }
-                        }.disabled(savingPhotos)
+                        photosControls(for: file)
                     }
                     if controller.unverifiedVideoURL != nil {
                         Text("Existe un archivo incompleto/no verificado. No se publicará automáticamente.")
@@ -410,6 +441,24 @@ struct WivraIPhoneLiveScreen: View {
                     ? "Wivra también intentará guardar MP4 privado. Comprueba el VOD de la plataforma."
                     : "No se guardará MP4 local. El VOD remoto puede no existir.")
             }
+            .confirmationDialog(
+                "¿Confirmas que este video no aparece en Fotos?",
+                isPresented: Binding(
+                    get: { pendingPhotosRetry != nil },
+                    set: { if !$0 { pendingPhotosRetry = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("No aparece, permitir reintento", role: .destructive) {
+                    if let file = pendingPhotosRetry {
+                        resolvePhotos(for: file, present: false)
+                    }
+                    pendingPhotosRetry = nil
+                }
+                Button("Cancelar", role: .cancel) { pendingPhotosRetry = nil }
+            } message: {
+                Text("Comprueba primero que este video no existe en Fotos. Solo después se podrá intentar guardar otra vez; la copia local nunca se elimina.")
+            }
             .alert("Fotos", isPresented: Binding(
                 get: { photoMessage != nil },
                 set: { if !$0 { photoMessage = nil } }
@@ -424,5 +473,83 @@ struct WivraIPhoneLiveScreen: View {
             }
             .onDisappear { Task { await controller.stop() } }
         }
+    }
+
+    @MainActor
+    private func refreshPhotosReview(for file: URL) async {
+        do {
+            photosReview[file] = try await WivraPhotosSaveJournal.shared.reviewStatus(for: file)
+        } catch {
+            // A corrupted journal must block retries rather than duplicate
+            // a possibly committed Photos asset.
+            photosReview.removeValue(forKey: file)
+            photoMessage = "No se pudo revisar el registro de Fotos; la copia privada sigue intacta."
+        }
+    }
+
+    @MainActor
+    private func savePhotos(_ file: URL) {
+        guard !savingPhotos, photosReview[file] == .noRecord else { return }
+        savingPhotos = true
+        Task { @MainActor in
+            defer { savingPhotos = false }
+            do {
+                try await WivraPhotosLibrary.saveVideo(file)
+                photoMessage = "Video guardado o confirmado en Fotos."
+            } catch {
+                photoMessage = "Guardado no confirmado. Revisa Fotos antes de cualquier reintento; el MP4 local se conserva."
+            }
+            await refreshPhotosReview(for: file)
+        }
+    }
+
+    @MainActor
+    private func resolvePhotos(for file: URL, present: Bool) {
+        guard !savingPhotos, photosReview[file] == .needsManualReview else { return }
+        savingPhotos = true
+        Task { @MainActor in
+            defer { savingPhotos = false }
+            do {
+                if present {
+                    try await WivraPhotosSaveJournal.shared.confirmManuallyPresent(for: file)
+                    photoMessage = "Video confirmado manualmente en Fotos."
+                } else {
+                    try await WivraPhotosSaveJournal.shared.authorizeRetryAfterManualAbsence(for: file)
+                    photoMessage = "Puedes reintentar guardar este video cuando quieras."
+                }
+            } catch {
+                photoMessage = "No se pudo resolver el guardado. La copia privada permanece intacta."
+            }
+            await refreshPhotosReview(for: file)
+        }
+    }
+
+    @MainActor @ViewBuilder
+    private func photosControls(for file: URL) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let state = photosReview[file] {
+                switch state {
+                case .noRecord:
+                    Button("Guardar MP4 en Fotos") { savePhotos(file) }
+                        .disabled(savingPhotos)
+                case .confirmed:
+                    Text("Guardado confirmado en Fotos.")
+                        .font(.caption).foregroundStyle(.secondary)
+                case .needsManualReview:
+                    Text("Guardado anterior sin confirmar. Revisa Fotos antes de decidir.")
+                        .font(.caption).foregroundStyle(.orange)
+                    Button("Ya aparece en Fotos") {
+                        resolvePhotos(for: file, present: true)
+                    }.disabled(savingPhotos)
+                    Button("No aparece, permitir reintento", role: .destructive) {
+                        pendingPhotosRetry = file
+                    }.disabled(savingPhotos)
+                }
+            } else {
+                Text("Comprobando historial de Fotos…")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .task(id: file) { await refreshPhotosReview(for: file) }
     }
 }

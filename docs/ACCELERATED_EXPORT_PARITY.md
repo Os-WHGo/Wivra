@@ -94,3 +94,19 @@ null so the existing accelerated guard cancels output. The injected-loss test
 requires zero finalization, one cancellation and one input disposal. Healthy
 preview behavior and CPU/GPU parity remain covered. The exercise timer includes
 negative renders and is named `exerciseSeconds`; it is not a throughput benchmark.
+
+## W50 spatial canary on the integrated branch
+
+`node tools/browser-composition-parity.cjs --spatial` uses an asymmetric PNG
+pattern and independent source-coordinate/CPU-filter oracles for main and inset
+layers. Six decoded sample points must preserve authored cover, zoom, pan and
+color parameters. It separately checks vignette center/corner pixels, grain
+variance and 24 Hz seed timing, portrait safe-zone glyph bounds, and real context
+loss specifically during the inset (two filter calls, zero encoded frames,
+zero finalization, one cancellation and one decoder disposal).
+
+Local mutation controls confirm the test fails if crop direction is reversed,
+the safe zone is ignored or grain is frozen. These are controlled regressions,
+not three newly discovered production defects. The existing features passed
+without rebuilding the compositor. Synthetic Chromium/SwiftShader evidence
+still does not qualify mobile H264/AAC, HDR or physical GPU behavior.

@@ -6,6 +6,8 @@ const source = files('Sources/WivraIPhoneLiveScreen.swift');
 const app = files('Sources/WivraMetaB0App.swift');
 const project = files('project.yml');
 const parser = files('Sources/WivraIOSLiveEndpoint.swift');
+const verifier = files('Sources/WivraCaptureMediaVerifier.swift');
+const liveReceipt = files('Sources/WivraLiveRecordingReceipt.swift');
 
 test('single native iPhone LIVE entry requires exclusive camera ownership',()=>{
   assert.match(project,/HaishinKit:\s+url: https:\/\/github\.com\/HaishinKit\/HaishinKit\.swift\s+exactVersion: 2\.2\.5/);
@@ -43,13 +45,14 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/let allowed = await AVCaptureDevice\.requestAccess\(for: \.video\)/);
   assert.match(source,/guard allowed else/);
   assert.match(source,/let allowedAudio = await AVCaptureDevice\.requestAccess\(for: \.audio\)/);
-  assert.match(source,/try await capture\.attachAudio\(AVCaptureDevice\.default\(for: \.audio\)\)/);
+  assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
+  assert.match(source,/try await capture\.attachAudio\(selectedAudioInput\)/);
   assert.match(source,/let writer = StreamRecorder\(\)/);
   assert.match(source,/await writer\.setMovieFragmentInterval\(10\.0\)/);
   assert.match(source,/StreamRecorder\.defaultSettings\.filter \{ \$0\.key == \.video \}/);
   assert.match(source,/try await writer\.startRecording\(file, settings: settings\)/);
   assert.ok(source.indexOf('try await writer.startRecording(file, settings: settings)') < source.indexOf('try await liveConnection.connect(endpoint.serverURL)'));
-  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
   assert.match(source,/unverifiedVideoURL = result/);
   assert.match(source,/ShareLink\(item: file\)/);
   assert.match(source,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
@@ -57,7 +60,7 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/func reviewSavedVideos\(\) async/);
   assert.match(source,/FileManager\.default\.contentsOfDirectory/);
   assert.match(source,/values\.isRegularFile == true, values\.isSymbolicLink == false/);
-  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*file, in: folder, requireAudio: expectation == \.required\)/);
   assert.match(source,/Button\("Revisar copias locales de LIVE"\)/);
   assert.match(source,/ForEach\(controller\.savedVideos, id:/);
   assert.doesNotMatch(source,/try\? FileManager\.default\.removeItem\(at: file\)/);
@@ -84,7 +87,7 @@ test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publis
   assert.match(source, /\.disabled\(controller\.phase != \.idle\)/);
   assert.match(source, /StreamRecorder\(\)/);
   assert.match(source, /func reviewSavedVideos\(\) async/);
-  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(file, in: folder\)/);
+  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(\s*file, in: folder, requireAudio: expectation == \.required\)/);
   assert.match(source, /MTHKViewRepresentable\(previewSource: controller\)/);
   assert.doesNotMatch(app, /showingIPhoneLive|WivraIOSPhoneLiveScreen/);
 });
@@ -101,5 +104,39 @@ test('long iPhone LIVE copy protects disk and preserves private MP4 under low st
   assert.match(source, /self\.status = "Espacio crítico\./);
   assert.match(source, /await self\.stop\(\)/);
   assert.match(source, /storageMonitor\?\.cancel\(\)/);
-  assert.match(source, /WivraCaptureMediaVerifier\.verifyFile\(result, in: folder\)/);
+  assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
+});
+
+test('iPhone LIVE requires actual audio samples from the same verified MP4',()=>{
+  assert.match(source,/var selectedAudioInput: AVCaptureDevice\?/);
+  assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
+  assert.match(source,/No hay entrada de micrófono disponible/);
+  assert.ok(source.indexOf('guard let input = AVCaptureDevice.default(for: .audio)')
+    < source.indexOf('try await capture.attachVideo(camera)'));
+  assert.match(source,/verifiedMedia = await WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
+  assert.match(source,/if verifiedMedia \{/);
+  assert.match(source,/unverifiedVideoURL = result/);
+  assert.doesNotMatch(source,/AVURLAsset\(url: result\)\.loadTracks\(withMediaType: \.audio\)/);
+  assert.match(verifier,/requireAudio: Bool = false/);
+  assert.match(verifier,/guard !requireAudio \|\| !audioTracks\.isEmpty/);
+  assert.match(verifier,/let allTracks = tracks \+ audioTracks/);
+  assert.match(verifier,/guard count > 0 else \{ return false \}/);
+  assert.match(verifier,/guard reader\.status == \.completed/);
+});
+
+test('iPhone LIVE crash recovery validates persisted microphone intent, not just video',()=>{
+  assert.match(source,/WivraLiveRecordingReceipt\.stage\(\s*audioRequired: includesMicrophone, for: file, in: folder\)/);
+  assert.ok(source.indexOf('WivraLiveRecordingReceipt.stage(')
+    < source.indexOf('try await writer.startRecording(file, settings: settings)'));
+  assert.match(source,/WivraLiveRecordingReceipt\.audioExpectation\(\s*for: file, in: folder\)/);
+  assert.match(source,/requireAudio: expectation == \.required/);
+  assert.match(source,/if expectation == \.unknown \{ uncertainAudio\.insert\(file\) \}/);
+  assert.match(source,/audioUncertainVideos = uncertainAudio/);
+  assert.match(source,/controller\.audioUncertainVideos\.contains\(file\)/);
+  assert.match(source,/Audio no confirmado: grabación anterior o registro incompleto/);
+  assert.match(liveReceipt,/audioRequired: Bool/);
+  assert.match(liveReceipt,/schemaVersion: 1/);
+  assert.match(liveReceipt,/\.write\(to: receipt, options: \[\.atomic\]\)/);
+  assert.match(liveReceipt,/values\.isSymbolicLink == false, values\.isRegularFile == true/);
+  assert.match(liveReceipt,/size > 0, size <= 256/);
 });

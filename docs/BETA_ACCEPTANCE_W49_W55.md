@@ -16,7 +16,7 @@ Capture edition, native capture, Meta DAT, LIVE and existing recovery.
 | W53 LIVE/local recording | Existing RTMP/RTMPS endpoint, consent, source and local-file contracts executed. | Real stream server, reconnect, simultaneous local MP4 integrity, camera/mic changes and interrupted sessions. |
 | W53 teleprompter/Director | Existing app/core and capture-import regressions executed. | Full end-user capture/import/export acceptance and physical presentation conditions. |
 | W54 failures/security | Snapshot project during async preflight, single render ownership, cancel on setup failure, explicit unsupported-input rejection. No new runtime dependency/service. | Broader dependency/license/permissions review before release; production Mediabunny MPL-2.0 distribution notices; device process-failure acceptance. This session is not a complete security audit. |
-| W55 consolidation | Local suite: 1,158 PASS, 0 FAIL, 10 existing TODOs across 1,168 tests. Normal build and isolated offline QA HTML verified. Source and test changes stay in PR #164. | Close final-SHA CI, retain evidence, then request only the outstanding owner-controlled delivery milestone. |
+| W55 consolidation | Local suite: 1,165 PASS, 0 FAIL, 10 existing TODOs across 1,175 tests. Normal build and isolated offline QA HTML verified. Source and test changes stay in PR #164. | Close final-SHA CI, retain evidence, then request only the outstanding owner-controlled delivery milestone. |
 
 ## Evidence boundaries
 
@@ -35,9 +35,18 @@ mic/music/mute, fades, circle/border, captions and gap now passes decoded-pixel
 and PCM checks, including cancellation/write failure. Software WebGL color and
 9:16/4:5/1:1 output checks plus actual context-loss rejection are also covered.
 
-Continue W50 spatial effects: filtered main and inset together, vignette at
-center/corners, time-varying grain, explicit safe-zone caption placement and
-context loss during the inset. Check output pixels and reject unavailable GPU
-operations. Then validate H264/AAC output on a compatible authorized host and
-retain the existing native verification/recovery checks. Device acceptance is
-a separate milestone. Preserve the mobile QA ceiling and production gate.
+The spatial canary now covers independent crop coordinates, simultaneous main
+and inset filters, vignette center/corners, temporal grain, safe-zone glyph bounds
+and context loss during the inset. Continue W61 integration checks and native
+H264/AAC/WebView capability/output verification on a compatible authorized host;
+keep HDR, mobile fonts, device GPU resources and physical acceptance explicit.
+Preserve the QA ceiling, MediaRecorder default and production gate.
+
+## Integrated Photos acceptance
+
+Export and LIVE share one Photos journal. Manual presence/absence resolution
+must not settle or delete a transaction that is still active in the same app
+process. The actor now tracks active hashes in memory; completion releases the
+reservation, while a fresh process can still resolve durable pending history.
+Native Swift CI includes an immutable pre-fix negative control and the corrected
+smoke. No second journal, schema migration or Photos read permission is added.

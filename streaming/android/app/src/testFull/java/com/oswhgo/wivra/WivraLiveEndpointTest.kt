@@ -32,6 +32,29 @@ class WivraLiveEndpointTest {
         assertFalse(WivraLiveEndpoint.valid("rtmps://example.org/app/" + "a".repeat(2000)))
     }
 
+    @Test fun rejectsAmbiguousOrEncodedRTMPPaths() {
+        val invalid = listOf(
+            "rtmps://example.org/live//key",
+            "rtmps://example.org/live/key/",
+            "rtmps://example.org/live/./key",
+            "rtmps://example.org/live/../key",
+            "rtmps://example.org/live/%2E%2E",
+            "rtmps://example.org/live/%2Fchild",
+            "rtmps://example.org/live/line%0Abreak",
+            "rtmps://example.org/live/nul%00byte",
+            "rtmps://example.org/live/a%5Cb",
+            "rtmps://example.org/live/with%20space",
+            "rtmps://example.org/live/key?token=secret",
+            "rtmps://example.org:0/live/key"
+        )
+        for (value in invalid) {
+            assertFalse(value.take(32), WivraLiveEndpoint.valid(value))
+            assertEquals(null, WivraLiveEndpoint.displayHost(value))
+        }
+        assertTrue(WivraLiveEndpoint.valid("rtmps://example.org/live/encoded%2Dkey"))
+        assertTrue(WivraLiveEndpoint.valid("rtmp://localhost:1935/app/key"))
+    }
+
     @Test fun aDisplayedHostNeverIncludesThePrivateKey() {
         val url = "rtmps://video.example.net/live/this-is-a-private-broadcast-secret"
         assertEquals("video.example.net", WivraLiveEndpoint.displayHost(url))

@@ -30,6 +30,10 @@ actor WivraPhotosSaveJournal {
     }
 
     static let shared = WivraPhotosSaveJournal()
+    // Process-local reservations distinguish an active Photos transaction
+    // from a pending entry recovered after process death. All production
+    // save surfaces use this same shared actor.
+    private var inFlightHashes: Set<String> = []
     private let fileURL: URL
 
     init(fileURL: URL? = nil) {
@@ -54,15 +58,18 @@ actor WivraPhotosSaveJournal {
         document.entries[hash] = Entry(hash: hash,
             filename: url.lastPathComponent, state: .pending, updatedAt: Date())
         try persist(document)
+        inFlightHashes.insert(hash)
         return .proceed(hash: hash)
     }
 
     func markConfirmed(hash: String) throws {
         try update(hash: hash, to: .confirmed)
+        inFlightHashes.remove(hash)
     }
 
     func markUncertain(hash: String) throws {
         try update(hash: hash, to: .uncertain)
+        inFlightHashes.remove(hash)
     }
 
     /// Read-only status for the export library. Hashing is local; Photos is never queried.
@@ -75,6 +82,7 @@ actor WivraPhotosSaveJournal {
     /// User explicitly confirms they inspected Photos and found this exact export.
     func confirmManuallyPresent(for url: URL) throws {
         let hash = try Self.sha256(url)
+        guard !inFlightHashes.contains(hash) else { throw JournalError.invalidResolution }
         var document = try load()
         guard var entry = document.entries[hash], entry.state != .confirmed else {
             throw JournalError.invalidResolution
@@ -88,6 +96,7 @@ actor WivraPhotosSaveJournal {
     /// Allows a fresh save only after the user explicitly confirms the asset is absent.
     func authorizeRetryAfterManualAbsence(for url: URL) throws {
         let hash = try Self.sha256(url)
+        guard !inFlightHashes.contains(hash) else { throw JournalError.invalidResolution }
         var document = try load()
         guard let entry = document.entries[hash], entry.state != .confirmed else {
             throw JournalError.invalidResolution
