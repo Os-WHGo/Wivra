@@ -80,7 +80,7 @@ const cubre = Object.fromEntries(LANGS.map((l) => {
 }));
 
 // 3) Zonas que ya están 100 % traducidas: chat de IA, Ajustes y elegir idioma.
-for (const id of ['sAI', 'sSettings', 'sLang']) {
+for (const id of ['sAI', 'sSettings', 'sLang', 'home', 'sOnb']) {   // W79 (Claude): portada y bienvenida nuevas, también 100 % traducidas
   test(`#${id}: todo texto visible tiene traducción en los 7 idiomas`, () => {
     const faltan = [];
     for (const t of textosVisibles(zona(template, id))) for (const l of LANGS) if (!cubre[l](t)) faltan.push(`${l}: «${t}»`);

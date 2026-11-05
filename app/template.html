@@ -200,9 +200,75 @@ body.dock .back{pointer-events:none;background:transparent}
   .ai-chat .ai-settings summary{cursor:pointer;font-size:14px;color:var(--mut);min-height:40px}
   .ai-chat .ai-settings #aiDirect{padding-bottom:8px}
 
+
+/* ---- W79 · Diseño Wivra (Claude): oscuro con degradado magenta/violeta, a pedido del propietario.
+   Capa añadida al final: cambia colores y formas sin tocar la lógica de las demás IAs. ---- */
+:root { --bg:#0b0a12; --bar:#17141f; --line:#2c2741; --fg:#f5f3fb; --mut:#a09ab6; --ac:#e238cf; --ac2:#8b5cff;
+  --grad:linear-gradient(135deg,#4f7bff 0%,#9b4dff 48%,#ff3fb4 100%); --gradB:linear-gradient(90deg,#b62cff 0%,#ff2fb2 100%);
+  --card:#16131f; --card2:#1d1929; --glow:0 10px 30px rgba(226,56,207,.28); }
+html, body { background:var(--bg); }
+body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%, transparent 60%), radial-gradient(90% 40% at -10% 0%, rgba(79,123,255,.14) 0%, transparent 60%), var(--bg); }
+.pill { background:var(--card2); border-color:var(--line); }
+.pill.go, .btn:not(.sec) { background:var(--gradB); border-color:transparent; color:#fff; box-shadow:var(--glow); }
+.btn.sec, #tprBar select { background:var(--card2); color:var(--fg); }
+.sheet { background:linear-gradient(180deg,#1b1727 0%,#15121e 100%); border-color:#3a2f55; box-shadow:0 -10px 40px rgba(0,0,0,.5); }
+.tool:active, .tool[aria-pressed="true"] { background:var(--card2); color:#ff7ae6; }
+#bAI { color:#ff8ae9; }
+#toast { background:#1d1929; border-color:var(--line); box-shadow:0 8px 24px rgba(0,0,0,.45); }
+#toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
+#langList button { background:var(--card2); } #langList button.on { border-color:var(--ac); box-shadow:var(--glow); }
+.wlogo { display:inline-flex; width:40px; height:40px; flex:0 0 auto; } .wlogo svg { width:100%; height:100%; }
+/* Portada */
+#home { background:radial-gradient(120% 45% at 100% 0%, rgba(155,77,255,.28) 0%, transparent 62%), radial-gradient(90% 35% at 0% 0%, rgba(79,123,255,.18) 0%, transparent 60%), var(--bg); }
+#home .hin { padding-bottom:110px; }
+#home .hhead { display:flex; align-items:center; gap:10px; margin-top:4px; }
+#home .hhead h1 { margin:0; font-size:28px; flex:1; }
+#home .hgear { position:static; width:44px; height:44px; border-radius:22px; background:var(--card2); border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center; }
+#home .hgear svg { width:22px; height:22px; fill:none; stroke:var(--fg); stroke-width:1.8; stroke-linecap:round; }
+#home .hq { color:var(--fg); font-size:19px; font-weight:700; margin:18px 0 12px; }
+.hgrid { grid-template-columns:1fr 1fr; gap:12px; }
+.hcard { min-height:112px; padding:14px; border-radius:18px; background:linear-gradient(180deg,var(--card2) 0%,var(--card) 100%); border:1px solid var(--line); justify-content:flex-end; position:relative; overflow:hidden; gap:3px; }
+.hcard i { position:absolute; top:12px; left:14px; width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:rgba(226,56,207,.14); }
+.hcard i svg { width:21px; height:21px; fill:none; stroke:#ff6fe0; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.hcard b { font-size:15.5px; margin-top:42px; } .hcard span { font-size:12.5px; }
+.hcard.main { background:var(--grad); border-color:transparent; color:#fff; box-shadow:var(--glow); } .hcard.main span { color:#f6e9ff; }
+.hcard.main i { background:rgba(255,255,255,.2); } .hcard.main i svg { stroke:#fff; }
+.hcard.live i { background:rgba(255,63,120,.16); } .hcard.live i svg { stroke:#ff5c8a; }
+.hcard:disabled { opacity:.45; }
+#home h2 { margin-top:28px; }
+#home .pcard { background:var(--card); border:1px solid var(--line); border-radius:16px; }
+.htabs { position:fixed; left:0; right:0; bottom:0; z-index:51; max-width:560px; margin-inline:auto; display:grid; grid-template-columns:repeat(5,1fr); align-items:end; padding:8px 8px calc(8px + env(safe-area-inset-bottom)); background:rgba(14,12,22,.92); border-top:1px solid var(--line); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+.htabs button { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; color:var(--mut); min-height:44px; justify-content:flex-end; }
+.htabs svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.htabs [aria-current="page"] { color:#ff6fe0; }
+.htabs .plus i { width:52px; height:52px; border-radius:26px; background:var(--gradB); box-shadow:var(--glow); display:flex; align-items:center; justify-content:center; margin-top:-24px; } .htabs .plus svg { stroke:#fff; width:26px; height:26px; }
+/* Bienvenida (primera vez) */
+#sOnb { display:none; position:fixed; inset:0; z-index:72; background:radial-gradient(120% 55% at 100% 0%, rgba(155,77,255,.35) 0%, transparent 60%), radial-gradient(100% 45% at 0% 100%, rgba(255,63,180,.18) 0%, transparent 60%), var(--bg); overflow-y:auto; }
+#sOnb .oin { max-width:520px; margin:0 auto; min-height:100%; padding:calc(14px + env(safe-area-inset-top)) 22px calc(26px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; }
+#sOnb .oskip { align-self:flex-end; color:var(--mut); font-size:15px; min-height:44px; padding:0 6px; }
+#sOnb .oslide { display:none; flex:1; flex-direction:column; } #sOnb .oslide.on { display:flex; }
+#sOnb h1 { font-size:28px; line-height:1.15; margin:6px 0 18px; }
+#sOnb .ohero { height:170px; border-radius:22px; background:var(--grad); box-shadow:var(--glow); display:flex; align-items:center; justify-content:center; margin-bottom:22px; }
+#sOnb .ohero svg { width:84px; height:84px; fill:none; stroke:#fff; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+#sOnb .orow { display:flex; gap:14px; align-items:center; margin:9px 0; font-size:15.5px; }
+#sOnb .orow i { flex:0 0 40px; height:40px; border-radius:12px; background:rgba(226,56,207,.14); display:flex; align-items:center; justify-content:center; }
+#sOnb .orow svg { width:22px; height:22px; fill:none; stroke:#ff6fe0; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+#sOnb .orow small { display:block; color:var(--mut); font-size:13px; }
+#sOnb .odots { display:flex; gap:7px; justify-content:center; margin:20px 0 14px; } #sOnb .odots b { width:8px; height:8px; border-radius:4px; background:#3a3352; transition:width .2s; } #sOnb .odots b.on { background:#ff4fd0; width:22px; }
+/* Pantalla de arranque: un instante, nunca bloquea los toques */
+#splash { position:fixed; inset:0; z-index:90; pointer-events:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:radial-gradient(90% 50% at 50% 30%, rgba(155,77,255,.35) 0%, transparent 65%), var(--bg); animation:wsplash 1.1s ease forwards; }
+#splash .wlogo { width:104px; height:104px; } #splash b { font-size:42px; } #splash span { color:var(--mut); font-size:15px; max-width:240px; text-align:center; }
+@keyframes wsplash { 0%, 60% { opacity:1; visibility:visible; } 100% { opacity:0; visibility:hidden; } }
+@media (prefers-reduced-motion: reduce) { #splash { display:none; } }
+@media (max-width:430px) { .tool { min-width:60px; padding:6px 3px 4px; } }   /* W79: las 6 primeras herramientas (hasta IA) caben sin deslizar en un iPhone */
+#aiMode, #aiProv, #expLoud, #expSave, #wivraMusicSelect, #tprSpeed { font:inherit; background:var(--card2); color:var(--fg); border:1px solid var(--line); border-radius:10px; padding:8px; }
+@media (max-height:760px) { #sOnb .ohero { height:110px; } #sOnb h1 { font-size:24px; } }
+#sOnb .ohero { height:130px; }
 </style>
 </head>
 <body>
+<div id="splash" aria-hidden="true"><span class="wlogo"><svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="wgS" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7bff"/><stop offset=".5" stop-color="#9b4dff"/><stop offset="1" stop-color="#ff3fb4"/></linearGradient></defs><path d="M7 12l7 24 10-18 10 18 7-24" fill="none" stroke="url(#wgS)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b data-notr>Wivra</b><span>Crea, edita, transmite y comparte con IA</span></div>
+<script>if (location.hash) document.getElementById('splash').remove();</script>
 <div class="top"><button class="pill" id="bHome" type="button" title="Volver al inicio">‹ Inicio</button><span class="sp"></span>
   <label class="pill" for="file" id="pick" title="Elegir videos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg> Video</label><input id="file" type="file" accept="video/*,image/*" multiple><label class="pill" for="capFile" id="pickCap" title="Importar una captura: el archivo .wivra.json junto con su video y sus audios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 11l4 4 4-4M5 20h14"/></svg> Captura</label><input id="capFile" type="file" multiple accept=".json,application/json,video/*,audio/*,.caf,.wav,.m4a,.mov">
   <button class="pill go" id="bExp" disabled>Exportar</button></div>
@@ -234,16 +300,19 @@ body.dock .back{pointer-events:none;background:transparent}
   <button class="tool" id="bScreen" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/></svg>Pantalla</button>
   <button class="tool soon" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 14h5M14 14h3M7 10h3M12 10h5"/></svg>Subtítulos<small>pronto</small></button></div>
 <div id="home"><div class="hin">
-  <h1>Wivra</h1><p class="m">¿Qué quieres hacer?</p>
+  <div class="hhead"><span class="wlogo"><svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="wgH" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7bff"/><stop offset=".5" stop-color="#9b4dff"/><stop offset="1" stop-color="#ff3fb4"/></linearGradient></defs><path d="M7 12l7 24 10-18 10 18 7-24" fill="none" stroke="url(#wgH)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h1 data-notr>Wivra</h1><button id="hSet" class="hgear" type="button" aria-label="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button></div>
+  <p class="hq">¿Qué quieres crear hoy?</p>
   <div class="hgrid">
-    <button class="hcard main" id="hEditor" type="button"><b>Editor de video</b><span>Empezar un proyecto nuevo</span></button>
-    <button class="hcard" id="hDirector" type="button"><b>Director</b><span>Lista de tomas y guion</span></button>
-    <button class="hcard" disabled type="button"><b>Transmisión en vivo</b><span>pronto</span></button>
-    <button class="hcard" disabled type="button"><b>Plantillas</b><span>pronto</span></button>
+    <button class="hcard main" id="hEditor" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/></svg></i><b>Nuevo proyecto</b><span>Editor de video</span></button>
+    <button class="hcard" id="hDirector" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 1.6 1.6.7-1.6.7L19 20l-.7-1.6-1.6-.7 1.6-.7z"/></svg></i><b>Director IA</b><span>Lista de tomas y guion</span></button>
+    <button class="hcard" id="hCapture" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-3h4l1.5 3"/></svg></i><b>Capturar</b><span>Teléfono o Ray-Ban Meta</span></button>
+    <button class="hcard live" id="hLive" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></i><b>LIVE</b><span>Transmitir en vivo</span></button>
+    <button class="hcard" id="hChat" type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg></i><b>Chat IA</b><span>Pide cambios al editor</span></button>
+    <button class="hcard" disabled type="button"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5zM3 13l9 5 9-5"/></svg></i><b>Plantillas</b><span>pronto</span></button>
   </div>
-  <h2>Mis proyectos</h2><div id="hList"><p class="m">Cargando…</p></div>
-  <button id="hSet" class="hgear" type="button" aria-label="Ajustes">⚙</button>
-</div></div>
+  <h2 id="hRecent">Proyectos recientes</h2><div id="hList"><p class="m">Cargando…</p></div>
+</div>
+<nav class="htabs" aria-label="Secciones"><button type="button" aria-current="page" id="tHome"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>Inicio</button><button type="button" id="tProj"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 2h9v11H3z"/></svg>Proyectos</button><button type="button" class="plus" id="tNew" aria-label="Nuevo proyecto"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i></button><button type="button" id="tLive"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>LIVE</button><button type="button" id="tAI"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 1.6 1.6.7-1.6.7L19 20l-.7-1.6-1.6-.7 1.6-.7z"/></svg>IA</button></nav></div>
 <div class="sheet" id="sSettings" style="z-index:60;max-height:86dvh;overflow-y:auto"><h2>Ajustes</h2>
   <h3>Idioma de la app</h3><div class="chips" id="setLangs"></div>
   <h3>Pantalla</h3><p class="m"><button id="hScreen" type="button" class="btn sec" style="width:auto;padding:8px 14px">Ajustar pantalla</button></p>
@@ -253,6 +322,22 @@ body.dock .back{pointer-events:none;background:transparent}
   <h3>Acerca de</h3><p class="m">Wivra es una app en construcción (versión de prueba). Efectos y filtros: fórmulas propias. Las traducciones de la interfaz son automáticas y aún pueden tener errores.</p>
 </div>
 <div id="sLang" style="display:none;position:fixed;inset:0;z-index:70;background:var(--bg);overflow-y:auto"><div style="max-width:560px;margin:0 auto;padding:calc(40px + env(safe-area-inset-top)) 16px 40px"><h1 data-notr>Wivra</h1><h2 data-notr>🌐 Idioma · Language · Langue · Sprache · 言語 · 语言</h2><div id="langList" data-notr></div></div></div>
+<div id="sOnb" role="dialog" aria-modal="true" aria-labelledby="onbT1"><div class="oin">
+  <button class="oskip" id="onbSkip" type="button">Omitir</button>
+  <div class="oslide on"><h1 id="onbT1">Todo tu contenido en una sola app</h1><div class="ohero"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/></svg></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.2 8.2 20 20M8.2 15.8 20 4"/></svg></i><span>Edita con línea de tiempo<small>Cortes, capas, textos, filtros y audio</small></span></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-3h4l1.5 3"/></svg></i><span>Captura con el teléfono o Ray-Ban Meta<small>Una o dos cámaras a la vez</small></span></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></i><span>Transmite en vivo (LIVE)<small>Con escenas y una copia guardada en el teléfono</small></span></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 1.6 1.6.7-1.6.7L19 20l-.7-1.6-1.6-.7 1.6-.7z"/></svg></i><span>Crea con el Director IA<small>Guiones, ideas y ediciones</small></span></div></div>
+  <div class="oslide"><h1>Tus videos se quedan en tu teléfono</h1><div class="ohero"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></i><span>Nada se sube a internet sin que lo pidas<small>Solo el LIVE o tu IA envían algo, y siempre se avisa</small></span></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></i><span>La clave de tu LIVE no se guarda<small>Se usa solo mientras transmites</small></span></div></div>
+  <div class="oslide"><h1>La IA propone, tú decides</h1><div class="ohero"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 1.6 1.6.7-1.6.7L19 20l-.7-1.6-1.6-.7 1.6-.7z"/></svg></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17l9-10"/></svg></i><span>Ves el cambio antes de aplicarlo<small>Nada cambia hasta que tocas Aplicar</small></span></div>
+    <div class="orow"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12"/></svg></i><span>Todo se puede deshacer<small>Con la flecha de deshacer del editor</small></span></div></div>
+  <div class="odots" aria-hidden="true"><b class="on"></b><b></b><b></b></div>
+  <button class="btn" id="onbNext" type="button">Siguiente</button>
+</div></div>
 <div class="sheet" id="sScreen" style="z-index:60"><h2>Ajustar pantalla</h2>
   <p class="m">Si el navegador tapa la barra de arriba o queda espacio vacío abajo, prueba esto. Se guarda en este teléfono.</p>
   <div class="frow" style="align-items:center"><span class="m" style="flex:1;margin:0">Bajar el contenido desde arriba: <b id="scrTop">0</b> px</span><button class="btn sec" id="scrTopMinus" type="button">−</button><button class="btn sec" id="scrTopPlus" type="button">+</button></div>
@@ -1265,11 +1350,12 @@ async function importCapture(files) {
     if (first) useAsset(assets[videoFile].id, 0);
     thumbQueue = thumbQueue.then(() => makeThumbs(assets[videoFile].id));
     const na = (session.project.audioClips || []).length;
-    $('info').textContent = `${session.project.clips.length} clip(s) · ${na} pista(s) de audio · ${fmt(totalDuration(session.project))} s`;
+    { const n = session.project.clips.length; $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total` + (na ? ` · ${na} audio${na > 1 ? 's' : ''} aparte` : ''); }
     // Primero la causa (por qué no se pudo abrir o separar un archivo) y después lo que se omitió: el aviso corto de pantalla se corta a ~160 caracteres y lo que importa es el porqué.
     // «canal independiente sin extraer» ya lo dice el aviso «canal N no separado», así que no se repite.
     const all = [...notes, ...failed.filter(x => !/^falta /.test(x)), ...out.warnings, ...out.skipped.filter(x => x.reason !== 'canal independiente sin extraer').map(x => `no se importó ${x.file}: ${x.reason}`)];
-    say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), all.length ? 'bad' : 'ok');
+    const warn = all.filter(x => !/^Captura de dos cámaras:/.test(x));   // W79: la nota de dos cámaras es una buena noticia, no un aviso
+    say('Captura importada.' + (all.length ? '\n• ' + all.join('\n• ') : ''), warn.length ? 'bad' : 'ok');
   } catch (e) { say('No se pudo importar la captura: ' + (e && e.message || e), 'bad'); }
   finally {
     if (stagedAssetIDs.length) {
@@ -3052,7 +3138,7 @@ new MutationObserver((recs) => {
   const saved = i18nSaved();
   mk($('setLangs'), (id) => i18nApply(id), saved || 'es');
   if (saved) i18nApply(saved);
-  else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; }, det); $('sLang').style.display = 'block'; }
+  else if (location.hash === '') { const det = i18nDetect(navigator.language); mk($('langList'), (id) => { i18nApply(id); $('sLang').style.display = 'none'; onbShow(); }, det); $('sLang').style.display = 'block'; }
   $('hSet').onclick = async () => {
     $('sSettings').classList.add('on'); $('setSpace').textContent = '…';
     try { const e = await navigator.storage.estimate(); $('setSpace').textContent = (e.usage / 1048576 < 10 ? (e.usage / 1048576).toFixed(1) : Math.round(e.usage / 1048576)) + ' MB'; } catch { $('setSpace').textContent = '—'; }
@@ -3063,6 +3149,31 @@ new MutationObserver((recs) => {
 function pzGoHome() { pzReady = false; try { location.assign(location.href.split('#')[0]); } catch { location.hash = ''; } }
 $('hEditor').onclick = () => { location.hash = '#new'; };
 $('hDirector').onclick = () => { location.hash = '#new-director'; };
+// W79 (Claude): portada nueva. Capturar y LIVE son pantallas nativas del teléfono: el editor solo las pide si la app lo permite.
+function homeOpenNative(what) {
+  const h = window.WivraHost;
+  if (h && typeof h.openNative === 'function') { try { h.openNative(what); return; } catch {} }
+  say(what === 'live' ? 'LIVE se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android.' : 'Capturar se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android.');
+}
+$('hCapture').onclick = () => homeOpenNative('capture');
+$('hLive').onclick = () => homeOpenNative('live');
+$('hChat').onclick = () => { location.hash = '#new-ai'; };
+$('tHome').onclick = () => { $('home').scrollTo({ top: 0, behavior: 'smooth' }); };
+$('tProj').onclick = () => { $('hRecent').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+$('tNew').onclick = () => $('hEditor').click();
+$('tLive').onclick = () => $('hLive').click();
+$('tAI').onclick = () => $('hChat').click();
+// Bienvenida: 3 pasos, solo la primera vez (después de elegir idioma). Omitir siempre disponible.
+let onbStep = 0;
+function onbGo(n) {
+  onbStep = n; const sl = $('sOnb').querySelectorAll('.oslide'), dots = $('sOnb').querySelectorAll('.odots b');
+  sl.forEach((x, i) => x.classList.toggle('on', i === n)); dots.forEach((x, i) => x.classList.toggle('on', i === n));
+  $('onbNext').textContent = i18nTr(n === sl.length - 1 ? 'Comenzar' : 'Siguiente');
+}
+function onbDone() { $('sOnb').style.display = 'none'; try { localStorage.setItem('wivra.onboarded', '1'); } catch {} }
+function onbShow() { try { if (localStorage.getItem('wivra.onboarded')) return; } catch {} onbGo(0); $('sOnb').style.display = 'block'; }
+$('onbNext').onclick = () => { if (onbStep >= $('sOnb').querySelectorAll('.oslide').length - 1) onbDone(); else onbGo(onbStep + 1); };
+$('onbSkip').onclick = onbDone;
 $('bHome').onclick = () => { if (!session) { pzGoHome(); return; } $('pzName').value = pzName; $('exitDiscard').textContent = pzBase ? 'Descartar cambios de esta sesión' : 'Descartar este proyecto'; $('exitDelete').style.display = pzBase ? '' : 'none'; openSheet('sExit'); };
 $('exitStay').onclick = () => closeSheets();
 $('exitSave').onclick = async () => { const n = $('pzName').value.trim(); if (n) pzName = n.slice(0, 60); try { await Promise.race([pzFlush(), pzSleep(6000)]); } catch {} pzReady = false; pzGoHome(); };
@@ -3105,8 +3216,9 @@ $('missDone').onclick = () => closeSheets();
   $('home').style.display = 'none';
   try { pzDb = await pzOpen(); await pzMigrateLegacy(pzDb); } catch {}
   if (pid) { pzPid = pid; await pzRestore(pid); return; }
-  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director
+  pzPid = newProjectId(); pzName = defaultName(); pzReady = true;      // #new / #new-director / #new-ai
   if (h === '#new-director') { refreshDirectorAssets(); openSheet('sDirector'); }
+  if (h === '#new-ai') openSheet('sAI');
 })();
 
 loadShootPlan();
