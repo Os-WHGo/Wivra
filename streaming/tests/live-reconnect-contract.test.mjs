@@ -31,7 +31,7 @@ test('Android retries with the URL RootEncoder holds, keeping the local copy', (
   const retry = phone.slice(phone.indexOf('override fun onConnectionFailed'), phone.indexOf('override fun onDisconnect'));
   const branch = retry.slice(0, retry.indexOf('liveRequested = false'));
   assert.doesNotMatch(branch, /stopRecord|stopAndReview|stopStream/, 'a retry never closes the MP4 copy');
-  assert.match(branch, /La copia MP4 local sigue grabando/);
+  assert.match(branch, /R\.string\.plive_reconnect_with_copy/);
   // Rejected keys still end without retry.
   const auth = phone.slice(phone.indexOf('override fun onAuthError'), phone.indexOf('override fun onAuthSuccess'));
   assert.doesNotMatch(auth, /reTry/);

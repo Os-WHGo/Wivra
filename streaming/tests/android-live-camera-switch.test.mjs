@@ -22,7 +22,7 @@ test('camera flip is an explicit user action with guarded SDK failure',()=>{
   assert.match(fn,/val source = cameraVideoSource \?: return/);
   assert.match(fn,/try \{[\s\S]*?source\.switchCamera\(\)/);
   assert.match(fn,/catch \(_:\s*Exception\)/);
-  assert.match(fn,/Comprueba la vista previa antes de transmitir/);
+  assert.match(fn,/R\.string\.plive_camera_selected_preview/);
 });
 test('switch UI is locked while encoder prepares or app shuts down',()=>{
   assert.match(live,/flipCameraButton\.isEnabled = false/);
