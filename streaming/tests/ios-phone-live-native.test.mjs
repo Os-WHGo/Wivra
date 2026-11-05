@@ -33,9 +33,9 @@ test('single native iPhone LIVE entry requires exclusive camera ownership',()=>{
 test('RTMP endpoint and public consent are validated before attempting publish, with no secret persistence',()=>{
   assert.match(source,/WivraIOSLiveEndpoint\.parse\(rawEndpoint\)/);
   assert.match(source,/\.confirmationDialog\(/);
-  assert.match(source,/Button\("INICIAR LIVE"\)/);
+  assert.match(source,/Button\(wivraLiveText\("ios\.plive\.start"\)\)/);
   assert.match(source,/destination = ""/);
-  assert.match(source,/SecureField\("rtmps:\/\/servidor\/live\/clave"/);
+  assert.match(source,/SecureField\(wivraLiveText\("ios\.plive\.endpoint_placeholder"\)/);
   assert.match(source,/try await liveConnection\.connect\(endpoint\.serverURL\)/);
   assert.match(source,/try await liveStream\.publish\(endpoint\.streamKey\)/);
   assert.match(source,/generation == current, phase == \.connecting/);
@@ -59,12 +59,12 @@ test('optional iPhone mic and local video-only MP4 have distinct privacy and val
   assert.match(source,/unverifiedVideoURL = result/);
   assert.match(source,/ShareLink\(item: file\)/);
   assert.match(source,/try await WivraPhotosLibrary\.saveVideo\(file\)/);
-  assert.match(source,/no se publicará automáticamente/i);
+  assert.match(source,/ios\.plive\.unverified_note/);
   assert.match(source,/func reviewSavedVideos\(\) async/);
   assert.match(source,/FileManager\.default\.contentsOfDirectory/);
   assert.match(source,/values\.isRegularFile == true, values\.isSymbolicLink == false/);
   assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*file, in: folder, requireAudio: expectation == \.required\)/);
-  assert.match(source,/Button\("Revisar copias locales de LIVE"\)/);
+  assert.match(source,/Button\(wivraLiveText\("ios\.plive\.review_button"\)\)/);
   assert.match(source,/ForEach\(controller\.savedVideos, id:/);
   assert.doesNotMatch(source,/try\? FileManager\.default\.removeItem\(at: file\)/);
 });
@@ -75,8 +75,8 @@ test('leaving foreground closes stream and stops native camera; real VOD still r
   assert.match(source,/try\? await localStream\.close\(\)/);
   assert.match(source,/try\? await localConnection\.close\(\)/);
   assert.match(source,/localMixer\.stopRunning\(\)/);
-  assert.match(source,/Button\("DETENER LIVE"\)/);
-  assert.match(source,/VOD remoto/);
+  assert.match(source,/Button\(wivraLiveText\("ios\.plive\.stop_button"\)\)/);
+  assert.match(source,/ios\.plive\.stopped_no_copy/);
 });
 
 
@@ -84,7 +84,7 @@ test('PR #159 iPhone camera choice is ported onto the newest MP4/recovery publis
   assert.match(source, /func prepareCamera\(microphone: Bool, frontCamera: Bool\) async/);
   assert.match(source, /let position: AVCaptureDevice\.Position = frontCamera \? \.front : \.back/);
   assert.match(source, /for: \.video, position: position/);
-  assert.match(source, /Toggle\("Usar cámara frontal", isOn: \$frontCamera\)/);
+  assert.match(source, /Toggle\(wivraLiveText\("ios\.plive\.front_camera"\), isOn: \$frontCamera\)/);
   assert.match(source, /accessibilityIdentifier\("wivra_ios_live_front_camera"\)/);
   assert.match(source, /Task \{ await controller\.prepareCamera\(microphone: includeMicrophone,\s*frontCamera: frontCamera\) \}/);
   assert.match(source, /\.disabled\(controller\.phase != \.idle\)/);
@@ -104,7 +104,7 @@ test('long iPhone LIVE copy protects disk and preserves private MP4 under low st
   assert.match(source, /size\[\.systemFreeSize\] as\? NSNumber/);
   assert.match(source, /storageMonitor = Task \{ \[weak self\] in/);
   assert.match(source, /Task\.sleep\(nanoseconds: 10_000_000_000\)/);
-  assert.match(source, /self\.status = "Espacio crítico\./);
+  assert.match(source, /self\.status = wivraLiveText\("ios\.plive\.storage_critical"\)/);
   assert.match(source, /await self\.stop\(\)/);
   assert.match(source, /storageMonitor\?\.cancel\(\)/);
   assert.match(source,/WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
@@ -113,7 +113,7 @@ test('long iPhone LIVE copy protects disk and preserves private MP4 under low st
 test('iPhone LIVE requires actual audio samples from the same verified MP4',()=>{
   assert.match(source,/var selectedAudioInput: AVCaptureDevice\?/);
   assert.match(source,/guard let input = AVCaptureDevice\.default\(for: \.audio\) else/);
-  assert.match(source,/No hay entrada de micrófono disponible/);
+  assert.match(source,/ios\.plive\.no_mic_input/);
   assert.ok(source.indexOf('guard let input = AVCaptureDevice.default(for: .audio)')
     < source.indexOf('try await capture.attachVideo(camera)'));
   assert.match(source,/verifiedMedia = await WivraCaptureMediaVerifier\.verifyFile\(\s*result, in: folder, requireAudio: includesMicrophone\)/);
@@ -136,7 +136,7 @@ test('iPhone LIVE crash recovery validates persisted microphone intent, not just
   assert.match(source,/if expectation == \.unknown \{ uncertainAudio\.insert\(file\) \}/);
   assert.match(source,/audioUncertainVideos = uncertainAudio/);
   assert.match(source,/controller\.audioUncertainVideos\.contains\(file\)/);
-  assert.match(source,/Audio no confirmado: grabación anterior o registro incompleto/);
+  assert.match(source,/ios\.plive\.audio_uncertain/);
   assert.match(liveReceipt,/audioRequired: Bool/);
   assert.match(liveReceipt,/schemaVersion: 1/);
   assert.match(liveReceipt,/\.write\(to: temporary, options: \[\.atomic\]\)/);

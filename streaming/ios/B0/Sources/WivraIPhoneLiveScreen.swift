@@ -6,6 +6,12 @@ import Observation
 import RTMPHaishinKit
 import SwiftUI
 
+/// W78 (Claude): every user text of this screen comes from Localizable.strings
+/// (8 languages). Keys are ios.plive.*; the stream key is never a resource.
+fileprivate func wivraLiveText(_ key: String) -> String {
+    NSLocalizedString(key, comment: "")
+}
+
 @MainActor @Observable
 final class WivraIPhoneLiveController {
     enum Phase: String {
@@ -13,7 +19,7 @@ final class WivraIPhoneLiveController {
     }
 
     private(set) var phase: Phase = .idle
-    private(set) var status = "LIVE detenido. No se está emitiendo."
+    private(set) var status = wivraLiveText("ios.plive.status_idle")
     private(set) var verifiedVideoURL: URL?
     private(set) var unverifiedVideoURL: URL?
     private(set) var savedVideos: [URL] = []
@@ -45,11 +51,11 @@ final class WivraIPhoneLiveController {
         phase = .preparing
         let current = UUID()
         generation = current
-        status = "Solicitando cámara y preparando vista previa…"
+        status = wivraLiveText("ios.plive.status_requesting")
         let allowed = await AVCaptureDevice.requestAccess(for: .video)
         guard generation == current else { return }
         guard allowed else {
-            status = "Se necesita permiso de cámara para LIVE."
+            status = wivraLiveText("ios.plive.camera_permission")
             phase = .idle
             return
         }
@@ -57,7 +63,7 @@ final class WivraIPhoneLiveController {
             let allowedAudio = await AVCaptureDevice.requestAccess(for: .audio)
             guard generation == current else { return }
             guard allowedAudio else {
-                status = "Micrófono denegado. Desactiva audio para emitir solo video."
+                status = wivraLiveText("ios.plive.mic_denied")
                 phase = .idle
                 return
             }
@@ -76,7 +82,7 @@ final class WivraIPhoneLiveController {
             let position: AVCaptureDevice.Position = frontCamera ? .front : .back
             guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera,
                                                        for: .video, position: position) else {
-                status = "La cámara elegida no está disponible."
+                status = wivraLiveText("ios.plive.camera_unavailable")
                 if microphone {
                     try? AVAudioSession.sharedInstance().setActive(false,
                         options: .notifyOthersOnDeactivation)
@@ -89,7 +95,7 @@ final class WivraIPhoneLiveController {
             var selectedAudioInput: AVCaptureDevice?
             if microphone {
                 guard let input = AVCaptureDevice.default(for: .audio) else {
-                    status = "No hay entrada de micrófono disponible. Desactiva audio para grabar solo video."
+                    status = wivraLiveText("ios.plive.no_mic_input")
                     try? AVAudioSession.sharedInstance().setActive(false,
                         options: .notifyOthersOnDeactivation)
                     phase = .idle
@@ -112,7 +118,7 @@ final class WivraIPhoneLiveController {
             if let scenes, scenes.enabled { await scenes.attach(to: capture) }
             if let preview { await capture.addOutput(preview) }
             phase = .ready
-            status = "Cámara preparada. Ningún video se ha transmitido."
+            status = wivraLiveText("ios.plive.camera_ready")
         } catch {
             await capture.stopRunning()
             if microphone {
@@ -120,14 +126,14 @@ final class WivraIPhoneLiveController {
                     options: .notifyOthersOnDeactivation)
             }
             phase = .idle
-            status = "No se pudo preparar cámara o audio. Revisa permisos."
+            status = wivraLiveText("ios.plive.prepare_failed")
         }
     }
 
     func startConfirmed(rawEndpoint: String, saveLocalCopy: Bool) async {
         guard phase == .ready, let mixer else { return }
         guard let endpoint = WivraIOSLiveEndpoint.parse(rawEndpoint) else {
-            status = "Dirección RTMP/RTMPS inválida. No se transmitió."
+            status = wivraLiveText("ios.plive.endpoint_invalid")
             return
         }
         // The caller MUST show a second, explicit public-emission confirmation.
@@ -136,7 +142,7 @@ final class WivraIPhoneLiveController {
         generation = current
         verifiedVideoURL = nil
         unverifiedVideoURL = nil
-        status = "Preparando emisión y copia local…"
+        status = wivraLiveText("ios.plive.preparing")
         let liveConnection = RTMPConnection()
         let liveStream = RTMPStream(connection: liveConnection)
         connection = liveConnection
@@ -149,7 +155,7 @@ final class WivraIPhoneLiveController {
             // Keep enough room for the MP4 index, filesystem journal and UI.
             // A completed local archive is never silently replaced by LIVE-only.
             guard hasRecordingReserve() else {
-                status = "Espacio insuficiente para MP4 local: libera al menos 256 MiB."
+                status = wivraLiveText("ios.plive.storage_low")
                 await stop()
                 return
             }
@@ -179,7 +185,7 @@ final class WivraIPhoneLiveController {
             } catch {
                 // A requested archive is a precondition to network LIVE, not
                 // a best-effort checkbox that can silently fail.
-                status = "No se pudo iniciar la copia MP4. No se emitirá LIVE."
+                status = wivraLiveText("ios.plive.copy_failed")
                 await stop()
                 return
             }
@@ -203,7 +209,7 @@ final class WivraIPhoneLiveController {
                         guard let self, !Task.isCancelled else { return }
                         guard self.phase == .live else { return }
                         guard self.hasRecordingReserve() else {
-                            self.status = "Espacio crítico. Deteniendo LIVE para proteger la copia privada."
+                            self.status = wivraLiveText("ios.plive.storage_critical")
                             await self.stop()
                             return
                         }
@@ -211,13 +217,13 @@ final class WivraIPhoneLiveController {
                 }
             }
             status = saveLocalCopy
-                ? "LIVE activo. MP4 privado en grabación."
-                : "LIVE activo sin copia local. Verifica el VOD de tu plataforma."
+                ? wivraLiveText("ios.plive.on_air_copy")
+                : wivraLiveText("ios.plive.on_air_no_copy")
             onAir = true
             watchConnection(endpoint, liveConnection, liveStream, current, saveLocalCopy)
         } catch {
             // Do not print errors: servers can echo stream keys in their response.
-            status = "No se pudo establecer LIVE. Cerrando la copia privada."
+            status = wivraLiveText("ios.plive.connect_failed")
             await stop()
         }
     }
@@ -231,7 +237,7 @@ final class WivraIPhoneLiveController {
         connectionWatcher = nil
         onAir = false
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
-        status = "Cerrando LIVE y verificando archivos…"
+        status = wivraLiveText("ios.plive.closing")
         await scenes?.detach()
         let localStream = stream
         let localConnection = connection
@@ -284,10 +290,10 @@ final class WivraIPhoneLiveController {
         includesMicrophone = false
         phase = .idle
         status = verifiedVideoURL != nil
-            ? "LIVE detenido. Copia MP4 verificada y disponible para compartir."
+            ? wivraLiveText("ios.plive.stopped_verified")
             : (unverifiedVideoURL != nil
-                ? "LIVE detenido. MP4 no verificado: archivo privado retenido para recuperación."
-                : "LIVE detenido. Sin copia local. Comprueba el VOD remoto.")
+                ? wivraLiveText("ios.plive.stopped_unverified")
+                : wivraLiveText("ios.plive.stopped_no_copy"))
     }
 
     // Re-discover verified clips after app relaunch, without automatic Photos
@@ -300,7 +306,7 @@ final class WivraIPhoneLiveController {
               let urls = try? FileManager.default.contentsOfDirectory(
                 at: folder, includingPropertiesForKeys: [.isRegularFileKey,
                 .isSymbolicLinkKey, .fileSizeKey], options: [.skipsHiddenFiles]) else {
-            status = "No se pudo abrir el catálogo privado de LIVE."
+            status = wivraLiveText("ios.plive.catalog_failed")
             return
         }
         var approved: [URL] = []
@@ -320,7 +326,7 @@ final class WivraIPhoneLiveController {
         }
         savedVideos = approved.sorted { $0.lastPathComponent > $1.lastPathComponent }
         audioUncertainVideos = uncertainAudio
-        status = "Copias MP4 verificadas: \(savedVideos.count). Audio no confirmado en \(uncertainAudio.count). Las demás permanecen privadas."
+        status = String(format: wivraLiveText("ios.plive.review_result"), savedVideos.count, uncertainAudio.count)
     }
 
     /// A dropped connection used to leave "LIVE activo" on screen with nothing
@@ -332,7 +338,6 @@ final class WivraIPhoneLiveController {
         connectionWatcher?.cancel()
         connectionWatcher = Task { [weak self] in
             var policy = WivraLiveReconnectPolicy()
-            let copyNote = saveLocalCopy ? " La copia MP4 privada sigue grabando." : ""
             for await event in await connection.status {
                 guard let self, !Task.isCancelled, self.generation == session, self.phase == .live else { return }
                 switch WivraLiveReconnectPolicy.classify(event.code) {
@@ -343,7 +348,7 @@ final class WivraIPhoneLiveController {
                     self.onAir = true
                 case .neverRetry:
                     self.onAir = false
-                    self.status = "El servidor rechazó el LIVE. No se reintenta." + copyNote + " Pulsa Cerrar para terminar."
+                    self.status = wivraLiveText(saveLocalCopy ? "ios.plive.rejected_copy" : "ios.plive.rejected")
                     return
                 case .retry:
                     // Stale events from earlier attempts are ignored once reconnected.
@@ -351,8 +356,8 @@ final class WivraIPhoneLiveController {
                     self.onAir = false
                     var back = false
                     while let delay = policy.nextDelaySeconds() {
-                        self.status = "Conexión LIVE perdida. Reintento \(policy.attempt) de " +
-                            "\(WivraLiveReconnectPolicy.delaysSeconds.count) en \(delay) s." + copyNote
+                        self.status = String(format: wivraLiveText(saveLocalCopy ? "ios.plive.reconnect_copy" : "ios.plive.reconnect"),
+                                             policy.attempt, WivraLiveReconnectPolicy.delaysSeconds.count, delay)
                         try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
                         guard !Task.isCancelled, self.generation == session, self.phase == .live else { return }
                         do {
@@ -360,7 +365,7 @@ final class WivraIPhoneLiveController {
                             _ = try await liveStream.publish(endpoint.streamKey)
                             policy.connected()
                             self.onAir = true
-                            self.status = "LIVE reconectado." + (saveLocalCopy ? " La copia MP4 no se interrumpió." : "")
+                            self.status = wivraLiveText(saveLocalCopy ? "ios.plive.reconnected_copy" : "ios.plive.reconnected")
                             back = true
                             break
                         } catch {
@@ -369,7 +374,7 @@ final class WivraIPhoneLiveController {
                         }
                     }
                     if !back {
-                        self.status = "No se pudo recuperar el LIVE tras varios intentos." + copyNote + " Pulsa Cerrar para terminar."
+                        self.status = wivraLiveText(saveLocalCopy ? "ios.plive.gave_up_copy" : "ios.plive.gave_up")
                         return
                     }
                 }
@@ -418,16 +423,16 @@ struct WivraIPhoneLiveScreen: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Wivra LIVE · cámara iPhone") {
-                    Text("Cámara frontal o trasera del iPhone. No transmite Ray-Ban ni pantalla.")
-                    Toggle("Usar cámara frontal", isOn: $frontCamera)
+                Section(wivraLiveText("ios.plive.section_camera")) {
+                    Text(wivraLiveText("ios.plive.camera_note"))
+                    Toggle(wivraLiveText("ios.plive.front_camera"), isOn: $frontCamera)
                         .disabled(controller.phase != .idle)
                         .accessibilityIdentifier("wivra_ios_live_front_camera")
-                    Toggle("Micrófono del iPhone (opcional)", isOn: $includeMicrophone)
+                    Toggle(wivraLiveText("ios.plive.microphone"), isOn: $includeMicrophone)
                         .disabled(controller.phase != .idle)
-                    Toggle("Guardar copia MP4 local (recomendado)", isOn: $archiveVideo)
+                    Toggle(wivraLiveText("ios.plive.save_copy"), isOn: $archiveVideo)
                         .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
-                    Button("Preparar cámara") {
+                    Button(wivraLiveText("ios.plive.prepare")) {
                         Task { await controller.prepareCamera(microphone: includeMicrophone,
                                                               frontCamera: frontCamera) }
                     }.disabled(!controller.canPrepare)
@@ -435,33 +440,33 @@ struct WivraIPhoneLiveScreen: View {
                 WivraLiveScenePanel(scenes: scenes,
                                     isLive: controller.phase == .connecting || controller.phase == .live,
                                     canToggle: controller.phase == .idle)
-                Section("Destino RTMP/RTMPS") {
-                    SecureField("rtmps://servidor/live/clave", text: $destination)
+                Section(wivraLiveText("ios.plive.section_destination")) {
+                    SecureField(wivraLiveText("ios.plive.endpoint_placeholder"), text: $destination)
                         .textContentType(.password)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
-                    Text("La clave no se guarda. Si desactivas MP4, el video dependerá del VOD de la plataforma.")
+                    Text(wivraLiveText("ios.plive.key_note"))
                         .font(.caption)
-                    Button("Confirmar emisión pública") { confirmPublication = true }
+                    Button(wivraLiveText("ios.plive.confirm_button")) { confirmPublication = true }
                         .disabled(!controller.canStart || WivraIOSLiveEndpoint.parse(destination) == nil)
-                    Button("DETENER LIVE") {
+                    Button(wivraLiveText("ios.plive.stop_button")) {
                         Task { await controller.stop() }
                     }.disabled(controller.phase == .idle || controller.phase == .stopping)
                 }
-                Section("Estado") {
-                    Button("Revisar copias locales de LIVE") {
+                Section(wivraLiveText("ios.plive.section_status")) {
+                    Button(wivraLiveText("ios.plive.review_button")) {
                         Task { await controller.reviewSavedVideos() }
                     }.disabled(controller.isActive || controller.isReviewingSavedVideos)
                     if controller.isReviewingSavedVideos {
-                        ProgressView("Comprobando MP4 privados…")
+                        ProgressView(wivraLiveText("ios.plive.checking"))
                     }
                     ForEach(controller.savedVideos, id: \.self) { file in
                         ShareLink(item: file) {
-                            Label("Compartir MP4 recuperado", systemImage: "film.stack")
+                            Label(wivraLiveText("ios.plive.share_recovered"), systemImage: "film.stack")
                         }
                         if controller.audioUncertainVideos.contains(file) {
-                            Text("Audio no confirmado: grabación anterior o registro incompleto.")
+                            Text(wivraLiveText("ios.plive.audio_uncertain"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
@@ -477,30 +482,30 @@ struct WivraIPhoneLiveScreen: View {
                     Text(controller.status).accessibilityIdentifier("wivra_ios_live_status")
                     if let file = controller.verifiedVideoURL {
                         ShareLink(item: file) {
-                            Label("Compartir MP4 verificado", systemImage: "square.and.arrow.up")
+                            Label(wivraLiveText("ios.plive.share_verified"), systemImage: "square.and.arrow.up")
                         }
                         photosControls(for: file)
                     }
                     if controller.unverifiedVideoURL != nil {
-                        Text("Existe un archivo incompleto/no verificado. No se publicará automáticamente.")
+                        Text(wivraLiveText("ios.plive.unverified_note"))
                             .foregroundStyle(.orange)
                     }
                 }
             }
-            .navigationTitle("LIVE iPhone")
+            .navigationTitle(wivraLiveText("ios.plive.title"))
             .onAppear { controller.scenes = scenes }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cerrar") { Task { await controller.stop(); dismiss() } }
+                    Button(wivraLiveText("ios.plive.close")) { Task { await controller.stop(); dismiss() } }
                 }
             }
             .interactiveDismissDisabled(controller.isActive)
             .confirmationDialog(
-                "¿Iniciar emisión pública a la plataforma configurada?",
+                wivraLiveText("ios.plive.confirm_title"),
                 isPresented: $confirmPublication,
                 titleVisibility: .visible
             ) {
-                Button("INICIAR LIVE") {
+                Button(wivraLiveText("ios.plive.start")) {
                     let userApprovedEndpoint = destination
                     destination = ""
                     Task {
@@ -508,35 +513,35 @@ struct WivraIPhoneLiveScreen: View {
                                                         saveLocalCopy: archiveVideo)
                     }
                 }
-                Button("Cancelar", role: .cancel) {}
+                Button(wivraLiveText("ios.plive.cancel"), role: .cancel) {}
             } message: {
                 Text(archiveVideo
-                    ? "Wivra también intentará guardar MP4 privado. Comprueba el VOD de la plataforma."
-                    : "No se guardará MP4 local. El VOD remoto puede no existir.")
+                    ? wivraLiveText("ios.plive.confirm_with_copy")
+                    : wivraLiveText("ios.plive.confirm_without_copy"))
             }
             .confirmationDialog(
-                "¿Confirmas que este video no aparece en Fotos?",
+                wivraLiveText("ios.plive.photos_retry_title"),
                 isPresented: Binding(
                     get: { pendingPhotosRetry != nil },
                     set: { if !$0 { pendingPhotosRetry = nil } }
                 ),
                 titleVisibility: .visible
             ) {
-                Button("No aparece, permitir reintento", role: .destructive) {
+                Button(wivraLiveText("ios.plive.photos_not_present"), role: .destructive) {
                     if let file = pendingPhotosRetry {
                         resolvePhotos(for: file, present: false)
                     }
                     pendingPhotosRetry = nil
                 }
-                Button("Cancelar", role: .cancel) { pendingPhotosRetry = nil }
+                Button(wivraLiveText("ios.plive.cancel"), role: .cancel) { pendingPhotosRetry = nil }
             } message: {
-                Text("Comprueba primero que este video no existe en Fotos. Solo después se podrá intentar guardar otra vez; la copia local nunca se elimina.")
+                Text(wivraLiveText("ios.plive.photos_retry_message"))
             }
-            .alert("Fotos", isPresented: Binding(
+            .alert(wivraLiveText("ios.plive.photos_alert"), isPresented: Binding(
                 get: { photoMessage != nil },
                 set: { if !$0 { photoMessage = nil } }
             )) {
-                Button("OK") { photoMessage = nil }
+                Button(wivraLiveText("ios.plive.ok")) { photoMessage = nil }
             } message: { Text(photoMessage ?? "") }
             .onReceive(NotificationCenter.default.publisher(
                 for: UIApplication.didEnterBackgroundNotification
@@ -556,7 +561,7 @@ struct WivraIPhoneLiveScreen: View {
             // A corrupted journal must block retries rather than duplicate
             // a possibly committed Photos asset.
             photosReview.removeValue(forKey: file)
-            photoMessage = "No se pudo revisar el registro de Fotos; la copia privada sigue intacta."
+            photoMessage = wivraLiveText("ios.plive.photos_journal_failed")
         }
     }
 
@@ -568,9 +573,9 @@ struct WivraIPhoneLiveScreen: View {
             defer { savingPhotos = false }
             do {
                 try await WivraPhotosLibrary.saveVideo(file)
-                photoMessage = "Video guardado o confirmado en Fotos."
+                photoMessage = wivraLiveText("ios.plive.photos_saved")
             } catch {
-                photoMessage = "Guardado no confirmado. Revisa Fotos antes de cualquier reintento; el MP4 local se conserva."
+                photoMessage = wivraLiveText("ios.plive.photos_unconfirmed")
             }
             await refreshPhotosReview(for: file)
         }
@@ -585,13 +590,13 @@ struct WivraIPhoneLiveScreen: View {
             do {
                 if present {
                     try await WivraPhotosSaveJournal.shared.confirmManuallyPresent(for: file)
-                    photoMessage = "Video confirmado manualmente en Fotos."
+                    photoMessage = wivraLiveText("ios.plive.photos_manual_confirmed")
                 } else {
                     try await WivraPhotosSaveJournal.shared.authorizeRetryAfterManualAbsence(for: file)
-                    photoMessage = "Puedes reintentar guardar este video cuando quieras."
+                    photoMessage = wivraLiveText("ios.plive.photos_retry_allowed")
                 }
             } catch {
-                photoMessage = "No se pudo resolver el guardado. La copia privada permanece intacta."
+                photoMessage = wivraLiveText("ios.plive.photos_resolve_failed")
             }
             await refreshPhotosReview(for: file)
         }
@@ -603,23 +608,23 @@ struct WivraIPhoneLiveScreen: View {
             if let state = photosReview[file] {
                 switch state {
                 case .noRecord:
-                    Button("Guardar MP4 en Fotos") { savePhotos(file) }
+                    Button(wivraLiveText("ios.plive.photos_save")) { savePhotos(file) }
                         .disabled(savingPhotos)
                 case .confirmed:
-                    Text("Guardado confirmado en Fotos.")
+                    Text(wivraLiveText("ios.plive.photos_confirmed"))
                         .font(.caption).foregroundStyle(.secondary)
                 case .needsManualReview:
-                    Text("Guardado anterior sin confirmar. Revisa Fotos antes de decidir.")
+                    Text(wivraLiveText("ios.plive.photos_needs_review"))
                         .font(.caption).foregroundStyle(.orange)
-                    Button("Ya aparece en Fotos") {
+                    Button(wivraLiveText("ios.plive.photos_present")) {
                         resolvePhotos(for: file, present: true)
                     }.disabled(savingPhotos)
-                    Button("No aparece, permitir reintento", role: .destructive) {
+                    Button(wivraLiveText("ios.plive.photos_not_present"), role: .destructive) {
                         pendingPhotosRetry = file
                     }.disabled(savingPhotos)
                 }
             } else {
-                Text("Comprobando historial de Fotos…")
+                Text(wivraLiveText("ios.plive.photos_checking"))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

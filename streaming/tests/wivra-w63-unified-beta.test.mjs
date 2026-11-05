@@ -47,7 +47,7 @@ test('W63: optional iOS scenes do not override LIVE consent, recording intent or
   assert.match(receipt, /FileManager\.default\.linkItem\(at: temporary, to: receipt\)/);
   assert.match(live, /WivraPhotosSaveJournal\.shared\.reviewStatus\(for: file\)/);
   assert.match(journal, /inFlightHashes\.contains\(hash\)/);
-  assert.match(live, /Button\("INICIAR LIVE"\)/);
+  assert.match(live, /Button\(wivraLiveText\("ios\.plive\.start"\)\)/);
   assert.match(live, /generation == current, phase == \.connecting/);
 });
 

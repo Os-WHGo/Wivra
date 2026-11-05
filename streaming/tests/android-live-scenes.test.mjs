@@ -48,7 +48,7 @@ test('sources only before going live; nothing persisted or uploaded', () => {
 
 test('the existing LIVE safety rules are untouched', () => {
   assert.match(live, /endpointInput\.text\?\.clear\(\)/);
-  assert.match(live, /setTitle\("Confirmar emisión pública"\)/);
+  assert.match(live, /setTitle\(R\.string\.plive_confirm_title\)/);
   assert.match(live, /stopAndReview\(\)/);
 });
 

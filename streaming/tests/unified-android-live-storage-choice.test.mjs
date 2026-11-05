@@ -11,9 +11,9 @@ const live = readFileSync(
 
 test('LIVE has a deliberate opt-out for local MP4 with explicit VOD and storage warnings', () => {
   assert.match(live, /private lateinit var localCopyOption: CheckBox/);
-  assert.match(live, /"Guardar también una copia MP4 local \(opcional\)"/);
-  assert.match(live, /"LIVE largo: comprueba que tu plataforma conserve el VOD/);
-  assert.match(live, /"Solo transmitir: NO se guardará copia en Wivra/);
+  assert.match(live, /getString\(R\.string\.plive_copy_option\)/);
+  assert.match(live, /getString\(R\.string\.plive_long_live_hint\)/);
+  assert.match(live, /R\.string\.plive_confirm_without_copy/);
   assert.match(live, /startLive\(address, withAudio, saveCopy\)/);
   assert.match(live, /if \(saveCopy\) WivraPhoneMediaStore\.createPrivateVideo/);
   assert.match(live, /else null/);
@@ -61,8 +61,8 @@ test('finishing LIVE never pretends a remote-only session created a local MP4', 
   assert.match(finish, /else alreadyFinalized/);
   assert.match(finish, /file != null && muxerClosed -> reviewFile\(file\)/);
   assert.match(finish, /else -> setStatus\(/);
-  assert.match(finish, /No se creó copia local/);
-  assert.match(finish, /Verifica en la/);
+  assert.match(finish, /R\.string\.plive_stopped_no_copy/);
+  assert.match(finish, /R\.string\.plive_stopped_no_copy/);
   assert.doesNotMatch(finish, /WivraPhoneMediaStore\.publish/);
 });
 
@@ -72,11 +72,11 @@ test('media verification and public-stream confirmation remain mandatory', () =>
   assert.ok(ask);
   assert.match(ask, /check\(verifiedMp4\(file\)\)/);
   assert.match(ask, /WivraPhoneMediaStore\.publish/);
-  assert.match(ask, /setNeutralButton\("Después", null\)/);
-  assert.match(ask, /Confirmar borrado/);
-  assert.match(live, /setTitle\("Confirmar emisión pública"\)/);
-  assert.match(live, /setPositiveButton\("Iniciar LIVE"\)/);
+  assert.match(ask, /setNeutralButton\(R\.string\.plive_later, null\)/);
+  assert.match(ask, /R\.string\.plive_delete_confirm_title/);
+  assert.match(live, /setTitle\(R\.string\.plive_confirm_title\)/);
+  assert.match(live, /setPositiveButton\(R\.string\.plive_start\)/);
   assert.match(live, /onConnectionSuccess\(\)/);
   assert.match(live, /if \(saveLocalCopy\)/);
-  assert.match(live, /No hay copia local para recuperar/);
+  assert.match(live, /R\.string\.plive_auth_without_copy/);
 });

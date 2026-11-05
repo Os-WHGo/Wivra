@@ -59,7 +59,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
             private set
         @Volatile var streaming = false
             private set
-        @Volatile var statusMessage = "Pantalla LIVE desconectada."
+        @Volatile var statusMessage = ""  // empty = idle; the screen shows its localized text
             private set
 
         // The RTMP stream key and one-use MediaProjection consent stay
@@ -67,13 +67,13 @@ class WivraScreenLiveService : Service(), ConnectChecker {
         // savedInstanceState, notifications, manifest or editor WebView.
         fun offer(resultCode: Int, data: Intent, url: String,
                   withCamera: Boolean = false, frontCamera: Boolean = false,
-                  withMic: Boolean = false): Boolean =
+                  withMic: Boolean = false, receivedMessage: String = ""): Boolean =
             synchronized(lock) {
                 if (offered != null || active || !WivraLiveEndpoint.valid(url)) {
                     false
                 } else {
                     offered = Launch(resultCode, data, url, withCamera, frontCamera, withMic)
-                    statusMessage = "Permiso de pantalla recibido. Iniciando servicio visible."
+                    statusMessage = receivedMessage
                     true
                 }
             }
@@ -104,7 +104,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
     override fun onCreate() {
         super.onCreate()
         val channel = NotificationChannel(
-            CHANNEL, "Wivra LIVE pantalla", NotificationManager.IMPORTANCE_LOW
+            CHANNEL, getString(R.string.slive_channel), NotificationManager.IMPORTANCE_LOW
         )
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
             .createNotificationChannel(channel)
@@ -126,39 +126,48 @@ class WivraScreenLiveService : Service(), ConnectChecker {
         val current = scene
         val builder = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_camera)
-            .setContentTitle("Wivra · pantalla LIVE")
+            .setContentTitle(getString(R.string.slive_notif_title))
             .setContentText(when {
-                !streaming -> "Conectando transmisión de pantalla"
-                current?.mode == WivraScreenScene.Mode.CAMERA_ONLY -> "LIVE con la cámara (pantalla detenida)"
-                current?.mode == WivraScreenScene.Mode.SCREEN_CAMERA -> "Pantalla y cámara en LIVE"
-                else -> "Pantalla compartida en LIVE"
+                !streaming -> getString(R.string.slive_notif_connecting)
+                current?.mode == WivraScreenScene.Mode.CAMERA_ONLY -> getString(R.string.slive_notif_camera_only)
+                current?.mode == WivraScreenScene.Mode.SCREEN_CAMERA -> getString(R.string.slive_notif_screen_camera)
+                else -> getString(R.string.slive_notif_screen)
             })
             .setOngoing(true)
             .addAction(Notification.Action.Builder(
-                android.R.drawable.ic_media_pause, "Detener pantalla LIVE", stop
+                android.R.drawable.ic_media_pause, getString(R.string.slive_action_stop), stop
             ).build())
         // With a camera, the owner can stop ONLY the screen and keep the camera.
         if (current?.cameraWanted == true && current.screenActive) {
             builder.addAction(Notification.Action.Builder(
-                android.R.drawable.ic_menu_close_clear_cancel, "Dejar de compartir pantalla",
+                android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.slive_action_stop_screen),
                 serviceAction(ACTION_STOP_SCREEN, 702)
             ).build())
             builder.addAction(Notification.Action.Builder(
                 android.R.drawable.ic_menu_camera,
-                if (current.mode == WivraScreenScene.Mode.SCREEN_CAMERA) "Ocultar cámara" else "Mostrar cámara",
+                getString(if (current.mode == WivraScreenScene.Mode.SCREEN_CAMERA) R.string.slive_action_hide_camera else R.string.slive_action_show_camera),
                 serviceAction(ACTION_TOGGLE_CAMERA, 703)
             ).build())
         }
         return builder.build()
     }
 
+    private fun noticeText(n: WivraScreenScene.Notice): String = getString(when (n) {
+        WivraScreenScene.Notice.SCREEN_STOPPED_CAMERA_CONTINUES -> R.string.slive_notice_screen_stopped_camera
+        WivraScreenScene.Notice.SCREEN_STOPPED_ENDED -> R.string.slive_notice_screen_stopped_ended
+        WivraScreenScene.Notice.REVOKED_CAMERA_CONTINUES -> R.string.slive_notice_revoked_camera
+        WivraScreenScene.Notice.REVOKED_ENDED -> R.string.slive_revoked
+        WivraScreenScene.Notice.CAMERA_FAILED_SCREEN_CONTINUES -> R.string.slive_notice_camera_failed
+        WivraScreenScene.Notice.CAMERA_FAILED_ENDED -> R.string.slive_notice_camera_failed_ended
+    })
+
     private fun applyScene(next: WivraScreenScene.State) {
         scene = next
-        next.notice?.let { statusMessage = it }
+        next.notice?.let { statusMessage = noticeText(it) }
         cameraLayer?.place(WivraScreenScene.cameraLayer(next),
             backdropVisible = next.mode == WivraScreenScene.Mode.CAMERA_ONLY)
         if (next.mode == WivraScreenScene.Mode.ENDED) {
-            stopCapture(next.notice ?: "LIVE terminado.")
+            stopCapture(next.notice?.let { noticeText(it) } ?: getString(R.string.slive_ended))
         } else if (active) showNotification()
     }
 
@@ -170,7 +179,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopCapture("Pantalla LIVE detenida por el usuario.")
+                stopCapture(getString(R.string.slive_stopped_by_user))
                 return START_NOT_STICKY
             }
             ACTION_STOP_SCREEN -> {
@@ -200,7 +209,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
                 if (active || stopping) return START_NOT_STICKY
                 val request = claim()
                 if (request == null) {
-                    stopCapture("No hay permiso nuevo de pantalla: solicita autorización.")
+                    stopCapture(getString(R.string.slive_no_new_permission))
                     return START_NOT_STICKY
                 }
                 // Android 14+: startForeground(mediaProjection) MUST run
@@ -220,12 +229,11 @@ class WivraScreenLiveService : Service(), ConnectChecker {
                     startForeground(NOTIFICATION_ID, notification(), types)
                     beginProjection(request)
                 } catch (_: Exception) {
-                    stopCapture("No fue posible iniciar captura de pantalla. " +
-                        "Repite el permiso del sistema y comprueba el dispositivo.")
+                    stopCapture(getString(R.string.slive_capture_start_failed))
                 }
             }
             else -> {
-                stopCapture("Pantalla LIVE sin solicitud autorizada.")
+                stopCapture(getString(R.string.slive_unauthorized))
             }
         }
         // A system restart must NOT replay consent or reconnect to LIVE.
@@ -258,8 +266,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
                         projection = null
                         applyScene(WivraScreenScene.screenRevoked(current))
                     } else {
-                        stopCapture("Android canceló la captura de pantalla. " +
-                            "Para reanudar debes conceder un nuevo permiso.")
+                        stopCapture(getString(R.string.slive_revoked))
                     }
                 }
             }
@@ -285,7 +292,7 @@ class WivraScreenLiveService : Service(), ConnectChecker {
         )
         active = true
         streaming = false
-        statusMessage = "Conectando pantalla LIVE al servidor remoto…"
+        statusMessage = getString(R.string.slive_connecting)
         scene = WivraScreenScene.start(request.withCamera, request.frontCamera)
         showNotification()
         reconnect = WivraLiveReconnect()
@@ -329,27 +336,25 @@ class WivraScreenLiveService : Service(), ConnectChecker {
     }
 
     override fun onDestroy() {
-        if (!stopping) stopCapture("Pantalla LIVE finalizada por Android.")
+        if (!stopping) stopCapture(getString(R.string.slive_finished_by_android))
         super.onDestroy()
     }
 
     override fun onConnectionStarted(url: String) {
         // url includes the stream key. Never log/display/pass to UI.
-        statusMessage = "El servidor está verificando la conexión de pantalla."
+        statusMessage = getString(R.string.slive_server_verifying)
     }
     override fun onConnectionSuccess() {
         main.post {
             if (!active || stopping) return@post
             streaming = true
             reconnect.connected()
-            val sources = when (scene?.mode) {
-                WivraScreenScene.Mode.SCREEN_CAMERA -> "pantalla y cámara"
-                WivraScreenScene.Mode.CAMERA_ONLY -> "cámara"
-                else -> "pantalla compartida"
-            }
-            statusMessage = "EN VIVO · $sources (" +
-                (if (publisher?.audioSource is MicrophoneSource) "con micrófono" else "sin audio") +
-                ", sin MP4 local)."
+            val mic = publisher?.audioSource is MicrophoneSource
+            statusMessage = getString(when (scene?.mode) {
+                WivraScreenScene.Mode.SCREEN_CAMERA -> if (mic) R.string.slive_on_air_both_mic else R.string.slive_on_air_both
+                WivraScreenScene.Mode.CAMERA_ONLY -> if (mic) R.string.slive_on_air_camera_mic else R.string.slive_on_air_camera
+                else -> if (mic) R.string.slive_on_air_screen_mic else R.string.slive_on_air_screen
+            })
             showNotification()
         }
     }
@@ -360,23 +365,23 @@ class WivraScreenLiveService : Service(), ConnectChecker {
             val delay = reconnect.nextDelayMs()
             if (delay != null && runCatching { publisher?.getStreamClient()?.reTry(delay, reason) == true }.getOrDefault(false)) {
                 streaming = false
-                statusMessage = "Conexión perdida. Reintento ${reconnect.attempt} de " +
-                    "${WivraLiveReconnect.DELAYS_S.size} en ${delay / 1000} s."
+                statusMessage = getString(R.string.plive_reconnect, reconnect.attempt,
+                    WivraLiveReconnect.DELAYS_S.size, (delay / 1000).toInt())
                 showNotification()
                 return@post
             }
             stopCapture(
-            "No se pudo conectar LIVE. No existe copia local; revisa el VOD remoto.")
+            getString(R.string.slive_connect_failed))
         }
     }
     override fun onDisconnect() {
         main.post { if (!stopping) stopCapture(
-            "LIVE desconectado. La pantalla dejó de compartirse."
+            getString(R.string.slive_disconnected)
         ) }
     }
     override fun onAuthError() {
         main.post { if (!stopping) stopCapture(
-            "Clave de LIVE rechazada. La pantalla dejó de compartirse."
+            getString(R.string.slive_auth_rejected)
         ) }
     }
     override fun onAuthSuccess() { /* no credentials are surfaced */ }

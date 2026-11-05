@@ -31,9 +31,9 @@ test('one fresh Android MediaProjection consent controls each LIVE session',()=>
   assert.match(activity,/manager\.createScreenCaptureIntent\(\)/);
   assert.match(activity,/result\.resultCode != Activity\.RESULT_OK/);
   assert.match(activity,/WivraScreenLiveService\.offer\(result\.resultCode, permission, address,/);
-  assert.match(activity,/setTitle\("Confirmar LIVE público de pantalla"\)/);
-  assert.match(activity,/setPositiveButton\("Elegir pantalla"\)/);
-  assert.match(activity,/No se transmite la pantalla/);
+  assert.match(activity,/setTitle\(R\.string\.slive_confirm_title\)/);
+  assert.match(activity,/setPositiveButton\(R\.string\.slive_choose_screen\)/);
+  assert.match(activity,/R\.string\.slive_permission_cancelled/);
   assert.match(service,/val request = claim\(\)/);
   assert.match(service,/offered = null/);
   assert.match(service,/return START_NOT_STICKY/);
@@ -57,12 +57,12 @@ test('RootEncoder sends real screen video without camera, other-app audio or mic
 });
 test('projection revocation always ends screen sharing, no reuse or stealth background',()=>{
   assert.match(service,/override fun onStop\(\)/);
-  assert.match(service,/Android canceló la captura de pantalla/);
+  assert.match(service,/R\.string\.slive_revoked/);
   assert.match(service,/projection\?\.stop\(\)/);
   assert.match(service,/stream\.stopStream\(\)/);
   assert.match(service,/stopForeground\(STOP_FOREGROUND_REMOVE\)/);
   assert.match(service,/\.setOngoing\(true\)/);
-  assert.match(service,/Detener pantalla LIVE/);
+  assert.match(service,/R\.string\.slive_action_stop\b/);
   assert.match(service,/ACTION_STOP/);
   assert.match(activity,/setAction\(WivraScreenLiveService\.ACTION_STOP\)/);
   assert.match(activity,/onStop\(\)[\s\S]*?handler\.removeCallbacks\(statusPoller\)/);
@@ -79,7 +79,7 @@ test('credentials are memory-only and LIVE confirms actual ingest',()=>{
   assert.match(service,/onConnectionFailed\(reason: String\)/);
   assert.match(service,/if \(!active \|\| stopping\) return@post/);
   assert.match(service,/streaming = true/);
-  assert.match(service,/No existe copia local/);
+  assert.match(service,/R\.string\.slive_connect_failed/);
   assert.doesNotMatch(service,/SharedPreferences|println\(|Log\.|saveVideo\(|upload\(/);
   assert.doesNotMatch(activity,/putExtra\(|SharedPreferences|onSaveInstanceState|Log\./);
 });
@@ -110,6 +110,6 @@ test('the owner can stop only the screen; a revocation keeps the camera, never s
   assert.match(service,/screenStoppedOnPurpose = true/);
   assert.match(service,/if \(stopping \|\| screenStoppedOnPurpose\) return@post/);
   assert.match(service,/applyScene\(WivraScreenScene\.screenRevoked\(current\)\)/);
-  assert.match(service,/"Dejar de compartir pantalla"/);
+  assert.match(service,/R\.string\.slive_action_stop_screen/);
   assert.match(activity,/getString\(R\.string\.screen_stop_only\)/);
 });
