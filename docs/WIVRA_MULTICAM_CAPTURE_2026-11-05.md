@@ -79,8 +79,12 @@ Lo que faltaba: detectar pares de cámaras simultáneas, grabar con dos cámaras
 | `core/tests/multicam-plan.test.mjs` | 11/11 (core completo 114/114) | Lógica, Linux |
 | `WivraMulticamPolicyTest` (JVM) | 3/3 en local | Lógica, JVM |
 | `streaming/tests/android-dual-camera.test.mjs`, `ios-multicam.test.mjs` | 5/5 y 5/5 (streaming 425/425) | Contrato de código |
-| Compilación Android/iOS y prueba de humo Swift en macOS | CI del PR #169 | Compilación |
+| CI del PR #169 en `0d1b1f5` | **8/8 workflows en verde**: Android (2 variantes, pruebas unitarias JVM, fuentes de instrumentación), iOS (prueba de humo multicámara en Swift 6, Simulator y arm64 genérico), Preflight, Beta Assembly (sin paquetes), App, Core, Director ×2 | Compilación y contratos |
 | Teléfono físico | **Pendiente** | Físico |
+
+Errores que encontró el CI y se corrigieron:
+- Kotlin: la propiedad `mainExecutor` chocaba con `Context.getMainExecutor()`; se renombró a `uiExecutor`.
+- Swift: una etiqueta de argumento no válida (`next to`); se cambió a `beside`.
 
 ## 6. Pasos para la prueba física (propietario)
 
