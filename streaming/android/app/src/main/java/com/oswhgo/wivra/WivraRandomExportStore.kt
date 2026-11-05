@@ -267,16 +267,43 @@ object WivraRandomExportStore {
     /** Pure filename boundary; file identity and media bytes are checked separately. */
     internal fun isRecoverableFilename(name: String): Boolean = name.matches(sealedName)
 
+    // W74: record ordinary file freshness before the platform's asynchronous
+    // codec/readback work. This is defense-in-depth, not immutable inode proof.
+    private data class RecoveryStamp(val bytes: Long, val modifiedMs: Long)
+
+    private fun recoveryStamp(file: File, root: File): RecoveryStamp? {
+        if (!isRecoverableFilename(file.name) || !file.isFile ||
+            Files.isSymbolicLink(file.toPath()) || file.canonicalFile.parentFile != root)
+            return null
+        val bytes = file.length()
+        val modified = file.lastModified()
+        if (bytes <= 0L || bytes > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES ||
+            modified <= 0L) return null
+        return RecoveryStamp(bytes, modified)
+    }
+
+    // Filter cheap but important file/path checks BEFORE applying the bounded
+    // 100-result limit. Noise and symlinks must not hide a legitimate recording.
+    // The final validator repeats these checks after media inspection and SHA.
+    internal fun recoveryCandidates(folder: File, limit: Int = 100): List<File> {
+        require(limit in 1..100)
+        if (!folder.isDirectory || Files.isSymbolicLink(folder.toPath())) return emptyList()
+        val root = folder.canonicalFile
+        return folder.listFiles().orEmpty()
+            .filter { recoveryStamp(it, root) != null }
+            .sortedWith(compareByDescending<File> { it.lastModified() }
+                .thenByDescending { it.name })
+            .take(limit)
+    }
+
     private fun validateSealed(context: Context, file: File): Recovered? {
         val root = directory(context).canonicalFile
-        if (!isRecoverableFilename(file.name) || !file.isFile ||
-            Files.isSymbolicLink(file.toPath()) || file.canonicalFile.parentFile != root ||
-            file.length() <= 0 || file.length() > WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
-            return null
+        val initialStamp = recoveryStamp(file, root) ?: return null
         val mime = if (file.name.endsWith(".mp4")) "video/mp4" else "video/webm"
         return try {
             val media = inspect(file, mime) ?: return null
-            if (!media.video || media.durationMs <= 0) return null
+            if (!media.video || media.durationMs <= 0 ||
+                recoveryStamp(file, root) != initialStamp) return null
             val hash = digest()
             var actual = 0L
             FileInputStream(file).use { input ->
@@ -286,9 +313,11 @@ object WivraRandomExportStore {
                     if (count < 0) break
                     hash.update(chunk, 0, count)
                     actual += count
+                    if (actual > initialStamp.bytes) return null
                 }
             }
-            if (actual != file.length()) return null
+            if (actual != initialStamp.bytes ||
+                recoveryStamp(file, root) != initialStamp) return null
             Recovered(file.name, mime, actual, shaString(hash.digest()), media)
         } catch (_: Exception) { null }
     }
@@ -296,9 +325,7 @@ object WivraRandomExportStore {
     /** Read-only catalog. Never publishes, edits or deletes a saved original. */
     @JvmStatic
     fun recovered(context: Context): List<Recovered> {
-        return directory(context).listFiles().orEmpty()
-            .filter { it.isFile && isRecoverableFilename(it.name) }
-            .sortedByDescending { it.lastModified() }.take(100)
+        return recoveryCandidates(directory(context))
             .mapNotNull { validateSealed(context, it) }
     }
 
