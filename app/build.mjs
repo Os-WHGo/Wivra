@@ -42,7 +42,9 @@ const qaPipeline = acceleratedVendor ? [
   './accelerated-storage-budget.mjs',
   './accelerated-native-codec-probe.mjs',
   './accelerated-runtime-identity.mjs',
+  './accelerated-avc-compatibility.mjs',
   './accelerated-codec-diagnostic.mjs',
+  './accelerated-codec-diagnostic-journal.mjs',
   './accelerated-native-multitrack-export.mjs'
 ].map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n') : '';
 const qaAndroidHost = qaPipeline ? strip(readFileSync(new URL('./accelerated-android-host.mjs', import.meta.url), 'utf8')) : '';

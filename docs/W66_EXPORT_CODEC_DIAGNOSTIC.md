@@ -44,6 +44,18 @@ Encoder configuration callbacks reject deviations in profile, dimensions,
 FPS, bitrate, AVC packing, audio sample rate or channels. A deviation cancels
 the temporary output instead of finalizing a misleading success.
 
+Fresh WebKitGTK/GStreamer processes also exposed an initialization-order bug:
+querying video first can register GStreamer types before its registry is ready,
+causing a false unsupported result or a native process abort. Both QA probes now
+perform the genuine AAC query first, sequentially, while retaining both results.
+The harness retains partial stage evidence and fails on a process exit.
+
+Encoded SPS data can truthfully signal a lower AVC level than the configured
+ceiling. The diagnostic records the actual codec separately and accepts only
+the same supported profile family whose actual Annex A limits cover the
+requested dimensions, FPS and bitrate. Higher, insufficient or unknown levels
+and different profiles fail. This does not relax encoder configuration checks.
+
 ## Running the synthetic diagnostic
 
 Use the explicitly enabled, pinned offline Mediabunny QA build. In Settings,
@@ -77,6 +89,13 @@ temporary object URLs. It does not write native storage or publish to a gallery.
 Its report explicitly leaves total process memory, physical verification and
 production eligibility unconfirmed.
 
+Before testing, the QA panel saves only the synthetic dimensions/FPS and
+enumerated progress in a bounded local receipt. A subsequent app load consumes
+an unfinished receipt as `diagnostic-interrupted`, with the last known stage
+and downloadable report. This does not infer a crash/OOM cause: closing the app
+can also interrupt the run. Blocked storage is advisory. No media recovery
+system is duplicated, and completed/cancelled diagnostics clear the receipt.
+
 Reports contain standardized configuration, stage outcomes, bounded metrics
 and runtime classification. Raw user agents, device models, URLs, project
 content, media names and arbitrary platform error messages are excluded.
@@ -90,7 +109,7 @@ attestation. Ambiguous or contradictory signals remain unknown.
 | --- | --- |
 | Node regression tests | Exercise exact configuration, failure cleanup, cancellation, malformed files and policy using controlled source/codec mocks. They do not certify platform encoders. |
 | Linux Chromium diagnostic | Local Chromium 141 rejected both AVC and AAC configurations at 320x24030 and 1080p30. Safe refusal, cancellation/retry and injected fault handling passed; no positive codec compatibility claim. |
-| Linux WebKit diagnostic | Local WebKit 26 rejected AVC at both tested sizes, while accepting the exact AAC configuration query. Encoding and complete MP4 playback therefore remain unverified. This is neither Safari nor WKWebView evidence. |
+| Linux WebKit diagnostic | After the AAC-first initialization fix, local WebKit 26 completed all seven real stages at 320x24030 and 1080p30, including actual H.264/AAC MP4, decoded pictures/stereo tones and muted playback/seek. This is neither Safari nor WKWebView evidence. |
 | Native source compilation | Separate evidence for native code and packaging integration; it cannot establish JavaScript encoder availability inside the embedded browser. |
 | Physical Android/iOS | Not executed by this block. No APK/IPA, device installation, emulator or hardware certification is implied. |
 

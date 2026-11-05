@@ -2,6 +2,7 @@ import { mobileCodecConfig } from './accelerated-native-codec-probe.mjs';
 import { acceleratedRuntimeIdentity } from './accelerated-runtime-identity.mjs';
 import { createBoundedRandomMemoryWriter } from './accelerated-memory-export.mjs';
 import { inspectExport } from './media-container.mjs';
+import { verifyDiagnosticAvcOutput } from './accelerated-avc-compatibility.mjs';
 
 // Synthetic, explicit QA only. This does not read a project, call native storage,
 // grant a production capability or cache approval across contexts/configurations.
@@ -88,11 +89,20 @@ export async function runAcceleratedCodecDiagnostic({M, width=320, height=240, f
         {report.codecSupport[kind]='configuration-mismatch';throw codecDiagnosticError('codec-config-mismatch');}
       report.codecSupport[kind]='exact-configuration-supported';
     };
-    const supports=await Promise.allSettled([
-      exact('video',VideoEncoder,config.video,['codec','width','height','framerate','bitrate']),
-      exact('audio',AudioEncoder,config.audio,['codec','sampleRate','numberOfChannels','bitrate'])]);
-    const rejected=supports.filter(r=>r.status==='rejected');
-    if(rejected.length)throw (rejected.find(r=>['cancelled','timeout'].includes(r.reason?.diagnosticCode))||rejected[0]).reason;
+    // Initialize the media registry through the genuine AAC query first.
+    // WebKitGTK 2.50 can register its video encoder before gst_init when video
+    // is probed first/in parallel (false negatives or a native process abort).
+    // Keep both exact results; initialization order is not codec substitution.
+    const rejected=[];
+    for(const [kind,Encoder,requested,keys] of [
+      ['audio',AudioEncoder,config.audio,['codec','sampleRate','numberOfChannels','bitrate']],
+      ['video',VideoEncoder,config.video,['codec','width','height','framerate','bitrate']]]){
+      try{await exact(kind,Encoder,requested,keys);}catch(error){
+        if(['cancelled','timeout'].includes(error.diagnosticCode))throw error;
+        rejected.push(error);
+      }
+    }
+    if(rejected.length)throw rejected[0];
     passed(); stage='encode';
     const collect=kind=>(chunk,metadata)=>{
       if(stopped)return;
@@ -171,8 +181,10 @@ export async function runAcceleratedCodecDiagnostic({M, width=320, height=240, f
         Math.abs(videoDuration-audioDuration)>0.08)throw codecDiagnosticError('decode-error');
     const videoConfig=await wait(vt.getDecoderConfig()),audioConfig=await wait(at.getDecoderConfig());
     // Report only standardized codec strings, never arbitrary implementation messages.
-    if(typeof videoConfig?.codec!=='string'||
-        videoConfig.codec.toLowerCase()!==config.video.codec.toLowerCase()||audioConfig?.codec!=='mp4a.40.2')
+    report.observedCodecs={
+      video:/^avc1\.[0-9a-f]{6}$/i.test(videoConfig?.codec)?videoConfig.codec.toLowerCase():'unrecognized',
+      audio:audioConfig?.codec==='mp4a.40.2'?'mp4a.40.2':'unrecognized'};
+    if(!verifyDiagnosticAvcOutput(config.video,videoConfig?.codec)||audioConfig?.codec!=='mp4a.40.2')
       throw codecDiagnosticError('codec-config-mismatch');
     const sink=new M.CanvasSink(vt,{poolSize:1});
     for(const [time,red] of [[0.2,true],[0.8,false]]){
@@ -200,10 +212,10 @@ export async function runAcceleratedCodecDiagnostic({M, width=320, height=240, f
     }
     const rms=energy.map((e,c)=>Math.sqrt(e/count[c]));
     const amplitude=tone.map((v,c)=>2*Math.hypot(...v)/count[c]);
-    if(count.some(n=>n<30000)||rms.some(n=>!Number.isFinite(n)||n<0.03)||
+    if(count.some(n=>n<37440||n>40000)||rms.some(n=>!Number.isFinite(n)||n<0.03)||
         amplitude.some(n=>!Number.isFinite(n)||n<0.05))throw codecDiagnosticError('decode-error');
     passed({videoCodec:videoConfig.codec,audioCodec:audioConfig.codec,
-      videoMarkers:2,audioRms:rms.map(n=>+n.toFixed(4)),audioTones:amplitude.map(n=>+n.toFixed(4))});
+      videoMarkers:2,decodedAudioSamples:count,audioRms:rms.map(n=>+n.toFixed(4)),audioTones:amplitude.map(n=>+n.toFixed(4))});
     stage='playback';
     video=document.createElement('video');video.muted=true;video.playsInline=true;video.preload='auto';
     objectUrl=URL.createObjectURL(new Blob([bytes],{type:'video/mp4'}));

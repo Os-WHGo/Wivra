@@ -152,6 +152,32 @@ test('mock initialization failure closes both allocated encoders without opening
  });
 });
 
+test('AAC support initialization completes before video registry probing',async()=>{
+ await usingMocks('configure-failure',async runtime=>{
+  let initialized=false;const order=[];
+  globalThis.AudioEncoder.isConfigSupported=async config=>{
+   order.push('audio-start');await new Promise(resolve=>setTimeout(resolve,10));
+   initialized=true;order.push('audio-ready');return {supported:true,config};
+  };
+  globalThis.VideoEncoder.isConfigSupported=async config=>{
+   assert.equal(initialized,true,'Video registration must wait for the shared media registry');
+   order.push('video');return {supported:true,config};
+  };
+  const report=await run(runtime);
+  assert.deepEqual(order,['audio-start','audio-ready','video']);
+  assert.equal(report.failedStage,'encode');assert.equal(report.code,'encode-error');
+ });
+});
+
+test('unsupported AAC still records independent AVC configuration evidence without allocating encoders',async()=>{
+ await usingMocks('configure-failure',async runtime=>{
+  globalThis.AudioEncoder.isConfigSupported=async config=>({supported:false,config});
+  const report=await run(runtime);
+  assert.deepEqual(report.codecSupport,{video:'exact-configuration-supported',audio:'unsupported'});
+  assert.equal(report.code,'codec-unsupported');assert.equal(runtime.state.encoders.length,0);
+ });
+});
+
 test('mock missing video packets and oversized encoded chunks cannot reach mux completion',async()=>{
  for(const [mode,code] of [['no-video-packets','encode-error'],['oversized-packet','resource-limit']])
   await usingMocks(mode,async runtime=>{

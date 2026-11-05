@@ -26,7 +26,15 @@ const MIMES = [
       mediaRecorder:typeof MediaRecorder,videoEncoder:typeof VideoEncoder,
       videoDecoder:typeof VideoDecoder,audioEncoder:typeof AudioEncoder,
       canvasCapture:typeof HTMLCanvasElement.prototype.captureStream,
-      mimes:{},codecs:{},encoded:null,recorded:null};
+      mimes:{},codecs:{},audioCodecs:{},encoded:null,recorded:null};
+     // A genuine AAC query initializes WebKitGTK's media registry before its
+     // video encoder registration. Video-first can abort GStreamer on clean
+     // Linux runners; this is query order, never a replacement codec or grant.
+     if(typeof AudioEncoder==='function'){
+      try{result.audioCodecs['mp4a.40.2']=(await AudioEncoder.isConfigSupported({
+       codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:128000
+      })).supported;}catch{result.audioCodecs['mp4a.40.2']=false;}
+     }
      for(const m of mime){try{result.mimes[m]=typeof MediaRecorder==='function' && MediaRecorder.isTypeSupported(m)}catch(e){result.mimes[m]=String(e)}}
      if(typeof VideoEncoder==='function') for(const codec of ['avc1.42001E','vp8','vp09.00.10.08']) {
       try{result.codecs[codec]=(await VideoEncoder.isConfigSupported({codec,width:320,height:240,bitrate:500000,framerate:30})).supported}

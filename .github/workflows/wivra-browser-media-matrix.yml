@@ -27,6 +27,8 @@ on:
       - app/accelerated-runtime-identity.mjs
       - app/accelerated-codec-diagnostic.mjs
       - app/accelerated-codec-diagnostic-ui.mjs
+      - app/accelerated-codec-diagnostic-journal.mjs
+      - app/accelerated-avc-compatibility.mjs
       - tools/browser-accelerated-codec-diagnostic.cjs
       - tools/accelerated-codec-diagnostic.test.cjs
       - app/build.mjs
