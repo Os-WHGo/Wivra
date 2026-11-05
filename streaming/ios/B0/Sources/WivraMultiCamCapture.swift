@@ -322,6 +322,9 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
                     return
                 }
                 pending = [:]
+                // Prevent the local recovery screen from examining a MOV that
+                // still has active camera writers in this application process.
+                WivraMultiCamActiveCaptureRegistry.start(a)
                 sink.start(primary: a, secondary: b, audioRequired: includesAudio)
             } else if let output = primaryOutput {
                 pending = [a: (nil, false, false)]
@@ -535,6 +538,9 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
         status = mainStatus == .kept ? "Toma guardada en el iPhone (Capturas)."
             : mainStatus == .needsReview ? "La toma se cerró con un error; se conservó para revisarla."
             : "La toma no tenía datos."
+        // Keep the in-process registry active through the full native
+        // verification and editor manifest commit, then expose recoverables.
+        WivraMultiCamActiveCaptureRegistry.finished(a)
         pending = [:]
         isRecording = false
         isFinishing = false
