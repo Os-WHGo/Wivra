@@ -70,6 +70,6 @@ test('W77: scene panel is localized and readable by TalkBack', () => {
   assert.match(ctl, /accessibilityLiveRegion = android\.view\.View\.ACCESSIBILITY_LIVE_REGION_POLITE/);
   assert.match(ctl, /b\.contentDescription = activity\.getString\(R\.string\.scene_content_description, sceneLabel\(id\), state\)/);
   assert.match(ctl, /minHeight = \(48 \* resources\.displayMetrics\.density\)\.toInt\(\)/);
-  assert.match(ctl, /accessibilityHeading = true/);
+  assert.match(ctl, /isAccessibilityHeading = true/);
   for (const id of ['camera', 'camera-video', 'split', 'video', 'camera-image', 'image']) assert.ok(ctl.includes(id === 'camera' ? 'R.string.scene_camera' : `"${id}" -> R.string.scene_`), id);
 });

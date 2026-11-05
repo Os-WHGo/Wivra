@@ -89,7 +89,7 @@ class WivraLiveSceneController(
         orientation = LinearLayout.VERTICAL
         addView(TextView(activity).apply {
             text = activity.getString(R.string.scene_panel_title); textSize = 15f
-            isFocusable = true; accessibilityHeading = true
+            isFocusable = true; isAccessibilityHeading = true
         })
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         for (p in WivraLiveScenes.PRESETS) {
