@@ -43,6 +43,29 @@ struct WivraMultiCamPolicySmoke {
         check(back == manifest, "manifest round trip")
         let text = try String(contentsOf: url, encoding: .utf8)
         check(text.contains("\"secondaryStatus\":\"needs-review\"") && text.contains("\"schema\":\"wivra-multicam-take-v1\""), "stable JSON names")
+        // Editor manifest with the optional second camera, and its absence.
+        let inset = WivraCaptureMulticam(secondaryVideoFile: "Wivra_B.mov", secondaryOffsetSeconds: 0.0415,
+                                         primaryPosition: "back", secondaryPosition: "front",
+                                         corner: "bottom-right", audio: "primary")
+        let capture = try WivraCaptureManifest.write(videoURL: movie, tracks: [], mergedURL: nil,
+                                                     cameraSource: "iphone-avfoundation", multicam: inset)
+        let decoded = try JSONDecoder().decode(WivraCaptureManifest.self, from: Data(contentsOf: capture))
+        check(capture.lastPathComponent == "Wivra_A.wivra.json" && decoded.multicam == inset, "capture manifest carries the second camera")
+        let plain = try WivraCaptureManifest.write(videoURL: dir.appendingPathComponent("Solo.mov"), tracks: [], mergedURL: nil,
+                                                   cameraSource: "iphone-avfoundation")
+        let plainText = try String(contentsOf: plain, encoding: .utf8)
+        check(!plainText.contains("multicam"), "single-camera manifest has no multicam key")
+        let legacy = Data(#"{"schemaVersion":2,"captureID":"x","cameraSource":"c","audioSource":"none","originalVideoFile":"A.mov","createdAtISO8601":"2026-11-05T00:00:00Z","tracks":[],"muxedFromTrackIDs":[]}"#.utf8)
+        check((try? JSONDecoder().decode(WivraCaptureManifest.self, from: legacy))?.multicam == nil, "old manifests still decode")
+        do {
+            let bad = WivraCaptureMulticam(secondaryVideoFile: "Wivra_A.mov", secondaryOffsetSeconds: 0,
+                                           primaryPosition: "back", secondaryPosition: "front", corner: "bottom-right", audio: "primary")
+            _ = try WivraCaptureManifest.write(videoURL: movie, tracks: [], mergedURL: nil, multicam: bad)
+            check(false, "second camera cannot reuse the main file")
+        } catch { check(true, "second camera cannot reuse the main file") }
+        check(!WivraCaptureMulticam(secondaryVideoFile: "B.mov", secondaryOffsetSeconds: 99, primaryPosition: "b",
+                                    secondaryPosition: "f", corner: "bottom-right", audio: "primary")
+                .isValid(originalVideoFile: "A.mov", otherFiles: []), "offset beyond 10 s rejected")
         do {
             _ = try WivraMultiCamTakeManifest.write(manifest, beside: dir.appendingPathComponent(".mov"))
             check(false, "hidden name rejected")

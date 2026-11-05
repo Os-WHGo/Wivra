@@ -16,11 +16,11 @@ export const CAMERA_LOSS_REASONS = Object.freeze([
   'disconnected', 'in-use', 'max-cameras', 'fatal', 'disabled', 'thermal', 'interrupted', 'unknown'
 ]);
 
-const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
-const PLATFORMS = ['android', 'ios'];
-const has = (list, v) => list.includes(v);
-const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-const round6 = n => Math.round(n * 1e6) / 1e6;
+const MC_SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const MC_PLATFORMS = ['android', 'ios'];
+const mcHas = (list, v) => list.includes(v);
+const mcClamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+const mcRound6 = n => Math.round(n * 1e6) / 1e6;
 
 /**
  * Validates the report a native host produces from CameraManager /
@@ -32,21 +32,21 @@ const round6 = n => Math.round(n * 1e6) / 1e6;
  */
 export function normalizeCameraInventory(report) {
   const errors = [];
-  const platform = has(PLATFORMS, report?.platform) ? report.platform : 'unknown';
+  const platform = mcHas(MC_PLATFORMS, report?.platform) ? report.platform : 'unknown';
   if (platform === 'unknown') errors.push('unknown-platform');
   const runtime = report?.provenance === 'runtime' &&
-    typeof report?.sessionId === 'string' && SAFE_ID.test(report.sessionId);
+    typeof report?.sessionId === 'string' && MC_SAFE_ID.test(report.sessionId);
   const cameras = [];
   const seen = new Set();
   for (const c of Array.isArray(report?.cameras) ? report.cameras : []) {
-    if (typeof c?.id !== 'string' || !SAFE_ID.test(c.id) || seen.has(c.id)) {
+    if (typeof c?.id !== 'string' || !MC_SAFE_ID.test(c.id) || seen.has(c.id)) {
       errors.push('invalid-camera');
       continue;
     }
     seen.add(c.id);
     cameras.push({
       id: c.id,
-      facing: has(CAMERA_FACINGS, c.facing) ? c.facing : 'unknown',
+      facing: mcHas(CAMERA_FACINGS, c.facing) ? c.facing : 'unknown',
       label: typeof c.label === 'string' ? c.label.slice(0, 80) : ''
     });
   }
@@ -75,7 +75,7 @@ export function normalizeCameraInventory(report) {
   };
 }
 
-const byFacing = (inv, facing) => inv.cameras.find(c => c.facing === facing);
+const mcByFacing = (inv, facing) => inv.cameras.find(c => c.facing === facing);
 
 /**
  * Decides how to record. Android with a CameraX concurrent pair composes the
@@ -92,7 +92,7 @@ export function planCameraCapture(inventoryIn, {
   if (inv.cameras.length === 0) {
     return { mode: 'none', primaryId: null, secondaryId: null, composition: 'none', reason: 'no-camera' };
   }
-  const primary = byFacing(inv, primaryFacing) || inv.cameras[0];
+  const primary = mcByFacing(inv, primaryFacing) || inv.cameras[0];
   const single = reason => ({
     mode: 'single', primaryId: primary.id, secondaryId: null, composition: 'none', reason
   });
@@ -103,7 +103,7 @@ export function planCameraCapture(inventoryIn, {
   if (inv.platform === 'android') {
     // Prefer the requested facings, then any supported pair that keeps the
     // requested primary, then any pair at all.
-    const wanted = byFacing(inv, secondaryFacing);
+    const wanted = mcByFacing(inv, secondaryFacing);
     const match = (a, b) => inv.concurrentPairs.find(p =>
       (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
     let pair = wanted && wanted.id !== primary.id ? match(primary.id, wanted.id) : null;
@@ -124,7 +124,7 @@ export function planCameraCapture(inventoryIn, {
   }
   if (inv.platform === 'ios') {
     if (!inv.multiCamSupported) return single('multicam-unsupported');
-    const secondary = byFacing(inv, secondaryFacing);
+    const secondary = mcByFacing(inv, secondaryFacing);
     if (!secondary || secondary.id === primary.id) return single('no-secondary-facing');
     return { mode: 'dual-separate', primaryId: primary.id, secondaryId: secondary.id, composition: 'editor', reason: 'multicam-session' };
   }
@@ -160,19 +160,19 @@ export function planPhoneWithWearable(phoneSource, wearableSource, { compositorV
  * of the frame width; vertically it is corrected so both margins look equal.
  */
 export function pipLayout({ corner = 'bottom-right', scale = 0.3, margin = 0.04, frameWidth = 1080, frameHeight = 1920 } = {}) {
-  if (!has(PIP_CORNERS, corner)) throw new TypeError('Unknown PiP corner');
+  if (!mcHas(PIP_CORNERS, corner)) throw new TypeError('Unknown PiP corner');
   if (!(frameWidth > 0) || !(frameHeight > 0)) throw new TypeError('Invalid frame size');
-  const s = clamp(Number(scale) || 0.3, 0.15, 0.5);
-  const mx = clamp(Number(margin) || 0, 0, 0.1);
+  const s = mcClamp(Number(scale) || 0.3, 0.15, 0.5);
+  const mx = mcClamp(Number(margin) || 0, 0, 0.1);
   const my = mx * frameWidth / frameHeight;
   const left = corner.endsWith('left');
   const top = corner.startsWith('top');
   return {
     corner,
-    x: round6(left ? mx : 1 - mx - s),
-    y: round6(top ? my : 1 - my - s),
-    w: round6(s),
-    h: round6(s)
+    x: mcRound6(left ? mx : 1 - mx - s),
+    y: mcRound6(top ? my : 1 - my - s),
+    w: mcRound6(s),
+    h: mcRound6(s)
   };
 }
 
@@ -185,16 +185,16 @@ export function toCameraXComposition(rect) {
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   return {
-    offsetX: round6(cx * 2 - 1),
-    offsetY: round6(1 - cy * 2),
-    scaleX: round6(rect.w),
-    scaleY: round6(rect.h)
+    offsetX: mcRound6(cx * 2 - 1),
+    offsetY: mcRound6(1 - cy * 2),
+    scaleX: mcRound6(rect.w),
+    scaleY: mcRound6(rect.h)
   };
 }
 
 /** Same rectangle as an editor overlay clip (x, y = centre; scale = width). */
 export function toEditorOverlay(rect) {
-  return { x: round6(rect.x + rect.w / 2), y: round6(rect.y + rect.h / 2), scale: round6(rect.w) };
+  return { x: mcRound6(rect.x + rect.w / 2), y: mcRound6(rect.y + rect.h / 2), scale: mcRound6(rect.w) };
 }
 
 export function nextPipCorner(corner) {
@@ -209,36 +209,46 @@ export function nextPipCorner(corner) {
  * on one native monotonic clock. Only the selected audio stays audible; the
  * other source is muted, never mixed by accident.
  */
-export function buildPipEditorOps({
-  primaryAssetId, secondaryAssetId, primaryDurationS, secondaryDurationS,
+export function pipOverlayOp({
+  secondaryAssetId, primaryDurationS, secondaryDurationS,
   secondaryOffsetMs = 0, corner = 'bottom-right', scale = 0.3,
   frameWidth = 1080, frameHeight = 1920, audio = 'primary', at = 0
 }) {
-  if (typeof primaryAssetId !== 'string' || typeof secondaryAssetId !== 'string' ||
-      primaryAssetId === secondaryAssetId) throw new TypeError('Two distinct assets are required');
+  if (typeof secondaryAssetId !== 'string' || !secondaryAssetId) throw new TypeError('A secondary asset is required');
   if (!(primaryDurationS > 0) || !(secondaryDurationS > 0)) throw new TypeError('Durations must be positive');
   if (!Number.isFinite(secondaryOffsetMs)) throw new TypeError('Offset must be finite');
-  if (!has(AUDIO_CHOICES, audio)) throw new TypeError('Unknown audio choice');
+  if (!mcHas(AUDIO_CHOICES, audio)) throw new TypeError('Unknown audio choice');
   if (!Number.isFinite(at) || at < 0) throw new TypeError('Timeline position must be >= 0');
   const offsetS = secondaryOffsetMs / 1000;
   // Secondary started later: place it later. Started earlier: skip its head.
-  const start = round6(Math.max(0, offsetS));
-  const tin = round6(Math.max(0, -offsetS));
+  const start = mcRound6(Math.max(0, offsetS));
+  const tin = mcRound6(Math.max(0, -offsetS));
   const visible = Math.min(secondaryDurationS - tin, primaryDurationS - start);
-  if (!(visible > 0.05)) return { ok: false, reason: 'no-overlap', ops: [] };
+  if (!(visible > 0.05)) return { ok: false, reason: 'no-overlap', op: null };
   const rect = pipLayout({ corner, scale, frameWidth, frameHeight });
   const overlay = toEditorOverlay(rect);
-  const ops = [
-    { op: 'add_clip', asset_id: primaryAssetId, start: round6(at) },
-    {
-      op: 'add_overlay_clip', asset_id: secondaryAssetId, start: round6(at + start), in: tin,
-      out: round6(tin + visible), track: 1, ...overlay,
+  return {
+    ok: true,
+    overlapS: mcRound6(visible),
+    op: {
+      op: 'add_overlay_clip', asset_id: secondaryAssetId, start: mcRound6(at + start), in: tin,
+      out: mcRound6(tin + visible), track: 1, ...overlay,
+      // Only the selected source stays audible: never two cameras at once.
       muted: audio !== 'secondary'
     }
-  ];
+  };
+}
+
+export function buildPipEditorOps(options) {
+  const { primaryAssetId, secondaryAssetId, audio = 'primary', at = 0 } = options;
+  if (typeof primaryAssetId !== 'string' || typeof secondaryAssetId !== 'string' ||
+      primaryAssetId === secondaryAssetId) throw new TypeError('Two distinct assets are required');
+  const overlay = pipOverlayOp(options);
+  if (!overlay.ok) return { ok: false, reason: overlay.reason, ops: [] };
+  const ops = [{ op: 'add_clip', asset_id: primaryAssetId, start: mcRound6(at) }, overlay.op];
   // The main clip id only exists after add_clip runs, so muting the main
   // lane is a second step (see applyPipComposition).
-  return { ok: true, ops, muteMainAudio: audio !== 'primary', overlapS: round6(visible) };
+  return { ok: true, ops, muteMainAudio: audio !== 'primary', overlapS: overlay.overlapS };
 }
 
 /**
@@ -309,7 +319,7 @@ export function multicamReduce(state, event) {
     }
     case 'camera-lost': {
       if (!s.active.includes(event.cameraId)) return s;
-      const reason = has(CAMERA_LOSS_REASONS, event.reason) ? event.reason : 'unknown';
+      const reason = mcHas(CAMERA_LOSS_REASONS, event.reason) ? event.reason : 'unknown';
       s.active = s.active.filter(id => id !== event.cameraId);
       const remaining = s.active[0] || null;
       s.notices.push({ kind: 'camera-lost', cameraId: event.cameraId, reason });
@@ -371,14 +381,14 @@ export function multicamReduce(state, event) {
  * WebView message is never enough.
  */
 export function screenCaptureGate({ platform, consentResult = null, sessionId = null, purpose = 'recording' } = {}) {
-  if (!has(PLATFORMS, platform)) return { allowed: false, reason: 'unknown-platform' };
+  if (!mcHas(MC_PLATFORMS, platform)) return { allowed: false, reason: 'unknown-platform' };
   if (!['recording', 'live'].includes(purpose)) return { allowed: false, reason: 'unknown-purpose' };
   if (platform === 'ios' && purpose === 'recording') {
     // No ReplayKit broadcast extension is compiled in Wivra iOS yet.
     return { allowed: false, reason: 'not-implemented-ios' };
   }
   const fresh = consentResult?.granted === true && typeof sessionId === 'string' &&
-    SAFE_ID.test(sessionId) && consentResult?.sessionId === sessionId;
+    MC_SAFE_ID.test(sessionId) && consentResult?.sessionId === sessionId;
   return fresh ? { allowed: true, reason: 'consented-this-session' }
     : { allowed: false, reason: 'needs-system-consent' };
 }

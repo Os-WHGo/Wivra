@@ -16,14 +16,40 @@ struct WivraCaptureTrack: Codable {
     let startOffsetSeconds: Double?  // estimated relative to originalVideoFile first frame
 }
 
+/// Optional second camera of an iPhone MultiCam take (Claude). Old manifests
+/// simply have no "multicam" key; the editor imports only the main camera
+/// when this block is missing or invalid.
+struct WivraCaptureMulticam: Codable, Equatable {
+    var schema = "wivra-multicam-v1"
+    let secondaryVideoFile: String
+    let secondaryOffsetSeconds: Double?   // secondary first frame - main first frame
+    let primaryPosition: String
+    let secondaryPosition: String
+    let corner: String
+    let audio: String                      // "primary": only the main movie has sound
+
+    /// Same rules as app/capture-manifest.mjs.
+    func isValid(originalVideoFile: String, otherFiles: Set<String>) -> Bool {
+        let name = secondaryVideoFile
+        return schema == "wivra-multicam-v1" &&
+            !name.isEmpty && name.count <= 255 && !name.hasPrefix(".") &&
+            !name.contains("/") && !name.contains("\\") &&
+            name != originalVideoFile && !otherFiles.contains(name) &&
+            (secondaryOffsetSeconds.map { $0.isFinite && abs($0) <= 10 } ?? true) &&
+            ["bottom-right", "bottom-left", "top-left", "top-right"].contains(corner) &&
+            ["primary", "secondary", "none"].contains(audio)
+    }
+}
+
 enum WivraManifestError: LocalizedError {
-    case invalidTrack, duplicateTrack, invalidMuxReference
+    case invalidTrack, duplicateTrack, invalidMuxReference, invalidMulticam
 
     var errorDescription: String? {
         switch self {
         case .invalidTrack: "Una pista no tiene nombre de archivo/canal válido."
         case .duplicateTrack: "Hay pistas duplicadas en el manifiesto."
         case .invalidMuxReference: "El video combinado referencia una pista inexistente."
+        case .invalidMulticam: "Los datos de la segunda cámara no son válidos."
         }
     }
 }
@@ -44,11 +70,13 @@ struct WivraCaptureManifest: Codable {
 
     let tracks: [WivraCaptureTrack]
     let muxedFromTrackIDs: [String]   // prevents editor from double-playing muxed + sidecar
+    var multicam: WivraCaptureMulticam? = nil
 
     // Canonical v2 writer for future USB/DJI/mixer capture adapters.
     static func write(videoURL: URL, tracks: [WivraCaptureTrack],
                       mergedURL: URL?, muxedFromTrackIDs: [String] = [],
-                      cameraSource: String = "meta-dat-hevc") throws -> URL {
+                      cameraSource: String = "meta-dat-hevc",
+                      multicam: WivraCaptureMulticam? = nil) throws -> URL {
         var ids = Set<String>()
         var recordedChannels = Set<String>()
         for track in tracks {
@@ -72,6 +100,13 @@ struct WivraCaptureManifest: Codable {
               Set(muxedFromTrackIDs).count == muxedFromTrackIDs.count else {
             throw WivraManifestError.invalidMuxReference
         }
+        if let multicam {
+            var others = Set(tracks.map(\.file))
+            if let mergedURL { others.insert(mergedURL.lastPathComponent) }
+            guard multicam.isValid(originalVideoFile: videoURL.lastPathComponent, otherFiles: others) else {
+                throw WivraManifestError.invalidMulticam
+            }
+        }
         let legacy = tracks.first
         let record = WivraCaptureManifest(
             schemaVersion: 2, captureID: UUID().uuidString,
@@ -83,7 +118,8 @@ struct WivraCaptureManifest: Codable {
             muxedVideoFile: mergedURL?.lastPathComponent,
             audioStartOffsetSeconds: legacy?.startOffsetSeconds,
             createdAtISO8601: ISO8601DateFormatter().string(from: Date()),
-            tracks: tracks, muxedFromTrackIDs: muxedFromTrackIDs
+            tracks: tracks, muxedFromTrackIDs: muxedFromTrackIDs,
+            multicam: multicam
         )
         let result = videoURL.deletingPathExtension().appendingPathExtension("wivra.json")
         let data = try JSONEncoder().encode(record)

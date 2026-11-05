@@ -4,6 +4,7 @@
 // Siempre devuelve una sola forma interna para que el editor tenga un solo camino. — Claude
 
 export const ROLES = Object.freeze(['voice_primary', 'voice_guest', 'music', 'scratch', 'ambience', 'other']);
+const MULTICAM_CORNERS = ['bottom-right', 'bottom-left', 'top-left', 'top-right'];
 const isName = (s) => typeof s === 'string' && s.length > 0 && s.length <= 255 && !/[\/\\\0\r\n]/.test(s) && s !== '.' && s !== '..';
 const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
 const nul = (v) => v === undefined || v === null;
@@ -66,11 +67,38 @@ export function parseManifest(input) {
       if (channels.includes(null) || new Set(channels).size !== channels.length)
         errors.push(`Varias pistas usan ${f} sin canales exclusivos: audio duplicado.`);
     }
-    const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs']);
+    const known = new Set(['schemaVersion', 'captureID', 'cameraSource', 'audioSource', 'selectedInputName', 'originalVideoFile', 'originalAudioFile', 'muxedVideoFile', 'audioStartOffsetSeconds', 'createdAtISO8601', 'tracks', 'muxedFromTrackIDs', 'multicam']);
     for (const k of Object.keys(m)) if (!known.has(k)) warnings.push(`Campo desconocido ignorado: ${k}.`);
   }
+  // Optional two-camera block (iPhone MultiCam): a second MOV recorded on the
+  // same clock. A broken block never blocks the main camera: it is dropped
+  // with a warning, so the owner still gets the primary take. — Claude
+  let multicam = null;
+  if (v === 2 && !nul(m.multicam)) {
+    const mc = m.multicam, problems = [];
+    if (!mc || typeof mc !== 'object' || Array.isArray(mc)) problems.push('no es un objeto');
+    else {
+      if (mc.schema !== 'wivra-multicam-v1') problems.push('schema no soportado');
+      const used = new Set([m.originalVideoFile, m.muxedVideoFile, ...tracks.map(t => t.file)]);
+      if (!isName(mc.secondaryVideoFile)) problems.push('secondaryVideoFile inválido');
+      else if (used.has(mc.secondaryVideoFile)) problems.push('secondaryVideoFile repite otro archivo de la captura');
+      if (!nul(mc.secondaryOffsetSeconds) && !(isNum(mc.secondaryOffsetSeconds) && Math.abs(mc.secondaryOffsetSeconds) <= 10)) problems.push('desfase fuera de ±10 s');
+      if (!nul(mc.corner) && !MULTICAM_CORNERS.includes(mc.corner)) problems.push('esquina desconocida');
+      if (!nul(mc.audio) && !['primary', 'secondary', 'none'].includes(mc.audio)) problems.push('audio desconocido');
+    }
+    if (problems.length) warnings.push('Datos de la segunda cámara ignorados (' + problems.join(', ') + '): se importa solo la cámara principal.');
+    else multicam = {
+      secondaryVideoFile: mc.secondaryVideoFile,
+      offsetSeconds: isNum(mc.secondaryOffsetSeconds) ? mc.secondaryOffsetSeconds : 0,
+      offsetKnown: isNum(mc.secondaryOffsetSeconds),
+      corner: mc.corner || 'bottom-right',
+      audio: mc.audio || 'primary',
+      primaryPosition: typeof mc.primaryPosition === 'string' ? mc.primaryPosition.slice(0, 16) : 'unknown',
+      secondaryPosition: typeof mc.secondaryPosition === 'string' ? mc.secondaryPosition.slice(0, 16) : 'unknown'
+    };
+  }
   if (errors.length) return { ok: false, errors, warnings };
-  return { ok: true, errors: [], warnings, manifest: { schemaVersion: 2, sourceVersion: v, captureID: m.captureID, cameraSource: String(m.cameraSource || 'unknown'), audioSource: String(m.audioSource || 'unknown'),
+  return { ok: true, errors: [], warnings, manifest: { multicam, schemaVersion: 2, sourceVersion: v, captureID: m.captureID, cameraSource: String(m.cameraSource || 'unknown'), audioSource: String(m.audioSource || 'unknown'),
     selectedInputName: m.selectedInputName ?? null, videoFile: m.originalVideoFile, muxedVideoFile: m.muxedVideoFile ?? null, createdAt: m.createdAtISO8601, tracks, muxedFromTrackIDs: muxedFrom } };
 }
 

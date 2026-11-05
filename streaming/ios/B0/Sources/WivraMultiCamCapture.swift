@@ -311,6 +311,22 @@ final class WivraMultiCamCapture: NSObject, AVCaptureFileOutputRecordingDelegate
             _ = try? WivraMultiCamTakeManifest.write(manifest, beside: a)
             savedTakes.append(a)
         }
+        // Editor import: a regular capture manifest, like the iPhone camera's,
+        // only for a cleanly finished main movie. The inset is added only when
+        // it also finished cleanly; otherwise the main camera is offered alone.
+        if mainStatus == .kept {
+            let inset: WivraCaptureMulticam? = {
+                guard let b = secondaryURL, insetStatus == .kept else { return nil }
+                return WivraCaptureMulticam(
+                    secondaryVideoFile: b.lastPathComponent,
+                    secondaryOffsetSeconds: offset.map { $0 / 1000 },
+                    primaryPosition: frontIsPrimary ? "front" : "back",
+                    secondaryPosition: frontIsPrimary ? "back" : "front",
+                    corner: corner.rawValue, audio: "primary")
+            }()
+            _ = try? WivraCaptureManifest.write(videoURL: a, tracks: [], mergedURL: nil,
+                                                cameraSource: "iphone-avfoundation", multicam: inset)
+        }
         status = mainStatus == .kept ? "Toma guardada en el iPhone (Capturas)."
             : mainStatus == .needsReview ? "La toma se cerró con un error; se conservó para revisarla."
             : "La toma no tenía datos."

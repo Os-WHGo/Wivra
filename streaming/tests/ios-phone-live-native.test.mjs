@@ -12,7 +12,10 @@ const liveReceipt = files('Sources/WivraLiveRecordingReceipt.swift');
 test('single native iPhone LIVE entry requires exclusive camera ownership',()=>{
   assert.match(project,/HaishinKit:\s+url: https:\/\/github\.com\/HaishinKit\/HaishinKit\.swift\s+exactVersion: 2\.2\.5/);
   assert.match(project,/product: RTMPHaishinKit/);
-  assert.match(source,/let capture = MediaMixer\(\)/);
+  // Claude (LIVE scenes): the optional multi-track AUDIO flag mixes a video's
+  // sound; it is still one single-camera capture session, never .multi.
+  assert.match(source,/let capture = MediaMixer\((multiTrackAudioMixingEnabled: scenes\?\.enabled == true)?\)/);
+  assert.doesNotMatch(source,/captureSessionMode: \.multi/);
   assert.match(source,/RTMPConnection\(\)/);
   assert.match(source,/RTMPStream\(connection: liveConnection\)/);
   assert.match(source,/try await capture\.attachVideo\(camera\)/);

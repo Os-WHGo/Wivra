@@ -32,20 +32,36 @@ Reglas comunes (`core/live-scenes.mjs`):
 - **iPhone:** composición «offscreen» de HaishinKit 2.2.5 con `AssetScreenObject`, `ImageScreenObject` y un segundo `VideoTrackScreenObject` de la cámara para el recuadro.
   - Solo se activa con el interruptor «Usar escenas»; sin él, el live funciona exactamente igual que antes.
 
+## Sonido del video en el live
+
+El sonido del video **va al live** en los dos teléfonos, sin pedir permisos nuevos y sin capturar la pantalla ni el audio interno del teléfono.
+
+- **Android:** Wivra decodifica la pista de audio del video (MediaCodec) al formato del live y la mezcla en el audio del micrófono, mediante `CustomAudioEffect` de RootEncoder.
+  - En el teléfono el video suena en silencio, para que el micrófono no recoja un eco.
+  - Si inicias el live con una escena de video, el video empieza desde el principio con su sonido.
+- **iPhone:** `AVAssetReader` lee el audio del video y lo añade como segunda pista (pista 1) del mezclador de HaishinKit; el micrófono es la pista 0.
+  - La escena de pausa silencia solo el micrófono.
+  - En iPhone el video vuelve a empezar cada vez que entras en una escena con video.
+- **Requisito:** el **audio del live (micrófono) debe estar activado**. Ese audio es el que marca el ritmo de la mezcla y es la única pista de audio que se transmite. Si no lo está, Wivra lo avisa.
+- Volumen: el video suena a volumen normal y el micrófono se suma; si se pasa del máximo, se recorta (no se distorsiona por desbordamiento).
+- Sin probar en un teléfono: la sincronización entre imagen y sonido del video y el volumen relativo con la voz.
+
 ## Límites actuales
 
-1. **El sonido del video no va al live.** En Android puede sonar por el altavoz del teléfono, para quien presenta. Llevarlo al live requiere una captura de audio interno con el permiso del sistema; es la siguiente fase.
-2. Videos e imágenes se eligen **antes** de iniciar el live, porque salir de la pantalla detiene la transmisión (regla de seguridad existente). Durante el live solo se cambia de escena.
-3. **Pantalla o aplicación como fuente:** no incluida. En Android es posible con el permiso de captura de pantalla y un servicio en primer plano; en iPhone Apple no permite usar la cámara mientras se muestra otra app.
-4. En iPhone la salida sigue en el formato horizontal 16:9 de antes; el formato vertical para reels es otra decisión.
-5. Las escenas no se guardan entre sesiones.
+1. Videos e imágenes se eligen **antes** de iniciar el live, porque salir de la pantalla detiene la transmisión (regla de seguridad existente). Durante el live solo se cambia de escena.
+2. **Pantalla o aplicación como fuente:** no incluida. En Android es posible con el permiso de captura de pantalla y un servicio en primer plano; en iPhone Apple no permite usar la cámara mientras se muestra otra app.
+3. En iPhone la salida sigue en el formato horizontal 16:9 de antes; el formato vertical para reels es otra decisión.
+4. Las escenas no se guardan entre sesiones.
 
 ## Pruebas
 
-- Core 118/118 y streaming 435/435 en local.
-- JVM `WivraLiveScenesTest` 3/3 en local.
-- CI en `4fe792b`: **8/8 workflows en verde**: Android (variantes full y capture, pruebas unitarias), iOS (prueba de humo de escenas en Swift 6, Simulator y arm64 genérico), Preflight, Beta Assembly (sin paquetes), App, Core y Director ×2.
-- El CI encontró un error de Swift 6 y se corrigió: una constante de tamaño quedaba atada al hilo de HaishinKit (`nonisolated static let frame`).
+- Local: core 118/118, streaming 437/437 y JVM 10/10 (escenas, mezclador PCM y multicámara).
+- CI en `4fe792b` (escenas) y en `cbbc2da` (sonido del video): **8/8 workflows en verde** en los dos.
+  - Android: variantes full y capture, pruebas unitarias.
+  - iOS: pruebas de humo en Swift 6, Simulator y arm64 genérico.
+  - Preflight, Beta Assembly (sin paquetes), App, Core y Director ×2.
+- Errores que encontró el CI y se corrigieron: en Swift 6, una constante de tamaño atada al hilo de HaishinKit (`nonisolated static let frame`).
+- Cambio coordinado en una prueba de ChatGPT (`ios-phone-live-native.test.mjs`): acepta la opción de audio multipista y ahora también exige que la sesión de cámara nunca sea `.multi`.
 
 ## Prueba física (cuando el propietario la autorice)
 

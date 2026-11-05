@@ -1217,6 +1217,13 @@ async function importCapture(files) {
       else notes.push('Se dejó el audio que trae el video combinado; los audios sueltos no se pudieron abrir.');
     }
     for (const t of tracks) await openTrack(t);
+    // Two-camera capture (iPhone MultiCam): open the second MOV now; if it is
+    // missing or unreadable, the main camera is imported alone. — Claude
+    let pipSecondary = null;
+    if (m.multicam) {
+      pipSecondary = byName.has(m.multicam.secondaryVideoFile) ? await open(m.multicam.secondaryVideoFile, 'video') : null;
+      if (!pipSecondary) notes.push('La segunda cámara no está o no se pudo leer: se importó solo la cámara principal. Los archivos originales no se modificaron.');
+    }
     const plan = { videoFile, audioTracks: tracks };
     if (session !== stagingSession || (captureSession && session !== captureSession)) {
       say('El proyecto cambió mientras se preparaba la captura. Importa de nuevo.', 'bad');
@@ -1231,6 +1238,23 @@ async function importCapture(files) {
       return;
     }
     out.ops = assignAudioLanes(out.ops, session.project.audioClips || [], UI_MAX_AUDIO);     // cada voz en su propia fila (no una encima de otra)
+    if (pipSecondary) {
+      // Same geometry and audio rule as core/multicam-plan.mjs (applyPipComposition).
+      const mainMedia = media[assets[videoFile].id] || {};
+      const pip = pipOverlayOp({
+        secondaryAssetId: pipSecondary.id, primaryDurationS: assets[videoFile].duration,
+        secondaryDurationS: pipSecondary.duration,
+        secondaryOffsetMs: (m.multicam.offsetKnown ? m.multicam.offsetSeconds : 0) * 1000,
+        corner: m.multicam.corner, scale: 0.3,
+        frameWidth: mainMedia.w || 1080, frameHeight: mainMedia.h || 1920,
+        audio: m.multicam.audio === 'secondary' ? 'secondary' : 'primary', at: startAt
+      });
+      if (pip.ok) {
+        out.ops.push(pip.op);
+        notes.push('Captura de dos cámaras: video principal + recuadro de la segunda cámara. Solo suena la cámara principal.');
+        if (!m.multicam.offsetKnown) notes.push('No se conoce el desfase entre cámaras: el recuadro empieza con el video principal. Ajústalo a mano si hace falta.');
+      } else notes.push('Las dos cámaras no coinciden en el tiempo: se importó solo la cámara principal.');
+    }
     if (muteVideo) out.ops.splice(1, 0, { op: 'set_clip_audio', clip_id: nextClip, muted: true });
     const first = !session.project.clips.length;
     $('stage').classList.add('on');
