@@ -136,6 +136,45 @@ test('a real bounded video render travels through random v2 and verifies native 
   assert.equal(log.filter(op=>op==='input-dispose').length,1);
  }finally{globalThis.document=old;}
 });
+
+test('native AVC render pins the exact profile probed at 720p60 and rejects a changed encoder candidate',async()=>{
+ const oldDocument=globalThis.document,oldVideo=globalThis.VideoEncoder;
+ globalThis.document=documentFake();
+ try{
+  for(const changed of [false,true]){
+   const host=fakeHost(),log=[],M=fakeM(log),Video=M.CanvasSource;
+   let probed;
+   globalThis.VideoEncoder={isConfigSupported:async config=>{
+    probed=structuredClone(config);return {supported:true,config};
+   }};
+   M.CanvasSource=class extends Video {
+    constructor(canvas,options){super();this.options=options;}
+    async add(){
+     assert.equal(this.options.fullCodecString,'avc1.42E020');
+     assert.equal(this.options.bitrate,probed.bitrate);
+     this.options.onEncoderConfig({...probed,
+      ...(changed?{codec:'avc1.64001F'}:{})});
+     return super.add();
+    }
+   };
+   const operation=run({project:project(),media:{v:{...media.v,w:1280,h:720}},
+    M,host,fps:60,expectAudio:false,experimentalAccelerated:true});
+   if(changed){
+    await assert.rejects(operation,/differs from native codec preflight/);
+    assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+    assert.equal(log.includes('finalize'),false);
+    assert.equal(log.filter(op=>op==='cancel').length,1);
+   }else{
+    const saved=await operation;
+    assert.equal(saved.render.videoFrames,24);
+    assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
+   }
+   assert.equal(probed.width,1280);assert.equal(probed.height,720);
+   assert.equal(probed.framerate,60);
+   assert.equal(log.filter(op=>op==='input-dispose').length,1);
+  }
+ }finally{globalThis.document=oldDocument;globalThis.VideoEncoder=oldVideo;}
+});
 test('mid-render cancellation aborts v2, cancels encoder and never commits media',async()=>{
  const host=fakeHost(),log=[],M=fakeM(log),old=globalThis.document;
  globalThis.document=documentFake();

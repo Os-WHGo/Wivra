@@ -12,6 +12,7 @@ import {drawFrame,formatSize,exportBitrate,clipGain,SHAPE_NAMES} from './export.
 import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parity.mjs';
 import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
+import {mobileCodecConfig} from './accelerated-native-codec-probe.mjs';
 
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
 export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
@@ -326,6 +327,23 @@ async function renderPreparedMultitrack({
   if(!Number.isSafeInteger(fps)||fps<12||fps>60)
     deny('frame rate outside bounded QA range');
   const {M,codec,project,media,used,audible,width,height,totalSeconds}=prepared;
+  const resolvedVideoBitrate=videoBitrate||exportBitrate(totalSeconds,{
+    progressive:true,width,height,fps});
+  // The native preflight and the actual encoder MUST request the same full
+  // profile/level. Mediabunny's automatic AVC choice uses High Profile and
+  // dimensions/bitrate, which can differ from our FPS-aware mobile preflight.
+  // Desktop/long-form QA keeps its existing codec negotiation unchanged.
+  const nativeConfig=['android','ios'].includes(prepared.platform)
+    ?mobileCodecConfig({codec,width,height,fps,sampleRate,
+      videoBitrate:resolvedVideoBitrate,audioBitrate}):null;
+  const checkNativeEncoder=(kind,config)=>{
+    const expected=nativeConfig[kind];
+    const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
+      ['codec','sampleRate','numberOfChannels','bitrate'];
+    if(!config || keys.some(key=>config[key]!==expected[key]) ||
+       (expected.avc && config.avc?.format!==expected.avc.format))
+      deny('actual '+kind+' encoder differs from native codec preflight');
+  };
   const framesTotal=Math.ceil(totalSeconds*fps);
   const maxFrames=(prepared.longSoakQA&&prepared.platform==='qa'
     ?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS
@@ -366,11 +384,15 @@ async function renderPreparedMultitrack({
     output=new M.Output({format,
       target:new M.StreamTarget(writable,{chunked:true,chunkSize:1<<20})});
     const videoSource=new M.CanvasSource(canvas,{codec:codec.videoCodec,
-      bitrate:videoBitrate||exportBitrate(totalSeconds,{progressive:true,width,height,fps}),
+      bitrate:resolvedVideoBitrate,
+      ...(nativeConfig?{fullCodecString:nativeConfig.video.codec,
+        onEncoderConfig:config=>checkNativeEncoder('video',config)}:{}),
       keyFrameInterval:1});
     output.addVideoTrack(videoSource,{frameRate:fps});
     const audioSource=codec.hasAudio?new M.AudioBufferSource({
-      codec:codec.audioCodec,bitrate:audioBitrate}):null;
+      codec:codec.audioCodec,bitrate:audioBitrate,
+      ...(nativeConfig?{fullCodecString:nativeConfig.audio.codec,
+        onEncoderConfig:config=>checkNativeEncoder('audio',config)}:{})}):null;
     if(audioSource)output.addAudioTrack(audioSource);
     const mixer=audioSource?mixAcceleratedAudioBlocks({
       tracks:audible,totalSeconds,sampleRate,

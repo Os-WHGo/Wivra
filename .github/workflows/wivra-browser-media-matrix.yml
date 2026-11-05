@@ -22,6 +22,13 @@ on:
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
       - app/accelerated-native-sink.mjs
+      - app/accelerated-native-codec-probe.mjs
+      - app/accelerated-native-multitrack-export.mjs
+      - app/accelerated-runtime-identity.mjs
+      - app/accelerated-codec-diagnostic.mjs
+      - app/accelerated-codec-diagnostic-ui.mjs
+      - tools/browser-accelerated-codec-diagnostic.cjs
+      - tools/accelerated-codec-diagnostic.test.cjs
       - app/build.mjs
       - app/media-container.mjs
       - app/tests/fixtures/mediarecorder/**
@@ -69,6 +76,10 @@ jobs:
           node tools/verify-normal-export-safety.cjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
+      - name: Exercise synthetic exact AVC AAC MP4 diagnostics and safe failures (Linux engines only)
+        run: |
+          node --test tools/accelerated-codec-diagnostic.test.cjs
+          node tools/browser-accelerated-codec-diagnostic.cjs
       - name: Inspect synthetic media tracks using ffprobe
         run: |
           if ! command -v ffprobe >/dev/null 2>&1; then
@@ -131,6 +142,7 @@ jobs:
           name: Wivra-WebCodecs-Linux-Browser-Capabilities
           path: |
             wivra-media-capabilities.json
+            wivra-accelerated-codec-diagnostic.json
             wivra-export-browser-roundtrip.json
             wivra-long-multipart-export.json
             wivra-long-multipart-export-first-attempt.json

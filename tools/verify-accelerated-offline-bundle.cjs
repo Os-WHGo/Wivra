@@ -26,8 +26,16 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     qaUI:document.getElementById('wivraAcceleratedQA')?.id || null,
     nativeHost:typeof globalThis.WivraAcceleratedQA?.nativeHost,
     photos:typeof globalThis.WivraAcceleratedQA?.saveToPhotos,
+    diagnostic:typeof globalThis.WivraAcceleratedQA?.diagnoseCodecs,
+    diagnosticUI:!!document.getElementById('wivraCodecDiagnostic'),
   }));
-  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function',nativeLaunch:'function',qaUI:null,nativeHost:'function',photos:'function'});
+  assert.deepEqual(status,{vendor:'object',output:'function',cut:'function',random:'function',qa:'function',api:'function',multipista:'function',photoQA:'function',nativeLaunch:'function',qaUI:null,nativeHost:'function',photos:'function',diagnostic:'function',diagnosticUI:true});
+  await page.evaluate(()=>document.getElementById('wivraCodecStart').click());
+  assert.match(await page.locator('#wivraCodecDiagnostic [role="status"]').textContent(),/Marca primero/);
+  const cancelledDiagnostic=await page.evaluate(()=>WivraAcceleratedQA.diagnoseCodecs({isCancelled:()=>true}));
+  assert.equal(cancelledDiagnostic.outcome,'cancelled');
+  assert.equal(cancelledDiagnostic.productionEligible,false);
+  assert.equal(cancelledDiagnostic.physicalDeviceVerified,false);
   // The same offline QA HTML must show controls ONLY when a dedicated
   // v2 host exists. An ordinary browser may inspect codecs but cannot launch
   // native export or recovery. This is Chromium Linux, not an iPhone proof.
