@@ -14,10 +14,14 @@ on:
       - 'tools/whisper-wasm/**'
       - 'tools/browser-whisper-subtitles.cjs'
       - 'tools/browser-whisper-dictation.cjs'
+      - 'tools/browser-whisper-long.cjs'
       - 'app/vendor/whisper/**'
       - 'app/ai/whisper-wasm.mjs'
       - 'streaming/ios/B0/Sources/WivraEditorE2EHook.swift'
       - 'streaming/android/app/src/androidTest/java/com/oswhgo/wivra/WivraWhisperWebViewTest.java'
+      - 'streaming/android/app/src/androidTest/java/com/oswhgo/wivra/WivraAudioSegmentsInstrumentedTest.java'
+      - 'streaming/android/app/src/main/java/com/oswhgo/wivra/WivraAudioSegment*.kt'
+      - 'streaming/ios/B0/Sources/WivraAudioSegments.swift'
       - '.github/workflows/wivra-whisper-wasm.yml'
   workflow_dispatch:
 permissions:
@@ -188,6 +192,18 @@ jobs:
           w=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$w" ] || w=/tmp/wv-fx/es.wav
           node tools/browser-whisper-dictation.cjs "$w" tiny es "$(cat /tmp/wv-fx/flow-words.txt)" 9
           node tools/browser-whisper-dictation.cjs "$w" base es "$(cat /tmp/wv-fx/flow-words.txt)" 9
+      - name: Long video (11 min, beyond the single-decode limit) · native piece reader stand-in · Tiny · Spanish
+        timeout-minutes: 30
+        run: |
+          set -eu
+          nat=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$nat" ] || nat=/tmp/wv-fx/es.wav
+          timeout 120 ffmpeg -nostdin -loglevel error -y -i /tmp/wv-fx/en.wav -i "$nat" \
+            -filter_complex "[0:a]aresample=16000,adelay=60000[a];[1:a]aresample=16000,adelay=630000[b];[a][b]amix=inputs=2:normalize=0,apad=whole_dur=660" \
+            -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/long.wav
+          timeout 300 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=160x284:rate=2 -i /tmp/wv-fx/long.wav -shortest \
+            -c:v libvpx -b:v 20k -deadline realtime -c:a libopus -b:a 24k /tmp/wv-fx/long.webm
+          ls -la /tmp/wv-fx/long.*
+          node tools/browser-whisper-long.cjs /tmp/wv-fx/long.webm video/webm /tmp/wv-fx/long.wav tiny es "volcán@631"
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-fixtures
@@ -243,12 +259,12 @@ jobs:
             adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
             adb install -r streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
             adb shell dumpsys package com.google.android.webview | grep -m1 versionName || true
-            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraWhisperWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner > /tmp/wv-android.txt || true
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraWhisperWebViewTest,com.oswhgo.wivra.WivraAudioSegmentsInstrumentedTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner > /tmp/wv-android.txt || true
             node -e "const t=require('fs').readFileSync('/tmp/wv-android.txt','utf8');const p={};for(const m of t.matchAll(/wivra-whisper=(android\.\w+)#(\d+)=(.*)/g))(p[m[1]]=p[m[1]]||[])[+m[2]]=m[3];for(const k in p)require('fs').writeFileSync('/tmp/'+k+'.json',p[k].join(''));"
             node tools/whisper-wasm/e2e-report.cjs /tmp/android.full.json 'Android WebView · download + cancel + recognize' consent,cancel || true
             node tools/whisper-wasm/e2e-report.cjs /tmp/android.kept.json 'Android WebView · reopened, kept pack' || true
             grep -E 'INSTRUMENTATION_|^OK|FAILURES|Tests run|AssumptionViolated' /tmp/wv-android.txt | head -20
-            grep -Eq '^OK \(1 test\)' /tmp/wv-android.txt
+            grep -Eq '^OK \(2 tests\)' /tmp/wv-android.txt
             test -s /tmp/android.kept.json
 
   ios-wkwebview:

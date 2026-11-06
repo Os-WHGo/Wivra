@@ -5,6 +5,7 @@
 // Multilingual models only (no English-only variants). whisper.cpp: MIT.
 import { splitText } from '../subtitles.mjs';
 import { AUTOCUT_TIMED_SCHEMA, normalizeTimedSpeech } from '../autocut-evidence.mjs';
+import { clipLength, speedOf } from '../../core/project.mjs';
 
 /** Voice packs (multilingual, Q5_1). Source pinned to one revision of the official repo. */
 export const WV_REV = '5359861';
@@ -167,6 +168,37 @@ export function wvTimedSpeechByAsset(project, segments) {
     if (normalizeTimedSpeech(evidence)) out.set(id, evidence);
   }
   return out;
+}
+
+/** W98: longest project for automatic subtitles when the phone reads the sound piece by piece (native extraction). */
+export const WV_MAX_LONG_S = 90 * 60;
+
+/**
+ * W98: what sounds in the timeline window [t0, t1): for each audible clip (main line, layers with sound, audio
+ * tracks; not muted, volume > 0), the piece of ITS file to read and where it goes in the window.
+ * → [{ assetId, from, to (file seconds), at (window sample), frames, speed, gain }]
+ */
+export function wvWindowSources(project, t0, t1, rate = WV_RATE) {
+  const assets = new Map((project.assets || []).map((a) => [a.id, a])), out = [];
+  const gainOf = (c) => (c.muted ? 0 : Math.max(0, Math.min(2, typeof c.volume === 'number' && Number.isFinite(c.volume) ? c.volume : 1)));
+  for (const c of [...(project.clips || []), ...(project.overlayClips || []), ...(project.audioClips || [])]) {
+    const a = assets.get(c.asset_id), g = gainOf(c); if (!a || a.kind === 'image' || !(g > 0)) continue;
+    const sp = speedOf(c), o0 = Math.max(t0, c.start), o1 = Math.min(t1, c.start + clipLength(c)); if (o1 - o0 < 0.01) continue;
+    out.push({ assetId: c.asset_id, from: c.in + (o0 - c.start) * sp, to: c.in + (o1 - c.start) * sp, at: Math.round((o0 - t0) * rate), frames: Math.round((o1 - o0) * rate), speed: sp, gain: g });
+  }
+  return out;
+}
+
+/** W98: little-endian 16-bit PCM in base64 (native answer) → Float32 samples in [-1, 1]. */
+export function wvPcmFromBase64(b64) {
+  const bin = atob(b64), out = new Float32Array(bin.length >> 1);
+  for (let i = 0; i < out.length; i++) { const v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); out[i] = (v > 32767 ? v - 65536 : v) / 32768; }
+  return out;
+}
+
+/** W98: add a file piece into the window buffer at `at`, read at `speed`, with `gain`. */
+export function wvMixInto(win, at, piece, frames, speed = 1, gain = 1) {
+  for (let i = 0; i < frames; i++) { const k = Math.floor(i * speed), o = at + i; if (k >= piece.length || o >= win.length) break; win[o] += piece[k] * gain; }
 }
 
 /** SHA-256 as lowercase hex (WebCrypto; available in WebView/WKWebView and Node 18+). */

@@ -112,9 +112,15 @@ public final class MainActivity extends Activity {
             @Override
             public boolean onShowFileChooser(
                 WebView webView,
-                ValueCallback<Uri[]> callback,
+                ValueCallback<Uri[]> chosenFiles,
                 FileChooserParams params
             ) {
+                // W98: remember what the person gives the editor, so long-video subtitles can read
+                // the sound of those files piece by piece (never other files).
+                ValueCallback<Uri[]> callback = uris -> {
+                    WivraAudioSegments.INSTANCE.remember(MainActivity.this, uris);
+                    chosenFiles.onReceiveValue(uris);
+                };
                 // A newer selection must cancel an outstanding slow cloud
                 // provider opening from the previous request.
                 if (pendingPickerSignal != null) pendingPickerSignal.cancel();
@@ -268,6 +274,8 @@ public final class MainActivity extends Activity {
         }
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
+        // W98: sound of one short piece of a chosen file, for long-video subtitles.
+        new WivraAudioSegmentBridge(this, editor).install();
         // W81 (Claude): Capturar / LIVE cards on the editor home only OPEN the
         // same native choosers as the buttons above. Nothing starts by itself.
         new WivraHomeBridge(editor, what -> {

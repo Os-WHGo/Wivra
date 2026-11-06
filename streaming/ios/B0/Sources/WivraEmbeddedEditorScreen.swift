@@ -26,6 +26,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     private func finishSelection(_ urls: [URL]?) {
         guard let completion = pendingFileSelection else { return }
         pendingFileSelection = nil
+        WivraAudioSegments.remember(urls)      // W98: long-video subtitles may read these files' sound piece by piece
         completion(urls)
     }
 
@@ -355,6 +356,7 @@ private struct WivraEditorWebView: UIViewRepresentable {
               verifyFile: ({id, file}) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'capture.verifyFile', sessionId: id, file}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
               checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId}),
+              audioPcm: (name, size, from, to) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'audio.pcm16k', name: String(name), size: Number(size), from: Number(from), to: Number(to)}),
               openNative: (what, script) => window.webkit.messageHandlers.wivraNative.postMessage(Object.assign({version: 1, method: 'host.openNative', what}, typeof script === 'string' ? {script: script.slice(0, 2200)} : {}))
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)

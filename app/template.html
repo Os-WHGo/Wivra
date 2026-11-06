@@ -2364,12 +2364,43 @@ $('wvCancel').onclick = () => {      // works in every stage: download, reading 
   if (wvWorker) { wvWorker.terminate(); wvWorker = null; }
   if (wvJob) wvUi(false, aiT('Cancelado. No se agregó ningún subtítulo.'));
 };
+/* W98: long videos. The phone reads the sound of each piece natively (Android MediaCodec / iPhone AVAssetReader)
+   through WivraAudioPcm (Android) or WivraHost.audioPcm (iPhone): only files the person chose for the editor. */
+const wvNativePcm = () => window.WivraAudioPcm && typeof window.WivraAudioPcm.extract === 'function' ? (n, z, f, t) => window.WivraAudioPcm.extract(n, z, f, t)
+  : window.WivraHost && typeof window.WivraHost.audioPcm === 'function' ? (n, z, f, t) => window.WivraHost.audioPcm(n, z, f, t) : null;
+async function wvAssetPiece(assetId, from, to, alive, shortCache) {
+  const f = mediaFiles[assetId], nat = wvNativePcm();
+  if (nat && f && f.name) {
+    const parts = []; let ok = true;
+    for (let a = from; a < to - 1e-6 && ok; a += 30) {
+      const b = Math.min(to, a + 30), r = await nat(f.name, f.size, a, b); alive();
+      if (r && r.ok && typeof r.b64 === 'string') parts.push(wvPcmFromBase64(r.b64)); else ok = false;
+    }
+    if (ok && parts.length) { const out = new Float32Array(parts.reduce((n, x) => n + x.length, 0)); let o = 0; for (const x of parts) { out.set(x, o); o += x.length; } return out; }
+  }
+  // Fallback for short files the phone cannot read natively (e.g. a voice-over recorded in the editor): decoded once.
+  const asset = session.project.assets.find((a) => a.id === assetId);
+  if (!asset || !(asset.duration <= WV_MAX_AUDIO_S)) throw Object.assign(new Error('NATIVE_NEEDED'), { code: 'NATIVE_NEEDED' });
+  let pcm = shortCache.get(assetId); if (pcm === undefined) { pcm = await loadPcm16(assetId); shortCache.set(assetId, pcm); alive(); }
+  if (!pcm) return null;
+  return monoOf(pcm).subarray(Math.max(0, Math.floor(from * WV_RATE)), Math.ceil(to * WV_RATE));
+}
+async function wvLongWindow(project, t0, t1, lead, alive, shortCache) {
+  const win = new Float32Array(lead + Math.round((t1 - t0) * WV_RATE));
+  for (const x of wvWindowSources(project, t0, t1, WV_RATE)) {
+    const piece = await wvAssetPiece(x.assetId, x.from, x.to, alive, shortCache);
+    if (piece) wvMixInto(win, lead + x.at, piece, x.frames, x.speed, x.gain);
+  }
+  return win;
+}
 $('wvRun').onclick = async () => {
   if (!session || !session.project.clips.length) { say(aiT('Primero elige el video principal.'), 'bad'); return; }
   const m = WV_MODELS[$('wvModel').value], lang = $('wvLang').value; let pack = null; try { pack = await wvGetPack(m.id); } catch {}
   if (!pack) { say(aiT('Primero descarga el paquete de voz «{1}».', aiT(m.name)), 'bad'); return; }
   const project = session.project, mySession = session, duration = totalDuration(project);
-  if (duration > WV_MAX_AUDIO_S) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_AUDIO_S / 60), 'bad'); return; }
+  const long = duration > WV_MAX_AUDIO_S;      // W98: longer projects are read piece by piece by the phone
+  if (long && duration > WV_MAX_LONG_S) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_LONG_S / 60), 'bad'); return; }
+  if (long && !wvNativePcm()) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_AUDIO_S / 60), 'bad'); return; }
   wvUi(true, aiT('Leyendo el sonido del video…'), 0);
   let worker = null, workerUrl = null, watchdog = null; const job = wvJob = { cancelled: false, reject: null, lastMsg: Date.now(), wake: null };
   const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === 'visible') job.wake = await navigator.wakeLock.request('screen'); } catch { job.wake = null; } };
@@ -2378,21 +2409,25 @@ $('wvRun').onclick = async () => {
   const oom = (msg) => Object.assign(new Error(msg), /MEMORY|OOM|out of memory|Aborted/i.test(String(msg)) ? { code: 'WORKER' } : {});
   const alive = () => { if (job.cancelled || session !== mySession) throw wvCancelled(); };
   try {
-    const ids = [...new Set([...project.clips, ...(project.overlayClips || []), ...(project.audioClips || [])].map((c) => c.asset_id))], cache = new Map();
-    for (const id of ids) { const a = project.assets.find((x) => x.id === id); if (!a || a.kind === 'image') continue; cache.set(id, await loadPcm16(id)); alive(); }
-    const { mono, noAudio } = (() => {      // the stereo mix only lives inside this block (freed before the engine starts)
-      const mix = buildMix(project, (id) => cache.get(id), WV_RATE), [L, R] = mix.channels, out = new Float32Array(L.length);
-      for (let i = 0; i < out.length; i++) out[i] = (L[i] + R[i]) * 0.5;
-      return { mono: out, noAudio: !out.length || mix.missing.length === mix.sources };
-    })(); cache.clear();
-    if (noAudio) throw Object.assign(new Error('NO_AUDIO'), { code: 'NO_AUDIO' });
+    let mono = null; const shortCache = new Map();
+    if (!long) {
+      const ids = [...new Set([...project.clips, ...(project.overlayClips || []), ...(project.audioClips || [])].map((c) => c.asset_id))], cache = new Map();
+      for (const id of ids) { const a = project.assets.find((x) => x.id === id); if (!a || a.kind === 'image') continue; cache.set(id, await loadPcm16(id)); alive(); }
+      const made = (() => {      // the stereo mix only lives inside this block (freed before the engine starts)
+        const mix = buildMix(project, (id) => cache.get(id), WV_RATE), [L, R] = mix.channels, out = new Float32Array(L.length);
+        for (let i = 0; i < out.length; i++) out[i] = (L[i] + R[i]) * 0.5;
+        return { mono: out, noAudio: !out.length || mix.missing.length === mix.sources };
+      })(); cache.clear(); mono = made.mono;
+      if (made.noAudio) throw Object.assign(new Error('NO_AUDIO'), { code: 'NO_AUDIO' });
+    }
     wvUi(true, aiT('Preparando el motor de voz…'), 2);
     const model = await pack.blob.arrayBuffer(); alive();
     if (await wvSha256Hex(model) !== pack.sha256) { await wvDelPack(m.id); throw Object.assign(new Error('HASH'), { code: 'HASH' }); }
     const src = await wvEngineSource(); alive();
     workerUrl = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' }));
     worker = wvWorker = new Worker(workerUrl);
-    const chunks = wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0, eta = null; const t0 = Date.now();
+    const total = long ? Math.round(duration * WV_RATE) : mono.length;
+    const chunks = long ? wvChunks(total, null, WV_RATE) : wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0, eta = null; const t0 = Date.now();
     const listening = () => eta ? aiT('Escuchando… parte {1} de {2} · faltan unos {3} min', current + 1, chunks.length, eta) : aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length);
     watchdog = setInterval(() => {      // an engine that stops answering (closed by the system) must not leave the job waiting forever
       if (document.visibilityState === 'visible' && Date.now() - job.lastMsg > WV_STALL_MS && job.reject) job.reject(Object.assign(new Error('STALLED'), { code: 'STALLED' }));
@@ -2408,8 +2443,10 @@ $('wvRun').onclick = async () => {
     if (!ready.ok) throw Object.assign(new Error('MODEL'), { code: ready.why === 'MEMORY' ? 'WORKER' : 'MODEL' });
     for (current = 0; current < chunks.length; current++) {
       alive();
-      const c = chunks[current], lead = Math.round(WV_LEAD_S * WV_RATE), pcm = new Float32Array(lead + c.to - c.from); pcm.set(mono.subarray(c.from, c.to), lead);
-      eta = wvEtaMinutes(c.from, mono.length, Date.now() - t0);
+      const c = chunks[current], lead = Math.round(WV_LEAD_S * WV_RATE);
+      let pcm; if (long) pcm = await wvLongWindow(project, c.from / WV_RATE, c.to / WV_RATE, lead, alive, shortCache);
+      else { pcm = new Float32Array(lead + c.to - c.from); pcm.set(mono.subarray(c.from, c.to), lead); }
+      eta = wvEtaMinutes(c.from, total, Date.now() - t0);
       wvUi(true, listening(), 5 + 95 * current / chunks.length);
       const r = await ask({ type: 'run', id: current, pcm, lang, fallback: WV_FALLBACK }, [pcm.buffer]);
       let err = null; try { err = JSON.parse(r.json).error || null; } catch { err = 'WHISPER_FAILED'; }
@@ -2437,6 +2474,7 @@ $('wvRun').onclick = async () => {
     else if (code === 'HASH') say(aiT('El paquete de voz guardado está dañado y se borró. Descárgalo otra vez.'), 'bad');
     else if (code === 'NO_AUDIO') say(aiT('No pude leer el sonido del video.'), 'bad');
     else if (code === 'STALLED') say(aiT('El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta.'), 'bad');
+    else if (code === 'NATIVE_NEEDED') say(aiT('Para subtítulos de videos largos, agrega el video desde Wivra en el teléfono (así se lee su sonido por partes, sin llenar la memoria).'), 'bad');
     else if (code === 'MODEL') say(aiT('El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez.'), 'bad');
     else if (code === 'WORKER') say(aiT('El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto.'), 'bad');
     else say(aiT('No se pudieron crear los subtítulos: {1}', e && e.message || e), 'bad');
