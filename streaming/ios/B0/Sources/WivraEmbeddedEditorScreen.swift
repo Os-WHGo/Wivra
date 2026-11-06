@@ -226,6 +226,60 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         finishSelection(nil)
     }
 
+    // W86: WKWebView answers "Cancel" to every confirm() and ignores alert()/prompt() unless
+    // the host shows them. The editor asks consent this way (voice-pack download, deleting a
+    // project, adding recognized subtitles), so show real native dialogs, only for the
+    // bundled editor's main frame.
+    private func editorDialogPresenter(_ webView: WKWebView, _ frame: WKFrameInfo) -> UIViewController? {
+        let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
+        guard frame.isMainFrame, let url = frame.request.url?.wivraWithoutFragment, url.isFileURL,
+              approvedEditor?.standardizedFileURL == url.standardizedFileURL,
+              let presenter = visiblePresenter(for: webView), presenter.presentedViewController == nil else { return nil }
+        return presenter
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptAlertPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable () -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(); return }
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { _ in completionHandler() })
+        presenter.present(alert, animated: true)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(false); return }
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_cancel", comment: ""), style: .cancel) { _ in completionHandler(false) })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { _ in completionHandler(true) })
+        presenter.present(alert, animated: true)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptTextInputPanelWithPrompt prompt: String,
+        defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable (String?) -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(nil); return }
+        let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+        alert.addTextField { $0.text = defaultText }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_cancel", comment: ""), style: .cancel) { _ in completionHandler(nil) })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { [weak alert] _ in
+            completionHandler(alert?.textFields?.first?.text ?? "")
+        })
+        presenter.present(alert, animated: true)
+    }
+
     // A remote page must never receive the file-origin native message bridge.
     func webView(
         _ webView: WKWebView,
@@ -349,6 +403,9 @@ private struct WivraEditorWebView: UIViewRepresentable {
         if let html = Bundle.main.url(forResource: "agentcut", withExtension: "html") {
             view.loadFileURL(html, allowingReadAccessTo: html.deletingLastPathComponent())
         }
+        #if DEBUG
+        WivraEditorE2EHook.startIfRequested(view)      // CI-only (W86); inactive unless WIVRA_E2E=1
+        #endif
         return view
     }
 

@@ -6,6 +6,8 @@
 "ios.editor.missing" = "エディターが含まれていません";
 "ios.editor.missing_description" = "アプリ内に app/dist/agentcut.html がありません。";
 "ios.editor.title" = "Wivra エディター";
+"ios.editor.dialog_ok" = "OK";
+"ios.editor.dialog_cancel" = "キャンセル";
 "ios.editor.back" = "カメラに戻る";
 "ios.app.editor" = "エディター";
 "ios.app.captures" = "マイキャプチャ";

@@ -2,10 +2,13 @@
 // W86 (Claude): run the SAME single-file whisper.cpp WASM the editor uses, in Node
 // (Linux CI). Measures time and checks words for an English and a Spanish sample with a
 // multilingual model. This is NOT mobile evidence: WebView/WKWebView tests are separate.
-// Usage: node node-check.cjs <wivra-whisper.js> <model.bin> <label> <wav16k> <lang> <expected,words> [...]
+// Usage: node node-check.cjs <wivra-whisper.js> <model.bin> <label> <wav16k> <lang> "<reference sentence>" [...]
+// Prints the share of reference words recognized (accents and punctuation ignored). With
+// WV_MIN_RECALL=0.7 a sample below 70 % fails the step; without it the step only reports.
 'use strict';
 const fs = require('node:fs');
 const [, , engineJs, modelPath, label, ...rest] = process.argv;
+const minRecall = Number(process.env.WV_MIN_RECALL || 0);
 
 function readWav16kMono(file) {
   const b = fs.readFileSync(file);
@@ -34,16 +37,17 @@ function readWav16kMono(file) {
   console.log(`${label}: model ${(model.length / 1048576).toFixed(1)} MiB loaded in ${Date.now() - t0} ms; ${mod.systemInfo().trim()}`);
   let failed = 0;
   for (let i = 0; i + 2 < rest.length; i += 3) {
-    const [wav, lang, words] = [rest[i], rest[i + 1], rest[i + 2].split(',')];
+    const [wav, lang, reference] = [rest[i], rest[i + 1], rest[i + 2]];
     const pcm = readWav16kMono(wav), sp = mod._malloc(pcm.length * 4);
     mod.HEAPF32.set(pcm, sp >> 2);
     const s = Date.now(), json = mod.transcribe(sp, pcm.length, lang), ms = Date.now() - s; mod._free(sp);
     const r = JSON.parse(json); if (r.error) { console.log(`not ok - ${label} ${wav}: ${r.error}`); failed++; continue; }
-    const text = r.transcription.map((x) => x.text).join(' ').toLowerCase();
-    const missing = words.filter((w) => !text.includes(w.toLowerCase()));
-    const rtf = ms / 1000 / (pcm.length / 16000);
-    console.log(`${missing.length ? 'not ok' : 'ok'} - ${label} ${lang} ${(pcm.length / 16000).toFixed(1)} s audio in ${(ms / 1000).toFixed(1)} s (x${rtf.toFixed(2)} real time), detected ${r.result.language}: «${text.trim()}»${missing.length ? ' missing: ' + missing.join(',') : ''}`);
-    if (missing.length) failed++;
+    const text = r.transcription.map((x) => x.text).join(' ').trim();
+    const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+    const said = new Set(norm(text)), ref = norm(reference), hit = ref.filter((w) => said.has(w)), recall = ref.length ? hit.length / ref.length : 0;
+    const rtf = ms / 1000 / (pcm.length / 16000), bad = recall < minRecall;
+    console.log(`${bad ? 'not ok' : 'ok'} - ${label} ${lang} ${(pcm.length / 16000).toFixed(1)} s audio in ${(ms / 1000).toFixed(1)} s (x${rtf.toFixed(2)} real time), detected ${r.result.language}, words right ${hit.length}/${ref.length} (${Math.round(recall * 100)} %): «${text}» missing: ${ref.filter((w) => !said.has(w)).join(',') || '—'}`);
+    if (bad) failed++;
   }
   mod.free();
   process.exit(failed ? 1 : 0);

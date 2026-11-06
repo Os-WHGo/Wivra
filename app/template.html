@@ -472,6 +472,13 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
   <h3>Subtítulos</h3><p class="m">Importa un archivo .srt o .vtt, o guarda los textos como subtítulos.</p>
   <label class="btn sec" for="subFile" style="cursor:pointer">Importar subtítulos (.srt / .vtt)</label><input id="subFile" type="file" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="position:absolute;width:1px;height:1px;opacity:0">
   <label class="btn sec" for="whisperJsonFile" style="cursor:pointer">Importar transcripción Whisper (.json)</label><input id="whisperJsonFile" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0"><p class="m">Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono.</p>
+  <div id="wvBox" style="margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px"><b>Subtítulos automáticos (en el teléfono)</b>
+    <p class="m">Reconoce la voz del video con whisper.cpp dentro del teléfono: tu audio no sale de él. Necesita un paquete de voz que se descarga una sola vez, cuando tú lo pidas.</p>
+    <div class="frow"><select id="wvModel" aria-label="Paquete de voz"><option value="base">Preciso · 57 MB</option><option value="tiny">Ligero · 31 MB</option></select><select id="wvLang" aria-label="Idioma del audio"><option value="auto">Detectar idioma</option><option value="es" data-notr>Español</option><option value="en" data-notr>English</option><option value="pt" data-notr>Português</option><option value="fr" data-notr>Français</option><option value="de" data-notr>Deutsch</option><option value="it" data-notr>Italiano</option><option value="ja" data-notr>日本語</option><option value="zh" data-notr>中文</option></select></div>
+    <p class="m" id="wvState" role="status" aria-live="polite"></p><progress id="wvProg" max="100" value="0" style="display:none;width:100%"></progress>
+    <div class="row"><button id="wvGet" class="btn sec" type="button">Descargar paquete de voz</button><button id="wvRun" class="btn" type="button">Generar subtítulos</button></div>
+    <div class="row"><button id="wvCancel" class="btn sec" type="button" style="display:none">Cancelar</button><button id="wvDel" class="btn sec" type="button">Borrar paquete</button></div>
+  </div>
   <div class="row"><button id="subSrt" class="btn sec" disabled>Guardar .srt</button><button id="subVtt" class="btn sec" disabled>Guardar .vtt</button></div></div>
 
 <div class="sheet" id="sTxStyle"><h2>Estilo del texto</h2>
@@ -2229,6 +2236,131 @@ $('whisperJsonFile').addEventListener('change', async () => {
     say('No pude leer el JSON de Whisper: ' + (e?.message || e), 'bad');
   }
 });
+/* ---------- W86 (Claude): subtítulos automáticos locales con whisper.cpp (WebAssembly) ----------
+   Paquete de voz: solo con consentimiento, verificado por SHA-256 y guardado en el teléfono (IndexedDB) para usarse sin Internet.
+   El motor corre en un Worker (no bloquea el editor); cancelar = terminar el Worker. El resultado pasa por el contrato de transcripción
+   y se convierte en textos normales (add_text): se corrigen, sincronizan, estilan, se guardan como .srt/.vtt y salen en el video. */
+let wvWorker = null, wvAbort = null, wvBusy = false, wvJob = null;      // wvJob: { cancelled, reject } of the running recognition
+const wvIdb = () => new Promise((ok, no) => { const r = indexedDB.open('wivra-voice', 1); r.onupgradeneeded = () => r.result.createObjectStore('packs'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); });
+async function wvGetPack(id) { const db = await wvIdb(); try { return await new Promise((ok, no) => { const q = db.transaction('packs').objectStore('packs').get(id); q.onsuccess = () => ok(q.result || null); q.onerror = () => no(q.error); }); } finally { db.close(); } }
+async function wvPutPack(id, v) { const db = await wvIdb(); try { await new Promise((ok, no) => { const t = db.transaction('packs', 'readwrite'); t.objectStore('packs').put(v, id); t.oncomplete = ok; t.onerror = () => no(t.error); }); } finally { db.close(); } }
+async function wvDelPack(id) { const db = await wvIdb(); try { await new Promise((ok, no) => { const t = db.transaction('packs', 'readwrite'); t.objectStore('packs').delete(id); t.oncomplete = ok; t.onerror = () => no(t.error); }); } finally { db.close(); } }
+function wvUi(busy, text, pct) {
+  wvBusy = busy; $('wvGet').disabled = busy; $('wvRun').disabled = busy; $('wvDel').disabled = busy; $('wvModel').disabled = busy;
+  $('wvCancel').style.display = busy ? '' : 'none'; if (text != null) $('wvState').textContent = text;
+  $('wvProg').style.display = pct == null ? 'none' : ''; if (pct != null) $('wvProg').value = Math.max(0, Math.min(100, pct));
+}
+async function wvRefresh() {
+  if (wvBusy) return; const m = WV_MODELS[$('wvModel').value]; let pack = null; try { pack = await wvGetPack(m.id); } catch {}
+  wvUi(false, pack ? aiT('Paquete «{1}» guardado en el teléfono ({2} MB). Funciona sin Internet.', aiT(m.name), m.approxMB) : aiT('Paquete «{1}» no descargado ({2} MB).', aiT(m.name), m.approxMB));
+  $('wvDel').disabled = !pack;
+}
+async function wvEngineSource() {
+  const b64 = ($('wvEngine') && $('wvEngine').textContent || '').trim(); if (!b64) throw Object.assign(new Error('ENGINE_MISSING'), { code: 'ENGINE_MISSING' });
+  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const src = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  if (await wvSha256Hex(src) !== WV_ENGINE_SHA256) throw Object.assign(new Error('ENGINE_MISSING'), { code: 'ENGINE_MISSING' });
+  return new TextDecoder().decode(src);
+}
+$('wvModel').value = wvSuggestModel(navigator.deviceMemory);
+$('wvModel').addEventListener('change', wvRefresh);
+$('bText').addEventListener('click', () => { wvRefresh(); });
+$('wvGet').onclick = async () => {
+  const m = WV_MODELS[$('wvModel').value];
+  if (!confirm(aiT('Se descargará el paquete de voz «{1}» ({2} MB) desde huggingface.co, del repositorio oficial de whisper.cpp. Se guarda en el teléfono y sirve para crear subtítulos sin Internet; tu audio no se envía. Recomendado con Wi-Fi. ¿Descargar?', aiT(m.name), m.approxMB))) return;
+  wvAbort = new AbortController(); wvUi(true, aiT('Descargando el paquete de voz…'), 0);
+  try {
+    const res = await fetch(wvModelUrl(m), { signal: wvAbort.signal }); if (!res.ok) throw new Error('HTTP ' + res.status);
+    const total = Number(res.headers.get('content-length')) || m.approxMB * 1048576, reader = res.body.getReader(), parts = []; let got = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; wvUi(true, aiT('Descargando… {1} de {2} MB', Math.round(got / 1048576), Math.round(total / 1048576)), got / total * 100); }
+    const blob = new Blob(parts); parts.length = 0; wvUi(true, aiT('Verificando el paquete…'), 100);
+    const hash = await wvSha256Hex(await blob.arrayBuffer());
+    if ((m.sha256 && hash !== m.sha256) || (m.bytes && blob.size !== m.bytes)) throw Object.assign(new Error('HASH'), { code: 'HASH' });
+    await wvPutPack(m.id, { blob, sha256: hash, bytes: blob.size, rev: WV_REV, savedAt: Date.now() });
+    wvUi(false); await wvRefresh(); say(aiT('Paquete de voz «{1}» listo. Funciona sin Internet.', aiT(m.name)), 'ok');
+  } catch (e) {
+    wvUi(false); await wvRefresh();
+    if (e && e.name === 'AbortError') say(aiT('Descarga cancelada. No se guardó nada.'), 'ok');
+    else if (e && e.code === 'HASH') say(aiT('El paquete descargado no coincide con el original verificado. No se guardó; vuelve a intentarlo.'), 'bad');
+    else say(aiT('No se pudo descargar el paquete de voz ({1}). Revisa la conexión; la importación de .srt sigue disponible.', e && e.message || e), 'bad');
+  } finally { wvAbort = null; }
+};
+$('wvDel').onclick = async () => { const m = WV_MODELS[$('wvModel').value]; if (!confirm(aiT('¿Borrar el paquete de voz «{1}» del teléfono? Los subtítulos ya creados no se tocan.', aiT(m.name)))) return; try { await wvDelPack(m.id); } catch {} wvRefresh(); };
+const wvCancelled = () => Object.assign(new Error('CANCELLED'), { code: 'CANCELLED' });
+$('wvCancel').onclick = () => {      // works in every stage: download, reading the sound, loading the engine, listening
+  if (wvAbort) wvAbort.abort();
+  if (wvJob) { wvJob.cancelled = true; if (wvJob.reject) wvJob.reject(wvCancelled()); }
+  if (wvWorker) { wvWorker.terminate(); wvWorker = null; }
+  if (wvJob) wvUi(false, aiT('Cancelado. No se agregó ningún subtítulo.'));
+};
+$('wvRun').onclick = async () => {
+  if (!session || !session.project.clips.length) { say(aiT('Primero elige el video principal.'), 'bad'); return; }
+  const m = WV_MODELS[$('wvModel').value], lang = $('wvLang').value; let pack = null; try { pack = await wvGetPack(m.id); } catch {}
+  if (!pack) { say(aiT('Primero descarga el paquete de voz «{1}».', aiT(m.name)), 'bad'); return; }
+  const project = session.project, mySession = session, duration = totalDuration(project);
+  if (duration > WV_MAX_AUDIO_S) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_AUDIO_S / 60), 'bad'); return; }
+  wvUi(true, aiT('Leyendo el sonido del video…'), 0);
+  let worker = null, workerUrl = null; const job = wvJob = { cancelled: false, reject: null };
+  const oom = (msg) => Object.assign(new Error(msg), /MEMORY|OOM|out of memory|Aborted/i.test(String(msg)) ? { code: 'WORKER' } : {});
+  const alive = () => { if (job.cancelled || session !== mySession) throw wvCancelled(); };
+  try {
+    const ids = [...new Set([...project.clips, ...(project.overlayClips || []), ...(project.audioClips || [])].map((c) => c.asset_id))], cache = new Map();
+    for (const id of ids) { const a = project.assets.find((x) => x.id === id); if (!a || a.kind === 'image') continue; cache.set(id, await loadPcm16(id)); alive(); }
+    const { mono, noAudio } = (() => {      // the stereo mix only lives inside this block (freed before the engine starts)
+      const mix = buildMix(project, (id) => cache.get(id), WV_RATE), [L, R] = mix.channels, out = new Float32Array(L.length);
+      for (let i = 0; i < out.length; i++) out[i] = (L[i] + R[i]) * 0.5;
+      return { mono: out, noAudio: !out.length || mix.missing.length === mix.sources };
+    })(); cache.clear();
+    if (noAudio) throw Object.assign(new Error('NO_AUDIO'), { code: 'NO_AUDIO' });
+    wvUi(true, aiT('Preparando el motor de voz…'), 2);
+    const model = await pack.blob.arrayBuffer(); alive();
+    if (await wvSha256Hex(model) !== pack.sha256) { await wvDelPack(m.id); throw Object.assign(new Error('HASH'), { code: 'HASH' }); }
+    const src = await wvEngineSource(); alive();
+    workerUrl = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' }));
+    worker = wvWorker = new Worker(workerUrl);
+    const chunks = wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0;
+    const ask = (msg, transfer) => new Promise((ok, no) => {
+      job.reject = no; if (job.cancelled) { no(wvCancelled()); return; }
+      worker.onmessage = (e) => { const d = e.data; if (d.type === 'progress') { wvUi(true, aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length), 5 + 95 * (current + d.p / 100) / chunks.length); return; } if (d.type === 'error') no(oom(d.message)); else ok(d); };
+      worker.onerror = (e) => { e.preventDefault && e.preventDefault(); no(Object.assign(new Error('WORKER'), { code: 'WORKER' })); };
+      worker.postMessage(msg, transfer || []);
+    });
+    const ready = await ask({ type: 'init', model }, [model]);
+    if (!ready.ok) throw Object.assign(new Error('MODEL'), { code: ready.why === 'MEMORY' ? 'WORKER' : 'MODEL' });
+    for (current = 0; current < chunks.length; current++) {
+      alive();
+      const c = chunks[current], pcm = mono.slice(c.from, c.to);
+      wvUi(true, aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length), 5 + 95 * current / chunks.length);
+      const r = await ask({ type: 'run', id: current, pcm, lang }, [pcm.buffer]);
+      let err = null; try { err = JSON.parse(r.json).error || null; } catch { err = 'WHISPER_FAILED'; }
+      if (err === 'CANCELLED') throw wvCancelled(); if (err) throw oom(err);      // never drop a piece silently
+      pieces.push({ offset: c.from / WV_RATE, limit: Math.min(duration, c.to / WV_RATE), json: r.json });
+    }
+    worker.terminate(); wvWorker = null; worker = null; job.reject = null; alive();
+    const v = validateTranscript(wvMerge(pieces), { duration });
+    if (!v.ok) throw new Error(v.message);
+    const { ops, late } = cuesToOps(v.value.segments.map(({ start, end, text }) => ({ start, end, text: text.slice(0, MAX_TEXT) })), duration);
+    wvUi(false);
+    if (!ops.length) { $('wvState').textContent = aiT('No se reconoció voz en el video.'); say(aiT('No se reconoció voz en el video.'), 'bad'); return; }
+    if (!confirm(aiT('Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer.', ops.length))) { wvRefresh(); return; }
+    const applied = run(ops); if (!applied.ok) { say(aiT('No se pudo agregar: {1}', applied.message), 'bad'); return; }
+    const timed = timedSpeechFromSingleClipCues(session.project, v.value.segments);
+    if (timed) { const items = siTimed.get(session) || new Map(); items.set(timed.assetId, timed.evidence); siTimed.set(session, items); }
+    wvRefresh(); render();
+    say(aiT('Se agregaron {1} subtítulos automáticos. Revísalos: el reconocimiento puede equivocarse.', ops.length) + (late ? ' ' + aiT('{1} quedaron fuera del video.', late) : ''), 'ok');
+  } catch (e) {
+    if (worker) worker.terminate(); if (wvWorker === worker) wvWorker = null;
+    const code = e && e.code;
+    if (code === 'CANCELLED') { if (wvJob === job) { wvJob = null; wvUi(false, aiT('Cancelado. No se agregó ningún subtítulo.')); } return; }
+    wvUi(false); await wvRefresh();
+    if (code === 'ENGINE_MISSING') say(aiT('Esta versión no incluye el motor de voz. Puedes importar subtítulos .srt/.vtt.'), 'bad');
+    else if (code === 'HASH') say(aiT('El paquete de voz guardado está dañado y se borró. Descárgalo otra vez.'), 'bad');
+    else if (code === 'NO_AUDIO') say(aiT('No pude leer el sonido del video.'), 'bad');
+    else if (code === 'MODEL') say(aiT('El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez.'), 'bad');
+    else if (code === 'WORKER') say(aiT('El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto.'), 'bad');
+    else say(aiT('No se pudieron crear los subtítulos: {1}', e && e.message || e), 'bad');
+  } finally { if (wvJob === job) wvJob = null; if (workerUrl) URL.revokeObjectURL(workerUrl); }
+};
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
   if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
@@ -3251,5 +3383,6 @@ restoreDirectorDraft();
 
 render();
 </script>
+<!--__WV_ENGINE__-->
 </body>
 </html>

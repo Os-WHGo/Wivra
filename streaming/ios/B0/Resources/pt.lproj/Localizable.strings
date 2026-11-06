@@ -6,6 +6,8 @@
 "ios.editor.missing" = "Editor não incluído";
 "ios.editor.missing_description" = "O pacote do aplicativo não contém app/dist/agentcut.html.";
 "ios.editor.title" = "Editor Wivra";
+"ios.editor.dialog_ok" = "OK";
+"ios.editor.dialog_cancel" = "Cancelar";
 "ios.editor.back" = "Voltar à câmera";
 "ios.app.editor" = "Editor";
 "ios.app.captures" = "Minhas capturas";
