@@ -1480,6 +1480,16 @@ function useAsset(id, time) {      // pone en el video principal el medio `id` e
 }
 let loading = false, directorMultipartBatch = null, directorMultipartInsertAt = null, directorMultipartContext = null;
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
+/** W97: an asset of this project already made from the same file (name, size and modification date), so a second
+    import reuses it instead of keeping the same bytes twice. null when there is none (e.g. after reopening a project). */
+function sameFileAsset(f) {
+  if (!session || !f) return null;
+  for (const [id, k] of Object.entries(mediaFiles)) {
+    if (!k || k.name !== f.name || k.size !== f.size || (k.lastModified || 0) !== (f.lastModified || 0) || !media[id]) continue;
+    if (session.project.assets.some((a) => a.id === id)) return id;
+  }
+  return null;
+}
 async function importSelectedFiles(files) {
   const requireAll = files === directorMultipartBatch;
   if (!files.length || loading) return;
@@ -1498,7 +1508,7 @@ async function importSelectedFiles(files) {
   const importSession = session;
   let stagingSession = session;
   loading = true; stopPlayIfAny(); $('info').textContent = `Leyendo ${files.length} video${files.length > 1 ? 's' : ''}…`;
-  const failed = [], added = [], staged = [];
+  const failed = [], added = [], staged = []; let reused = 0;
   let committed = false;
   const cleanupUncommitted = () => {
     if (staged.length) {
@@ -1524,6 +1534,8 @@ async function importSelectedFiles(files) {
   try {
   for (const f of files) {
     try {
+      const again = requireAll ? null : sameFileAsset(f);      // W97: never keep the same file twice (Ray-Ban part batches keep their own checks)
+      if (again) { added.push(again); reused++; continue; }
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
       const m = photo ? await probeImage(f) : await probe(f,requireAll);
       // A project switch during metadata probing must never receive the old file.
@@ -1582,11 +1594,12 @@ async function importSelectedFiles(files) {
     }
     committed = true;
     if (first && media[added[0]].kind !== 'image') useAsset(added[0], 0);
-    for (const id of added) if (media[id].kind !== 'image') thumbQueue = thumbQueue.then(() => makeThumbs(id));
+    for (const id of added) if (media[id].kind !== 'image' && staged.includes(id)) thumbQueue = thumbQueue.then(() => makeThumbs(id));      // reused files already have thumbnails
     if (first) showFrame();
     const n = session.project.clips.length;
     $('info').textContent = `${n} clip${n > 1 ? 's' : ''} · ${fmt(totalDuration(session.project))} s en total`;
     say(!first ? `Metido en el corte de ${fmt(insertedAt)} s; lo que seguía se corrió.` : added.length > 1 ? (added.some(id => media[id].kind === 'image') ? `Se cargaron ${added.length} archivos (videos y fotos). Revisa el orden.` : `${added.length} videos cargados. Revisa el orden.`) : media[added[0]].kind === 'image' ? 'Foto cargada (3 s). Alarga su bloque para que dure más.' : 'Video cargado. Desliza la línea de tiempo para moverte.', 'ok');
+    if (reused) say(aiT('{1} archivo(s) ya estaban en el proyecto: se reutilizaron sin guardarlos dos veces.', reused), 'ok');
     if (n > 1) { renderVids(); openSheet('sVids'); }
   } else $('info').textContent = session ? 'No se agregó ningún video nuevo.' : 'Ningún video elegido.';
   if (failed.length) say('No pude abrir: ' + failed.join(' · ') + '\nNavegador: ' + navigator.userAgent, 'bad');
