@@ -478,7 +478,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
     <p class="m">Reconoce la voz del video con whisper.cpp dentro del teléfono: tu audio no sale de él. Necesita un paquete de voz que se descarga una sola vez, cuando tú lo pidas.</p>
     <p class="m">Mantén Wivra abierta mientras escucha: la pantalla no se apagará.</p>
     <div class="frow"><select id="wvModel" aria-label="Paquete de voz"><option value="base">Preciso · 57 MB</option><option value="tiny">Ligero · 31 MB</option></select><select id="wvLang" aria-label="Idioma del audio"><option value="auto">Detectar idioma</option><option value="es" data-notr>Español</option><option value="en" data-notr>English</option><option value="pt" data-notr>Português</option><option value="fr" data-notr>Français</option><option value="de" data-notr>Deutsch</option><option value="it" data-notr>Italiano</option><option value="ja" data-notr>日本語</option><option value="zh" data-notr>中文</option></select></div>
-    <p class="m" id="wvState" role="status" aria-live="polite"></p><progress id="wvProg" max="100" value="0" style="display:none;width:100%"></progress>
+    <p class="m" id="wvState" role="status" aria-live="polite"></p><div id="wvRegrant" style="display:none"></div><progress id="wvProg" max="100" value="0" style="display:none;width:100%"></progress>
     <div class="row"><button id="wvGet" class="btn sec" type="button">Descargar paquete de voz</button><button id="wvRun" class="btn" type="button">Generar subtítulos</button></div>
     <div class="row"><button id="wvCancel" class="btn sec" type="button" style="display:none">Cancelar</button><button id="wvDel" class="btn sec" type="button">Borrar paquete</button></div>
   </div>
@@ -2385,6 +2385,43 @@ async function wvAssetPiece(assetId, from, to, alive, shortCache) {
   if (!pcm) return null;
   return monoOf(pcm).subarray(Math.max(0, Math.floor(from * WV_RATE)), Math.ceil(to * WV_RATE));
 }
+/* W102: after Wivra was closed and reopened, the phone no longer holds the permission to read a long file in parts
+   (it is kept only in memory, for files the person chose). Ask for it again, file by file, with a button the person
+   taps (a file picker only opens on a real tap). Only the same file (same name and size) is accepted; nothing is copied. */
+async function wvUngranted(project) {
+  const nat = wvNativePcm(); if (!nat) return [];
+  const ids = [...new Set([...project.clips, ...(project.overlayClips || []), ...(project.audioClips || [])].map((c) => c.asset_id))], out = [];
+  for (const id of ids) {
+    const a = project.assets.find((x) => x.id === id), f = mediaFiles[id];
+    if (!a || a.kind === 'image' || !(a.duration > WV_MAX_AUDIO_S) || !f || !f.name) continue;
+    let r = null; try { r = await nat(f.name, f.size, 0, 0.1); } catch {}
+    if (!(r && r.ok)) out.push({ name: f.name, size: f.size });
+  }
+  return out;
+}
+function wvAskRegrant(missing) {
+  const box = $('wvRegrant'); box.textContent = ''; box.style.display = '';
+  const p = document.createElement('p'); p.className = 'm';
+  p.textContent = aiT('Para leer el sonido de un video largo por partes, el teléfono pide que lo elijas otra vez (Wivra se cerró desde que lo agregaste). No se copia ni se cambia nada.');
+  box.appendChild(p);
+  for (const x of missing) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sec'; b.setAttribute('data-notr', '');
+    b.textContent = aiT('Elegir otra vez «{1}»', x.name);
+    b.onclick = () => {
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'video/*,audio/*'; inp.style.display = 'none'; box.appendChild(inp);
+      inp.onchange = async () => {
+        const file = inp.files && inp.files[0]; inp.remove(); if (!file) return;
+        if (file.name !== x.name || file.size !== x.size) { say(aiT('Ese no es el mismo archivo. Elige «{1}».', x.name), 'bad'); return; }
+        let r = null; try { r = await wvNativePcm()(x.name, x.size, 0, 0.1); } catch {}
+        if (!(r && r.ok)) { say(aiT('El teléfono todavía no deja leer ese archivo. Vuelve a agregar el video al proyecto.'), 'bad'); return; }
+        b.remove();
+        if (!box.querySelector('button')) { box.style.display = 'none'; say(aiT('Listo. Toca «Generar subtítulos» otra vez.'), 'ok'); }
+      };
+      inp.click();
+    };
+    box.appendChild(b);
+  }
+}
 async function wvLongWindow(project, t0, t1, lead, alive, shortCache) {
   const win = new Float32Array(lead + Math.round((t1 - t0) * WV_RATE));
   for (const x of wvWindowSources(project, t0, t1, WV_RATE)) {
@@ -2401,6 +2438,8 @@ $('wvRun').onclick = async () => {
   const long = duration > WV_MAX_AUDIO_S;      // W98: longer projects are read piece by piece by the phone
   if (long && duration > WV_MAX_LONG_S) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_LONG_S / 60), 'bad'); return; }
   if (long && !wvNativePcm()) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_AUDIO_S / 60), 'bad'); return; }
+  if (long) { const missing = await wvUngranted(project); if (missing.length) { wvAskRegrant(missing); return; } }      // W102
+  $('wvRegrant').style.display = 'none';
   wvUi(true, aiT('Leyendo el sonido del video…'), 0);
   let worker = null, workerUrl = null, watchdog = null; const job = wvJob = { cancelled: false, reject: null, lastMsg: Date.now(), wake: null };
   const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === 'visible') job.wake = await navigator.wakeLock.request('screen'); } catch { job.wake = null; } };
