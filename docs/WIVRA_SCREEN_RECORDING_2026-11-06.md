@@ -29,7 +29,7 @@ Decisiones del propietario: 2A (Android) y 1A (iPhone). Rama W99 (Android) y W10
 - Memoria de la extensión: unos **50 MB**. **Reportado por terceros** (OpenTok, guías de ReplayKit); Apple no publica la cifra. Por eso los cuadros van directo al codificador o se descartan, nunca se acumulan.
 - La cámara de Wivra no se puede usar mientras se graba la pantalla.
 - Si se gira el iPhone durante la grabación, el video conserva la orientación inicial. **No verificado en teléfono**: la rotación depende de una etiqueta de ReplayKit que hay que comprobar.
-- Si iOS corta la extensión de golpe, el video se recupera hasta el último fragmento (cada 2 s). El sonido de ese corte puede perderse, porque el M4A no se escribe por fragmentos.
+- Si iOS corta la extensión de golpe, el video se recupera hasta el último fragmento (cada 2 s). **Medido en macOS (W108)** con el mismo escritor y cuadros sintéticos: con un corte a los 3,5 s se recuperan 2,07 s legibles, que pasan el verificador de Wivra. El sonido de ese corte puede perderse, porque el M4A no se escribe por fragmentos.
 - Firma: la extensión y la app comparten un **App Group** (`group.com.oswhgo.WivraMetaB0`). **Verificado** en la tabla oficial de Apple «Supported capabilities (iOS)»: App Groups está disponible también para la cuenta gratuita («Apple Developer»). La extensión es un segundo App ID, lo que cuenta para el límite de App IDs de la firma gratuita. **No verificado** si AltStore crea el App Group al firmar.
 - El simulador de iOS no permite probar la grabación real; en el CI solo se compila y se fotografía la pantalla.
 
