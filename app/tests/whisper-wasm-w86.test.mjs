@@ -65,3 +65,11 @@ test('every voice-pack text is translated into the 7 other languages', async () 
   assert.ok(keys.size > 30, String(keys.size));
   for (const lang of ['en', 'pt', 'fr', 'de', 'ja', 'zh', 'it']) for (const k of keys) assert.ok(data[lang][k], `${lang}: ${k}`);
 });
+
+test('time left from the measured pace; nothing before the first piece', async () => {
+  const { wvEtaMinutes } = await import('../ai/whisper-wasm.mjs');
+  assert.equal(wvEtaMinutes(0, 100, 0), null);
+  assert.equal(wvEtaMinutes(30, 90, 60000), 2);          // 30 s of audio took 1 min → 60 s left ≈ 2 min
+  assert.equal(wvEtaMinutes(30, 31, 1000), 1);           // never «0 min»
+  assert.equal(wvEtaMinutes(90, 90, 60000), null);
+});

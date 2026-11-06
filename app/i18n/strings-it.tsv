@@ -732,3 +732,6 @@ No pude leer el sonido del video. || Non sono riuscito a leggere l'audio del vid
 El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto. || Il motore vocale si è fermato, probabilmente per mancanza di memoria. Prova il pacchetto «Leggero» o un video più corto.
 No se pudieron crear los subtítulos: {1} || Impossibile creare i sottotitoli: {1}
 El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez. || Impossibile aprire il pacchetto vocale. Eliminalo e scaricalo di nuovo.
+Escuchando… parte {1} de {2} · faltan unos {3} min || Ascolto… parte {1} di {2} · mancano circa {3} min
+El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta. || Il motore vocale non risponde più (forse il telefono l'ha chiuso quando sei uscito da Wivra). Non è stato aggiunto nulla; riprova con Wivra aperta.
+Mantén Wivra abierta mientras escucha: la pantalla no se apagará. || Tieni Wivra aperta mentre ascolta: lo schermo resterà acceso.

@@ -474,6 +474,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
   <label class="btn sec" for="whisperJsonFile" style="cursor:pointer">Importar transcripción Whisper (.json)</label><input id="whisperJsonFile" type="file" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0"><p class="m">Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono.</p>
   <div id="wvBox" style="margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px"><b>Subtítulos automáticos (en el teléfono)</b>
     <p class="m">Reconoce la voz del video con whisper.cpp dentro del teléfono: tu audio no sale de él. Necesita un paquete de voz que se descarga una sola vez, cuando tú lo pidas.</p>
+    <p class="m">Mantén Wivra abierta mientras escucha: la pantalla no se apagará.</p>
     <div class="frow"><select id="wvModel" aria-label="Paquete de voz"><option value="base">Preciso · 57 MB</option><option value="tiny">Ligero · 31 MB</option></select><select id="wvLang" aria-label="Idioma del audio"><option value="auto">Detectar idioma</option><option value="es" data-notr>Español</option><option value="en" data-notr>English</option><option value="pt" data-notr>Português</option><option value="fr" data-notr>Français</option><option value="de" data-notr>Deutsch</option><option value="it" data-notr>Italiano</option><option value="ja" data-notr>日本語</option><option value="zh" data-notr>中文</option></select></div>
     <p class="m" id="wvState" role="status" aria-live="polite"></p><progress id="wvProg" max="100" value="0" style="display:none;width:100%"></progress>
     <div class="row"><button id="wvGet" class="btn sec" type="button">Descargar paquete de voz</button><button id="wvRun" class="btn" type="button">Generar subtítulos</button></div>
@@ -2300,7 +2301,10 @@ $('wvRun').onclick = async () => {
   const project = session.project, mySession = session, duration = totalDuration(project);
   if (duration > WV_MAX_AUDIO_S) { say(aiT('Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt.', WV_MAX_AUDIO_S / 60), 'bad'); return; }
   wvUi(true, aiT('Leyendo el sonido del video…'), 0);
-  let worker = null, workerUrl = null; const job = wvJob = { cancelled: false, reject: null };
+  let worker = null, workerUrl = null, watchdog = null; const job = wvJob = { cancelled: false, reject: null, lastMsg: Date.now(), wake: null };
+  const keepAwake = async () => { try { if (navigator.wakeLock && document.visibilityState === 'visible') job.wake = await navigator.wakeLock.request('screen'); } catch { job.wake = null; } };
+  const onVisible = () => { if (document.visibilityState === 'visible') { job.lastMsg = Date.now(); keepAwake(); } };      // the screen lock is dropped when hidden
+  document.addEventListener('visibilitychange', onVisible); keepAwake();
   const oom = (msg) => Object.assign(new Error(msg), /MEMORY|OOM|out of memory|Aborted/i.test(String(msg)) ? { code: 'WORKER' } : {});
   const alive = () => { if (job.cancelled || session !== mySession) throw wvCancelled(); };
   try {
@@ -2318,10 +2322,15 @@ $('wvRun').onclick = async () => {
     const src = await wvEngineSource(); alive();
     workerUrl = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' }));
     worker = wvWorker = new Worker(workerUrl);
-    const chunks = wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0;
+    const chunks = wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0, eta = null; const t0 = Date.now();
+    const listening = () => eta ? aiT('Escuchando… parte {1} de {2} · faltan unos {3} min', current + 1, chunks.length, eta) : aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length);
+    watchdog = setInterval(() => {      // an engine that stops answering (closed by the system) must not leave the job waiting forever
+      if (document.visibilityState === 'visible' && Date.now() - job.lastMsg > WV_STALL_MS && job.reject) job.reject(Object.assign(new Error('STALLED'), { code: 'STALLED' }));
+    }, 15000);
     const ask = (msg, transfer) => new Promise((ok, no) => {
       job.reject = no; if (job.cancelled) { no(wvCancelled()); return; }
-      worker.onmessage = (e) => { const d = e.data; if (d.type === 'progress') { wvUi(true, aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length), 5 + 95 * (current + d.p / 100) / chunks.length); return; } if (d.type === 'error') no(oom(d.message)); else ok(d); };
+      job.lastMsg = Date.now();
+      worker.onmessage = (e) => { job.lastMsg = Date.now(); const d = e.data; if (d.type === 'progress') { wvUi(true, listening(), 5 + 95 * (current + d.p / 100) / chunks.length); return; } if (d.type === 'error') no(oom(d.message)); else ok(d); };
       worker.onerror = (e) => { e.preventDefault && e.preventDefault(); no(Object.assign(new Error('WORKER'), { code: 'WORKER' })); };
       worker.postMessage(msg, transfer || []);
     });
@@ -2330,7 +2339,8 @@ $('wvRun').onclick = async () => {
     for (current = 0; current < chunks.length; current++) {
       alive();
       const c = chunks[current], pcm = mono.slice(c.from, c.to);
-      wvUi(true, aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length), 5 + 95 * current / chunks.length);
+      eta = wvEtaMinutes(c.from, mono.length, Date.now() - t0);
+      wvUi(true, listening(), 5 + 95 * current / chunks.length);
       const r = await ask({ type: 'run', id: current, pcm, lang, fallback: WV_FALLBACK }, [pcm.buffer]);
       let err = null; try { err = JSON.parse(r.json).error || null; } catch { err = 'WHISPER_FAILED'; }
       if (err === 'CANCELLED') throw wvCancelled(); if (err) throw oom(err);      // never drop a piece silently
@@ -2356,10 +2366,14 @@ $('wvRun').onclick = async () => {
     if (code === 'ENGINE_MISSING') say(aiT('Esta versión no incluye el motor de voz. Puedes importar subtítulos .srt/.vtt.'), 'bad');
     else if (code === 'HASH') say(aiT('El paquete de voz guardado está dañado y se borró. Descárgalo otra vez.'), 'bad');
     else if (code === 'NO_AUDIO') say(aiT('No pude leer el sonido del video.'), 'bad');
+    else if (code === 'STALLED') say(aiT('El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta.'), 'bad');
     else if (code === 'MODEL') say(aiT('El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez.'), 'bad');
     else if (code === 'WORKER') say(aiT('El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto.'), 'bad');
     else say(aiT('No se pudieron crear los subtítulos: {1}', e && e.message || e), 'bad');
-  } finally { if (wvJob === job) wvJob = null; if (workerUrl) URL.revokeObjectURL(workerUrl); }
+  } finally {
+    if (wvJob === job) wvJob = null; if (workerUrl) URL.revokeObjectURL(workerUrl); if (watchdog) clearInterval(watchdog);
+    document.removeEventListener('visibilitychange', onVisible); try { if (job.wake) job.wake.release(); } catch {}
+  }
 };
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;

@@ -83,6 +83,15 @@ export function wvMerge(pieces) {
   return { version: 1, engine: 'whisper.cpp', language, segments: clean.filter((s) => s.end > s.start) };
 }
 
+/** No message from the engine for this long while Wivra is on screen = the engine was lost (e.g. the system closed it). */
+export const WV_STALL_MS = 10 * 60 * 1000;
+
+/** Minutes left (rounded up, ≥ 1) after some pieces, from the measured pace; null before the first piece or at the end. */
+export function wvEtaMinutes(doneSamples, totalSamples, elapsedMs) {
+  if (!(doneSamples > 0) || !(elapsedMs > 0) || !(totalSamples > doneSamples)) return null;
+  return Math.max(1, Math.ceil((elapsedMs / doneSamples) * (totalSamples - doneSamples) / 60000));
+}
+
 /** SHA-256 as lowercase hex (WebCrypto; available in WebView/WKWebView and Node 18+). */
 export async function wvSha256Hex(buf, subtle = globalThis.crypto?.subtle) {
   if (!subtle) throw new Error('WebCrypto no disponible');
