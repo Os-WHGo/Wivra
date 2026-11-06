@@ -422,4 +422,9 @@
     <string name="plive_network_metered">Rete a consumo: trasmettere consuma circa %1$d MB al minuto (circa %2$d MB all\'ora).</string>
     <string name="plive_network_other">Rete: connessa.</string>
     <string name="plive_network_offline">Nessuna connessione a Internet. Connettiti al Wi‑Fi o ai dati mobili per trasmettere.</string>
+    <string name="plive_archive_button">Copia locale: %1$s</string>
+    <string name="plive_archive_title">Copia MP4 locale di ogni LIVE</string>
+    <string name="plive_archive_always">Salva sempre</string>
+    <string name="plive_archive_ask">Chiedi a ogni LIVE</string>
+    <string name="plive_archive_never">Non salvare</string>
 </resources>

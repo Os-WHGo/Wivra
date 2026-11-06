@@ -60,6 +60,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private lateinit var micOption: CheckBox
     private lateinit var audioSourceButton: Button
     private lateinit var localCopyOption: CheckBox
+    // W95 (#95): remembered choice for the local MP4 copy (only the mode name is stored).
+    private lateinit var archiveModeButton: android.widget.Button
+    private var archiveMode = WivraLiveArchivePreference.ASK
     private lateinit var storageHint: TextView
     private lateinit var status: TextView
     private lateinit var startButton: Button
@@ -240,6 +243,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             isChecked = true // Keep the previous safe default until user opts out.
         }
         root.addView(localCopyOption)
+        archiveMode = WivraLiveArchiveStore.load(this)
+        archiveModeButton = android.widget.Button(this).apply { setOnClickListener { chooseArchiveMode() } }
+        root.addView(archiveModeButton)
+        applyArchiveMode()
         storageHint = TextView(this).apply { textSize = 13f }
         root.addView(storageHint)
         root.addView(TextView(this).apply {
@@ -506,6 +513,35 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             .show()
     }
 
+    private fun archiveModeLabel(mode: WivraLiveArchivePreference): String = getString(when (mode) {
+        WivraLiveArchivePreference.ALWAYS -> R.string.plive_archive_always
+        WivraLiveArchivePreference.ASK -> R.string.plive_archive_ask
+        WivraLiveArchivePreference.NEVER -> R.string.plive_archive_never
+    })
+
+    private fun applyArchiveMode() {
+        localCopyOption.isChecked = if (archiveMode.checkboxEditable) localCopyOption.isChecked else archiveMode.initiallyChecked
+        localCopyOption.isEnabled = archiveMode.checkboxEditable && !initiatedByUser
+        archiveModeButton.text = getString(R.string.plive_archive_button, archiveModeLabel(archiveMode))
+        updateStorageHint()
+    }
+
+    private fun chooseArchiveMode() {
+        if (initiatedByUser) return
+        val modes = WivraLiveArchivePreference.entries
+        AlertDialog.Builder(this)
+            .setTitle(R.string.plive_archive_title)
+            .setSingleChoiceItems(modes.map { archiveModeLabel(it) }.toTypedArray(), modes.indexOf(archiveMode)) { dialog, which ->
+                archiveMode = modes[which]
+                WivraLiveArchiveStore.save(this, archiveMode)
+                if (archiveMode == WivraLiveArchivePreference.ASK) localCopyOption.isChecked = true
+                applyArchiveMode()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+    }
+
     private fun startLive(address: String, withAudio: Boolean, saveCopy: Boolean) {
         if (mediaBusy) return
         val publisher = stream ?: return
@@ -571,6 +607,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             micOption.isEnabled = false
             updateAudioChoice()
             localCopyOption.isEnabled = false
+            archiveModeButton.isEnabled = false
             endpointInput.isEnabled = false
             reconnect = WivraLiveReconnect()
             runCatching { publisher.getStreamClient().setReTries(WivraLiveReconnect.DELAYS_S.size) }
@@ -613,7 +650,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             stopButton.isEnabled = false
             micOption.isEnabled = true
             updateAudioChoice()
-            localCopyOption.isEnabled = true
+            localCopyOption.isEnabled = archiveMode.checkboxEditable      // W95: ALWAYS/NEVER keep it locked
+            archiveModeButton.isEnabled = true
             endpointInput.isEnabled = true
             updateStorageHint()
         }

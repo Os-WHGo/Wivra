@@ -422,4 +422,9 @@
     <string name="plive_network_metered">按流量计费的网络：直播每分钟约用 %1$d MB（每小时约 %2$d MB）。</string>
     <string name="plive_network_other">网络：已连接。</string>
     <string name="plive_network_offline">没有网络连接。请连接 Wi‑Fi 或移动数据后再直播。</string>
+    <string name="plive_archive_button">本地副本：%1$s</string>
+    <string name="plive_archive_title">每次直播的本地 MP4 副本</string>
+    <string name="plive_archive_always">始终保存</string>
+    <string name="plive_archive_ask">每次直播时询问</string>
+    <string name="plive_archive_never">不保存</string>
 </resources>
