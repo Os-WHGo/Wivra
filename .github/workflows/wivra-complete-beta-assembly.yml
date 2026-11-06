@@ -338,6 +338,10 @@ jobs:
             adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraPhoneMediaStoreTest,com.oswhgo.wivra.WivraEditorWebViewTest,com.oswhgo.wivra.WivraExportStoreTest,com.oswhgo.wivra.WivraExportBridgeWebViewTest,com.oswhgo.wivra.WivraRealExportWebViewTest,com.oswhgo.wivra.WivraCaptureMediaVerifierTest,com.oswhgo.wivra.WivraDirectorSaveJournalTest,com.oswhgo.wivra.WivraCapturePublicationReceiptTest,com.oswhgo.wivra.WivraCaptureVerifierWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/media-handoff.txt
             grep -Eq '^OK \([0-9]+ tests?\)' .ci/results/media-handoff.txt
             ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' .ci/results/media-handoff.txt
+            # W105: the W99 local screen recording, recorded for real in the emulator (no network, no microphone).
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraScreenRecordInstrumentedTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee .ci/results/screen-record.txt
+            grep -E 'WIVRA-SCREENREC' .ci/results/screen-record.txt || true
+            grep -Eq '^OK \(1 test\)' .ci/results/screen-record.txt
       - name: Preserve emulator instrumentation evidence
         if: always()
         uses: actions/upload-artifact@v4
