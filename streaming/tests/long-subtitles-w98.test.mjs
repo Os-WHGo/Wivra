@@ -32,3 +32,14 @@ test('the editor reads long projects piece by piece and keeps the single-decode 
   assert.match(t, /for \(let a = from; a < to - 1e-6 && ok; a \+= 30\)/);           // ≤ 30 s per native request
   assert.match(t, /if \(!long\) \{\s*const ids = /);                                   // no whole-file decode in long mode
 });
+
+// W104 (Claude): decoders that output float (or 8/24/32-bit) samples are converted, never read as 16-bit noise.
+test('W104: the Android piece reader follows the decoder output encoding', async () => {
+  const { readFileSync } = await import('node:fs');
+  const k = readFileSync(new URL('../android/app/src/main/java/com/oswhgo/wivra/WivraAudioSegments.kt', import.meta.url), 'utf8');
+  const { match } = (await import('node:assert/strict')).default;
+  match(k, /encoding = encodingOf\(of\)/);
+  match(k, /val frameBytes = bytesPerSample\(encoding\) \* channels/);
+  match(k, /val shorts = pcmToShorts\(out\.toByteArray\(\), encoding\)/);
+  match(k, /AudioFormat\.ENCODING_PCM_FLOAT -> \{/);
+});

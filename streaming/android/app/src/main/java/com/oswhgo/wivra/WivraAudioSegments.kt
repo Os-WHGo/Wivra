@@ -1,6 +1,7 @@
 package com.oswhgo.wivra
 
 import android.content.Context
+import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -49,6 +50,45 @@ object WivraAudioSegments {
         }
     }
 
+    /** W104: bytes per sample of a decoder output encoding (0 = not supported). */
+    fun bytesPerSample(encoding: Int): Int = when (encoding) {
+        AudioFormat.ENCODING_PCM_16BIT -> 2
+        AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_32BIT -> 4
+        AudioFormat.ENCODING_PCM_8BIT -> 1
+        AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
+        else -> 0
+    }
+
+    /**
+     * W104 (pure): decoder output bytes (little-endian) → 16-bit samples. Some phones decode to float
+     * or other widths instead of 16-bit; reading those as 16-bit would turn the voice into noise.
+     */
+    fun pcmToShorts(raw: ByteArray, encoding: Int): ShortArray {
+        val bps = bytesPerSample(encoding)
+        require(bps > 0) { "encoding" }
+        val n = raw.size / bps
+        val b = java.nio.ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN)
+        return ShortArray(n) { i ->
+            val at = i * bps
+            when (encoding) {
+                AudioFormat.ENCODING_PCM_16BIT -> b.getShort(at)
+                AudioFormat.ENCODING_PCM_FLOAT -> {
+                    val f = b.getFloat(at)
+                    if (f.isNaN()) 0.toShort() else (f.coerceIn(-1f, 1f) * 32767f).toInt().toShort()
+                }
+                AudioFormat.ENCODING_PCM_32BIT -> (b.getInt(at) shr 16).toShort()
+                AudioFormat.ENCODING_PCM_8BIT -> (((raw[at].toInt() and 0xFF) - 128) shl 8).toShort()
+                else -> {      // 24-bit packed: keep the two most significant bytes
+                    ((raw[at + 2].toInt() shl 8) or (raw[at + 1].toInt() and 0xFF)).toShort()
+                }
+            }
+        }
+    }
+
+    private fun encodingOf(format: MediaFormat): Int =
+        if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) format.getInteger(MediaFormat.KEY_PCM_ENCODING)
+        else AudioFormat.ENCODING_PCM_16BIT      // the documented default of MediaCodec audio decoders
+
     /** Sound of [fromS, toS) of the file as 16 kHz mono PCM. Throws if the piece is too long or unreadable. */
     fun extract(context: Context, uri: Uri, fromS: Double, toS: Double): ShortArray {
         require(fromS >= 0 && toS > fromS && toS - fromS <= MAX_SECONDS) { "piece" }
@@ -64,6 +104,7 @@ object WivraAudioSegments {
             val codec = MediaCodec.createDecoderByType(fmt.getString(MediaFormat.KEY_MIME)!!)
             val out = java.io.ByteArrayOutputStream()
             var channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT); var rate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            var encoding = AudioFormat.ENCODING_PCM_16BIT
             try {
                 codec.configure(fmt, null, null, 0); codec.start()
                 val info = MediaCodec.BufferInfo(); var inputDone = false; var done = false
@@ -78,12 +119,15 @@ object WivraAudioSegments {
                     }
                     val o = codec.dequeueOutputBuffer(info, 10_000)
                     if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        channels = codec.outputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT); rate = codec.outputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        val of = codec.outputFormat
+                        channels = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT); rate = of.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        encoding = encodingOf(of)
+                        require(bytesPerSample(encoding) > 0) { "encoding" }      // reported as UNREADABLE, never as noise
                     } else if (o >= 0) {
                         val buf = codec.getOutputBuffer(o)!!
                         if (info.size > 0 && info.presentationTimeUs >= fromUs - 100_000 && info.presentationTimeUs < toUs) {
                             // keep only the samples inside [from, to)
-                            val frameBytes = 2 * channels
+                            val frameBytes = bytesPerSample(encoding) * channels
                             val skip = if (info.presentationTimeUs < fromUs) (((fromUs - info.presentationTimeUs) * rate / 1_000_000).toInt() * frameBytes).coerceAtMost(info.size) else 0
                             val bytes = ByteArray(info.size - skip); buf.position(info.offset + skip); buf.get(bytes); out.write(bytes)
                         }
@@ -92,8 +136,7 @@ object WivraAudioSegments {
                     }
                 }
             } finally { runCatching { codec.stop() }; codec.release() }
-            val raw = out.toByteArray(); val shorts = ShortArray(raw.size / 2)
-            java.nio.ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
+            val shorts = pcmToShorts(out.toByteArray(), encoding)
             val mono = toMono16k(shorts, channels, rate); val want = ((toS - fromS) * RATE).toInt()
             return if (mono.size >= want) mono.copyOf(want) else mono.copyOf(want)      // exact length: silence-padded at the end
         } finally { ex.release() }
