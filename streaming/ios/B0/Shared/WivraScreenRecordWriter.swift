@@ -12,7 +12,7 @@ final class WivraScreenRecordWriter {
     enum AppendResult { case ok, failed }
 
     let folder: URL
-    private(set) var session: Shared.Session
+    private(set) var session: WivraScreenRecordShared.Session
     private var videoWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var appWriter: AVAssetWriter?
