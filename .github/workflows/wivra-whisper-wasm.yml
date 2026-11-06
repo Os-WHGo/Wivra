@@ -140,6 +140,16 @@ jobs:
             timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i /tmp/wv-fx/$l.wav -shortest \
               -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/$l.mp4
           done
+          # Editor-flow videos (Chromium, Android, iPhone): a natural-voice sentence when macOS gave one
+          # ("Este es mi primer video del viaje. Mañana vamos a subir al volcán muy temprano."), else the robotic one.
+          nat=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$nat" ] || nat=/tmp/wv-fx/es.wav
+          words="viaje,volcán,temprano"; [ "$nat" = /tmp/wv-fx/es.wav ] && words="montaña"
+          echo "$words" > /tmp/wv-fx/flow-words.txt
+          timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i "$nat" -shortest \
+            -c:v libvpx -b:v 60k -deadline realtime -c:a libopus -b:a 48k /tmp/wv-fx/flow.webm
+          timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i "$nat" -shortest \
+            -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/flow.mp4
+          echo "editor-flow sample: $nat (required words: $words)"
           ls -la /tmp/wv-fx
       - name: Base vs Tiny on Spanish (robotic and natural voices); Base Q8_0 and F16 as diagnostics only
         # Fallback (re-decoding doubtful pieces) is compared again: Tiny looped without it in run 42143459395.
@@ -172,12 +182,12 @@ jobs:
           set -eu
           npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 >/dev/null
           node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium >/dev/null
-      - name: Editor flow in Chromium · Base · Spanish
-        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/es.webm video/webm base es bienvenidos,montaña
+      - name: Editor flow in Chromium · Base · Spanish (natural voice)
+        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)"
       - name: Editor flow in Chromium · Base · English
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/en.webm video/webm base en country,ask
       - name: Editor flow in Chromium · Tiny · Spanish (no word requirement)
-        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/es.webm video/webm tiny es ''
+        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm tiny es ''
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-fixtures
@@ -207,12 +217,12 @@ jobs:
           SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
-      - name: Build current editor and the test input (Base · Spanish)
+      - name: Build current editor and the test input (Base · Spanish, natural voice)
         run: |
           set -eu
           node app/build.mjs
           mkdir -p streaming/android/app/build/wivra-e2e-input
-          node tools/whisper-wasm/make-e2e-input.cjs /tmp/wv-fx/es.webm video/webm base es bienvenidos,montaña > streaming/android/app/build/wivra-e2e-input/input.json
+          node tools/whisper-wasm/make-e2e-input.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)" > streaming/android/app/build/wivra-e2e-input/input.json
       - name: Build the debug app and its instrumentation for the emulator only
         run: gradle -p streaming/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Allow hardware-accelerated Android emulator on Ubuntu
@@ -268,7 +278,7 @@ jobs:
             -derivedDataPath "$PWD/.simbuild" \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee sim-build.log | grep -E 'error:|BUILD (SUCCEEDED|FAILED)' || true
           test -d .simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
-      - name: Automatic subtitles in the iPhone simulator's WKWebView (Base · Spanish)
+      - name: Automatic subtitles in the iPhone simulator's WKWebView (Base · Spanish, natural voice)
         working-directory: streaming/ios/B0
         run: |
           set -eu
@@ -283,7 +293,7 @@ jobs:
           data=$(xcrun simctl get_app_container "$udid" com.oswhgo.WivraMetaB0 data)
           mkdir -p "$data/Documents/wv-e2e"
           cp "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-driver.js" "$data/Documents/wv-e2e/driver.js"
-          node "$GITHUB_WORKSPACE/tools/whisper-wasm/make-e2e-input.cjs" /tmp/wv-fx/es.mp4 video/mp4 base es bienvenidos,montaña > "$data/Documents/wv-e2e/input.json"
+          node "$GITHUB_WORKSPACE/tools/whisper-wasm/make-e2e-input.cjs" /tmp/wv-fx/flow.mp4 video/mp4 base es "$(cat /tmp/wv-fx/flow-words.txt)" > "$data/Documents/wv-e2e/input.json"
           run_once() {
             rm -f "$data/Documents/wv-e2e/output.json"
             SIMCTL_CHILD_WIVRA_E2E=1 SIMCTL_CHILD_WIVRA_SCREENSHOT=editor xcrun simctl launch --terminate-running-process "$udid" com.oswhgo.WivraMetaB0 -AppleLanguages '(es)' -AppleLocale es_ES
