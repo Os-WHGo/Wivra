@@ -87,8 +87,6 @@ jobs:
           # Restore the normal editor HTML: accelerated route present but inert (MU V4).
           node app/build.mjs
           node tools/verify-normal-export-safety.cjs
-      - name: MU V4 · accelerated export driven from the REAL editor build (pinned Mediabunny loaded on demand)
-        run: node tools/browser-accelerated-real-editor.cjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Exercise synthetic exact AVC AAC MP4 diagnostics and safe failures (Linux engines only)
@@ -119,6 +117,8 @@ jobs:
             echo "Retrying one borderline scheduling drift; the first failure is archived."
             node tools/browser-long-multipart-export.cjs
           fi
+      - name: MU V4 · accelerated export driven from the REAL editor build (pinned Mediabunny loaded on demand)
+        run: node tools/browser-accelerated-real-editor.cjs
       - name: Progressive export to disk through simulated native bridge (byte/CRC/ffmpeg, cancel, disk failure)
         run: node tools/browser-progressive-export.cjs
       - name: Repaired WebM/MP4 show duration and seek in Chromium and WebKit (Linux engines, not iPhone)
