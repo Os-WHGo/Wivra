@@ -202,6 +202,9 @@ jobs:
             -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/long.wav
           timeout 300 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=160x284:rate=2 -i /tmp/wv-fx/long.wav -shortest \
             -c:v libvpx -b:v 20k -deadline realtime -c:a libopus -b:a 24k /tmp/wv-fx/long.webm
+          # W107: the same video as H.264/AAC MP4 for the iPhone simulator (AVAssetReader does not read WebM).
+          timeout 300 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=160x284:rate=2 -i /tmp/wv-fx/long.wav -shortest \
+            -c:v libx264 -preset ultrafast -b:v 20k -pix_fmt yuv420p -c:a aac -b:a 32k -movflags +faststart /tmp/wv-fx/long.mp4
           ls -la /tmp/wv-fx/long.*
           node tools/browser-whisper-long.cjs /tmp/wv-fx/long.webm video/webm /tmp/wv-fx/long.wav tiny es "volcán@631"
       - uses: actions/upload-artifact@v4
@@ -325,11 +328,19 @@ jobs:
           p = sys.argv[1]; d = json.load(open(p)); d.update(phase='offline', cancel=False); json.dump(d, open(p, 'w'))
           PY
           run_once /tmp/ios.kept.json
+          # W107: long mode (11 min) with every piece read by AVAssetReader through the native bridge.
+          if [ -s /tmp/wv-fx/long.mp4 ]; then
+            cp "$GITHUB_WORKSPACE/tools/whisper-wasm/long-driver.js" "$data/Documents/wv-e2e/driver.js"
+            cp /tmp/wv-fx/long.mp4 "$data/Documents/wv-e2e/Wivra_Long.mp4"
+            echo '{"name":"Wivra_Long.mp4","type":"video/mp4","model":"base","lang":"es"}' > "$data/Documents/wv-e2e/input.json"
+            run_once /tmp/ios.long.json
+          fi
           xcrun simctl terminate "$udid" com.oswhgo.WivraMetaB0 || true
           xcrun simctl spawn "$udid" log show --last 30m --style compact --predicate 'process == "WivraMetaB0" AND eventMessage CONTAINS "WIVRA-E2E"' 2>/dev/null | tail -10 || true
           status=0
           node "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-report.cjs" /tmp/ios.full.json 'iPhone simulator WKWebView · download + cancel + recognize' consent,cancel || status=1
           node "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-report.cjs" /tmp/ios.kept.json 'iPhone simulator WKWebView · reopened, kept pack' || status=1
+          node "$GITHUB_WORKSPACE/tools/whisper-wasm/long-report.cjs" /tmp/ios.long.json 'iPhone simulator WKWebView · 11-min video, pieces read by AVAssetReader' || status=1
           exit $status
       - name: Show build errors
         if: failure()
