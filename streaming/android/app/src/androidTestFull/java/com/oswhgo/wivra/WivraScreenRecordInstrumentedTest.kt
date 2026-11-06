@@ -8,7 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.fail
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,18 +42,21 @@ class WivraScreenRecordInstrumentedTest {
 
     /** What is on screen, for a readable failure message. */
     private fun screen(device: UiDevice): String =
-        device.findObjects(By.textContains("")).mapNotNull { it.text }.filter { it.isNotBlank() }.joinToString(" | ").take(600)
+        runCatching {
+            device.findObjects(By.textContains("")).mapNotNull { runCatching { it.text }.getOrNull() }
+                .filter { it.isNotBlank() }.joinToString(" | ").take(600)
+        }.getOrDefault("?")
 
     @Test fun recordsTheScreenToAValidPrivateMp4() {
         val device = UiDevice.getInstance(instrumentation)
         shell("appops set ${context.packageName} PROJECT_MEDIA allow")
         context.startActivity(Intent(context, WivraScreenRecordActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         val start = device.wait(Until.findObject(text(R.string.srec_start_button)), 15_000)
-        assertNotNull("start button; on screen: ${screen(device)}", start)
-        start.click()
+        if (start == null) fail("start button; on screen: ${screen(device)}")
+        start!!.click()
         val go = device.wait(Until.findObject(text(R.string.srec_confirm_go)), 10_000)
-        assertNotNull("confirmation dialog; on screen: ${screen(device)}", go)
-        go.click()
+        if (go == null) fail("confirmation dialog; on screen: ${screen(device)}")
+        go!!.click()
         // If Android still shows its own dialog: whole screen, then start.
         if (!waitFor(4_000) { WivraScreenRecordService.active }) {
             device.wait(Until.findObject(By.text(Pattern.compile("(?i)a single app|one app"))), 3_000)?.let { spinner ->
@@ -62,8 +65,8 @@ class WivraScreenRecordInstrumentedTest {
             }
             device.wait(Until.findObject(By.text(Pattern.compile("(?i)^(start|start now|start recording|next)$"))), 5_000)?.click()
         }
-        assertTrue("recording started; status «${WivraScreenRecordService.statusMessage}»; on screen: ${screen(device)}",
-            waitFor(20_000) { WivraScreenRecordService.recording })
+        if (!waitFor(20_000) { WivraScreenRecordService.recording })
+            fail("recording started; status «${WivraScreenRecordService.statusMessage}»; on screen: ${screen(device)}")
         SystemClock.sleep(4_000)
         // Leave Wivra's screen so it does not take the finished file for its own review dialog.
         device.pressHome()
@@ -73,8 +76,10 @@ class WivraScreenRecordInstrumentedTest {
         var taken: File? = null
         waitFor(15_000) { taken = taken ?: WivraScreenRecordService.takeFinished(); taken != null }
         val file: File? = taken
-        val pending = WivraPhoneMediaStore.pendingVideos(context).joinToString { "${it.name}:${it.length()}" }
-        assertNotNull("finished private MP4; status «${WivraScreenRecordService.statusMessage}»; private folder: [$pending]", file)
+        if (file == null) {
+            val pending = WivraPhoneMediaStore.pendingVideos(context).joinToString { "${it.name}:${it.length()}" }
+            fail("finished private MP4; status «${WivraScreenRecordService.statusMessage}»; private folder: [$pending]")
+        }
         try {
             assertTrue(WivraPhoneMediaStore.isWivraPrivate(context, file!!))
             assertTrue("not marked as being written", !WivraPhoneMediaStore.isWriting(file))
