@@ -643,3 +643,25 @@ test('oversized authoring is rejected before allocating a full project snapshot'
   assert.equal(M.events.length,0);
  }finally{globalThis.structuredClone=original;}
 });
+
+// MU V4 (Claude): long-form export (10–60 min) on the phone only when explicitly requested.
+test('long-form: 10-minute timeline is prepared on Android/iPhone only with longForm, never in QA platform', async () => {
+ const M=fakeM();
+ const longMedia={...media, main:{...media.main,duration:700}, guest:{...media.guest,duration:700}, mic:{...media.mic,duration:700}};
+ const p=proj();
+ p.clips=[{id:'a',asset_id:'main',start:0,in:0,out:300},{id:'b',asset_id:'guest',start:300,in:0,out:300}];
+ p.overlayClips=[];p.texts=[];
+ p.audioClips=[{id:'v',asset_id:'mic',start:0,in:0,out:600,role:'voice_primary'}];
+ for (const platform of ['android','ios']) {
+  const prepared=await prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform,
+   longForm:true,maxSeconds:3600,expectedAudio:true});
+  assert.equal(prepared.totalSeconds,600);
+  for(const item of prepared.used.values())await item.input?.dispose?.();
+ }
+ await assert.rejects(prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform:'android',
+  maxSeconds:3600,expectedAudio:true}),/excessive render horizon/);
+ await assert.rejects(prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform:'qa',
+  longForm:true,maxSeconds:3600,expectedAudio:true}),/only for the native phone writer/);
+ await assert.rejects(prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform:'android',
+  longForm:true,maxSeconds:3601,expectedAudio:true}),/excessive render horizon/);
+});

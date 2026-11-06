@@ -22,6 +22,14 @@ on:
       - tools/accelerated-resource-telemetry.cjs
       - tools/accelerated-resource-telemetry.test.cjs
       - app/accelerated-native-sink.mjs
+      - app/build.mjs
+      - app/accelerated-vendor-pin.mjs
+      - app/vendor/mediabunny/**
+      - app/accelerated-native-multitrack-export.mjs
+      - app/accelerated-storage-budget.mjs
+      - app/accelerated-qa-export-ui.mjs
+      - tools/browser-accelerated-real-editor.cjs
+      - tools/verify-normal-export-safety.cjs
       - app/accelerated-native-codec-probe.mjs
       - app/accelerated-native-multitrack-export.mjs
       - app/accelerated-runtime-identity.mjs
@@ -76,9 +84,11 @@ jobs:
           WIVRA_MEDIABUNNY_BUNDLE=/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles/mediabunny.cjs node app/build.mjs
           node tools/verify-accelerated-offline-bundle.cjs
           node tools/verify-offline-native-multitrack.cjs
-          # Restore production-default HTML (no accelerator SDK enabled).
+          # Restore the normal editor HTML: accelerated route present but inert (MU V4).
           node app/build.mjs
           node tools/verify-normal-export-safety.cjs
+      - name: MU V4 · accelerated export driven from the REAL editor build (pinned Mediabunny loaded on demand)
+        run: node tools/browser-accelerated-real-editor.cjs
       - name: Exercise WebCodecs and MediaRecorder with generated local canvas
         run: node tools/browser-media-capability-probe.cjs
       - name: Exercise synthetic exact AVC AAC MP4 diagnostics and safe failures (Linux engines only)

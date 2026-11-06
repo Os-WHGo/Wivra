@@ -8,9 +8,11 @@ export const ACCELERATED_STORAGE_MARGIN_RATIO=1.15;
 
 /** Reject a caller's inaccurate override BEFORE any native file is opened. */
 export function planAcceleratedStorageReservation({
- seconds,width,height,fps,estimatedBytes
+ seconds,width,height,fps,estimatedBytes,longForm=false
 }={}) {
- if(!Number.isFinite(seconds)||seconds<=0||seconds>180||
+ // 180 s unless a long-form (≤ 60 min) export was explicitly requested (MU V4).
+ if(typeof longForm!=='boolean')throw new Error('Modo largo inválido.');
+ if(!Number.isFinite(seconds)||seconds<=0||seconds>(longForm?3600:180)||
     !Number.isSafeInteger(width)||width<=0||width>3840||
     !Number.isSafeInteger(height)||height<=0||height>3840||
     width*height>3840*2160||

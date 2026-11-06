@@ -133,11 +133,11 @@ test('W71: downloaded report tampering cannot impersonate acceptance',async()=>{
    assert.equal(auditAcceleratedCodecMatrix(changed).valid,false);
  }
 });
-test('W71: offline QA only; regular editor build must not include matrix controls',()=>{
+test('W71 → MU V4: matrix controls are built into the editor, run only on explicit use',()=>{
  const build=readFileSync(new URL('../build.mjs',import.meta.url),'utf8');
  const single=readFileSync(new URL('../accelerated-codec-diagnostic-ui.mjs',import.meta.url),'utf8');
  const matrix=readFileSync(new URL('../accelerated-codec-matrix-ui.mjs',import.meta.url),'utf8');
- assert.match(build,/const qaPipeline = acceleratedVendor \?/);
+ assert.match(build,/const qaPipeline = \[/);
  assert.match(build,/const qaUI = qaPipeline \?/);
  assert.match(build,/accelerated-codec-matrix\.mjs/);
  assert.match(build,/accelerated-codec-matrix-ui\.mjs/);

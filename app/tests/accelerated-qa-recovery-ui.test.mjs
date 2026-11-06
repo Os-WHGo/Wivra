@@ -23,11 +23,16 @@ test('recovered private names are bounded and cannot select arbitrary phone file
   assert.equal(validAcceleratedRecoveryEntry({...valid,durationMs}),false);
 });
 
-test('QA controls are bundled only when a pinned offline vendor is present',()=>{
+// MU V4 (owner decision): the accelerated route is connected to the real editor. The controls are always
+// built, the pinned Mediabunny is embedded compressed and run only on explicit use; consent stays mandatory.
+test('accelerated controls are in the real editor; the pinned vendor loads only on explicit use',()=>{
  assert.ok(build.includes("'./accelerated-storage-budget.mjs'"));
  assert.ok(build.includes("'./accelerated-native-codec-probe.mjs'"));
  assert.ok(build.includes("'./accelerated-qa-export-ui.mjs'"));
- assert.match(build,/const qaPipeline = acceleratedVendor \?/);
+ assert.match(build,/const qaPipeline = \[/);
+ assert.match(build,/createHash\('sha256'\)\.update\(mbVendored\)\.digest\('hex'\) !== MEDIABUNNY_MIN_SHA256/);
+ assert.match(build,/if \(await wvSha256Hex\(src\) !== MB_SHA256\)/);
+ assert.match(build,/M:await loadMediabunny\(\)/);
  assert.match(build,/\+ qaUI \+/);
  assert.match(build,/const nativeHost = \(\) => findAndroid\(\) \?\? findIOS\(\)/);
  assert.match(qa,/if\(!host \|\| !\['ios','android'\]\.includes\(host\.platform\)\)return/);

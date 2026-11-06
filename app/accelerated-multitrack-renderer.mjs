@@ -17,6 +17,9 @@ import {mobileCodecConfig} from './accelerated-native-codec-probe.mjs';
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
 export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
 export const ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS = 3600;
+// MU V4 (Claude): explicit long-form export on Android/iPhone (10–60 min). Everything streams: one decoded
+// frame per lane, audio by blocks, the file written in 1 MB pieces to the native random-access store.
+export const ACCELERATED_NATIVE_LONG_MAX_SECONDS = 3600;
 export const ACCELERATED_MULTITRACK_MAX_ITEMS = 160;
 // RGBA compositor surfaces only; decoder/encoder RAM requires separate QA.
 export const ACCELERATED_MULTITRACK_MAX_SURFACE_BYTES = 96 * 1024 * 1024;
@@ -148,7 +151,7 @@ async function codecPlan(M,{width,height,hasAudio,platform}) {
 export async function prepareAcceleratedMultitrack({
   project,media,M,platform='android',maxSeconds=ACCELERATED_MULTITRACK_MAX_SECONDS,
   imageFactory=imageFactoryDefault,isCancelled=()=>false,
-  expectedAudio=null,longSoakQA=false
+  expectedAudio=null,longSoakQA=false,longForm=false
 }={}) {
   if(!M || typeof M.Input!=='function'||typeof M.UrlSource!=='function' ||
      typeof M.CanvasSink!=='function'||typeof M.AudioBufferSink!=='function')
@@ -156,8 +159,10 @@ export async function prepareAcceleratedMultitrack({
   if(!['android','ios','qa'].includes(platform))deny('unsupported native platform');
   if(typeof longSoakQA!=='boolean'||(longSoakQA&&platform!=='qa'))
     deny('long-form QA is forbidden on native devices');
+  if(typeof longForm!=='boolean'||(longForm&&!['android','ios'].includes(platform)))
+    deny('long-form export is only for the native phone writer');
   const horizon=longSoakQA?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS:
-    ACCELERATED_MULTITRACK_MAX_SECONDS;
+    longForm?ACCELERATED_NATIVE_LONG_MAX_SECONDS:ACCELERATED_MULTITRACK_MAX_SECONDS;
   if(!(Number.isSafeInteger(maxSeconds)&&maxSeconds>0&&maxSeconds<=horizon))
     deny('excessive render horizon');
   const ledger=analyzeAcceleratedMultitrackParity(project,media,{

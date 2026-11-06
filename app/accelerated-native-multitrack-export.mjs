@@ -1,4 +1,4 @@
-import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accelerated-multitrack-renderer.mjs';
+import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack,ACCELERATED_MULTITRACK_MAX_SECONDS,ACCELERATED_NATIVE_LONG_MAX_SECONDS} from './accelerated-multitrack-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 import {planAcceleratedStorageReservation} from './accelerated-storage-budget.mjs';
 import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-probe.mjs';
@@ -38,7 +38,7 @@ export async function saveVerifiedAcceleratedVideoToPhotos({
 export async function recordExperimentalNativeMultitrack({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
   isCancelled=()=>false,onProgress=()=>{},imageFactory,
-  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false
+  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false,longForm=false
 }={}) {
   if(experimentalAccelerated!==true)
     throw new Error('La exportación multipista nativa requiere modo experimental explícito.');
@@ -62,8 +62,10 @@ export async function recordExperimentalNativeMultitrack({
     try { onProgress(progress); } catch { /* optional UI observer */ }
   };
 
+  if(typeof longForm!=='boolean')throw new Error('Modo largo inválido.');
   const prepared=await prepareAcceleratedMultitrack({
-    project,media,M,platform:host.platform,
+    project,media,M,platform:host.platform,longForm,
+    maxSeconds:longForm?ACCELERATED_NATIVE_LONG_MAX_SECONDS:ACCELERATED_MULTITRACK_MAX_SECONDS,
     // The checkbox is a minimum-content requirement, not a mute switch:
     // when unchecked, keep any authored audio and only make its presence optional.
     expectedAudio:expectAudio ? true : null,
@@ -75,7 +77,7 @@ export async function recordExperimentalNativeMultitrack({
     // Invalid space estimates must release every decoder before returning.
     const reservation=planAcceleratedStorageReservation({
       seconds:prepared.totalSeconds,width:prepared.width,
-      height:prepared.height,fps,estimatedBytes
+      height:prepared.height,fps,estimatedBytes,longForm
     });
     const expectedBytes=reservation.estimatedBytes;
     // Only mono and stereo are mixed today. A multi-channel source could

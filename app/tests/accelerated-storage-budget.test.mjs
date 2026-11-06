@@ -43,3 +43,15 @@ test('no full-hour native reservation loophole or oversized and fractional dimen
  ])
   assert.throws(()=>plan({...good,...change}),/fuera del modo QA/);
 });
+
+// MU V4 (Claude): long-form (10–60 min) only when explicitly requested; the 180 s default is unchanged.
+test('long-form reservation allows up to 60 min only when requested, with the same safety margin', async () => {
+  const { planAcceleratedStorageReservation } = await import('../accelerated-storage-budget.mjs');
+  for (const seconds of [600, 1800, 3600]) {
+    const r = planAcceleratedStorageReservation({ seconds, width: 1080, height: 1920, fps: 30, longForm: true });
+    assert.ok(r.estimatedBytes > r.modeledBytes && r.estimatedBytes < 16 * 1024 ** 3, String(seconds));
+  }
+  assert.throws(() => planAcceleratedStorageReservation({ seconds: 600, width: 1080, height: 1920, fps: 30 }), /fuera del modo/);
+  assert.throws(() => planAcceleratedStorageReservation({ seconds: 3601, width: 1080, height: 1920, fps: 30, longForm: true }), /fuera del modo/);
+  assert.throws(() => planAcceleratedStorageReservation({ seconds: 60, width: 1080, height: 1920, fps: 30, longForm: 'yes' }), /Modo largo/);
+});
