@@ -411,4 +411,10 @@
     <string name="phone_camera_night_hint">Foto notturna (sperimentale): appoggia il telefono e non muoverlo per %1$s.</string>
     <string name="phone_camera_night_unsupported">Questo telefono non permette una vera lunga esposizione; la foto notturna non è disponibile.</string>
     <string name="phone_camera_night_not_during_video">La foto notturna non si può usare mentre registri un video.</string>
+    <string name="scene_standby">Schermata di attesa</string>
+    <string name="scene_standby_starting">Iniziamo a breve</string>
+    <string name="scene_standby_brb">Torniamo subito</string>
+    <string name="scene_standby_thanks">Grazie per la visione</string>
+    <string name="scene_standby_footer">In diretta con Wivra</string>
+    <string name="scene_standby_ready">Schermata di attesa pronta: il microfono resta muto mentre è visibile.</string>
 </resources>

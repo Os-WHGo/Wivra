@@ -411,4 +411,10 @@
     <string name="phone_camera_night_hint">Night photo (experimental): rest the phone and keep it still for %1$s.</string>
     <string name="phone_camera_night_unsupported">This phone does not allow a real long exposure; night photo is not available.</string>
     <string name="phone_camera_night_not_during_video">Night photo cannot be used while recording video.</string>
+    <string name="scene_standby">Standby screen</string>
+    <string name="scene_standby_starting">Starting soon</string>
+    <string name="scene_standby_brb">Be right back</string>
+    <string name="scene_standby_thanks">Thanks for watching</string>
+    <string name="scene_standby_footer">Live with Wivra</string>
+    <string name="scene_standby_ready">Standby screen ready: the microphone stays muted while it is shown.</string>
 </resources>

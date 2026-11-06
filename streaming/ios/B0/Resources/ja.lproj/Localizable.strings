@@ -261,3 +261,8 @@
 "ios.plive.preview_placeholder" = "カメラを準備すると、ここにプレビューが表示されます。";
 "ios.plive.on_air_badge" = "● 配信中";
 "ios.plive.preview_badge" = "プレビュー";
+"ios.live.standby" = "待機画面";
+"ios.live.standby_starting" = "まもなく開始";
+"ios.live.standby_brb" = "すぐ戻ります";
+"ios.live.standby_thanks" = "ご視聴ありがとうございました";
+"ios.live.standby_footer" = "Wivra でライブ配信中";

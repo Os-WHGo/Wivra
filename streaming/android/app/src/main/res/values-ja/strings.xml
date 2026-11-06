@@ -411,4 +411,10 @@
     <string name="phone_camera_night_hint">夜景写真 (試験的): スマホを置いて %1$s 動かさないでください。</string>
     <string name="phone_camera_night_unsupported">このスマホは本当の長時間露光に対応していないため、夜景写真は使えません。</string>
     <string name="phone_camera_night_not_during_video">動画の撮影中は夜景写真を使えません。</string>
+    <string name="scene_standby">待機画面</string>
+    <string name="scene_standby_starting">まもなく開始</string>
+    <string name="scene_standby_brb">すぐ戻ります</string>
+    <string name="scene_standby_thanks">ご視聴ありがとうございました</string>
+    <string name="scene_standby_footer">Wivra でライブ配信中</string>
+    <string name="scene_standby_ready">待機画面の準備ができました。表示中はマイクがミュートになります。</string>
 </resources>

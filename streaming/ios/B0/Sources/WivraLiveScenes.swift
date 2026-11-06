@@ -363,6 +363,20 @@ struct WivraLiveScenePanel: View {
                 } else {
                     Text(NSLocalizedString("ios.live.only_switch", comment: "")).font(.footnote)
                 }
+                // W91: ready-made standby screens (also while live: «Volvemos enseguida»).
+                Menu(NSLocalizedString("ios.live.standby", comment: "")) {
+                    ForEach(["ios.live.standby_starting", "ios.live.standby_brb", "ios.live.standby_thanks"], id: \.self) { key in
+                        Button(NSLocalizedString(key, comment: "")) {
+                            Task {
+                                if let data = wivraStandbyCard(NSLocalizedString(key, comment: "")) {
+                                    await scenes.load(imageData: data)
+                                    await scenes.select("image")
+                                }
+                            }
+                        }
+                    }
+                }
+                .disabled(!scenes.attached)
                 Text(NSLocalizedString("ios.live.sound_footnote", comment: "")).font(.footnote).foregroundStyle(.secondary)
                 if !scenes.note.isEmpty { Text(scenes.note).font(.footnote).accessibilityAddTraits(.updatesFrequently) }
             }
@@ -388,6 +402,34 @@ struct WivraLiveScenePanel: View {
             }
         }
     }
+}
+
+/// W91: a standby card drawn by Wivra (Wivra colours, centred message, small footer), shown with the image
+/// scene, whose microphone is muted. Nothing is downloaded. — Claude
+@MainActor
+func wivraStandbyCard(_ message: String) -> Data? {
+    let size = CGSize(width: 720, height: 1280)
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+        let colors = [UIColor(red: 11 / 255, green: 10 / 255, blue: 18 / 255, alpha: 1).cgColor,
+                      UIColor(red: 59 / 255, green: 20 / 255, blue: 80 / 255, alpha: 1).cgColor,
+                      UIColor(red: 226 / 255, green: 56 / 255, blue: 207 / 255, alpha: 1).cgColor] as CFArray
+        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.65, 1]) {
+            ctx.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
+        }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let big: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 76), .foregroundColor: UIColor.white, .paragraphStyle: paragraph]
+        let text = message as NSString
+        let box = text.boundingRect(with: CGSize(width: size.width - 120, height: size.height), options: .usesLineFragmentOrigin, attributes: big, context: nil)
+        text.draw(with: CGRect(x: 60, y: (size.height - box.height) / 2, width: size.width - 120, height: ceil(box.height)),
+                  options: .usesLineFragmentOrigin, attributes: big, context: nil)
+        let small: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 34), .foregroundColor: UIColor.white.withAlphaComponent(0.8), .paragraphStyle: paragraph]
+        (NSLocalizedString("ios.live.standby_footer", comment: "") as NSString)
+            .draw(in: CGRect(x: 0, y: size.height - 130, width: size.width, height: 50), withAttributes: small)
+    }
+    return image.pngData()
 }
 
 /// Localized scene names (ids are shared with core/live-scenes.mjs). — Claude
