@@ -4,6 +4,7 @@
 // after explicit consent, verified by SHA-256 and kept on the phone for offline use.
 // Multilingual models only (no English-only variants). whisper.cpp: MIT.
 import { splitText } from '../subtitles.mjs';
+import { AUTOCUT_TIMED_SCHEMA, normalizeTimedSpeech } from '../autocut-evidence.mjs';
 
 /** Voice packs (multilingual, Q5_1). Source pinned to one revision of the official repo. */
 export const WV_REV = '5359861';
@@ -132,6 +133,38 @@ export function wvCaptionCues(segments, max = WV_CAPTION_CHARS) {
       const e = i === parts.length - 1 ? s.end : Math.round((t + ((s.end - s.start) * p.length) / total) * 1000) / 1000;
       if (e > t) out.push({ start: t, end: e, text: p }); t = e;
     });
+  }
+  return out;
+}
+
+/**
+ * W89: recognized speech (timeline seconds) → AutoCut evidence per media file (its own seconds), source
+ * 'local_asr'. Honest attribution only: when nothing else in the project can sound (no audio tracks, no
+ * layer with sound), each piece of speech belongs to the main clip playing at that moment. Clips with a
+ * speed change or muted are skipped. → Map(assetId → evidence)
+ */
+export function wvTimedSpeechByAsset(project, segments) {
+  const out = new Map(), assets = new Map((project.assets || []).map((a) => [a.id, a]));
+  const sounding = (c) => !c.muted && !(typeof c.volume === 'number' && c.volume <= 0);
+  if ((project.audioClips || []).some(sounding)) return out;
+  if ((project.overlayClips || []).some((c) => sounding(c) && assets.get(c.asset_id)?.kind !== 'image')) return out;
+  const per = new Map();
+  for (const c of project.clips || []) {
+    const a = assets.get(c.asset_id);
+    if (!a || a.kind === 'image' || !sounding(c) || (c.speed !== undefined && c.speed !== 1) || !(a.duration > 0)) continue;
+    const end = c.start + c.out - c.in;
+    for (const s of segments) {
+      const from = Math.max(c.start, s.start), to = Math.min(end, s.end);
+      if (to - from < 0.02 || !String(s.text).trim()) continue;
+      const list = per.get(a.id) || []; per.set(a.id, list);
+      list.push({ start: Math.round((c.in + from - c.start) * 1000) / 1000, end: Math.round((c.in + to - c.start) * 1000) / 1000, text: String(s.text).trim().slice(0, 512) });
+    }
+  }
+  for (const [id, list] of per) {
+    list.sort((x, y) => x.start - y.start);
+    const evidence = { schema: AUTOCUT_TIMED_SCHEMA, source: 'local_asr', granularity: 'segment', durationSeconds: assets.get(id).duration,
+      segments: list.filter((x, i) => !i || x.start !== list[i - 1].start || x.text !== list[i - 1].text) };
+    if (normalizeTimedSpeech(evidence)) out.set(id, evidence);
   }
   return out;
 }

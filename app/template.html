@@ -2356,8 +2356,8 @@ $('wvRun').onclick = async () => {
     if (!ops.length) { $('wvState').textContent = aiT('No se reconoció voz en el video.'); say(aiT('No se reconoció voz en el video.'), 'bad'); return; }
     if (!confirm(aiT('Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer.', ops.length))) { wvRefresh(); return; }
     const applied = run(ops); if (!applied.ok) { say(aiT('No se pudo agregar: {1}', applied.message), 'bad'); return; }
-    const timed = timedSpeechFromSingleClipCues(session.project, v.value.segments);
-    if (timed) { const items = siTimed.get(session) || new Map(); items.set(timed.assetId, timed.evidence); siTimed.set(session, items); }
+    const byAsset = wvTimedSpeechByAsset(project, v.value.segments);      // AutoCut can now use what was said, per clip (W89)
+    if (byAsset.size) { const items = siTimed.get(session) || new Map(); for (const [id, ev] of byAsset) items.set(id, ev); siTimed.set(session, items); }
     wvRefresh(); render();
     say(aiT('Se agregaron {1} subtítulos automáticos. Revísalos: el reconocimiento puede equivocarse.', ops.length) + (late ? ' ' + aiT('{1} quedaron fuera del video.', late) : ''), 'ok');
   } catch (e) {
