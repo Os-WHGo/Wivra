@@ -77,8 +77,8 @@ test('the glasses HFP microphone is never opened by the Ray-Ban recording path',
 
 test('missing or lost microphone: the person is told and offered others; video goes on', () => {
   const activity = read(A + 'WivraMetaPreviewActivity.kt');
-  assert.match(activity, /offerVideoOnly\(getString\(R\.string\.dat_audio_missing\), WivraRayBanAudioRoute\.alternatives\(this, choice\)\)/);
-  assert.match(activity, /else startCaptureWithAudio\(WivraRayBanSync\.Choice\.OFF, -1\)/);
+  assert.match(activity, /offerVideoOnly\(getString\(R\.string\.dat_audio_missing\), WivraRayBanAudioRoute\.alternatives\(this, choice\), then\)/);
+  assert.match(activity, /else then\(WivraRayBanSync\.Choice\.OFF, -1\)/);
   assert.match(activity, /audioPermissionLauncher\.launch\(Manifest\.permission\.RECORD_AUDIO\)/);
   const service = read(A + 'WivraCaptureForegroundService.kt');
   assert.match(service, /audioIssue = getString\(R\.string\.dat_audio_lost\)/);
@@ -115,4 +115,33 @@ test('iPhone uses the same least-delayed anchor for the CAF offset, checked by a
   assert.match(sync, /return ptsMonotonic \? minDelta \+ firstPts : firstArrival/);
   const wf = read('.github/workflows/meta-b0-native-build.yml');
   assert.match(wf, /\/tmp\/wivra-rayban-sync-smoke streaming\/contracts\/rayban-audio-sync\.json/);
+});
+
+test('Ray-Ban LIVE (Android): existing RootEncoder engine, chosen microphone only, address never kept', () => {
+  const F = 'streaming/android/app/src/full/java/com/oswhgo/wivra/';
+  const pub = read(F + 'WivraRayBanLivePublisher.kt');
+  assert.match(pub, /RtmpStream\(context\.applicationContext, this, video, mic \?: NoAudioSource\(\)\)/);
+  assert.match(pub, /if \(mic != null && !mic\.setPreferredDevice\(microphone\)\) \{ publisher\.release\(\); return false \}/);
+  assert.match(pub, /WivraLiveReconnect\(\)/);
+  assert.doesNotMatch(pub, /Log\.|println|SharedPreferences|putString/);
+  const src = read(F + 'WivraRayBanVideoSource.kt');
+  assert.match(src, /OrientationConfig\(forced = OrientationForced\.LANDSCAPE\)/);
+  assert.match(src, /private val slot = WivraLatestFrameSlot\(\)/);
+  const activity = read(A + 'WivraMetaPreviewActivity.kt');
+  assert.match(activity, /address\.text\?\.clear\(\)/);
+  assert.match(activity, /rayBanLive\?\.muteMicrophone\(\)/);
+  assert.match(activity, /if \(liveRunning\) return \/\/ a profile change restarts the camera/);
+  assert.doesNotMatch(activity, /putString\("(rtmp|live_address|endpoint)/i);
+  const wf = read('.github/workflows/wivra-android-ui-screenshots.yml');
+  assert.match(wf, /WivraRayBanLiveInstrumentedTest/);
+  assert.match(wf, /OK \\\(3 tests\\\)/);
+  // The colour converter is checked against the shared vector here too.
+  const v2 = JSON.parse(read('streaming/contracts/rayban-live.json'));
+  const c = v2.i420, b = c.bytes, ys = c.width * c.height, cw = c.width / 2;
+  const cl = (x) => (x < 0 ? 0 : x > 255 ? 255 : x);
+  for (let r = 0; r < c.height; r++) for (let x = 0; x < c.width; x++) {
+    const y = b[r * c.width + x], k = (r >> 1) * cw + (x >> 1), u = b[ys + k] - 128, vv = b[ys + ys / 4 + k] - 128;
+    const px = ((0xff << 24) | (cl(y + ((1436 * vv) >> 10)) << 16) | (cl(y - ((352 * u + 731 * vv) >> 10)) << 8) | cl(y + ((1815 * u) >> 10))) >>> 0;
+    assert.equal(px.toString(16).toUpperCase().padStart(8, '0'), c.argb[r * c.width + x]);
+  }
 });

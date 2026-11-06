@@ -502,4 +502,19 @@
     <string name="dat_audio_saved">Audio salvato con %1$d di %2$d parti (Music/Wivra).</string>
     <string name="dat_audio_complete_saved">Audio completo salvato in Music/Wivra da allineare a mano.</string>
     <string name="dat_audio_not_saved">L’audio resta privato in Wivra; si riproverà.</string>
+    <string name="rblive_start_button">LIVE con gli occhiali</string>
+    <string name="rblive_stop_button">Ferma il LIVE degli occhiali</string>
+    <string name="rblive_title">LIVE con gli occhiali Ray-Ban</string>
+    <string name="rblive_address_hint">rtmps://server/app/chiave (non salvata)</string>
+    <string name="rblive_copy">Tieni anche una copia MP4 privata sul telefono</string>
+    <string name="rblive_next">Avanti</string>
+    <string name="rblive_address_invalid">Indirizzo RTMP/RTMPS non valido o rete assente. Non è stato inviato nulla.</string>
+    <string name="rblive_confirm_title">Avviare il LIVE con gli occhiali?</string>
+    <string name="rblive_confirm">Video degli occhiali %1$d × %2$d, %3$d FPS (H.264). Audio: %4$s (mai il microfono degli occhiali).</string>
+    <string name="rblive_need_preview">Prima attiva il video degli occhiali (anteprima).</string>
+    <string name="rblive_mic_lost">Il microfono scelto è stato perso: il LIVE continua senza audio. Non si usa un altro microfono.</string>
+    <string name="rblive_stats">LIVE: %1$d fotogrammi inviati, %2$d ripetuti, %3$d scartati, conversione %4$.1f ms</string>
+    <string name="rblive_copy_pending">La copia MP4 del LIVE resta privata in Wivra da rivedere dopo.</string>
+    <string name="rblive_keep_title">Tenere la copia del LIVE?</string>
+    <string name="rblive_keep_message">La copia MP4 è privata sul telefono. Salvala nella Galleria, decidi dopo o eliminala.</string>
 </resources>

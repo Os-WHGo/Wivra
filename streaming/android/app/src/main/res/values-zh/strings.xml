@@ -502,4 +502,19 @@
     <string name="dat_audio_saved">已为 %2$d 段中的 %1$d 段保存音频（Music/Wivra）。</string>
     <string name="dat_audio_complete_saved">完整音频已保存到 Music/Wivra，可手动对齐。</string>
     <string name="dat_audio_not_saved">音频仍私密保存在 Wivra 中；稍后重试。</string>
+    <string name="rblive_start_button">用眼镜直播</string>
+    <string name="rblive_stop_button">停止眼镜直播</string>
+    <string name="rblive_title">用 Ray-Ban 眼镜直播</string>
+    <string name="rblive_address_hint">rtmps://服务器/app/密钥（不保存）</string>
+    <string name="rblive_copy">同时在手机上保留私密 MP4 副本</string>
+    <string name="rblive_next">下一步</string>
+    <string name="rblive_address_invalid">RTMP/RTMPS 地址无效或无网络。未发送任何内容。</string>
+    <string name="rblive_confirm_title">开始用眼镜直播？</string>
+    <string name="rblive_confirm">眼镜视频 %1$d × %2$d，%3$d FPS（H.264）。音频：%4$s（绝不使用眼镜麦克风）。</string>
+    <string name="rblive_need_preview">请先开启眼镜视频（预览）。</string>
+    <string name="rblive_mic_lost">所选麦克风已断开：直播继续但无音频。不会使用其他麦克风。</string>
+    <string name="rblive_stats">直播：已发送 %1$d 帧，重复 %2$d，丢弃 %3$d，转换 %4$.1f ms</string>
+    <string name="rblive_copy_pending">直播的 MP4 副本私密保存在 Wivra 中，稍后可查看。</string>
+    <string name="rblive_keep_title">保留直播副本？</string>
+    <string name="rblive_keep_message">MP4 副本私密保存在手机上。可保存到相册、稍后决定或删除。</string>
 </resources>

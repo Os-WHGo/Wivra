@@ -502,4 +502,19 @@
     <string name="dat_audio_saved">%2$d 個中 %1$d 個のパートに音声を保存しました（Music/Wivra）。</string>
     <string name="dat_audio_complete_saved">手動で合わせられるよう、音声全体を Music/Wivra に保存しました。</string>
     <string name="dat_audio_not_saved">音声は Wivra 内に非公開で残ります。後で再試行します。</string>
+    <string name="rblive_start_button">メガネで LIVE</string>
+    <string name="rblive_stop_button">メガネの LIVE を停止</string>
+    <string name="rblive_title">Ray-Ban メガネで LIVE</string>
+    <string name="rblive_address_hint">rtmps://サーバー/app/キー（保存されません）</string>
+    <string name="rblive_copy">スマホに非公開の MP4 コピーも保存</string>
+    <string name="rblive_next">次へ</string>
+    <string name="rblive_address_invalid">RTMP/RTMPS アドレスが無効か、ネットワークがありません。何も送信していません。</string>
+    <string name="rblive_confirm_title">メガネで LIVE を開始しますか？</string>
+    <string name="rblive_confirm">メガネの映像 %1$d × %2$d、%3$d FPS（H.264）。音声: %4$s（メガネのマイクは使いません）。</string>
+    <string name="rblive_need_preview">先にメガネの映像（プレビュー）をオンにしてください。</string>
+    <string name="rblive_mic_lost">選んだマイクが切断されました。LIVE は音声なしで続きます。他のマイクは使いません。</string>
+    <string name="rblive_stats">LIVE: 送信 %1$d、再送 %2$d、破棄 %3$d フレーム、変換 %4$.1f ms</string>
+    <string name="rblive_copy_pending">LIVE の MP4 コピーは後で確認できるよう Wivra 内に非公開で残ります。</string>
+    <string name="rblive_keep_title">LIVE のコピーを保存しますか？</string>
+    <string name="rblive_keep_message">MP4 コピーはスマホ内で非公開です。ギャラリーに保存、後で決める、または削除を選んでください。</string>
 </resources>

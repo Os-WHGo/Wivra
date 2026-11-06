@@ -502,4 +502,19 @@
     <string name="dat_audio_saved">Audio enregistré avec %1$d parties sur %2$d (Music/Wivra).</string>
     <string name="dat_audio_complete_saved">Audio complet enregistré dans Music/Wivra pour l’aligner à la main.</string>
     <string name="dat_audio_not_saved">L’audio reste privé dans Wivra ; nouvel essai plus tard.</string>
+    <string name="rblive_start_button">LIVE avec les lunettes</string>
+    <string name="rblive_stop_button">Arrêter le LIVE des lunettes</string>
+    <string name="rblive_title">LIVE avec les lunettes Ray-Ban</string>
+    <string name="rblive_address_hint">rtmps://serveur/app/clé (non enregistrée)</string>
+    <string name="rblive_copy">Garder aussi une copie MP4 privée sur le téléphone</string>
+    <string name="rblive_next">Suivant</string>
+    <string name="rblive_address_invalid">Adresse RTMP/RTMPS invalide ou pas de réseau. Rien n’a été envoyé.</string>
+    <string name="rblive_confirm_title">Démarrer le LIVE avec les lunettes ?</string>
+    <string name="rblive_confirm">Vidéo des lunettes %1$d × %2$d, %3$d FPS (H.264). Audio : %4$s (jamais le micro des lunettes).</string>
+    <string name="rblive_need_preview">Activez d’abord la vidéo des lunettes (aperçu).</string>
+    <string name="rblive_mic_lost">Le micro choisi a été perdu : le LIVE continue sans audio. Aucun autre micro n’est utilisé.</string>
+    <string name="rblive_stats">LIVE : %1$d images envoyées, %2$d répétées, %3$d abandonnées, conversion %4$.1f ms</string>
+    <string name="rblive_copy_pending">La copie MP4 du LIVE reste privée dans Wivra pour la revoir plus tard.</string>
+    <string name="rblive_keep_title">Garder la copie du LIVE ?</string>
+    <string name="rblive_keep_message">La copie MP4 est privée sur le téléphone. Enregistrez-la dans la Galerie, décidez plus tard ou supprimez-la.</string>
 </resources>

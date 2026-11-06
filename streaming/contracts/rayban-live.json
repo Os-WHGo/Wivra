@@ -1,0 +1,16 @@
+{
+  "comment": "Ray-Ban → LIVE on Android: shared vectors for WivraI420Argb, WivraLatestFrameSlot and WivraRayBanLivePlan (JVM test + Node twin). — Claude",
+  "i420": {
+    "width": 4, "height": 2,
+    "bytes": [0, 64, 128, 255, 16, 235, 100, 200, 90, 200, 240, 60],
+    "argb": ["FF9D0000", "FFDD0000", "FF2098FF", "FF9FFFFF", "FFAD0000", "FFFFA9A7", "FF047CE3", "FF68E0FF"]
+  },
+  "i420Neutral": [[0, "FF000000"], [128, "FF808080"], [255, "FFFFFFFF"]],
+  "plans": [
+    { "profile": "economy", "audio": true, "expect": [360, 640, 352, 624, 15, 800000, 2, 44100, 96000] },
+    { "profile": "balanced", "audio": true, "expect": [504, 896, 480, 848, 24, 1600000, 2, 44100, 96000] },
+    { "profile": "motion", "audio": false, "expect": [504, 896, 480, 848, 30, 2000000, 2, 44100, 0] },
+    { "profile": "detail", "audio": true, "expect": [720, 1280, 720, 1280, 15, 2500000, 2, 44100, 96000] },
+    { "profile": "max", "audio": true, "expect": [720, 1280, 720, 1280, 30, 3000000, 2, 44100, 96000] }
+  ]
+}
