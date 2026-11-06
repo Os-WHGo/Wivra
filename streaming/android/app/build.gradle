@@ -30,6 +30,8 @@ android {
     sourceSets.main.assets.srcDir(layout.buildDirectory.dir('generated/wivra-assets'))
     // Real MediaRecorder samples (Chromium WebM/MP4, ffmpeg H.264+AAC) for container repair tests only.
     sourceSets.androidTest.assets.srcDir(rootProject.file('../../app/tests/fixtures/mediarecorder'))
+    // W86: CI-only automatic-subtitles check (shared in-page driver + an input.json the CI writes).
+    sourceSets.androidTest.assets.srcDir(layout.buildDirectory.dir('generated/wivra-e2e'))
 }
 
 // Only static HTML and JSON. No cloud, runtime code downloads or paid services.
@@ -39,6 +41,13 @@ tasks.register('syncWivraAssets', Sync) {
     into(layout.buildDirectory.dir('generated/wivra-assets'))
 }
 tasks.named('preBuild') { dependsOn 'syncWivraAssets' }
+// Test APK only. Without build/wivra-e2e-input/input.json the whisper test skips itself.
+tasks.register('syncWivraE2E', Sync) {
+    from(rootProject.file('../../tools/whisper-wasm')) { include 'e2e-driver.js' }
+    from(layout.buildDirectory.dir('wivra-e2e-input')) { include 'input.json' }
+    into(layout.buildDirectory.dir('generated/wivra-e2e'))
+}
+tasks.named('preBuild') { dependsOn 'syncWivraE2E' }
 
 // Official Meta Wearables DAT Android artifacts (developer preview).
 // Dependency resolution is free via Maven Central. Integration requires

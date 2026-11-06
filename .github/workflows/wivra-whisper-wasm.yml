@@ -1,0 +1,319 @@
+name: Wivra Whisper WASM (multilingual, single-thread)
+# W86 (Claude): automatic subtitles with whisper.cpp compiled to WebAssembly.
+# 1) Build whisper.cpp (pinned) to ONE single-file module and require it to be byte-identical
+#    to the copy vendored in app/vendor/whisper (the editor embeds that copy).
+# 2) Compare the multilingual Base Q5_1 and Tiny Q5_1 models in Node (English: real voice;
+#    Spanish: synthetic espeak-ng voice). Linux/Node timings are NOT mobile evidence.
+# 3) The real editor flow (consent → download → SHA-256 → cancel → recognition with the
+#    network blocked → kept pack after reopening) in Chromium, in the Android System WebView
+#    of an emulator and in the WKWebView of an iPhone simulator. No English-only model, no
+#    installer leaves the runners (only debug builds inside the emulator/simulator).
+on:
+  pull_request:
+    paths:
+      - 'tools/whisper-wasm/**'
+      - 'tools/browser-whisper-subtitles.cjs'
+      - 'app/vendor/whisper/**'
+      - 'app/ai/whisper-wasm.mjs'
+      - 'streaming/ios/B0/Sources/WivraEditorE2EHook.swift'
+      - 'streaming/android/app/src/androidTest/java/com/oswhgo/wivra/WivraWhisperWebViewTest.java'
+      - '.github/workflows/wivra-whisper-wasm.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wivra-whisper-${{ github.ref }}
+  cancel-in-progress: false   # a newer commit waits; it never cancels long emulator/simulator runs
+env:
+  WHISPER_COMMIT: 0c7be696371069e0baa2515ed7aa08d5a5473aa6
+  EMSDK_VERSION: 3.1.74
+  HF_REV: 5359861
+  ES_TEXT: 'Hola, bienvenidos a Wivra. Hoy grabamos un video corto en la montaña con mis amigos.'
+  ES_TEXT2: 'Este es mi primer video del viaje. Mañana vamos a subir al volcán muy temprano.'
+  ES_TEXT3: 'Si te gustó el contenido, sígueme y comparte este video con tus amigos.'
+  EN_TEXT: 'And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.'
+jobs:
+  mac-voice:
+    # A natural-sounding Spanish voice from macOS (still synthetic, but close to real speech).
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - name: Spanish samples with up to two macOS system voices, 16 kHz mono, 0.5 s of silence around
+        run: |
+          mkdir -p /tmp/wv-mac; : > /tmp/wv-mac/samples.tsv
+          say -v '?' | grep -E 'es_(ES|MX|US)' | tee /tmp/wv-mac/voices.txt
+          sed -E 's/ +es_[A-Z]{2}.*//' /tmp/wv-mac/voices.txt | head -2 > /tmp/wv-mac/names.txt
+          k=0
+          while IFS= read -r v; do
+            k=$((k+1))
+            n=0
+            for t in "$ES_TEXT" "$ES_TEXT2" "$ES_TEXT3"; do
+              n=$((n+1)); f="es-nat-v$k-$n"
+              say -v "$v" -o "/tmp/wv-mac/$f.aiff" "[[slnc 500]] $t [[slnc 500]]" && \
+                afconvert -f WAVE -d LEI16@16000 -c 1 "/tmp/wv-mac/$f.aiff" "/tmp/wv-mac/$f.wav" && \
+                printf '%s\t%s\n' "$f.wav" "$t" >> /tmp/wv-mac/samples.tsv
+              rm -f "/tmp/wv-mac/$f.aiff"
+            done
+            echo "voice v$k: $v"
+          done < /tmp/wv-mac/names.txt
+          cat /tmp/wv-mac/samples.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wivra-whisper-mac-voice
+          path: /tmp/wv-mac/*.*
+          if-no-files-found: ignore
+          retention-days: 3
+  wasm:
+    needs: mac-voice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: wivra-whisper-mac-voice
+          path: /tmp/wv-mac
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pinned Emscripten SDK
+        run: |
+          set -eu
+          git clone --quiet --depth 1 https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+          /tmp/emsdk/emsdk install "$EMSDK_VERSION" >/tmp/emsdk.log
+          /tmp/emsdk/emsdk activate "$EMSDK_VERSION" >/dev/null
+      - name: Pinned whisper.cpp
+        run: |
+          set -eu
+          git clone --quiet --filter=blob:none https://github.com/ggml-org/whisper.cpp.git /tmp/whisper
+          git -C /tmp/whisper checkout --quiet "$WHISPER_COMMIT"
+      - name: Build static libraries and the single-file module
+        run: |
+          set -eu
+          source /tmp/emsdk/emsdk_env.sh >/dev/null
+          emcmake cmake -S /tmp/whisper -B /tmp/wb -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF \
+            -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DCMAKE_C_FLAGS=-msimd128 -DCMAKE_CXX_FLAGS=-msimd128 >/tmp/cmake.log
+          cmake --build /tmp/wb -j 4 >/tmp/build.log
+          libs=$(find /tmp/wb -name '*.a' | sort | tr '\n' ' ')
+          mkdir -p out
+          em++ -O3 -msimd128 -std=c++17 -I/tmp/whisper/include -I/tmp/whisper/ggml/include \
+            tools/whisper-wasm/wivra_whisper.cpp $libs -o out/wivra-whisper.js \
+            --bind -sSINGLE_FILE=1 -sMODULARIZE=1 -sEXPORT_NAME=createWivraWhisper \
+            -sENVIRONMENT=web,worker,node -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sMAXIMUM_MEMORY=2GB \
+            -sEXPORTED_FUNCTIONS=_malloc,_free -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32 -sFILESYSTEM=0 -sASSERTIONS=0
+          ls -la out
+          sha256sum out/wivra-whisper.js
+      - name: Multilingual models (pinned revision), checked against the editor's pinned SHA-256
+        run: |
+          set -eu
+          mkdir -p /tmp/wv-models
+          for m in tiny base; do
+            curl --fail --location --retry 3 --silent --show-error --max-time 300 \
+              "https://huggingface.co/ggerganov/whisper.cpp/resolve/$HF_REV/ggml-$m-q5_1.bin" -o "/tmp/wv-models/ggml-$m-q5_1.bin"
+            sum=$(sha256sum /tmp/wv-models/ggml-$m-q5_1.bin | cut -d' ' -f1)
+            want=$(node --input-type=module -e "import { WV_MODELS } from './app/ai/whisper-wasm.mjs'; console.log(WV_MODELS['$m'].sha256)")
+            printf 'model %s q5_1 bytes=%s sha256=%s\n' "$m" "$(stat -c %s /tmp/wv-models/ggml-$m-q5_1.bin)" "$sum"
+            test "$sum" = "$want"
+          done
+      - name: English (real voice) and Spanish (synthetic voice) samples, plus small videos
+        timeout-minutes: 25
+        run: |
+          set -eu
+          # The runner's package index is usually enough; refresh it only if the install fails (mirrors can be very slow).
+          need=""; command -v espeak-ng >/dev/null || need="$need espeak-ng"; command -v ffmpeg >/dev/null || need="$need ffmpeg"
+          if [ -n "$need" ]; then
+            timeout 300 sudo apt-get install -y -qq --no-install-recommends $need >/dev/null || \
+              { timeout 600 sudo apt-get update -qq; timeout 600 sudo apt-get install -y -qq --no-install-recommends $need >/dev/null; }
+          fi
+          mkdir -p /tmp/wv-fx
+          cp /tmp/whisper/samples/jfk.wav /tmp/wv-fx/en.wav
+          timeout 60 espeak-ng -v es -s 135 -w /tmp/wv-fx/es-raw.wav "$ES_TEXT"
+          timeout 120 ffmpeg -nostdin -loglevel error -y -i /tmp/wv-fx/es-raw.wav -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es-tight.wav
+          # A real clip has a moment of silence before the first word; the raw synthetic file starts speaking at 0.0 s.
+          timeout 120 ffmpeg -nostdin -loglevel error -y -i /tmp/wv-fx/es-tight.wav -af "adelay=500,apad=pad_dur=0.5" -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es.wav
+          for f in es-tight es; do printf '%s: ' "$f"; timeout 30 ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/wv-fx/$f.wav; timeout 120 ffmpeg -nostdin -hide_banner -i /tmp/wv-fx/$f.wav -af volumedetect -f null - 2>&1 | grep -E 'mean_volume|max_volume' | tr '\n' ' '; echo; done
+          for l in en es; do
+            timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i /tmp/wv-fx/$l.wav -shortest \
+              -c:v libvpx -b:v 60k -deadline realtime -c:a libopus -b:a 48k /tmp/wv-fx/$l.webm
+            timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i /tmp/wv-fx/$l.wav -shortest \
+              -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/$l.mp4
+          done
+          # Editor-flow videos (Chromium, Android, iPhone): a natural-voice sentence when macOS gave one
+          # ("Este es mi primer video del viaje. Mañana vamos a subir al volcán muy temprano."), else the robotic one.
+          nat=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$nat" ] || nat=/tmp/wv-fx/es.wav
+          words="viaje,volcán,temprano"; [ "$nat" = /tmp/wv-fx/es.wav ] && words="montaña"
+          echo "$words" > /tmp/wv-fx/flow-words.txt
+          timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i "$nat" -shortest \
+            -c:v libvpx -b:v 60k -deadline realtime -c:a libopus -b:a 48k /tmp/wv-fx/flow.webm
+          timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i "$nat" -shortest \
+            -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/flow.mp4
+          echo "editor-flow sample: $nat (required words: $words)"
+          ls -la /tmp/wv-fx
+      - name: Base vs Tiny on Spanish (robotic and natural voices); Base Q8_0 and F16 as diagnostics only
+        # Fallback (re-decoding doubtful pieces) is compared again: Tiny looped without it in run 42143459395.
+        run: |
+          set -eu
+          args=(/tmp/wv-fx/es-tight.wav es "$ES_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT")
+          if [ -s /tmp/wv-mac/samples.tsv ]; then while IFS=$'\t' read -r f t; do args+=("/tmp/wv-mac/$f" es "$t"); done < /tmp/wv-mac/samples.tsv; fi
+          for q in q8_0 f16; do
+            n="ggml-base-$q.bin"; [ "$q" = f16 ] && n="ggml-base.bin"
+            curl --fail --location --retry 3 --silent --show-error --max-time 300 "https://huggingface.co/ggerganov/whisper.cpp/resolve/$HF_REV/$n" -o "/tmp/wv-models/$n" || echo "could not download $n"
+          done
+          for m in tiny base; do
+            WV_FALLBACK=0 WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
+            for fb in 0 1; do WV_FALLBACK=$fb node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 "${args[@]}"; done
+          done
+          if [ -s /tmp/wv-models/ggml-base-q8_0.bin ]; then WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q8_0.bin base-q8_0 "${args[@]}"; fi
+          if [ -s /tmp/wv-models/ggml-base.bin ]; then WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base.bin base-f16 "${args[@]}"; fi
+          WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav auto "$ES_TEXT"
+      - name: The vendored module must be byte-identical to this build
+        run: |
+          sha256sum out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js
+          if cmp -s out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js; then echo "vendored module is byte-identical to this build"; exit 0; fi
+          echo "DIFFERENT: copy for vendoring (gzip+base64) between markers"
+          echo "WIVRA-WASM-BEGIN"; gzip -9n -c out/wivra-whisper.js | base64 -w0; echo; echo "WIVRA-WASM-END"
+          exit 1
+      - name: Build the editor (embeds the vendored engine)
+        run: node app/build.mjs && node --test app/tests/whisper-wasm-w86.test.mjs
+      - name: Chromium (pinned Playwright, Linux; not mobile evidence)
+        run: |
+          set -eu
+          npm install --prefix /tmp/wivra-media-lab --no-save --ignore-scripts playwright@1.56.1 >/dev/null
+          node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium >/dev/null
+      - name: Editor flow in Chromium · Base · Spanish (natural voice)
+        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)"
+      - name: Editor flow in Chromium · Base · English
+        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/en.webm video/webm base en country,ask
+      - name: Editor flow in Chromium · Tiny · Spanish (no word requirement)
+        run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm tiny es ''
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wivra-whisper-fixtures
+          path: /tmp/wv-fx/*.*
+          retention-days: 3
+
+  android-webview:
+    needs: wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: wivra-whisper-fixtures
+          path: /tmp/wv-fx
+      - name: Install free Android SDK packages
+        run: |
+          set -eu
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build current editor and the test input (Base · Spanish, natural voice)
+        run: |
+          set -eu
+          node app/build.mjs
+          mkdir -p streaming/android/app/build/wivra-e2e-input
+          node tools/whisper-wasm/make-e2e-input.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)" > streaming/android/app/build/wivra-e2e-input/input.json
+      - name: Build the debug app and its instrumentation for the emulator only
+        run: gradle -p streaming/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
+      - name: Allow hardware-accelerated Android emulator on Ubuntu
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Automatic subtitles in the Android System WebView (Android 35 emulator, 3 GB RAM)
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 3072M
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
+            adb install -r streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
+            adb shell dumpsys package com.google.android.webview | grep -m1 versionName || true
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraWhisperWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner > /tmp/wv-android.txt || true
+            node -e "const t=require('fs').readFileSync('/tmp/wv-android.txt','utf8');const p={};for(const m of t.matchAll(/wivra-whisper=(android\.\w+)#(\d+)=(.*)/g))(p[m[1]]=p[m[1]]||[])[+m[2]]=m[3];for(const k in p)require('fs').writeFileSync('/tmp/'+k+'.json',p[k].join(''));"
+            node tools/whisper-wasm/e2e-report.cjs /tmp/android.full.json 'Android WebView · download + cancel + recognize' consent,cancel || true
+            node tools/whisper-wasm/e2e-report.cjs /tmp/android.kept.json 'Android WebView · reopened, kept pack' || true
+            grep -E 'INSTRUMENTATION_|^OK|FAILURES|Tests run|AssumptionViolated' /tmp/wv-android.txt | head -20
+            grep -Eq '^OK \(1 test\)' /tmp/wv-android.txt
+            test -s /tmp/android.kept.json
+
+  ios-wkwebview:
+    needs: wasm
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wivra-whisper-fixtures
+          path: /tmp/wv-fx
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build current editor
+        run: node app/build.mjs && test -s app/dist/agentcut.html
+      - name: Generate project
+        working-directory: streaming/ios/B0
+        run: xcodegen generate
+      - name: Build for the iOS Simulator (Debug, unsigned)
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj -scheme WivraMetaB0 \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$PWD/.simbuild" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee sim-build.log | grep -E 'error:|BUILD (SUCCEEDED|FAILED)' || true
+          test -d .simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
+      - name: Automatic subtitles in the iPhone simulator's WKWebView (Base · Spanish, natural voice)
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          phones = [x for k, v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone") and "Pro Max" not in x["name"] and "Plus" not in x["name"]]
+          print(phones[-1]["udid"])')
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" .simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
+          data=$(xcrun simctl get_app_container "$udid" com.oswhgo.WivraMetaB0 data)
+          mkdir -p "$data/Documents/wv-e2e"
+          cp "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-driver.js" "$data/Documents/wv-e2e/driver.js"
+          node "$GITHUB_WORKSPACE/tools/whisper-wasm/make-e2e-input.cjs" /tmp/wv-fx/flow.mp4 video/mp4 base es "$(cat /tmp/wv-fx/flow-words.txt)" > "$data/Documents/wv-e2e/input.json"
+          run_once() {
+            rm -f "$data/Documents/wv-e2e/output.json"
+            SIMCTL_CHILD_WIVRA_E2E=1 SIMCTL_CHILD_WIVRA_SCREENSHOT=editor xcrun simctl launch --terminate-running-process "$udid" com.oswhgo.WivraMetaB0 -AppleLanguages '(es)' -AppleLocale es_ES
+            for i in $(seq 1 600); do [ -s "$data/Documents/wv-e2e/output.json" ] && break; sleep 3; done
+            cp "$data/Documents/wv-e2e/output.json" "$1" || echo '{"ok":false,"error":"no output"}' > "$1
+            ls -la "$data/Documents/wv-e2e"; head -c 1500 "$1"; echo"
+          }
+          run_once /tmp/ios.full.json
+          python3 - "$data/Documents/wv-e2e/input.json" <<'PY'
+          import json, sys
+          p = sys.argv[1]; d = json.load(open(p)); d.update(phase='offline', cancel=False); json.dump(d, open(p, 'w'))
+          PY
+          run_once /tmp/ios.kept.json
+          xcrun simctl terminate "$udid" com.oswhgo.WivraMetaB0 || true
+          xcrun simctl spawn "$udid" log show --last 30m --style compact --predicate 'process == "WivraMetaB0" AND eventMessage CONTAINS "WIVRA-E2E"' 2>/dev/null | tail -10 || true
+          status=0
+          node "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-report.cjs" /tmp/ios.full.json 'iPhone simulator WKWebView · download + cancel + recognize' consent,cancel || status=1
+          node "$GITHUB_WORKSPACE/tools/whisper-wasm/e2e-report.cjs" /tmp/ios.kept.json 'iPhone simulator WKWebView · reopened, kept pack' || status=1
+          exit $status
+      - name: Show build errors
+        if: failure()
+        working-directory: streaming/ios/B0
+        run: grep -E '(error:|BUILD FAILED|fatal error:)' sim-build.log | tail -40 || true

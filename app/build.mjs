@@ -3,6 +3,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { loadI18n } from './i18n-parse.mjs';
 import { dirname, resolve } from 'node:path';
 import { verifyPinnedAcceleratedVendor } from './accelerated-vendor-integrity.mjs';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { WV_ENGINE_SHA256 } from './ai/whisper-wasm.mjs';
 
 // Optional, explicitly pinned OFFLINE vendor for the isolated accelerated QA
 // build. Standard beta packaging still contains no Mediabunny until its native
@@ -30,7 +33,7 @@ if (acceleratedBundlePath) {
 }
 
 const strip = (s) => s.replace(/^import .*$/gm, '').replace(/^export (?=async function|class|function|const|default)/gm, '');
-const core = ['../core/project.mjs', '../core/filters.mjs', '../core/text-style.mjs', '../core/operations.mjs', '../core/op-schemas.mjs', '../core/session.mjs', '../core/tools.mjs', '../core/creative-director.mjs', '../core/shoot-checklist.mjs', '../core/director-production-plan.mjs', '../core/in-app-agent.mjs', './prompt.mjs', './vision.mjs', './timeline.mjs', './export-sink.mjs', './media-container.mjs', './export-engine-policy.mjs', './accelerated-cut-renderer.mjs', './accelerated-native-sink.mjs', './accelerated-memory-export.mjs', './export.mjs', '../core/multicam-plan.mjs', './capture-manifest.mjs', './director-parts.mjs', './persist.mjs', './gif.mjs', './filters-gl.mjs', './ai-client.mjs', './i18n.mjs', './describe-op.mjs', './channel-split.mjs', './subtitles.mjs', './ai/transcript-contract.mjs', './ai/whisper-adapter.mjs', './quick-assembly.mjs', './templates.mjs', './silence.mjs', './autocut-evidence.mjs', './autocut.mjs', './autocut-highlights.mjs', './teleprompter.mjs', './loudness.mjs', './rhythm.mjs', './speed.mjs', './transitions.mjs', './music-lib.mjs']
+const core = ['../core/project.mjs', '../core/filters.mjs', '../core/text-style.mjs', '../core/operations.mjs', '../core/op-schemas.mjs', '../core/session.mjs', '../core/tools.mjs', '../core/creative-director.mjs', '../core/shoot-checklist.mjs', '../core/director-production-plan.mjs', '../core/in-app-agent.mjs', './prompt.mjs', './vision.mjs', './timeline.mjs', './export-sink.mjs', './media-container.mjs', './export-engine-policy.mjs', './accelerated-cut-renderer.mjs', './accelerated-native-sink.mjs', './accelerated-memory-export.mjs', './export.mjs', '../core/multicam-plan.mjs', './capture-manifest.mjs', './director-parts.mjs', './persist.mjs', './gif.mjs', './filters-gl.mjs', './ai-client.mjs', './i18n.mjs', './describe-op.mjs', './channel-split.mjs', './subtitles.mjs', './ai/transcript-contract.mjs', './ai/whisper-adapter.mjs', './ai/whisper-wasm.mjs', './quick-assembly.mjs', './templates.mjs', './silence.mjs', './autocut-evidence.mjs', './autocut.mjs', './autocut-highlights.mjs', './teleprompter.mjs', './loudness.mjs', './rhythm.mjs', './speed.mjs', './transitions.mjs', './music-lib.mjs']
   .map((f) => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
 // QA-only bundled pipeline in the SAME editor HTML and its own lexical scope.
 // The ordinary beta/production build includes neither vendor nor this code.
@@ -76,5 +79,9 @@ mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
 const directorIntake = strip(readFileSync(new URL('../core/director-intake.mjs', import.meta.url), 'utf8'));
 const captureNative = ['./capture-locked-session.mjs', './capture-journal-store.mjs', './capture-native-verifier.mjs', './capture-native-session.mjs']
   .map(f => strip(readFileSync(new URL(f, import.meta.url), 'utf8'))).join('\n');
-writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + qaSidecar + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
+// W86: whisper.cpp (MIT) built to one WebAssembly module in CI; embedded compressed, verified here and again before each use.
+const wvEngine = readFileSync(new URL('./vendor/whisper/wivra-whisper.js', import.meta.url));
+if (createHash('sha256').update(wvEngine).digest('hex') !== WV_ENGINE_SHA256) throw new Error('Motor de voz: el SHA-256 de vendor/whisper/wivra-whisper.js no coincide.');
+const wvEngineTag = '<script type="text/plain" id="wvEngine" data-notr>' + gzipSync(wvEngine, { level: 9 }).toString('base64') + '</script>';
+writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('<!--__WV_ENGINE__-->', () => wvEngineTag).replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + qaSidecar + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
 console.log('listo: app/dist/agentcut.html');

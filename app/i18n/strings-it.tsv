@@ -692,3 +692,47 @@ Solo si eliges transmitir tu pantalla; Android pregunta cada vez. || Solo se sce
 Gafas Ray-Ban Meta || Occhiali Ray-Ban Meta
 Solo si las conectas, con la app Meta AI. || Solo se li colleghi, con l’app Meta AI.
 Puedes cambiar cualquier permiso en los Ajustes del teléfono. || Puoi cambiare qualsiasi permesso nelle Impostazioni del telefono.
+Subtítulos automáticos (en el teléfono) || Sottotitoli automatici (sul telefono)
+Reconoce la voz del video con whisper.cpp dentro del teléfono: tu audio no sale de él. Necesita un paquete de voz que se descarga una sola vez, cuando tú lo pidas. || Riconosce la voce del video con whisper.cpp dentro il telefono: il tuo audio non esce. Serve un pacchetto vocale che si scarica una sola volta, quando lo chiedi tu.
+Paquete de voz || Pacchetto vocale
+Preciso · 57 MB || Preciso · 57 MB
+Ligero · 31 MB || Leggero · 31 MB
+Preciso || Preciso
+Ligero || Leggero
+Idioma del audio || Lingua dell'audio
+Detectar idioma || Rileva lingua
+Descargar paquete de voz || Scarica pacchetto vocale
+Generar subtítulos || Genera sottotitoli
+Borrar paquete || Elimina pacchetto
+Paquete «{1}» guardado en el teléfono ({2} MB). Funciona sin Internet. || Pacchetto «{1}» salvato sul telefono ({2} MB). Funziona senza Internet.
+Paquete «{1}» no descargado ({2} MB). || Pacchetto «{1}» non scaricato ({2} MB).
+Se descargará el paquete de voz «{1}» ({2} MB) desde huggingface.co, del repositorio oficial de whisper.cpp. Se guarda en el teléfono y sirve para crear subtítulos sin Internet; tu audio no se envía. Recomendado con Wi-Fi. ¿Descargar? || Verrà scaricato il pacchetto vocale «{1}» ({2} MB) da huggingface.co, dal repository ufficiale di whisper.cpp. Resta sul telefono e crea sottotitoli senza Internet; il tuo audio non viene inviato. Consigliato il Wi-Fi. Scaricare?
+Descargando el paquete de voz… || Download del pacchetto vocale…
+Descargando… {1} de {2} MB || Download… {1} di {2} MB
+Verificando el paquete… || Verifica del pacchetto…
+Paquete de voz «{1}» listo. Funciona sin Internet. || Pacchetto vocale «{1}» pronto. Funziona senza Internet.
+Descarga cancelada. No se guardó nada. || Download annullato. Non è stato salvato nulla.
+El paquete descargado no coincide con el original verificado. No se guardó; vuelve a intentarlo. || Il pacchetto scaricato non corrisponde all'originale verificato. Non è stato salvato; riprova.
+No se pudo descargar el paquete de voz ({1}). Revisa la conexión; la importación de .srt sigue disponible. || Impossibile scaricare il pacchetto vocale ({1}). Controlla la connessione; l'importazione di .srt resta disponibile.
+¿Borrar el paquete de voz «{1}» del teléfono? Los subtítulos ya creados no se tocan. || Eliminare il pacchetto vocale «{1}» dal telefono? I sottotitoli già creati non vengono toccati.
+Cancelado. No se agregó ningún subtítulo. || Annullato. Nessun sottotitolo è stato aggiunto.
+Primero descarga el paquete de voz «{1}». || Prima scarica il pacchetto vocale «{1}».
+Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt. || Per ora i sottotitoli automatici funzionano con video fino a {1} min. Per uno più lungo, importa un .srt o .vtt.
+Leyendo el sonido del video… || Lettura dell'audio del video…
+Preparando el motor de voz… || Preparazione del motore vocale…
+Escuchando… parte {1} de {2} || Ascolto… parte {1} di {2}
+No se reconoció voz en el video. || Nessuna voce riconosciuta nel video.
+Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer. || Riconosciuti {1} sottotitoli. Aggiungerli al video? Potrai correggerli uno per uno e annullare.
+No se pudo agregar: {1} || Impossibile aggiungere: {1}
+Se agregaron {1} subtítulos automáticos. Revísalos: el reconocimiento puede equivocarse. || Aggiunti {1} sottotitoli automatici. Controllali: il riconoscimento può sbagliare.
+{1} quedaron fuera del video. || {1} sono rimasti fuori dal video.
+Esta versión no incluye el motor de voz. Puedes importar subtítulos .srt/.vtt. || Questa versione non include il motore vocale. Puoi importare sottotitoli .srt/.vtt.
+El paquete de voz guardado está dañado y se borró. Descárgalo otra vez. || Il pacchetto vocale salvato era danneggiato ed è stato eliminato. Scaricalo di nuovo.
+No pude leer el sonido del video. || Non sono riuscito a leggere l'audio del video.
+El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto. || Il motore vocale si è fermato, probabilmente per mancanza di memoria. Prova il pacchetto «Leggero» o un video più corto.
+No se pudieron crear los subtítulos: {1} || Impossibile creare i sottotitoli: {1}
+El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez. || Impossibile aprire il pacchetto vocale. Eliminalo e scaricalo di nuovo.
+Escuchando… parte {1} de {2} · faltan unos {3} min || Ascolto… parte {1} di {2} · mancano circa {3} min
+El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta. || Il motore vocale non risponde più (forse il telefono l'ha chiuso quando sei uscito da Wivra). Non è stato aggiunto nulla; riprova con Wivra aperta.
+Mantén Wivra abierta mientras escucha: la pantalla no se apagará. || Tieni Wivra aperta mentre ascolta: lo schermo resterà acceso.
+Creo los subtítulos aquí mismo en el teléfono con whisper.cpp; tu audio no sale de él. Sigue el avance en Texto → Subtítulos automáticos. || Creo i sottotitoli qui sul telefono con whisper.cpp; il tuo audio non esce. Segui l'avanzamento in Testo → Sottotitoli automatici.
