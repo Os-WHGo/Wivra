@@ -1482,11 +1482,16 @@ let loading = false, directorMultipartBatch = null, directorMultipartInsertAt = 
 const MAX_IMPORT = 40;      // por selección: más que eso satura la memoria del teléfono; el resto se agrega en otra tanda
 /** W97: an asset of this project already made from the same file (name, size and modification date), so a second
     import reuses it instead of keeping the same bytes twice. null when there is none (e.g. after reopening a project). */
-function sameFileAsset(f) {
+// W97 fix (Claude): name, size and date only pick candidates; the file is reused only when its bytes are
+// identical (compared in pieces, bounded memory). Otherwise it is imported as a new file.
+async function sameFileAsset(f) {
   if (!session || !f) return null;
   for (const [id, k] of Object.entries(mediaFiles)) {
-    if (!k || k.name !== f.name || k.size !== f.size || (k.lastModified || 0) !== (f.lastModified || 0) || !media[id]) continue;
-    if (session.project.assets.some((a) => a.id === id)) return id;
+    if (!k || k.name !== f.name || k.size !== f.size || !media[id]) continue;
+    if (!session.project.assets.some((a) => a.id === id)) continue;
+    const big = f.size > 64 * 1024 * 1024;
+    if (big) $('info').textContent = aiT('Comprobando si «{1}» ya está en el proyecto…', f.name);
+    if (await sameBytes(k, f, { onProgress: big ? (p) => { $('info').textContent = aiT('Comprobando si «{1}» ya está en el proyecto…', f.name) + ' ' + Math.round(p * 100) + ' %'; } : null })) return id;
   }
   return null;
 }
@@ -1534,7 +1539,7 @@ async function importSelectedFiles(files) {
   try {
   for (const f of files) {
     try {
-      const again = requireAll ? null : sameFileAsset(f);      // W97: never keep the same file twice (Ray-Ban part batches keep their own checks)
+      const again = requireAll ? null : await sameFileAsset(f);      // W97: never keep the same file twice (Ray-Ban part batches keep their own checks)
       if (again) { added.push(again); reused++; continue; }
       const photo = /^image\//.test(f.type || '') || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name);      // foto o GIF: clip de la línea principal (sin audio)
       const m = photo ? await probeImage(f) : await probe(f,requireAll);
@@ -2395,7 +2400,7 @@ async function wvUngranted(project) {
     const a = project.assets.find((x) => x.id === id), f = mediaFiles[id];
     if (!a || a.kind === 'image' || !(a.duration > WV_MAX_AUDIO_S) || !f || !f.name) continue;
     let r = null; try { r = await nat(f.name, f.size, 0, 0.1); } catch {}
-    if (!(r && r.ok)) out.push({ name: f.name, size: f.size });
+    if (!(r && r.ok)) out.push({ id, name: f.name, size: f.size });
   }
   return out;
 }
@@ -2412,6 +2417,12 @@ function wvAskRegrant(missing) {
       inp.onchange = async () => {
         const file = inp.files && inp.files[0]; inp.remove(); if (!file) return;
         if (file.name !== x.name || file.size !== x.size) { say(aiT('Ese no es el mismo archivo. Elige «{1}».', x.name), 'bad'); return; }
+        // W102 fix (Claude): same name and size are not enough; the bytes must equal the project's copy.
+        $('wvState').textContent = aiT('Comprobando que es el mismo archivo…');
+        if (!(await sameBytes(mediaFiles[x.id], file, { onProgress: (p) => { $('wvState').textContent = aiT('Comprobando que es el mismo archivo…') + ' ' + Math.round(p * 100) + ' %'; } }))) {
+          $('wvState').textContent = ''; say(aiT('Ese no es el mismo archivo. Elige «{1}».', x.name), 'bad'); return;
+        }
+        $('wvState').textContent = '';
         let r = null; try { r = await wvNativePcm()(x.name, x.size, 0, 0.1); } catch {}
         if (!(r && r.ok)) { say(aiT('El teléfono todavía no deja leer ese archivo. Vuelve a agregar el video al proyecto.'), 'bad'); return; }
         b.remove();

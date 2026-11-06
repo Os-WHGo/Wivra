@@ -12,11 +12,13 @@ test('checked before any work starts, only for long files read natively', () => 
   assert.match(html, /!\(a\.duration > WV_MAX_AUDIO_S\)/);
 });
 
-test('a real tap opens the picker; only the same file (name and size) is accepted; nothing is copied', () => {
+test('a real tap opens the picker; only the same file (name, size AND identical bytes) is accepted; nothing is copied', () => {
   assert.match(html, /b\.onclick = \(\) => \{\s*const inp = document\.createElement\('input'\); inp\.type = 'file'/);
   assert.match(html, /if \(file\.name !== x\.name \|\| file\.size !== x\.size\) \{ say\(aiT\('Ese no es el mismo archivo/);
   const block = html.split('function wvAskRegrant(missing) {')[1].split('async function wvLongWindow')[0];
-  assert.doesNotMatch(block, /mediaFiles\[|importFiles|putAsset|arrayBuffer\(\)/);
+  // The project's copy is only READ to compare bytes; nothing is imported, stored or replaced.
+  assert.match(block, /await sameBytes\(mediaFiles\[x\.id\], file/);
+  assert.doesNotMatch(block, /mediaFiles\[[^\]]+\]\s*=|importFiles|putAsset/);
 });
 
 test('every new text is translated', () => {
