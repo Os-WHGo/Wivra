@@ -70,7 +70,8 @@ class WivraScreenRecordInstrumentedTest {
         context.startService(Intent(context, WivraScreenRecordService::class.java).setAction(WivraScreenRecordService.ACTION_STOP))
         assertTrue("recording stopped", waitFor(15_000) { !WivraScreenRecordService.active })
         val file: File? = WivraScreenRecordService.takeFinished()
-        assertNotNull("finished private MP4", file)
+        val pending = WivraPhoneMediaStore.pendingVideos(context).joinToString { "${it.name}:${it.length()}" }
+        assertNotNull("finished private MP4; status «${WivraScreenRecordService.statusMessage}»; private folder: [$pending]", file)
         try {
             assertTrue(WivraPhoneMediaStore.isWivraPrivate(context, file!!))
             assertTrue("not marked as being written", !WivraPhoneMediaStore.isWriting(file))
