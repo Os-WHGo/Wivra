@@ -39,6 +39,7 @@ object WivraCaptureImport {
         if (!destinationDir.isDirectory && !destinationDir.mkdirs()) return emptyList()
         if (java.nio.file.Files.isSymbolicLink(destinationDir.toPath())) return emptyList()
         val result = mutableListOf<Bundle>()
+        rayBanBundles(context, destinationDir, result)
         for (sidecar in sidecars) {
             if (result.size == 12) break
             try {
@@ -110,5 +111,59 @@ object WivraCaptureImport {
             }
         }
         return result
+    }
+
+    private val rayBanAudioSources = setOf("android-phone-mic", "android-wired-mic", "android-usb-mic",
+        "android-bluetooth-mic", "android-system-mic")
+
+    /**
+     * Ray-Ban «solo vídeo» parts saved together with their independent microphone slice
+     * (WivraRayBanAudioStore). Both items must still be public, owned by Wivra and share one name stem.
+     * The glasses' own microphone never appears here: it is never recorded. — Claude
+     */
+    private fun rayBanBundles(context: Context, destinationDir: File, result: MutableList<Bundle>) {
+        for ((stem, raw) in WivraRayBanAudioStore.associations(context)) {
+            if (result.size == 6) break
+            try {
+                if (raw.optInt("schemaVersion") != 2 || raw.optString("timebase") != "elapsedRealtimeNanos") continue
+                val videoUri = Uri.parse(raw.optString("publishedVideoUri"))
+                val audioUri = Uri.parse(raw.optString("publishedAudioUri"))
+                val videoName = WivraRayBanAudioStore.ownedName(context, videoUri) ?: continue
+                val audioName = WivraRayBanAudioStore.ownedName(context, audioUri) ?: continue
+                if (!videoName.startsWith("Wivra_RayBan_") || !videoName.endsWith(".mp4", true) ||
+                    audioName != videoName.dropLast(4) + ".wav" || videoName.length > 255 ||
+                    videoName.any { it == '/' || it == '\\' || it < ' ' }) continue
+                val jsonFile = File(destinationDir, "$stem.wivra.json")
+                if (jsonFile.canonicalFile.parentFile != destinationDir.canonicalFile) continue
+                val rawOffset = raw.opt("audioStartOffsetSeconds")
+                val offset = if (rawOffset is Number && rawOffset.toDouble().isFinite()) rawOffset else JSONObject.NULL
+                val source = raw.optString("audioSource").takeIf { it in rayBanAudioSources } ?: "android-system-mic"
+                val inputName: Any = (if (raw.isNull("selectedInputName")) null else raw.optString("selectedInputName")
+                    .trim().take(96).takeIf { it.isNotEmpty() && it.all { c -> c >= ' ' && c != '\u007f' } }) ?: JSONObject.NULL
+                val track = JSONObject().put("id", "audio-1").put("kind", "audio").put("role", "voice_primary")
+                    .put("source", source).put("inputName", inputName).put("file", audioName)
+                    .put("channelIndex", JSONObject.NULL).put("channelCount", 1).put("sampleRateHz", 48000)
+                    .put("startOffsetSeconds", offset)
+                val manifest = JSONObject().put("schemaVersion", 2).put("captureID", "android-rayban:$stem")
+                    .put("cameraSource", "android-rayban-dat").put("audioSource", source)
+                    .put("selectedInputName", inputName).put("originalVideoFile", videoName)
+                    .put("originalAudioFile", audioName).put("muxedVideoFile", JSONObject.NULL)
+                    .put("createdAtISO8601", Instant.now().toString())
+                    .put("tracks", JSONArray().put(track)).put("muxedFromTrackIDs", JSONArray())
+                val tmp = Files.createTempFile(destinationDir.toPath(), "wivra-", ".tmp")
+                try {
+                    Files.write(tmp, manifest.toString().toByteArray(Charsets.UTF_8))
+                    try {
+                        Files.move(tmp, jsonFile.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                    } catch (_: AtomicMoveNotSupportedException) {
+                        Files.move(tmp, jsonFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    }
+                } finally { Files.deleteIfExists(tmp) }
+                val manifestUri = FileProvider.getUriForFile(context, context.packageName + ".captureimports", jsonFile)
+                result.add(Bundle(videoName, arrayOf(manifestUri, videoUri, audioUri)))
+            } catch (_: Exception) {
+                // Revoked, renamed or invalid pairs are simply not offered.
+            }
+        }
     }
 }

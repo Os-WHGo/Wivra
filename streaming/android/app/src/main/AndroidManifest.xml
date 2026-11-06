@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Ray-Ban «solo vídeo»: only when the person picks a phone/USB/external Bluetooth microphone
+         for the recording (never the glasses' microphone). — Claude -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Short renewable CPU lease only during user-initiated external HEVC capture. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Android 13+: optional permission for visible recording controls in notifications. -->
@@ -35,7 +38,7 @@
                 android:resource="@xml/wivra_import_paths" />
         </provider>
         <service android:name=".WivraCaptureForegroundService"
-            android:exported="false" android:foregroundServiceType="connectedDevice" />
+            android:exported="false" android:foregroundServiceType="connectedDevice|microphone" />
         <activity android:name=".WivraPhoneCameraActivity"
             android:exported="false" android:screenOrientation="unspecified" />
         <!-- Two phone cameras with a CameraX-composited inset. Portrait for reels;

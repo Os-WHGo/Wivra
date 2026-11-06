@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Massimo (Meta può ridurlo)</string>
     <string name="dat_diagnostic">Richiesto %1$s · ricevuto %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · interruzioni %6$d</string>
     <string name="dat_suggestion">Gli occhiali faticano: usa %1$s (riavvia la fotocamera)</string>
+    <string name="dat_audio_button">Audio della registrazione: %1$s</string>
+    <string name="dat_audio_title">Audio della registrazione Ray-Ban</string>
+    <string name="dat_audio_note">Il microfono degli occhiali non viene usato. Scegli quello del telefono, uno a filo o USB-C (anche ricevitori wireless USB) o un Bluetooth esterno.</string>
+    <string name="dat_audio_off">Solo video (senza audio)</string>
+    <string name="dat_audio_phone">Microfono del telefono</string>
+    <string name="dat_audio_usb">A filo o USB-C (anche ricevitore wireless)</string>
+    <string name="dat_audio_bluetooth">Bluetooth esterno (non gli occhiali)</string>
+    <string name="dat_audio_missing">Il microfono scelto non è collegato; si registra solo video.</string>
+    <string name="dat_audio_alternatives">Disponibili: %1$s.</string>
+    <string name="dat_audio_lost">Il microfono scelto è stato perso. Il video continua; l’audio fino a quel momento resta.</string>
+    <string name="dat_audio_no_permission">Nessun permesso microfono: solo video.</string>
+    <string name="dat_audio_missing_title">Microfono non disponibile</string>
+    <string name="dat_audio_use_video_only">Registra solo video</string>
+    <string name="dat_audio_hfp_closed">Microfono degli occhiali (HFP): chiuso</string>
+    <string name="dat_audio_hfp_open">Canale di chiamata Bluetooth (HFP) aperto da una chiamata o da un’altra app. Wivra non lo usa.</string>
+    <string name="dat_audio_saved">Audio salvato con %1$d di %2$d parti (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Audio completo salvato in Music/Wivra da allineare a mano.</string>
+    <string name="dat_audio_not_saved">L’audio resta privato in Wivra; si riproverà.</string>
 </resources>

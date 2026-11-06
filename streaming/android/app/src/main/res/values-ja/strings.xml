@@ -484,4 +484,22 @@
     <string name="dat_profile_max">最大（Meta が下げる場合あり）</string>
     <string name="dat_diagnostic">要求 %1$s · 受信 %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · 途切れ %6$d</string>
     <string name="dat_suggestion">メガネが追いついていません：%1$s を使用（カメラを再起動）</string>
+    <string name="dat_audio_button">録画の音声: %1$s</string>
+    <string name="dat_audio_title">Ray-Ban 録画の音声</string>
+    <string name="dat_audio_note">メガネのマイクは使いません。スマホのマイク、有線または USB-C のマイク（USB ワイヤレス受信機も可）、外部 Bluetooth マイクから選んでください。</string>
+    <string name="dat_audio_off">映像のみ（音声なし）</string>
+    <string name="dat_audio_phone">スマホのマイク</string>
+    <string name="dat_audio_usb">有線または USB-C（ワイヤレス受信機も可）</string>
+    <string name="dat_audio_bluetooth">外部 Bluetooth（メガネ以外）</string>
+    <string name="dat_audio_missing">選んだマイクが接続されていません。映像のみを録画します。</string>
+    <string name="dat_audio_alternatives">利用可能: %1$s。</string>
+    <string name="dat_audio_lost">選んだマイクが切断されました。映像は続きます。それまでの音声は保存されます。</string>
+    <string name="dat_audio_no_permission">マイクの許可がありません。映像のみを録画します。</string>
+    <string name="dat_audio_missing_title">マイクを使えません</string>
+    <string name="dat_audio_use_video_only">映像のみ録画</string>
+    <string name="dat_audio_hfp_closed">メガネのマイク（HFP）: 閉じています</string>
+    <string name="dat_audio_hfp_open">通話用 Bluetooth（HFP）が通話か他のアプリで開いています。Wivra は使いません。</string>
+    <string name="dat_audio_saved">%2$d 個中 %1$d 個のパートに音声を保存しました（Music/Wivra）。</string>
+    <string name="dat_audio_complete_saved">手動で合わせられるよう、音声全体を Music/Wivra に保存しました。</string>
+    <string name="dat_audio_not_saved">音声は Wivra 内に非公開で残ります。後で再試行します。</string>
 </resources>

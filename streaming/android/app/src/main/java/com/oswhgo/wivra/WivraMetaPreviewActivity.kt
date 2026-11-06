@@ -104,6 +104,11 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private lateinit var datProfileButton: Button
     private lateinit var datDiagnostic: TextView
     private lateinit var datSuggestionButton: Button
+    // Ray-Ban «solo vídeo» + independent microphone (never the glasses' HFP microphone). — Claude
+    private lateinit var datAudioButton: Button
+    private lateinit var datHfpStatus: TextView
+    private var recordingAudioChoice = WivraRayBanSync.Choice.OFF
+    private var recordingAudioDevice = -1
     private lateinit var status: TextView
     private lateinit var datCapabilityStatus: TextView
     private lateinit var phoneNetworkStatus: TextView
@@ -165,7 +170,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             // Notifications are optional for FGS operation, but a denied
             // permission can hide the stop action from the notification drawer.
-            handoffCaptureSession()
+            resolveRecordingAudio()
+        }
+
+    private val audioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+            if (allowed) resolveRecordingAudio() else offerVideoOnly(getString(R.string.dat_audio_no_permission), emptyList())
         }
 
     private val cameraPermissionLauncher =
@@ -257,6 +267,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         datSuggestionButton = button(root, "") { applyDatSuggestion() }
         datSuggestionButton.visibility = View.GONE
         refreshDatProfileButton()
+        datAudioButton = button(root, "") { chooseDatAudio() }
+        datHfpStatus = TextView(this).apply { textSize = 12f }
+        root.addView(datHfpStatus)
+        refreshDatAudio()
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
         recordButton = button(root, getString(R.string.record_video_only)) {
             checkCameraPermission(recording = true)
@@ -529,6 +543,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     private fun refreshButtons() {
         if (::datProfileButton.isInitialized) refreshDatProfileButton()
+        refreshDatAudio()
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
         registerButton.isEnabled = sdkReady && !serviceRecording &&
             Wearables.registrationState.value != RegistrationState.REGISTERING &&
@@ -692,6 +707,69 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 return
             }
         }
+        resolveRecordingAudio()
+    }
+
+    // ── Ray-Ban recording audio: the person's choice, resolved before the camera moves to the service ──
+    private fun datAudioChoice(): WivraRayBanSync.Choice = WivraRayBanSync.Choice.from(
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_audio", null)) ?: WivraRayBanSync.Choice.DEFAULT
+
+    private fun refreshDatAudio() {
+        if (!::datAudioButton.isInitialized) return
+        datAudioButton.text = getString(R.string.dat_audio_button, getString(datAudioNameRes(datAudioChoice())))
+        datAudioButton.isEnabled = !WivraCaptureForegroundService.isCaptureActive()
+        datHfpStatus.text = getString(if (WivraRayBanAudioRoute.hfpClosed(this)) R.string.dat_audio_hfp_closed else R.string.dat_audio_hfp_open)
+    }
+
+    private fun chooseDatAudio() {
+        if (WivraCaptureForegroundService.isCaptureActive()) return
+        val choices = listOf(WivraRayBanSync.Choice.PHONE, WivraRayBanSync.Choice.WIRED_USB,
+            WivraRayBanSync.Choice.BLUETOOTH, WivraRayBanSync.Choice.OFF)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dat_audio_title)
+            .setSingleChoiceItems(choices.map { getString(datAudioNameRes(it)) }.toTypedArray(),
+                choices.indexOf(datAudioChoice()).coerceAtLeast(0)) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_audio", choices[which].id).apply()
+                refreshDatAudio()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+        show(getString(R.string.dat_audio_note))
+    }
+
+    /** Resolve the chosen microphone; if it is missing, ask (other microphones / video only), never switch silently. */
+    private fun resolveRecordingAudio() {
+        val choice = datAudioChoice()
+        if (choice == WivraRayBanSync.Choice.OFF) { startCaptureWithAudio(choice, -1); return }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        val device = WivraRayBanAudioRoute.pick(this, choice)
+        if (device != null) { startCaptureWithAudio(choice, device.id); return }
+        offerVideoOnly(getString(R.string.dat_audio_missing), WivraRayBanAudioRoute.alternatives(this, choice))
+    }
+
+    private fun offerVideoOnly(reason: String, others: List<WivraRayBanSync.Choice>) {
+        val labels = others.map { getString(datAudioNameRes(it)) } + getString(R.string.dat_audio_use_video_only)
+        AlertDialog.Builder(this)
+            .setTitle(reason)
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (which < others.size) {
+                    // The person picked another microphone: remembered as their new choice.
+                    getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_audio", others[which].id).apply()
+                    refreshDatAudio()
+                    resolveRecordingAudio()
+                } else startCaptureWithAudio(WivraRayBanSync.Choice.OFF, -1)
+            }
+            .setNegativeButton(R.string.plive_cancel) { _, _ -> show(getString(R.string.wait_session)) }
+            .show()
+    }
+
+    private fun startCaptureWithAudio(choice: WivraRayBanSync.Choice, deviceId: Int) {
+        recordingAudioChoice = choice
+        recordingAudioDevice = deviceId
         handoffCaptureSession()
     }
 
@@ -717,6 +795,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             startForegroundService(Intent(this,
                 WivraCaptureForegroundService::class.java).apply {
                 action = WivraCaptureForegroundService.ACTION_START
+                putExtra(WivraCaptureForegroundService.EXTRA_AUDIO_CHOICE, recordingAudioChoice.id)
+                putExtra(WivraCaptureForegroundService.EXTRA_AUDIO_DEVICE_ID, recordingAudioDevice)
             })
             if (WivraDirectorTakeReceipt.validShotId(
                     intent.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID))) {
@@ -1003,21 +1083,39 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 scope.launch {
                     var freshPublication = false
+                    var audioNote = ""
                     val savedCount = withContext(Dispatchers.IO) {
                         // Persist BEFORE the first part can become visible or
                         // disappear from pending storage. A process-death retry
                         // must never acknowledge the remaining subset as a take.
                         freshPublication = WivraDirectorSaveJournal.begin(applicationContext, pending.id)
-                        pending.parts.count { part ->
-                            WivraHevcMp4Recorder.publishPending(applicationContext, part) != null
+                        // Independent microphone: cut each part's audio BEFORE its private MP4 is published.
+                        val audio = runCatching { WivraRayBanAudioStore.prepare(applicationContext, pending) }
+                            .getOrNull()
+                        var saved = 0
+                        var withAudio = 0
+                        for (part in pending.parts) {
+                            val uri = WivraHevcMp4Recorder.publishPending(applicationContext, part) ?: continue
+                            saved++
+                            if (audio?.hadAudio == true &&
+                                runCatching { WivraRayBanAudioStore.attach(applicationContext, part, uri) }.getOrDefault(false)) withAudio++
                         }
+                        if (audio?.hadAudio == true) {
+                            audioNote = "\n" + getString(R.string.dat_audio_saved, withAudio, pending.parts.size)
+                            // Some part has no slice of its own: the complete original WAV is kept public instead.
+                            if (withAudio < saved && runCatching { WivraRayBanAudioStore.publishComplete(applicationContext, pending.id) }.getOrDefault(false))
+                                audioNote += "\n" + getString(R.string.dat_audio_complete_saved)
+                            else if (withAudio < saved) audioNote += "\n" + getString(R.string.dat_audio_not_saved)
+                        }
+                        runCatching { WivraRayBanAudioStore.cleanup(applicationContext) }
+                        saved
                     }
                     show(when {
                         savedCount == pending.parts.size -> getString(R.string.recording_saved)
                         savedCount > 0 -> getString(R.string.recording_partially_saved,
                             savedCount, pending.parts.size)
                         else -> getString(R.string.recording_keep_failed)
-                    })
+                    } + audioNote)
                     // The Director acknowledgement is strictly later than
                     // the user's Save choice AND successful publication of all
                     // segments. The actual assetId still belongs to the editor's
@@ -1168,6 +1266,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     val deletedCount = withContext(Dispatchers.IO) {
                         pending.parts.count { part ->
                             WivraHevcMp4Recorder.discardPending(applicationContext, part)
+                        }.also {
+                            // The person confirmed: the private microphone audio of these parts goes too.
+                            runCatching { WivraRayBanAudioStore.discardSession(applicationContext, pending.id) }
                         }
                     }
                     show(if (deletedCount == pending.parts.size)

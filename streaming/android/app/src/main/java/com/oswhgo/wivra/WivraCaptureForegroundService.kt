@@ -7,6 +7,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
@@ -18,6 +20,7 @@ import com.meta.wearable.dat.camera.types.StreamState
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,13 +33,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Owner of the user-initiated Meta DAT capture after Activity -> Service handoff.
  *
- * No phone CAMERA or microphone capture is started here. The service consumes
- * only the explicitly authorized external DAT HEVC stream; independently
- * playable MP4 checkpoints remain in private storage until user publication.
+ * No phone CAMERA capture is started here. The service consumes the explicitly
+ * authorized external DAT HEVC stream; independently playable MP4 checkpoints
+ * remain in private storage until user publication. Ray-Ban «solo vídeo»: when
+ * the person chose a phone/USB/external Bluetooth microphone (never the
+ * glasses' own HFP microphone), an independent WAV and a sync manifest are
+ * written next to the parts (WivraRayBanAudioStore). — Claude
  * Background survival still requires device QA, especially when the OS kills
  * the process or the glasses disconnect.
  */
@@ -51,6 +58,8 @@ class WivraCaptureForegroundService : Service() {
     companion object {
         const val ACTION_START = "com.oswhgo.wivra.capture.START"
         const val ACTION_STOP = "com.oswhgo.wivra.capture.STOP"
+        const val EXTRA_AUDIO_CHOICE = "com.oswhgo.wivra.capture.AUDIO_CHOICE"
+        const val EXTRA_AUDIO_DEVICE_ID = "com.oswhgo.wivra.capture.AUDIO_DEVICE_ID"
         private const val CHANNEL = "wivra_capture"
         private const val NOTIFICATION_ID = 3001
         // Reserve room for MediaMuxer.stop() and the pending MP4 handoff.
@@ -126,6 +135,15 @@ class WivraCaptureForegroundService : Service() {
     private var streamEverActive = false
     private var lastNotifiedCheckpoint = -1
     private var cpuLock: PowerManager.WakeLock? = null
+    // Ray-Ban «solo vídeo» + independent microphone (resolved by the Activity, re-checked here).
+    private var audioChoice = WivraRayBanSync.Choice.OFF
+    private var audioDeviceId = -1
+    private var wav: WivraPhoneWavRecorder? = null
+    private var wavDone: CompletableDeferred<WivraPhoneWavRecorder.Result>? = null
+    private var audioIssue: String? = null
+    private var audioSourceTag: String? = null
+    private var audioInputName: String? = null
+    private var hfpClosedAtStart = true
 
     // A foreground service alone does not prevent the phone CPU from sleeping.
     // A bounded lease is refreshed only while real HEVC samples arrive.
@@ -162,8 +180,21 @@ class WivraCaptureForegroundService : Service() {
             ACTION_START -> {
                 // Must be promoted promptly while the user is in the foreground.
                 // FGS type is connectedDevice: DAT accesses an external wearable.
+                if (session == null && !finishing) {
+                    audioChoice = WivraRayBanSync.Choice.from(intent.getStringExtra(EXTRA_AUDIO_CHOICE))
+                        ?: WivraRayBanSync.Choice.OFF
+                    audioDeviceId = intent.getIntExtra(EXTRA_AUDIO_DEVICE_ID, -1)
+                    if (audioChoice != WivraRayBanSync.Choice.OFF &&
+                        checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        audioIssue = getString(R.string.dat_audio_no_permission)
+                        audioChoice = WivraRayBanSync.Choice.OFF
+                    }
+                }
+                // The microphone type is declared only when the person chose a microphone.
+                val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                    (if (audioChoice != WivraRayBanSync.Choice.OFF) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0)
                 try {
-                    startForeground(NOTIFICATION_ID, captureNotification())
+                    startForeground(NOTIFICATION_ID, captureNotification(), types)
                 } catch (failure: RuntimeException) {
                     // The Activity has already relinquished DAT ownership.
                     // A denied foreground start must not orphan that session.
@@ -454,6 +485,8 @@ class WivraCaptureForegroundService : Service() {
                         ". Se conservan los MP4 completados."
                 }
             }
+            // Audio starts before the stream so it covers the first video frame.
+            startAudio(muxer.sessionKey)
             activeStream.start()
                 // A successful start only means DAT accepted the request.
                 // RECORDING is reported after MP4 accepts a real sample.
@@ -490,6 +523,7 @@ class WivraCaptureForegroundService : Service() {
                 // A recorder cannot be closed while the stream still feeds it.
                 lastPacketsJob?.cancelAndJoin()
                 withContext(Dispatchers.IO) { lastRecorder?.finishToPending() }
+                finishAudio(lastRecorder)
             } catch (_: Exception) {
                 // Earlier checkpoint MP4 files are already finalized privately.
                 setCaptureState(CaptureState.FAILED)
@@ -518,6 +552,64 @@ class WivraCaptureForegroundService : Service() {
         }
     }
 
+    /**
+     * Opens ONLY the microphone the person chose (by Android device id, re-validated: never glasses-named,
+     * never an unnamed Bluetooth input). If it is missing, video continues alone and the person is told,
+     * with the other microphones that are connected; Wivra never switches to another one by itself.
+     */
+    private fun startAudio(sessionKey: String) {
+        if (audioChoice == WivraRayBanSync.Choice.OFF || wav != null) return
+        hfpClosedAtStart = WivraRayBanAudioRoute.hfpClosed(this)
+        val device = WivraRayBanAudioRoute.inputs(this)
+            .firstOrNull { it.first.id == audioDeviceId && WivraRayBanSync.eligible(it.first, audioChoice) }?.second
+        if (device == null) {
+            audioIssue = missingMicrophoneMessage()
+            mutableCaptureIssue.value = audioIssue
+            return
+        }
+        audioSourceTag = WivraPhoneAudioInputs.sourceTag(device)
+        audioInputName = WivraPhoneAudioInputs.label(this, device)
+        val done = CompletableDeferred<WivraPhoneWavRecorder.Result>()
+        val recorder = WivraPhoneWavRecorder(WivraRayBanAudioStore.wavFor(applicationContext, sessionKey), device)
+        try {
+            recorder.start { result ->
+                done.complete(result)
+                // The chosen microphone disappeared midway: audio until then is kept, video continues.
+                if (result.error != null && !finishing) {
+                    audioIssue = getString(R.string.dat_audio_lost)
+                    mutableCaptureIssue.value = audioIssue
+                }
+            }
+            wav = recorder
+            wavDone = done
+        } catch (failure: Exception) {
+            audioIssue = missingMicrophoneMessage()
+            mutableCaptureIssue.value = audioIssue
+        }
+    }
+
+    private fun missingMicrophoneMessage(): String {
+        val others = WivraRayBanAudioRoute.alternatives(this, audioChoice)
+        return getString(R.string.dat_audio_missing) + if (others.isEmpty()) "" else
+            " " + getString(R.string.dat_audio_alternatives, others.joinToString(", ") { getString(datAudioNameRes(it)) })
+    }
+
+    /** Stop the WAV (if any) and write the sync manifest next to the finished parts. */
+    private suspend fun finishAudio(recorder: WivraSegmentedHevcRecorder?) {
+        if (recorder == null) return
+        val active = wav
+        wav = null
+        active?.stop()
+        val result = wavDone?.let { withTimeoutOrNull(10_000L) { it.await() } }
+        if (audioChoice == WivraRayBanSync.Choice.OFF && result == null && audioIssue == null) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                WivraRayBanAudioStore.writeSync(applicationContext, recorder.sessionKey, audioChoice, audioSourceTag,
+                    audioInputName, hfpClosedAtStart, result, audioIssue, recorder.partTimings())
+            }
+        }
+    }
+
     override fun onDestroy() {
         // Normal ACTION_STOP finalizes before stopSelf(). If destruction
         // interrupts an active finalizer, a separate IO owner rescues its
@@ -541,6 +633,7 @@ class WivraCaptureForegroundService : Service() {
                 try {
                     collector?.cancelAndJoin()
                     runCatching { abandoned.finishToPending() }
+                    runCatching { finishAudio(abandoned) }
                 } finally {
                     runCatching { activeCamera?.close() }
                     runCatching { activeSession?.stop() }

@@ -21,9 +21,13 @@ internal class WivraSegmentedHevcRecorder(
     private val checkpointIntervalUs: Long = 30_000_000L
 ) {
     private val lock = Any()
-    private val sessionKey = UUID.randomUUID().toString().replace("-", "")
+    val sessionKey = UUID.randomUUID().toString().replace("-", "")
     private val codecSets = mutableMapOf<Int, ByteArray>()
     private val finishedParts = mutableListOf<File>()
+    // Ray-Ban + independent microphone: arrival/pts clock of each finished part, index-aligned with
+    // finishedParts (WivraRayBanSync.PartClock). Only times are kept, never pictures. — Claude
+    private val finishedClocks = mutableListOf<WivraRayBanSync.PartClock>()
+    private var currentClock = WivraRayBanSync.PartClock()
     private var recorder = WivraHevcMp4Recorder(context)
     private var segmentStartElapsedUs = -1L
     private var finishedSamples = 0
@@ -69,9 +73,13 @@ internal class WivraSegmentedHevcRecorder(
             recorder.consume(config, ptsUs, width, height, true)
         }
 
+        val samplesBefore = recorder.samples
         recorder.consume(packet, ptsUs, width, height, isCodecConfig)
         if (segmentStartElapsedUs < 0L && recorder.hasStarted) {
             segmentStartElapsedUs = nowElapsedUs
+        }
+        if (!isCodecConfig && recorder.samples > samplesBefore) {
+            currentClock.observe(nowElapsedUs * 1_000L, ptsUs)
         }
     }
 
@@ -110,8 +118,15 @@ internal class WivraSegmentedHevcRecorder(
                 pending
             }
             finishedParts.add(ready)
+            finishedClocks.add(currentClock)
             nextPart++
         }
+        currentClock = WivraRayBanSync.PartClock()
+    }
+
+    /** Finished parts with their monotonic timing, for the Ray-Ban audio sync manifest. */
+    fun partTimings(): List<Pair<File, WivraRayBanSync.PartClock>> = synchronized(lock) {
+        finishedParts.zip(finishedClocks)
     }
 
     /**

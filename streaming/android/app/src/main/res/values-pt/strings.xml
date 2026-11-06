@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Máximo (a Meta pode reduzir)</string>
     <string name="dat_diagnostic">Pedido %1$s · recebido %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · cortes %6$d</string>
     <string name="dat_suggestion">Os óculos não estão dando conta: usar %1$s (reinicia a câmera)</string>
+    <string name="dat_audio_button">Áudio da gravação: %1$s</string>
+    <string name="dat_audio_title">Áudio da gravação Ray-Ban</string>
+    <string name="dat_audio_note">O microfone dos óculos não é usado. Escolha o do telefone, um com fio ou USB-C (também receptores sem fio USB) ou um Bluetooth externo.</string>
+    <string name="dat_audio_off">Só vídeo (sem áudio)</string>
+    <string name="dat_audio_phone">Microfone do telefone</string>
+    <string name="dat_audio_usb">Com fio ou USB-C (receptor sem fio também)</string>
+    <string name="dat_audio_bluetooth">Bluetooth externo (não os óculos)</string>
+    <string name="dat_audio_missing">O microfone escolhido não está conectado; gravando só vídeo.</string>
+    <string name="dat_audio_alternatives">Disponíveis: %1$s.</string>
+    <string name="dat_audio_lost">O microfone escolhido foi perdido. O vídeo continua; o áudio até esse momento é mantido.</string>
+    <string name="dat_audio_no_permission">Sem permissão de microfone: gravando só vídeo.</string>
+    <string name="dat_audio_missing_title">Microfone indisponível</string>
+    <string name="dat_audio_use_video_only">Gravar só vídeo</string>
+    <string name="dat_audio_hfp_closed">Microfone dos óculos (HFP): fechado</string>
+    <string name="dat_audio_hfp_open">Canal de chamada Bluetooth (HFP) aberto por uma chamada ou outro app. O Wivra não o usa.</string>
+    <string name="dat_audio_saved">Áudio salvo com %1$d de %2$d partes (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Áudio completo salvo em Music/Wivra para alinhar manualmente.</string>
+    <string name="dat_audio_not_saved">O áudio continua privado no Wivra; será tentado de novo.</string>
 </resources>

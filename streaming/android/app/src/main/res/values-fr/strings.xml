@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Maximum (Meta peut le baisser)</string>
     <string name="dat_diagnostic">Demandé %1$s · reçu %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · coupures %6$d</string>
     <string name="dat_suggestion">Les lunettes peinent : utiliser %1$s (redémarre la caméra)</string>
+    <string name="dat_audio_button">Audio de l’enregistrement : %1$s</string>
+    <string name="dat_audio_title">Audio de l’enregistrement Ray-Ban</string>
+    <string name="dat_audio_note">Le micro des lunettes n’est pas utilisé. Choisissez celui du téléphone, un micro filaire ou USB-C (récepteurs sans fil USB inclus) ou un Bluetooth externe.</string>
+    <string name="dat_audio_off">Vidéo seule (sans audio)</string>
+    <string name="dat_audio_phone">Micro du téléphone</string>
+    <string name="dat_audio_usb">Filaire ou USB-C (récepteur sans fil inclus)</string>
+    <string name="dat_audio_bluetooth">Bluetooth externe (pas les lunettes)</string>
+    <string name="dat_audio_missing">Le micro choisi n’est pas connecté ; enregistrement vidéo seule.</string>
+    <string name="dat_audio_alternatives">Disponibles : %1$s.</string>
+    <string name="dat_audio_lost">Le micro choisi a été perdu. La vidéo continue ; l’audio jusqu’à ce moment est conservé.</string>
+    <string name="dat_audio_no_permission">Pas d’autorisation micro : vidéo seule.</string>
+    <string name="dat_audio_missing_title">Micro indisponible</string>
+    <string name="dat_audio_use_video_only">Enregistrer la vidéo seule</string>
+    <string name="dat_audio_hfp_closed">Micro des lunettes (HFP) : fermé</string>
+    <string name="dat_audio_hfp_open">Canal d’appel Bluetooth (HFP) ouvert par un appel ou une autre app. Wivra ne l’utilise pas.</string>
+    <string name="dat_audio_saved">Audio enregistré avec %1$d parties sur %2$d (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Audio complet enregistré dans Music/Wivra pour l’aligner à la main.</string>
+    <string name="dat_audio_not_saved">L’audio reste privé dans Wivra ; nouvel essai plus tard.</string>
 </resources>

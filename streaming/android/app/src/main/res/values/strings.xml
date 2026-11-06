@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Máxima (Meta puede bajarla)</string>
     <string name="dat_diagnostic">Pedido %1$s · recibido %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · cortes %6$d</string>
     <string name="dat_suggestion">Las gafas no llegan bien: usar %1$s (reinicia la cámara)</string>
+    <string name="dat_audio_button">Audio de la grabación: %1$s</string>
+    <string name="dat_audio_title">Audio de la grabación Ray-Ban</string>
+    <string name="dat_audio_note">El micrófono de las gafas no se usa. Elige el del teléfono, uno por cable o USB-C (también receptores inalámbricos USB) o un Bluetooth externo.</string>
+    <string name="dat_audio_off">Solo vídeo (sin audio)</string>
+    <string name="dat_audio_phone">Micrófono del teléfono</string>
+    <string name="dat_audio_usb">Cable o USB-C (con receptor inalámbrico)</string>
+    <string name="dat_audio_bluetooth">Bluetooth externo (no las gafas)</string>
+    <string name="dat_audio_missing">El micrófono elegido no está conectado; se graba solo vídeo.</string>
+    <string name="dat_audio_alternatives">Disponibles: %1$s.</string>
+    <string name="dat_audio_lost">Se perdió el micrófono elegido. El vídeo sigue; el audio hasta ese momento se conserva.</string>
+    <string name="dat_audio_no_permission">Sin permiso de micrófono: se graba solo vídeo.</string>
+    <string name="dat_audio_missing_title">Micrófono no disponible</string>
+    <string name="dat_audio_use_video_only">Grabar solo vídeo</string>
+    <string name="dat_audio_hfp_closed">Micrófono de las gafas (HFP): cerrado</string>
+    <string name="dat_audio_hfp_open">Canal de llamada Bluetooth (HFP) abierto por una llamada u otra app. Wivra no lo usa.</string>
+    <string name="dat_audio_saved">Audio guardado junto a %1$d de %2$d partes (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Audio completo guardado en Music/Wivra para alinearlo a mano.</string>
+    <string name="dat_audio_not_saved">El audio sigue privado en Wivra; se reintentará.</string>
 </resources>

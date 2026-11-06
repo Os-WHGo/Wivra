@@ -1,0 +1,55 @@
+{
+  "comment": "Ray-Ban «solo vídeo» + independent microphone: vectors shared by WivraRayBanSync.kt (JVM test) and the Node contract test. Times are SystemClock.elapsedRealtimeNanos. — Claude",
+  "sampleRate": 48000,
+  "partClocks": [
+    { "why": "jittery Bluetooth arrivals: anchor on the least-delayed sample",
+      "samples": [[2000120000000, 0], [2000128333000, 33333], [2000206666000, 66666], [2000201000000, 100000]],
+      "expectStartNs": 2000095000000, "expectDurationUs": 100000, "expectMonotonic": true },
+    { "why": "DAT pts regress inside the part: fall back to first arrival, no duration invented",
+      "samples": [[3000100000000, 0], [3000133000000, 33333], [3000166000000, 10000]],
+      "expectStartNs": 3000100000000, "expectDurationUs": 0, "expectMonotonic": false },
+    { "why": "nothing arrived",
+      "samples": [], "expectStartNs": -1, "expectDurationUs": 0, "expectMonotonic": true }
+  ],
+  "audio": [
+    { "why": "60 s at nominal rate: no drift correction (too short)",
+      "clock": { "firstReadNs": 1000000000000, "firstChunkFrames": 960, "lastReadNs": 1060000000000, "totalFrames": 2880960 },
+      "expectFirstSampleNs": 999980000000, "expectDriftPpm": 0, "expectCorrected": false,
+      "slices": [
+        { "why": "part 1 starts 0.52 s into the audio", "partStartNs": 1000500000000, "durationUs": 30000000, "expect": [24960, 1464960, 0] },
+        { "why": "part 2 ends after the audio: clipped, never padded", "partStartNs": 1030500000000, "durationUs": 30000000, "expect": [1464960, 2880960, 0] },
+        { "why": "audio started 80 ms after the video", "partStartNs": 999900000000, "durationUs": 30000000, "expect": [0, 1436160, 0.08] },
+        { "why": "part after the audio ended: no slice", "partStartNs": 1061000000000, "durationUs": 30000000, "expect": null },
+        { "why": "unknown part duration: no slice", "partStartNs": 1000500000000, "durationUs": 0, "expect": null }
+      ] },
+    { "why": "10 min, microphone clock +100 ppm: measured and corrected (≈ 50 ms at minute 8)",
+      "clock": { "firstReadNs": 1000000000000, "firstChunkFrames": 960, "lastReadNs": 1600000000000, "totalFrames": 28803840 },
+      "expectFirstSampleNs": 999980000000, "expectDriftPpm": 100, "expectCorrected": true,
+      "slices": [
+        { "why": "part at 500.52 s uses the measured rate", "partStartNs": 1500500000000, "durationUs": 30000000, "expect": [24027362, 25467507, -0.0000103] }
+      ] },
+    { "why": "implausible 5000 ppm: reported, not corrected",
+      "clock": { "firstReadNs": 1000000000000, "firstChunkFrames": 960, "lastReadNs": 1600000000000, "totalFrames": 28944960 },
+      "expectFirstSampleNs": 999980000000, "expectDriftPpm": 5000, "expectCorrected": false,
+      "slices": [
+        { "why": "nominal rate kept", "partStartNs": 1500500000000, "durationUs": 30000000, "expect": [24024960, 25464960, 0] }
+      ] }
+  ],
+  "glassesNames": [
+    ["Ray-Ban Meta Wayfarer", true], ["RayBan Meta", true], ["Oakley Meta HSTN", true], ["Meta Ray-Ban Display", true],
+    ["Gafas Bluetooth", true], ["Pixel USB-C", false], ["RODE Wireless GO II RX", false], ["DJI Mic 2", false],
+    ["Metallica Headset", false], [null, false]
+  ],
+  "inputs": [
+    { "why": "glasses and an unnamed Bluetooth mic are never chosen",
+      "list": [[1, "BUILTIN", "Pixel"], [7, "BLUETOOTH", "Ray-Ban Meta Wayfarer"], [9, "BLUETOOTH", null], [12, "USB", "RODE Wireless GO II"]],
+      "pick": { "phone": 1, "usb": 12, "bluetooth": null, "off": null },
+      "alternativesWhenMissing": { "bluetooth": ["phone", "usb"], "usb": ["phone"] } },
+    { "why": "a named external Bluetooth headset is allowed when chosen",
+      "list": [[1, "BUILTIN", "Pixel"], [14, "BLUETOOTH", "Jabra Evolve2"], [20, "WIRED", "Headset"]],
+      "pick": { "phone": 1, "usb": 20, "bluetooth": 14, "off": null },
+      "alternativesWhenMissing": { "phone": ["usb", "bluetooth"] } }
+  ],
+  "audioStatus": [[96000, null, "ready"], [96000, "Selected microphone was not the active input", "partial"],
+    [0, null, "failed"], [96000, "Could not finalize private WAV audio", "failed"]]
+}

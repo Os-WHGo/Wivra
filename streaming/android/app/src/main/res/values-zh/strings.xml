@@ -484,4 +484,22 @@
     <string name="dat_profile_max">最高（Meta 可能会降低）</string>
     <string name="dat_diagnostic">请求 %1$s · 收到 %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · 中断 %6$d</string>
     <string name="dat_suggestion">眼镜跟不上：使用 %1$s（会重启相机）</string>
+    <string name="dat_audio_button">录制音频：%1$s</string>
+    <string name="dat_audio_title">Ray-Ban 录制音频</string>
+    <string name="dat_audio_note">不使用眼镜的麦克风。请选择手机麦克风、有线或 USB-C 麦克风（含 USB 无线接收器）或外部蓝牙麦克风。</string>
+    <string name="dat_audio_off">仅视频（无音频）</string>
+    <string name="dat_audio_phone">手机麦克风</string>
+    <string name="dat_audio_usb">有线或 USB-C（含无线接收器）</string>
+    <string name="dat_audio_bluetooth">外部蓝牙（非眼镜）</string>
+    <string name="dat_audio_missing">所选麦克风未连接；仅录制视频。</string>
+    <string name="dat_audio_alternatives">可用：%1$s。</string>
+    <string name="dat_audio_lost">所选麦克风已断开。视频继续；此前的音频会保留。</string>
+    <string name="dat_audio_no_permission">没有麦克风权限：仅录制视频。</string>
+    <string name="dat_audio_missing_title">麦克风不可用</string>
+    <string name="dat_audio_use_video_only">仅录制视频</string>
+    <string name="dat_audio_hfp_closed">眼镜麦克风（HFP）：已关闭</string>
+    <string name="dat_audio_hfp_open">蓝牙通话通道（HFP）被通话或其他应用打开。Wivra 不使用它。</string>
+    <string name="dat_audio_saved">已为 %2$d 段中的 %1$d 段保存音频（Music/Wivra）。</string>
+    <string name="dat_audio_complete_saved">完整音频已保存到 Music/Wivra，可手动对齐。</string>
+    <string name="dat_audio_not_saved">音频仍私密保存在 Wivra 中；稍后重试。</string>
 </resources>

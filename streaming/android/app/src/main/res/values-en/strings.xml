@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Maximum (Meta may lower it)</string>
     <string name="dat_diagnostic">Asked %1$s · received %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · gaps %6$d</string>
     <string name="dat_suggestion">The glasses are struggling: use %1$s (restarts the camera)</string>
+    <string name="dat_audio_button">Recording audio: %1$s</string>
+    <string name="dat_audio_title">Ray-Ban recording audio</string>
+    <string name="dat_audio_note">The glasses’ microphone is not used. Choose the phone’s, a wired or USB-C one (USB wireless receivers too) or an external Bluetooth one.</string>
+    <string name="dat_audio_off">Video only (no audio)</string>
+    <string name="dat_audio_phone">Phone microphone</string>
+    <string name="dat_audio_usb">Wired or USB-C (wireless receiver too)</string>
+    <string name="dat_audio_bluetooth">External Bluetooth (not the glasses)</string>
+    <string name="dat_audio_missing">The chosen microphone is not connected; recording video only.</string>
+    <string name="dat_audio_alternatives">Available: %1$s.</string>
+    <string name="dat_audio_lost">The chosen microphone was lost. Video continues; audio up to that moment is kept.</string>
+    <string name="dat_audio_no_permission">No microphone permission: recording video only.</string>
+    <string name="dat_audio_missing_title">Microphone not available</string>
+    <string name="dat_audio_use_video_only">Record video only</string>
+    <string name="dat_audio_hfp_closed">Glasses microphone (HFP): closed</string>
+    <string name="dat_audio_hfp_open">Bluetooth call channel (HFP) opened by a call or another app. Wivra does not use it.</string>
+    <string name="dat_audio_saved">Audio saved with %1$d of %2$d parts (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Complete audio saved in Music/Wivra to align by hand.</string>
+    <string name="dat_audio_not_saved">The audio stays private in Wivra; it will be retried.</string>
 </resources>

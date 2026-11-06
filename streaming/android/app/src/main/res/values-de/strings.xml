@@ -484,4 +484,22 @@
     <string name="dat_profile_max">Maximum (Meta kann es senken)</string>
     <string name="dat_diagnostic">Angefragt %1$s · empfangen %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · Aussetzer %6$d</string>
     <string name="dat_suggestion">Die Brille kommt nicht mit: %1$s verwenden (startet die Kamera neu)</string>
+    <string name="dat_audio_button">Aufnahme-Audio: %1$s</string>
+    <string name="dat_audio_title">Audio der Ray-Ban-Aufnahme</string>
+    <string name="dat_audio_note">Das Mikrofon der Brille wird nicht verwendet. Wähle das des Telefons, ein Kabel- oder USB-C-Mikrofon (auch USB-Funkempfänger) oder ein externes Bluetooth-Mikrofon.</string>
+    <string name="dat_audio_off">Nur Video (ohne Audio)</string>
+    <string name="dat_audio_phone">Telefonmikrofon</string>
+    <string name="dat_audio_usb">Kabel oder USB-C (auch Funkempfänger)</string>
+    <string name="dat_audio_bluetooth">Externes Bluetooth (nicht die Brille)</string>
+    <string name="dat_audio_missing">Das gewählte Mikrofon ist nicht verbunden; es wird nur Video aufgenommen.</string>
+    <string name="dat_audio_alternatives">Verfügbar: %1$s.</string>
+    <string name="dat_audio_lost">Das gewählte Mikrofon ist weg. Das Video läuft weiter; Audio bis dahin bleibt erhalten.</string>
+    <string name="dat_audio_no_permission">Keine Mikrofonberechtigung: nur Video.</string>
+    <string name="dat_audio_missing_title">Mikrofon nicht verfügbar</string>
+    <string name="dat_audio_use_video_only">Nur Video aufnehmen</string>
+    <string name="dat_audio_hfp_closed">Brillenmikrofon (HFP): geschlossen</string>
+    <string name="dat_audio_hfp_open">Bluetooth-Anrufkanal (HFP) durch einen Anruf oder eine andere App geöffnet. Wivra nutzt ihn nicht.</string>
+    <string name="dat_audio_saved">Audio mit %1$d von %2$d Teilen gespeichert (Music/Wivra).</string>
+    <string name="dat_audio_complete_saved">Vollständiges Audio in Music/Wivra gespeichert, zum manuellen Ausrichten.</string>
+    <string name="dat_audio_not_saved">Das Audio bleibt privat in Wivra; es wird erneut versucht.</string>
 </resources>
