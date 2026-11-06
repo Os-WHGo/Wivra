@@ -239,6 +239,7 @@ jobs:
           node app/build.mjs
           mkdir -p streaming/android/app/build/wivra-e2e-input
           node tools/whisper-wasm/make-e2e-input.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)" > streaming/android/app/build/wivra-e2e-input/input.json
+          cp /tmp/wv-fx/long.webm streaming/android/app/build/wivra-e2e-input/long.webm      # W106: long mode through MediaCodec
       - name: Build the debug app and its instrumentation for the emulator only
         run: gradle -p streaming/android :app:assembleFullDebug :app:assembleFullDebugAndroidTest --no-daemon --stacktrace
       - name: Allow hardware-accelerated Android emulator on Ubuntu
@@ -263,6 +264,7 @@ jobs:
             node -e "const t=require('fs').readFileSync('/tmp/wv-android.txt','utf8');const p={};for(const m of t.matchAll(/wivra-whisper=(android\.\w+)#(\d+)=(.*)/g))(p[m[1]]=p[m[1]]||[])[+m[2]]=m[3];for(const k in p)require('fs').writeFileSync('/tmp/'+k+'.json',p[k].join(''));"
             node tools/whisper-wasm/e2e-report.cjs /tmp/android.full.json 'Android WebView · download + cancel + recognize' consent,cancel || true
             node tools/whisper-wasm/e2e-report.cjs /tmp/android.kept.json 'Android WebView · reopened, kept pack' || true
+            node -e "try{const r=JSON.parse(require('fs').readFileSync('/tmp/android.long.json','utf8'));console.log('Android WebView · 11-min video, pieces read by MediaCodec:',r.ok?'ok':'NOT OK',r.duration&&r.duration.toFixed(0)+' s in '+(r.ms/1000).toFixed(0)+' s',JSON.stringify(r.run),r.error||'');for(const t of r.texts||[])console.log('  ['+t.start.toFixed(1)+'-'+t.end.toFixed(1)+'] '+t.text)}catch(e){console.log('no long-mode result',e.message)}" || true
             grep -E 'INSTRUMENTATION_|^OK|FAILURES|Tests run|AssumptionViolated' /tmp/wv-android.txt | head -20
             grep -Eq '^OK \(2 tests\)' /tmp/wv-android.txt
             test -s /tmp/android.kept.json
