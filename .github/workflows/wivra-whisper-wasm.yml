@@ -29,6 +29,8 @@ env:
   EMSDK_VERSION: 3.1.74
   HF_REV: 5359861
   ES_TEXT: 'Hola, bienvenidos a Wivra. Hoy grabamos un video corto en la montaña con mis amigos.'
+  ES_TEXT2: 'Este es mi primer video del viaje. Mañana vamos a subir al volcán muy temprano.'
+  ES_TEXT3: 'Si te gustó el contenido, sígueme y comparte este video con tus amigos.'
   EN_TEXT: 'And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.'
 jobs:
   mac-voice:
@@ -36,15 +38,21 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 10
     steps:
-      - name: Spanish sample with a system voice, 16 kHz mono, 0.5 s of silence around it
+      - name: Spanish samples with up to two macOS system voices, 16 kHz mono, 0.5 s of silence around
         run: |
-          mkdir -p /tmp/wv-mac
-          v=$(say -v '?' | grep -E 'es_(ES|MX|US)' | head -1 | awk '{print $1}')
-          if [ -n "$v" ]; then
-            say -v "$v" -o /tmp/wv-mac/es.aiff "[[slnc 500]] $ES_TEXT [[slnc 500]]"
-            afconvert -f WAVE -d LEI16@16000 -c 1 /tmp/wv-mac/es.aiff /tmp/wv-mac/es-natural.wav
-            echo "macOS voice: $v" | tee /tmp/wv-mac/voice.txt
-          else echo "no Spanish system voice on this runner"; fi
+          mkdir -p /tmp/wv-mac; : > /tmp/wv-mac/samples.tsv
+          say -v '?' | grep -E 'es_(ES|MX|US)' | tee /tmp/wv-mac/voices.txt
+          for v in $(awk '{print $1}' /tmp/wv-mac/voices.txt | head -2); do
+            n=0
+            for t in "$ES_TEXT" "$ES_TEXT2" "$ES_TEXT3"; do
+              n=$((n+1)); f="es-nat-$v-$n"
+              say -v "$v" -o "/tmp/wv-mac/$f.aiff" "[[slnc 500]] $t [[slnc 500]]" && \
+                afconvert -f WAVE -d LEI16@16000 -c 1 "/tmp/wv-mac/$f.aiff" "/tmp/wv-mac/$f.wav" && \
+                printf '%s\t%s\n' "$f.wav" "$t" >> /tmp/wv-mac/samples.tsv
+              rm -f "/tmp/wv-mac/$f.aiff"
+            done
+          done
+          cat /tmp/wv-mac/samples.tsv
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-mac-voice
@@ -117,7 +125,6 @@ jobs:
           # A real clip has a moment of silence before the first word; the raw synthetic file starts speaking at 0.0 s.
           timeout 120 ffmpeg -nostdin -loglevel error -y -i /tmp/wv-fx/es-tight.wav -af "adelay=500,apad=pad_dur=0.5" -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es.wav
           for f in es-tight es; do printf '%s: ' "$f"; timeout 30 ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/wv-fx/$f.wav; timeout 120 ffmpeg -nostdin -hide_banner -i /tmp/wv-fx/$f.wav -af volumedetect -f null - 2>&1 | grep -E 'mean_volume|max_volume' | tr '\n' ' '; echo; done
-          if [ -s /tmp/wv-mac/es-natural.wav ]; then cp /tmp/wv-mac/es-natural.wav /tmp/wv-fx/es-natural.wav; cat /tmp/wv-mac/voice.txt; fi
           for l in en es; do
             timeout 120 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i /tmp/wv-fx/$l.wav -shortest \
               -c:v libvpx -b:v 60k -deadline realtime -c:a libopus -b:a 48k /tmp/wv-fx/$l.webm
@@ -125,16 +132,22 @@ jobs:
               -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/$l.mp4
           done
           ls -la /tmp/wv-fx
-      - name: Base vs Tiny, with and without temperature fallback (English real voice must reach 80 %)
+      - name: Base vs Tiny on Spanish (robotic and natural voices); Base Q8_0 and F16 as diagnostics only
+        # Temperature fallback was measured in run 42142290172: no gain, slower; the app keeps it off.
         run: |
           set -eu
-          nat=""; [ -s /tmp/wv-fx/es-natural.wav ] && nat="/tmp/wv-fx/es-natural.wav es"
-          for m in base tiny; do for fb in 1 0; do
-            WV_FALLBACK=$fb WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
-            WV_FALLBACK=$fb node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 \
-              /tmp/wv-fx/es-tight.wav es "$ES_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT" ${nat:+$nat "$ES_TEXT"}
-          done; done
-          WV_FALLBACK=0 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav auto "$ES_TEXT""
+          args=(/tmp/wv-fx/es-tight.wav es "$ES_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT")
+          if [ -s /tmp/wv-mac/samples.tsv ]; then while IFS=$'\t' read -r f t; do args+=("/tmp/wv-mac/$f" es "$t"); done < /tmp/wv-mac/samples.tsv; fi
+          for q in q8_0 f16; do
+            n="ggml-base-$q.bin"; [ "$q" = f16 ] && n="ggml-base.bin"
+            curl --fail --location --retry 3 --silent --show-error --max-time 300 "https://huggingface.co/ggerganov/whisper.cpp/resolve/$HF_REV/$n" -o "/tmp/wv-models/$n" || echo "could not download $n"
+          done
+          export WV_FALLBACK=0
+          WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-tiny-q5_1.bin tiny-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT" "${args[@]}"
+          WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT" "${args[@]}"
+          [ -s /tmp/wv-models/ggml-base-q8_0.bin ] && node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q8_0.bin base-q8_0 "${args[@]}"
+          [ -s /tmp/wv-models/ggml-base.bin ] && node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base.bin base-f16 "${args[@]}"
+          node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav auto "$ES_TEXT"
       - name: The vendored module must be byte-identical to this build
         run: |
           sha256sum out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js
