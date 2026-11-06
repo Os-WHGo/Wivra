@@ -99,13 +99,16 @@ struct WivraScreenRecordImportSmoke {
 
         _ = record(in: root, id: "20261106_120000_FINISHED", seconds: 3, close: true)
         let writing = record(in: root, id: "20261106_120100_WRITING", seconds: 2, close: false)
+        // Judge "still being written" from the moment it was last written, not from the end of the slower
+        // recordings below: a busy CI runner can take longer than the 20 s stale threshold to make them.
+        let writingLastWrite = Date()
         let cut = record(in: root, id: "20261106_120200_INTERRUPT", seconds: 3, close: false)
         age(cut.folder, seconds: 120)      // iOS ended it two minutes ago; nothing touched it since
         _ = record(in: root, id: "20261106_120300_COLLIDES", seconds: 2, close: true)
         _ = record(in: root, id: "20261106_120400_TODELETE", seconds: 2, close: true)
         try? fm.createDirectory(at: root.appendingPathComponent("../../outside", isDirectory: true), withIntermediateDirectories: true)
 
-        var items = WivraScreenRecordInbox.list(root: root)
+        var items = WivraScreenRecordInbox.list(root: root, now: writingLastWrite.addingTimeInterval(1))
         let ids = Set(items.map(\.id))
         print("  listed: \(ids.sorted())")
         check(!ids.contains(writing.session.id), "a recording still being written is never offered")

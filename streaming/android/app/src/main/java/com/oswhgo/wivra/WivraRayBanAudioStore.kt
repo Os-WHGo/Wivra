@@ -82,7 +82,7 @@ object WivraRayBanAudioStore {
     data class Prepared(val sliced: Int, val parts: Int, val hadAudio: Boolean)
 
     /** Cut one WAV slice per part BEFORE any part is published (publishing removes the private MP4). */
-    fun prepare(context: Context, recording: WivraHevcMp4Recorder.PendingRecording): Prepared {
+    internal fun prepare(context: Context, recording: WivraHevcMp4Recorder.PendingRecording): Prepared {
         val none = Prepared(0, recording.parts.size, false)
         if (!sessionName.matches(recording.id)) return none
         val sync = try { JSONObject(syncFor(context, recording.id).readText()) } catch (_: Exception) { return none }
