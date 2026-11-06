@@ -411,4 +411,10 @@
     <string name="phone_camera_night_hint">夜景照片（实验）：把手机放稳，%1$s 内不要移动。</string>
     <string name="phone_camera_night_unsupported">这部手机不支持真正的长时间曝光，无法使用夜景照片。</string>
     <string name="phone_camera_night_not_during_video">录制视频时不能使用夜景照片。</string>
+    <string name="scene_standby">等待画面</string>
+    <string name="scene_standby_starting">即将开始</string>
+    <string name="scene_standby_brb">马上回来</string>
+    <string name="scene_standby_thanks">感谢观看</string>
+    <string name="scene_standby_footer">用 Wivra 直播</string>
+    <string name="scene_standby_ready">等待画面已就绪：显示期间麦克风保持静音。</string>
 </resources>

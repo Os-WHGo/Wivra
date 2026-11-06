@@ -240,6 +240,7 @@ class WivraLiveSceneController(
         val options = arrayOf(
             activity.getString(R.string.scene_pick_video),
             activity.getString(R.string.scene_pick_image),
+            activity.getString(R.string.scene_standby),
             activity.getString(R.string.scene_move_inset),
             activity.getString(if (videoSoundToLive) R.string.scene_video_sound_on else R.string.scene_video_sound_off),
             activity.getString(R.string.scene_remove_sources)
@@ -250,9 +251,10 @@ class WivraLiveSceneController(
                 when (which) {
                     0 -> pickVideo.launch(arrayOf("video/*"))
                     1 -> pickImage.launch(arrayOf("image/*"))
-                    2 -> { corner = corner.next(); apply(current) }
-                    3 -> { videoSoundToLive = !videoSoundToLive; effect.active = videoSoundToLive && feed != null }
-                    4 -> removeSources()
+                    2 -> showStandby()
+                    3 -> { corner = corner.next(); apply(current) }
+                    4 -> { videoSoundToLive = !videoSoundToLive; effect.active = videoSoundToLive && feed != null }
+                    5 -> removeSources()
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -300,6 +302,23 @@ class WivraLiveSceneController(
             releasePlayer()
             note.text = activity.getString(R.string.scene_video_open_failed)
         }
+    }
+
+    // W91: ready-made standby screens, drawn by Wivra and shown with the image scene (microphone muted).
+    private fun showStandby() {
+        val messages = intArrayOf(R.string.scene_standby_starting, R.string.scene_standby_brb, R.string.scene_standby_thanks)
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.scene_standby)
+            .setItems(messages.map { activity.getString(it) }.toTypedArray()) { _, which ->
+                val bitmap = WivraStandbyCard.render(activity.getString(messages[which]), activity.getString(R.string.scene_standby_footer))
+                image = bitmap
+                imageLayer?.setImage(bitmap)
+                note.text = activity.getString(R.string.scene_standby_ready)
+                refresh()
+                select("image")
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun loadImage(uri: Uri) {

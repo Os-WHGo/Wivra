@@ -411,4 +411,10 @@
     <string name="phone_camera_night_hint">Nachtfoto (experimentell): Handy abstützen und %1$s lang nicht bewegen.</string>
     <string name="phone_camera_night_unsupported">Dieses Handy erlaubt keine echte Langzeitbelichtung; Nachtfoto ist nicht verfügbar.</string>
     <string name="phone_camera_night_not_during_video">Nachtfoto ist während einer Videoaufnahme nicht möglich.</string>
+    <string name="scene_standby">Warte-Bildschirm</string>
+    <string name="scene_standby_starting">Gleich geht\'s los</string>
+    <string name="scene_standby_brb">Bin gleich zurück</string>
+    <string name="scene_standby_thanks">Danke fürs Zuschauen</string>
+    <string name="scene_standby_footer">Live mit Wivra</string>
+    <string name="scene_standby_ready">Warte-Bildschirm bereit: Das Mikrofon bleibt stumm, solange er angezeigt wird.</string>
 </resources>

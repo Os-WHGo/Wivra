@@ -261,3 +261,8 @@
 "ios.plive.preview_placeholder" = "Prepara la cámara para ver aquí la vista previa.";
 "ios.plive.on_air_badge" = "● EN VIVO";
 "ios.plive.preview_badge" = "Vista previa";
+"ios.live.standby" = "Pantalla de espera";
+"ios.live.standby_starting" = "Empezamos pronto";
+"ios.live.standby_brb" = "Volvemos enseguida";
+"ios.live.standby_thanks" = "Gracias por ver";
+"ios.live.standby_footer" = "En vivo con Wivra";

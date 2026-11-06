@@ -261,3 +261,8 @@
 "ios.plive.preview_placeholder" = "准备摄像头后，这里会显示预览。";
 "ios.plive.on_air_badge" = "● 直播中";
 "ios.plive.preview_badge" = "预览";
+"ios.live.standby" = "等待画面";
+"ios.live.standby_starting" = "即将开始";
+"ios.live.standby_brb" = "马上回来";
+"ios.live.standby_thanks" = "感谢观看";
+"ios.live.standby_footer" = "用 Wivra 直播";
