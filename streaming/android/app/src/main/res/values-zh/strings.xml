@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">直播中 · 摄像头（无音频，无本地 MP4）。</string>
     <string name="slive_on_air_camera_mic">直播中 · 摄像头（有麦克风，无本地 MP4）。</string>
     <string name="plive_preview_description">LIVE 摄像头预览</string>
+    <string name="phone_camera_ev_minus">曝光 −</string>
+    <string name="phone_camera_ev_plus">曝光 +</string>
+    <string name="phone_camera_ev_unsupported">这部手机不支持调整曝光。</string>
+    <string name="phone_camera_night_off">夜景照片：关</string>
+    <string name="phone_camera_night_on">夜景照片：开（%1$s）</string>
+    <string name="phone_camera_night_hint">夜景照片（实验）：把手机放稳，%1$s 内不要移动。</string>
+    <string name="phone_camera_night_unsupported">这部手机不支持真正的长时间曝光，无法使用夜景照片。</string>
+    <string name="phone_camera_night_not_during_video">录制视频时不能使用夜景照片。</string>
 </resources>
