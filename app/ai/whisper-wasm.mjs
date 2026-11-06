@@ -17,6 +17,9 @@ export const wvModelUrl = (m) => `https://huggingface.co/ggerganov/whisper.cpp/r
 export const WV_LANGS = ['auto', 'es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh'];
 export const WV_RATE = 16000;
 export const WV_CHUNK_S = 30;          // whisper's own window; keeps memory small and progress visible
+/** Temperature fallback (whisper re-decodes doubtful pieces at higher temperatures). Measured in CI W86:
+ *  see docs/WIVRA_W86_AUTO_SUBTITLES_WHISPER_2026-11-06.md. Off = one greedy pass (faster on phones). */
+export const WV_FALLBACK = false;
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
@@ -102,7 +105,7 @@ self.onmessage = async (e) => {
     } else if (m.type === 'run') {
       const pcm = m.pcm, sp = wvMod._malloc(pcm.length * 4);
       if (!sp) { postMessage({ type: 'result', id: m.id, json: '{"error":"MEMORY"}' }); return; }
-      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang); wvMod._free(sp);
+      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang, m.fallback ? 1 : 0); wvMod._free(sp);
       postMessage({ type: 'result', id: m.id, json });
     }
   } catch (err) { postMessage({ type: 'error', message: String((err && err.message) || err) }); }

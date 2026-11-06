@@ -59,8 +59,10 @@ void wivra_free() {
 void wivra_abort() { g_abort = 1; }
 
 // samples: 16 kHz mono float32 already in the WASM heap. language: "auto" or ISO code.
+// fallback: 1 = whisper's default temperature fallback (re-decodes doubtful pieces up to 5
+// more times: better on hard audio, much slower); 0 = one greedy pass.
 // Returns whisper.cpp-shaped JSON, or {"error":"..."}.
-std::string wivra_transcribe(uintptr_t samples, int n_samples, std::string language) {
+std::string wivra_transcribe(uintptr_t samples, int n_samples, std::string language, int fallback) {
     if (!g_ctx) return "{\"error\":\"MODEL_NOT_LOADED\"}";
     g_abort = 0;
     whisper_full_params p = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
@@ -75,6 +77,7 @@ std::string wivra_transcribe(uintptr_t samples, int n_samples, std::string langu
     p.suppress_blank = true;
     p.language = language == "auto" ? "auto" : language.c_str();
     p.detect_language = false;
+    if (!fallback) p.temperature_inc = 0.0f;
     p.abort_callback = abort_cb;
     p.abort_callback_user_data = nullptr;
     p.progress_callback = progress_cb;

@@ -2331,7 +2331,7 @@ $('wvRun').onclick = async () => {
       alive();
       const c = chunks[current], pcm = mono.slice(c.from, c.to);
       wvUi(true, aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length), 5 + 95 * current / chunks.length);
-      const r = await ask({ type: 'run', id: current, pcm, lang }, [pcm.buffer]);
+      const r = await ask({ type: 'run', id: current, pcm, lang, fallback: WV_FALLBACK }, [pcm.buffer]);
       let err = null; try { err = JSON.parse(r.json).error || null; } catch { err = 'WHISPER_FAILED'; }
       if (err === 'CANCELLED') throw wvCancelled(); if (err) throw oom(err);      // never drop a piece silently
       pieces.push({ offset: c.from / WV_RATE, limit: Math.min(duration, c.to / WV_RATE), json: r.json });

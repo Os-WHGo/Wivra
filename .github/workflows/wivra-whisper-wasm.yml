@@ -23,7 +23,7 @@ permissions:
   contents: read
 concurrency:
   group: wivra-whisper-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false   # long emulator/simulator runs: a new commit waits instead of cancelling them
 env:
   WHISPER_COMMIT: 0c7be696371069e0baa2515ed7aa08d5a5473aa6
   EMSDK_VERSION: 3.1.74
@@ -31,11 +31,37 @@ env:
   ES_TEXT: 'Hola, bienvenidos a Wivra. Hoy grabamos un video corto en la montaña con mis amigos.'
   EN_TEXT: 'And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.'
 jobs:
+  mac-voice:
+    # A natural-sounding Spanish voice from macOS (still synthetic, but close to real speech).
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - name: Spanish sample with a system voice, 16 kHz mono, 0.5 s of silence around it
+        run: |
+          mkdir -p /tmp/wv-mac
+          v=$(say -v '?' | grep -E 'es_(ES|MX|US)' | head -1 | awk '{print $1}')
+          if [ -n "$v" ]; then
+            say -v "$v" -o /tmp/wv-mac/es.aiff "[[slnc 500]] $ES_TEXT [[slnc 500]]"
+            afconvert -f WAVE -d LEI16@16000 -c 1 /tmp/wv-mac/es.aiff /tmp/wv-mac/es-natural.wav
+            echo "macOS voice: $v" | tee /tmp/wv-mac/voice.txt
+          else echo "no Spanish system voice on this runner"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wivra-whisper-mac-voice
+          path: /tmp/wv-mac/*.*
+          if-no-files-found: ignore
+          retention-days: 3
   wasm:
+    needs: mac-voice
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: wivra-whisper-mac-voice
+          path: /tmp/wv-mac
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -67,12 +93,6 @@ jobs:
             -sEXPORTED_FUNCTIONS=_malloc,_free -sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPF32 -sFILESYSTEM=0 -sASSERTIONS=0
           ls -la out
           sha256sum out/wivra-whisper.js
-      - name: The vendored module must be byte-identical to this build
-        run: |
-          set -eu
-          sha256sum app/vendor/whisper/wivra-whisper.js
-          cmp out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js
-          echo "vendored module is byte-identical to this build"
       - name: Multilingual models (pinned revision), checked against the editor's pinned SHA-256
         run: |
           set -eu
@@ -92,7 +112,11 @@ jobs:
           mkdir -p /tmp/wv-fx
           cp /tmp/whisper/samples/jfk.wav /tmp/wv-fx/en.wav
           espeak-ng -v es -s 135 -w /tmp/wv-fx/es-raw.wav "$ES_TEXT"
-          ffmpeg -loglevel error -y -i /tmp/wv-fx/es-raw.wav -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es.wav
+          ffmpeg -loglevel error -y -i /tmp/wv-fx/es-raw.wav -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es-tight.wav
+          # A real clip has a moment of silence before the first word; the raw synthetic file starts speaking at 0.0 s.
+          ffmpeg -loglevel error -y -i /tmp/wv-fx/es-tight.wav -af "adelay=500,apad=pad_dur=0.5" -ar 16000 -ac 1 -c:a pcm_s16le /tmp/wv-fx/es.wav
+          for f in es-tight es; do printf '%s: ' "$f"; ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/wv-fx/$f.wav; ffmpeg -hide_banner -i /tmp/wv-fx/$f.wav -af volumedetect -f null - 2>&1 | grep -E 'mean_volume|max_volume' | tr '\n' ' '; echo; done
+          if [ -s /tmp/wv-mac/es-natural.wav ]; then cp /tmp/wv-mac/es-natural.wav /tmp/wv-fx/es-natural.wav; cat /tmp/wv-mac/voice.txt; fi
           for l in en es; do
             ffmpeg -loglevel error -y -f lavfi -i color=c=0x221133:size=180x320:rate=10 -i /tmp/wv-fx/$l.wav -shortest \
               -c:v libvpx -b:v 60k -deadline realtime -c:a libopus -b:a 48k /tmp/wv-fx/$l.webm
@@ -100,12 +124,23 @@ jobs:
               -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/$l.mp4
           done
           ls -la /tmp/wv-fx
-      - name: Base multilingual (English must reach 80 % of the words)
+      - name: Base vs Tiny, with and without temperature fallback (English real voice must reach 80 %)
         run: |
-          WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
-          node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav es "$ES_TEXT" /tmp/wv-fx/es.wav auto "$ES_TEXT"
-      - name: Tiny multilingual (comparison, reported only)
-        run: node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-tiny-q5_1.bin tiny-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT" /tmp/wv-fx/es.wav auto "$ES_TEXT"
+          set -eu
+          nat=""; [ -s /tmp/wv-fx/es-natural.wav ] && nat="/tmp/wv-fx/es-natural.wav es"
+          for m in base tiny; do for fb in 1 0; do
+            WV_FALLBACK=$fb WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
+            WV_FALLBACK=$fb node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 \
+              /tmp/wv-fx/es-tight.wav es "$ES_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT" ${nat:+$nat "$ES_TEXT"}
+          done; done
+          WV_FALLBACK=0 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav auto "$ES_TEXT""
+      - name: The vendored module must be byte-identical to this build
+        run: |
+          sha256sum out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js
+          if cmp -s out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js; then echo "vendored module is byte-identical to this build"; exit 0; fi
+          echo "DIFFERENT: copy for vendoring (gzip+base64) between markers"
+          echo "WIVRA-WASM-BEGIN"; gzip -9n -c out/wivra-whisper.js | base64 -w0; echo; echo "WIVRA-WASM-END"
+          exit 1
       - name: Build the editor (embeds the vendored engine)
         run: node app/build.mjs && node --test app/tests/whisper-wasm-w86.test.mjs
       - name: Chromium (pinned Playwright, Linux; not mobile evidence)
