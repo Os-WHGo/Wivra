@@ -473,4 +473,15 @@
     <string name="srec_no_pending">No unsaved recordings.</string>
     <string name="srec_deleted">Video deleted.</string>
     <string name="source_screen_record_option">Record screen (no streaming)</string>
+    <string name="dat_profile_button">Glasses video profile: %1$s</string>
+    <string name="dat_profile_auto_button">Profile: Automatic → %1$s</string>
+    <string name="dat_profile_title">Glasses video profile</string>
+    <string name="dat_profile_auto">Automatic (from the previous session)</string>
+    <string name="dat_profile_economy">Saver</string>
+    <string name="dat_profile_balanced">Balanced</string>
+    <string name="dat_profile_motion">Motion</string>
+    <string name="dat_profile_detail">Detail</string>
+    <string name="dat_profile_max">Maximum (Meta may lower it)</string>
+    <string name="dat_diagnostic">Asked %1$s · received %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · gaps %6$d</string>
+    <string name="dat_suggestion">The glasses are struggling: use %1$s (restarts the camera)</string>
 </resources>

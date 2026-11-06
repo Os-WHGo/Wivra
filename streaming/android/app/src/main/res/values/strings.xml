@@ -473,4 +473,15 @@
     <string name="srec_no_pending">No hay grabaciones sin guardar.</string>
     <string name="srec_deleted">Video eliminado.</string>
     <string name="source_screen_record_option">Grabar pantalla (sin transmitir)</string>
+    <string name="dat_profile_button">Perfil de video de las gafas: %1$s</string>
+    <string name="dat_profile_auto_button">Perfil: Automático → %1$s</string>
+    <string name="dat_profile_title">Perfil de video de las gafas</string>
+    <string name="dat_profile_auto">Automático (según la sesión anterior)</string>
+    <string name="dat_profile_economy">Ahorro</string>
+    <string name="dat_profile_balanced">Equilibrado</string>
+    <string name="dat_profile_motion">Movimiento</string>
+    <string name="dat_profile_detail">Detalle</string>
+    <string name="dat_profile_max">Máxima (Meta puede bajarla)</string>
+    <string name="dat_diagnostic">Pedido %1$s · recibido %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · cortes %6$d</string>
+    <string name="dat_suggestion">Las gafas no llegan bien: usar %1$s (reinicia la cámara)</string>
 </resources>

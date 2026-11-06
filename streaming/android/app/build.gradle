@@ -73,6 +73,8 @@ dependencies {
     fullImplementation 'com.github.pedroSG94.RootEncoder:library:2.8.1'
     // Local deterministic PTS clock tests, without emulator or physical glasses.
     testImplementation 'junit:junit:4.13.2'
+    // Ray-Ban profile vectors (streaming/contracts/dat-profiles.json) in JVM tests; public domain since 20231013.
+    testImplementation 'org.json:json:20240303'
     // Only tests, never a required runtime service or production dependency.
     androidTestImplementation 'com.meta.wearable:mwdat-mockdevice:1.0.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'

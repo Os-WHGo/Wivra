@@ -8,6 +8,8 @@ on:
       - 'streaming/tests/WivraPhotosActiveSaveSmoke.swift'
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
+      - 'streaming/tests/WivraDatProfilesSmoke.swift'
+      - 'streaming/contracts/dat-profiles.json'
       - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
       - 'streaming/tests/ios-screenrec-import-editor.mjs'
       - 'app/capture-manifest.mjs'
@@ -58,6 +60,14 @@ jobs:
             -o /tmp/wivra-screenrec-import-smoke
           /tmp/wivra-screenrec-import-smoke "$RUNNER_TEMP"
           node streaming/tests/ios-screenrec-import-editor.mjs "$RUNNER_TEMP"
+      - name: Ray-Ban · shared DAT profiles, «Automático» and stream statistics on iPhone code (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraDatProfiles.swift \
+            streaming/tests/WivraDatProfilesSmoke.swift \
+            -o /tmp/wivra-dat-profiles-smoke
+          /tmp/wivra-dat-profiles-smoke streaming/contracts/dat-profiles.json
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu

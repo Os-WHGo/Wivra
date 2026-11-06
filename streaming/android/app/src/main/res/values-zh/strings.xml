@@ -473,4 +473,15 @@
     <string name="srec_no_pending">没有未保存的录制。</string>
     <string name="srec_deleted">视频已删除。</string>
     <string name="source_screen_record_option">录制屏幕（不直播）</string>
+    <string name="dat_profile_button">眼镜视频配置：%1$s</string>
+    <string name="dat_profile_auto_button">配置：自动 → %1$s</string>
+    <string name="dat_profile_title">眼镜视频配置</string>
+    <string name="dat_profile_auto">自动（根据上次会话）</string>
+    <string name="dat_profile_economy">省电</string>
+    <string name="dat_profile_balanced">均衡</string>
+    <string name="dat_profile_motion">运动</string>
+    <string name="dat_profile_detail">细节</string>
+    <string name="dat_profile_max">最高（Meta 可能会降低）</string>
+    <string name="dat_diagnostic">请求 %1$s · 收到 %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · 中断 %6$d</string>
+    <string name="dat_suggestion">眼镜跟不上：使用 %1$s（会重启相机）</string>
 </resources>

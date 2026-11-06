@@ -473,4 +473,15 @@
     <string name="srec_no_pending">未保存の録画はありません。</string>
     <string name="srec_deleted">動画を削除しました。</string>
     <string name="source_screen_record_option">画面を録画（配信なし）</string>
+    <string name="dat_profile_button">メガネの映像プロファイル：%1$s</string>
+    <string name="dat_profile_auto_button">プロファイル：自動 → %1$s</string>
+    <string name="dat_profile_title">メガネの映像プロファイル</string>
+    <string name="dat_profile_auto">自動（前回のセッションから判断）</string>
+    <string name="dat_profile_economy">節約</string>
+    <string name="dat_profile_balanced">バランス</string>
+    <string name="dat_profile_motion">動き</string>
+    <string name="dat_profile_detail">詳細</string>
+    <string name="dat_profile_max">最大（Meta が下げる場合あり）</string>
+    <string name="dat_diagnostic">要求 %1$s · 受信 %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · 途切れ %6$d</string>
+    <string name="dat_suggestion">メガネが追いついていません：%1$s を使用（カメラを再起動）</string>
 </resources>

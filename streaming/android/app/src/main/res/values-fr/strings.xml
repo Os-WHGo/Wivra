@@ -473,4 +473,15 @@
     <string name="srec_no_pending">Aucun enregistrement non sauvegardé.</string>
     <string name="srec_deleted">Vidéo supprimée.</string>
     <string name="source_screen_record_option">Enregistrer l’écran (sans diffusion)</string>
+    <string name="dat_profile_button">Profil vidéo des lunettes : %1$s</string>
+    <string name="dat_profile_auto_button">Profil : Automatique → %1$s</string>
+    <string name="dat_profile_title">Profil vidéo des lunettes</string>
+    <string name="dat_profile_auto">Automatique (selon la session précédente)</string>
+    <string name="dat_profile_economy">Économie</string>
+    <string name="dat_profile_balanced">Équilibré</string>
+    <string name="dat_profile_motion">Mouvement</string>
+    <string name="dat_profile_detail">Détail</string>
+    <string name="dat_profile_max">Maximum (Meta peut le baisser)</string>
+    <string name="dat_diagnostic">Demandé %1$s · reçu %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · coupures %6$d</string>
+    <string name="dat_suggestion">Les lunettes peinent : utiliser %1$s (redémarre la caméra)</string>
 </resources>

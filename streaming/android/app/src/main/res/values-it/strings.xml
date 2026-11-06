@@ -473,4 +473,15 @@
     <string name="srec_no_pending">Nessuna registrazione non salvata.</string>
     <string name="srec_deleted">Video eliminato.</string>
     <string name="source_screen_record_option">Registra schermo (senza trasmettere)</string>
+    <string name="dat_profile_button">Profilo video degli occhiali: %1$s</string>
+    <string name="dat_profile_auto_button">Profilo: Automatico → %1$s</string>
+    <string name="dat_profile_title">Profilo video degli occhiali</string>
+    <string name="dat_profile_auto">Automatico (in base alla sessione precedente)</string>
+    <string name="dat_profile_economy">Risparmio</string>
+    <string name="dat_profile_balanced">Bilanciato</string>
+    <string name="dat_profile_motion">Movimento</string>
+    <string name="dat_profile_detail">Dettaglio</string>
+    <string name="dat_profile_max">Massimo (Meta può ridurlo)</string>
+    <string name="dat_diagnostic">Richiesto %1$s · ricevuto %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · interruzioni %6$d</string>
+    <string name="dat_suggestion">Gli occhiali faticano: usa %1$s (riavvia la fotocamera)</string>
 </resources>

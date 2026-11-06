@@ -53,14 +53,56 @@ final class MetaB0Model {
     var frameWidth = 0
     var frameHeight = 0
     var lastErrorWasThermal = false
-    var chosenProfile = "balanced" // chosen before a new camera session
+    var chosenProfile = "balanced" // chosen before a new camera session ("auto" = WivraDatAuto)
+    // Ray-Ban profiles shared with Android (WivraDatProfiles.swift / .kt, streaming/contracts/dat-profiles.json).
+    var activeDatProfile: WivraDatProfile = .defaultProfile
+    var datStats = WivraDatStreamStats(nominalFps: WivraDatProfile.defaultProfile.fps)
+    var datSuggestion: WivraDatProfile?
+    private var lastSuggestionUptime: Double = -1_000
+    private var datThermalThisSession = false
+    /// What the previous camera session in this app run really delivered (memory only, never stored or sent).
+    nonisolated(unsafe) static var lastDatObserved: WivraDatAuto.Observed?
     var requestedDatProfileDescription: String {
-        switch chosenProfile {
-        case "economy": return "360 × 640, 15 FPS (ahorro)"
-        case "detail": return "720 × 1280, 15 FPS (detalle)"
-        case "motion": return "504 × 896, 30 FPS (movimiento)"
-        default: return "504 × 896, 24 FPS (equilibrado)"
+        if chosenProfile == WivraDatProfile.auto {
+            let next = WivraDatAuto.start(last: Self.lastDatObserved, thermalNow: lastErrorWasThermal)
+            return "Automático → " + next.label
         }
+        let p = WivraDatProfile(rawValue: chosenProfile) ?? .defaultProfile
+        let name: String
+        switch p {
+        case .economy: name = "ahorro"
+        case .balanced: name = "equilibrado"
+        case .motion: name = "movimiento"
+        case .detail: name = "detalle"
+        case .max: name = "máxima; Meta puede bajarla sola"
+        }
+        return p.label + " (" + name + ")"
+    }
+    var datDiagnosticLine: String {
+        let s = datStats.snapshot()
+        guard s.frames > 1 else { return "Diagnóstico: esperando fotogramas" }
+        return String(format: "Pedido %@ · recibido %d × %d · %.1f FPS · p95 %.0f ms · cortes %d", activeDatProfile.label,
+                      s.width, s.height, s.fps, s.p95IntervalMs, s.stalls)
+    }
+    /// Applies a suggested lower profile: restarts the camera, so only when not recording.
+    func applyDatSuggestion() {
+        guard let next = datSuggestion, !recordingArmed, !recordingFinishing, camera != nil else { return }
+        datSuggestion = nil
+        chosenProfile = next.rawValue
+        stopPreview()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            self?.beginPreviewIfIdle()
+        }
+    }
+    private func beginPreviewIfIdle() {
+        if camera == nil { beginPreview() }
+    }
+    private func rememberDatSession() {
+        let s = datStats.snapshot()
+        guard s.frames > 1 else { return }
+        Self.lastDatObserved = WivraDatAuto.Observed(profile: activeDatProfile, seconds: s.seconds, measuredFps: s.fps,
+                                                     stalls: s.stalls, receivedHeight: s.height, thermal: datThermalThisSession)
     }
     var receiveCompressedHEVC = false
     var recordingArmed = false
@@ -733,13 +775,18 @@ final class MetaB0Model {
         guard let session = deviceSession, session.state == .started, camera == nil else { return }
         // B0 preview uses SDK decoded frames (.raw). B1A uses compressed
         // .hvc1 for direct file writing. B1A has no image preview yet.
-        let economy = chosenProfile == "economy"
-        let detail = chosenProfile == "detail"
-        let motion = chosenProfile == "motion"
+        // Ray-Ban profile from the shared table; «Automático» decides from the previous session.
+        let profile = chosenProfile == WivraDatProfile.auto
+            ? WivraDatAuto.start(last: Self.lastDatObserved, thermalNow: lastErrorWasThermal)
+            : (WivraDatProfile(rawValue: chosenProfile) ?? .defaultProfile)
+        activeDatProfile = profile
+        datStats = WivraDatStreamStats(nominalFps: profile.fps)
+        datSuggestion = nil
+        datThermalThisSession = false
         let config = StreamConfiguration(
             videoCodec: receiveCompressedHEVC ? .hvc1 : .raw,
-            resolution: economy ? .low : detail ? .high : .medium,
-            frameRate: (economy || detail) ? 15 : motion ? 30 : 24
+            resolution: profile == .economy ? .low : (profile == .detail || profile == .max) ? .high : .medium,
+            frameRate: UInt(profile.fps)
         )
         do {
             guard let newCamera = try session.addCamera(config: config) else {
@@ -874,6 +921,7 @@ final class MetaB0Model {
         compressedBytesThisSecond += max(0, compressedBytes)
 
         let now = CACurrentMediaTime()
+        datStats.frame(uptimeMs: Int64(now * 1000), width: frameWidth, height: frameHeight, payloadBytes: compressedBytes)
         lastFrameUptime = now
         if firstFrameTime == nil {
             firstFrameTime = now
@@ -884,6 +932,14 @@ final class MetaB0Model {
         }
         if let lastCountTime, now - lastCountTime >= 1 {
             measuredFPS = Double(framesThisSecond) / (now - lastCountTime)
+            if lastErrorWasThermal { datThermalThisSession = true }
+            let s = datStats.snapshot()
+            if let tip = WivraDatAuto.suggest(window: WivraDatAuto.Observed(profile: activeDatProfile, seconds: s.seconds,
+                    measuredFps: s.fps, stalls: s.stalls, receivedHeight: s.height, thermal: datThermalThisSession),
+                    secondsSinceLastSuggestion: now - lastSuggestionUptime) {
+                datSuggestion = tip
+                lastSuggestionUptime = now
+            }
             measuredCompressedMbps = Double(compressedBytesThisSecond) * 8 /
                 ((now - lastCountTime) * 1_000_000)
             compressedBytesThisSecond = 0
@@ -929,6 +985,7 @@ final class MetaB0Model {
 
     private func clearPreview() {
         streamEverActive = false
+        rememberDatSession()
         streamTokens.clear()
         if photoCaptureInFlight {
             photoCaptureStatus = "Fotografía interrumpida: se cerró la vista previa."

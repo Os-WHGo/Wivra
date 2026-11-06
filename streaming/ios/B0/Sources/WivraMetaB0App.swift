@@ -383,7 +383,9 @@ struct MetaB0Screen: View {
                     Text("Equilibrado").tag("balanced")
                     Text("Movimiento").tag("motion")
                     Text("Detalle").tag("detail")
+                    Text("Máxima (720p 30)").tag("max")
                     Text("Ahorro").tag("economy")
+                    Text("Automático").tag("auto")
                 }
                 .pickerStyle(.menu)
                 .disabled(model.hasPreview)
@@ -393,6 +395,18 @@ struct MetaB0Screen: View {
                 Text("La calidad recibida depende del enlace Meta; más resolución o FPS pueden aumentar la compresión.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if model.hasPreview {
+                    Text(model.datDiagnosticLine)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("wivra_dat_diagnostic")
+                }
+                if let tip = model.datSuggestion, !model.recordingArmed {
+                    Button("Las gafas no llegan bien: usar " + tip.label + " (reinicia la cámara)") { model.applyDatSuggestion() }
+                        .font(.footnote)
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("wivra_dat_suggestion")
+                }
 
                 Text("Transporte efectivo: gestionado por Meta DAT; aún sin medición de enlace físico.")
                     .font(.footnote)

@@ -473,4 +473,15 @@
     <string name="srec_no_pending">Keine ungespeicherten Aufnahmen.</string>
     <string name="srec_deleted">Video gelöscht.</string>
     <string name="source_screen_record_option">Bildschirm aufnehmen (ohne Übertragung)</string>
+    <string name="dat_profile_button">Videoprofil der Brille: %1$s</string>
+    <string name="dat_profile_auto_button">Profil: Automatisch → %1$s</string>
+    <string name="dat_profile_title">Videoprofil der Brille</string>
+    <string name="dat_profile_auto">Automatisch (nach der letzten Sitzung)</string>
+    <string name="dat_profile_economy">Sparen</string>
+    <string name="dat_profile_balanced">Ausgewogen</string>
+    <string name="dat_profile_motion">Bewegung</string>
+    <string name="dat_profile_detail">Detail</string>
+    <string name="dat_profile_max">Maximum (Meta kann es senken)</string>
+    <string name="dat_diagnostic">Angefragt %1$s · empfangen %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · Aussetzer %6$d</string>
+    <string name="dat_suggestion">Die Brille kommt nicht mit: %1$s verwenden (startet die Kamera neu)</string>
 </resources>

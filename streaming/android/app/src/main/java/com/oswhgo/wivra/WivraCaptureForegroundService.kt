@@ -1,5 +1,6 @@
 package com.oswhgo.wivra
 
+import android.content.Context
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -281,9 +282,13 @@ class WivraCaptureForegroundService : Service() {
             finalizeCapture()
             return
         }
+        // Ray-Ban macroblock: the same shared profile the person chose in the preview (manual ones only;
+        // «Automático» resolves to the balanced default here, since this service records without a preview).
+        val profile = WivraDatProfile.from(getSharedPreferences("wivra_capture", Context.MODE_PRIVATE)
+            .getString("dat_profile", null)) ?: WivraDatProfile.DEFAULT
         active.addCamera(StreamConfiguration(
-            videoQuality = VideoQuality.MEDIUM,
-            frameRate = 24,
+            videoQuality = datQuality(profile),
+            frameRate = profile.fps,
             compressVideo = true
         )).onSuccess { capability ->
             if (finishing) {

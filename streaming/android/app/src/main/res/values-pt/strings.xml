@@ -473,4 +473,15 @@
     <string name="srec_no_pending">Não há gravações não salvas.</string>
     <string name="srec_deleted">Vídeo excluído.</string>
     <string name="source_screen_record_option">Gravar tela (sem transmitir)</string>
+    <string name="dat_profile_button">Perfil de vídeo dos óculos: %1$s</string>
+    <string name="dat_profile_auto_button">Perfil: Automático → %1$s</string>
+    <string name="dat_profile_title">Perfil de vídeo dos óculos</string>
+    <string name="dat_profile_auto">Automático (pela sessão anterior)</string>
+    <string name="dat_profile_economy">Economia</string>
+    <string name="dat_profile_balanced">Equilibrado</string>
+    <string name="dat_profile_motion">Movimento</string>
+    <string name="dat_profile_detail">Detalhe</string>
+    <string name="dat_profile_max">Máximo (a Meta pode reduzir)</string>
+    <string name="dat_diagnostic">Pedido %1$s · recebido %2$d × %3$d · %4$.1f FPS · p95 %5$.0f ms · cortes %6$d</string>
+    <string name="dat_suggestion">Os óculos não estão dando conta: usar %1$s (reinicia a câmera)</string>
 </resources>

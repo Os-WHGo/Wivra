@@ -1,0 +1,40 @@
+{
+  "note": "Ray-Ban Meta (DAT 1.0.1) camera stream profiles shared by Android and iPhone, and the Automático policy vectors. Sizes and frame rates are the SDK's documented values (720x1280, 504x896, 360x640; 2/7/15/24/30 fps). The SDK itself may lower resolution, then fps (never below 15), when Bluetooth bandwidth is short. — Claude",
+  "default": "balanced",
+  "profiles": [
+    { "id": "economy",  "width": 360, "height": 640,  "fps": 15 },
+    { "id": "balanced", "width": 504, "height": 896,  "fps": 24 },
+    { "id": "motion",   "width": 504, "height": 896,  "fps": 30 },
+    { "id": "detail",   "width": 720, "height": 1280, "fps": 15 },
+    { "id": "max",      "width": 720, "height": 1280, "fps": 30 }
+  ],
+  "start": [
+    { "why": "no history", "last": null, "thermalNow": false, "expect": "balanced" },
+    { "why": "glasses hot now", "last": null, "thermalNow": true, "expect": "economy" },
+    { "why": "healthy long balanced session steps up once", "last": { "profile": "balanced", "seconds": 120, "measuredFps": 23.6, "stalls": 0, "receivedHeight": 896, "thermal": false }, "thermalNow": false, "expect": "motion" },
+    { "why": "healthy motion stays (Auto never goes to 720p)", "last": { "profile": "motion", "seconds": 300, "measuredFps": 29.5, "stalls": 0, "receivedHeight": 896, "thermal": false }, "thermalNow": false, "expect": "motion" },
+    { "why": "low fps steps down", "last": { "profile": "motion", "seconds": 60, "measuredFps": 18, "stalls": 0, "receivedHeight": 896, "thermal": false }, "thermalNow": false, "expect": "balanced" },
+    { "why": "SDK lowered the resolution", "last": { "profile": "balanced", "seconds": 60, "measuredFps": 24, "stalls": 0, "receivedHeight": 640, "thermal": false }, "thermalNow": false, "expect": "economy" },
+    { "why": "many stalls", "last": { "profile": "balanced", "seconds": 60, "measuredFps": 23, "stalls": 4, "receivedHeight": 896, "thermal": false }, "thermalNow": false, "expect": "economy" },
+    { "why": "last session got hot", "last": { "profile": "motion", "seconds": 600, "measuredFps": 29, "stalls": 0, "receivedHeight": 896, "thermal": true }, "thermalNow": false, "expect": "balanced" },
+    { "why": "manual 720p unhealthy falls back to balanced", "last": { "profile": "max", "seconds": 60, "measuredFps": 15, "stalls": 1, "receivedHeight": 896, "thermal": false }, "thermalNow": false, "expect": "balanced" },
+    { "why": "manual 720p healthy: Auto still uses the ladder", "last": { "profile": "detail", "seconds": 60, "measuredFps": 15, "stalls": 0, "receivedHeight": 1280, "thermal": false }, "thermalNow": false, "expect": "balanced" },
+    { "why": "too short to judge keeps the profile", "last": { "profile": "economy", "seconds": 5, "measuredFps": 3, "stalls": 3, "receivedHeight": 640, "thermal": false }, "thermalNow": false, "expect": "economy" },
+    { "why": "economy cannot go lower", "last": { "profile": "economy", "seconds": 60, "measuredFps": 8, "stalls": 5, "receivedHeight": 640, "thermal": false }, "thermalNow": false, "expect": "economy" }
+  ],
+  "suggest": [
+    { "why": "too early", "current": "motion", "window": { "seconds": 8, "measuredFps": 10, "stalls": 3, "receivedHeight": 896, "thermal": false }, "sinceLast": 999, "expect": null },
+    { "why": "one suggestion per minute at most", "current": "motion", "window": { "seconds": 30, "measuredFps": 10, "stalls": 3, "receivedHeight": 896, "thermal": false }, "sinceLast": 30, "expect": null },
+    { "why": "healthy: nothing to suggest (never suggests going up)", "current": "balanced", "window": { "seconds": 30, "measuredFps": 24, "stalls": 0, "receivedHeight": 896, "thermal": false }, "sinceLast": 999, "expect": null },
+    { "why": "fps below 75 %", "current": "motion", "window": { "seconds": 20, "measuredFps": 20, "stalls": 0, "receivedHeight": 896, "thermal": false }, "sinceLast": 999, "expect": "balanced" },
+    { "why": "thermal", "current": "balanced", "window": { "seconds": 20, "measuredFps": 24, "stalls": 0, "receivedHeight": 896, "thermal": true }, "sinceLast": 999, "expect": "economy" },
+    { "why": "720p30 degraded by the SDK", "current": "max", "window": { "seconds": 20, "measuredFps": 28, "stalls": 0, "receivedHeight": 896, "thermal": false }, "sinceLast": 999, "expect": "balanced" },
+    { "why": "economy unhealthy: nothing lower", "current": "economy", "window": { "seconds": 20, "measuredFps": 5, "stalls": 4, "receivedHeight": 640, "thermal": false }, "sinceLast": 999, "expect": null }
+  ],
+  "stats": {
+    "nominalFps": 24,
+    "framesMs": [0, 42, 83, 125, 167, 208, 250, 292, 333, 375, 417, 458, 500, 542, 583, 625, 667, 708, 750, 792, 833, 875, 917, 958, 1000, 1700, 1742, 1783, 1825, 1867],
+    "width": 504, "height": 896, "bytesPerFrame": 6000,
+    "expect": { "frames": 30, "stalls": 1, "seconds": 1.867, "fpsMin": 15.5, "fpsMax": 16.5, "p95IntervalMsMin": 40, "p95IntervalMsMax": 45, "maxGapMs": 700 }
+  }
+}

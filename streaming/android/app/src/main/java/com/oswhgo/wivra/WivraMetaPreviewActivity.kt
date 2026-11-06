@@ -95,6 +95,15 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private data class LocalPreviewFrame(val bytes: ByteArray, val width: Int, val height: Int)
     private var sdkReady = false
     private var frames = 0L
+    // Ray-Ban profiles shared with iPhone (WivraDatProfiles.kt / streaming/contracts/dat-profiles.json).
+    private var activeDatProfile = WivraDatProfile.DEFAULT
+    private var datStats = WivraDatStreamStats(WivraDatProfile.DEFAULT.fps)
+    private var datSuggestion: WivraDatProfile? = null
+    private var lastSuggestionMs = -1_000_000L
+    private var datThermal = false
+    private lateinit var datProfileButton: Button
+    private lateinit var datDiagnostic: TextView
+    private lateinit var datSuggestionButton: Button
     private lateinit var status: TextView
     private lateinit var datCapabilityStatus: TextView
     private lateinit var phoneNetworkStatus: TextView
@@ -242,6 +251,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         ))
         registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
         connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
+        datProfileButton = button(root, "") { chooseDatProfile() }
+        datDiagnostic = TextView(this).apply { textSize = 12f; visibility = View.GONE }
+        root.addView(datDiagnostic)
+        datSuggestionButton = button(root, "") { applyDatSuggestion() }
+        datSuggestionButton.visibility = View.GONE
+        refreshDatProfileButton()
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
         recordButton = button(root, getString(R.string.record_video_only)) {
             checkCameraPermission(recording = true)
@@ -374,6 +389,95 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     private fun show(message: String) { status.text = message }
 
+    // ── Ray-Ban stream profile («Automático» decides from the previous session; a change restarts the camera) ──
+    private fun datChoice(): String =
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_profile", null) ?: WivraDatProfile.DEFAULT.id
+
+    private fun datLabel(p: WivraDatProfile) = "${p.width} × ${p.height}, ${p.fps} FPS"
+
+    private fun resolveDatProfile(): WivraDatProfile {
+        val choice = datChoice()
+        return if (choice == WivraDatProfile.AUTO) WivraDatAuto.start(lastDatObserved, datThermal)
+        else WivraDatProfile.from(choice) ?: WivraDatProfile.DEFAULT
+    }
+
+    private fun refreshDatProfileButton() {
+        val choice = datChoice()
+        datProfileButton.text = if (choice == WivraDatProfile.AUTO) getString(R.string.dat_profile_auto_button, datLabel(resolveDatProfile()))
+        else getString(R.string.dat_profile_button, datLabel(WivraDatProfile.from(choice) ?: WivraDatProfile.DEFAULT))
+        datProfileButton.isEnabled = camera == null
+    }
+
+    private fun chooseDatProfile() {
+        if (camera != null) return
+        val ids = listOf("balanced", "motion", "detail", "max", "economy", WivraDatProfile.AUTO)
+        val names = ids.map { id ->
+            if (id == WivraDatProfile.AUTO) getString(R.string.dat_profile_auto)
+            else WivraDatProfile.from(id)!!.let { getString(datNameRes(it)) + " · " + datLabel(it) }
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.dat_profile_title)
+            .setSingleChoiceItems(names.toTypedArray(), ids.indexOf(datChoice()).coerceAtLeast(0)) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_profile", ids[which]).apply()
+                refreshDatProfileButton()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+    }
+
+    private fun datNameRes(p: WivraDatProfile) = when (p) {
+        WivraDatProfile.ECONOMY -> R.string.dat_profile_economy
+        WivraDatProfile.BALANCED -> R.string.dat_profile_balanced
+        WivraDatProfile.MOTION -> R.string.dat_profile_motion
+        WivraDatProfile.DETAIL -> R.string.dat_profile_detail
+        WivraDatProfile.MAX -> R.string.dat_profile_max
+    }
+
+    private fun datFrame(width: Int, height: Int, payloadBytes: Int) {
+        datStats.frame(SystemClock.elapsedRealtime(), width, height, payloadBytes)
+    }
+
+    private fun refreshDatDiagnostic(recording: Boolean) {
+        val s = datStats.snapshot()
+        if (s.frames < 2) return
+        datDiagnostic.visibility = View.VISIBLE
+        datDiagnostic.text = getString(R.string.dat_diagnostic, datLabel(activeDatProfile), s.width, s.height, s.fps, s.p95IntervalMs, s.stalls)
+        val now = SystemClock.elapsedRealtime()
+        val tip = WivraDatAuto.suggest(WivraDatAuto.Observed(activeDatProfile, s.seconds, s.fps, s.stalls, s.height, datThermal),
+            (now - lastSuggestionMs) / 1000.0)
+        if (tip != null) { datSuggestion = tip; lastSuggestionMs = now }
+        val offer = datSuggestion
+        if (offer != null && !recording) {
+            datSuggestionButton.text = getString(R.string.dat_suggestion, datLabel(offer))
+            datSuggestionButton.visibility = View.VISIBLE
+        } else datSuggestionButton.visibility = View.GONE
+    }
+
+    /** A suggested lower profile restarts the camera, so it is only offered while previewing (never recording). */
+    private fun applyDatSuggestion() {
+        val next = datSuggestion ?: return
+        if (recordingMode || WivraCaptureForegroundService.isCaptureActive()) return
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_profile", next.id).apply()
+        datSuggestion = null
+        datSuggestionButton.visibility = View.GONE
+        rememberDatSession()
+        streamJob?.cancel(); streamJob = null
+        streamErrorJob?.cancel(); streamErrorJob = null
+        camera?.close(); camera = null
+        stream = null
+        framesJob?.cancel(); framesJob = null
+        decodeJob?.cancel(); decodeJob = null
+        frameChannel?.close(); frameChannel = null
+        refreshDatProfileButton()
+        imagePreview.postDelayed({ if (!isFinishing && !isDestroyed) startStream() }, 600L)
+    }
+
+    private fun rememberDatSession() {
+        val s = datStats.snapshot()
+        if (s.frames > 1) lastDatObserved = WivraDatAuto.Observed(activeDatProfile, s.seconds, s.fps, s.stalls, s.height, datThermal)
+    }
+
     // The Meta DAT selector can pick any supported model, including future
     // models. Report only what this process actually observed: registration,
     // device discovery, camera frames and native recording service state.
@@ -424,6 +528,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun refreshButtons() {
+        if (::datProfileButton.isInitialized) refreshDatProfileButton()
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
         registerButton.isEnabled = sdkReady && !serviceRecording &&
             Wearables.registrationState.value != RegistrationState.REGISTERING &&
@@ -648,8 +753,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun startStream(recording: Boolean = false) {
         val connected = session ?: return
         if (connected.state.value != DeviceSessionState.STARTED || camera != null) return
+        val profile = resolveDatProfile()
+        activeDatProfile = profile
+        datStats = WivraDatStreamStats(profile.fps)
+        datSuggestion = null
         connected.addCamera(StreamConfiguration(
-            videoQuality = VideoQuality.MEDIUM, frameRate = 24,
+            videoQuality = datQuality(profile), frameRate = profile.fps,
             // The video-only MP4 muxer needs the original HEVC stream.
             // Decoded YUV is preserved for normal low-FPS preview mode.
             compressVideo = recording
@@ -724,6 +833,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             copied.get(bytes)
                             recorder?.consume(bytes, frame.presentationTimeUs,
                                 frame.width, frame.height, frame.isCodecConfig)
+                            if (!frame.isCodecConfig) datFrame(frame.width, frame.height, bytes.size)
                             compressedPackets += 1
                             if (compressedPackets == 1L || compressedPackets % 24L == 0L) {
                                 withContext(Dispatchers.Main.immediate) {
@@ -736,8 +846,10 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                         }
                         frames += 1
                         lastFrameReceivedMs = SystemClock.elapsedRealtime()
+                        datFrame(frame.width, frame.height, frame.buffer.remaining())
                         if (frames == 1L || frames % 24L == 0L) {
                             refreshButtons()
+                            refreshDatDiagnostic(recording = false)
                             show(getString(R.string.frames_status, frames, frame.width, frame.height))
                         }
                         // Limit JPEG preview workload to roughly 6 images/sec. The full
@@ -774,7 +886,11 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     }
                 }
                 streamErrorJob = scope.launch {
-                    active.errorStream.collect { error -> show(getString(R.string.stream_failed, error.description)) }
+                    active.errorStream.collect { error ->
+                        // Glasses heat or power limits: «Automático» starts lower next time.
+                        if (error.name.startsWith("THERMAL") || error.name == "PEAK_POWER_LIMIT") datThermal = true
+                        show(getString(R.string.stream_failed, error.description))
+                    }
                 }
                 active.start().onFailure { error, _ ->
                     show(getString(R.string.stream_start_failed, error.description))
@@ -1067,6 +1183,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun cleanup() {
+        rememberDatSession()
         if (!deferCaptureServiceStop &&
             !WivraCaptureForegroundService.isCaptureActive()) {
             stopService(Intent(this, WivraCaptureForegroundService::class.java))
@@ -1130,4 +1247,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         scope.cancel()
         super.onDestroy()
     }
+
+    companion object {
+        /** What the previous camera session in this app run really delivered (memory only, never stored or sent). */
+        @Volatile var lastDatObserved: WivraDatAuto.Observed? = null
+    }
+
+}
+
+/** DAT resolution for a shared profile (also used by the background capture service). */
+fun datQuality(p: WivraDatProfile): VideoQuality = when (p) {
+    WivraDatProfile.ECONOMY -> VideoQuality.LOW
+    WivraDatProfile.BALANCED, WivraDatProfile.MOTION -> VideoQuality.MEDIUM
+    WivraDatProfile.DETAIL, WivraDatProfile.MAX -> VideoQuality.HIGH
 }
