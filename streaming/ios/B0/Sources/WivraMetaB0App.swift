@@ -444,6 +444,15 @@ struct MetaB0Screen: View {
                             .disabled(model.sessionState != .idle)
                             .accessibilityIdentifier("meta_b1b_audio_enabled")
                         if model.captureSelectedAudio {
+                            Text("Recomendado: video de las gafas + micrófono del iPhone o USB. El micrófono Bluetooth de las gafas compite con el video por el mismo enlace.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Toggle("Incluir micrófonos Bluetooth (puede bajar la calidad del video)", isOn: Binding(
+                                get: { model.audioRoute.includeBluetooth },
+                                set: { model.audioRoute.includeBluetooth = $0 }
+                            ))
+                            .font(.footnote)
+                            .disabled(model.sessionState != .idle)
+                            .accessibilityIdentifier("meta_audio_include_bluetooth")
                             Button("Detectar entradas de audio") {
                                 Task { await model.audioRoute.discover() }
                             }
@@ -468,6 +477,9 @@ struct MetaB0Screen: View {
                             .disabled(model.sessionState != .idle ||
                                       model.audioRoute.selectedUID.isEmpty)
                             Text(model.audioRoute.status).font(.footnote)
+                            Text(WivraAudioRoute.hfpClosed ? "HFP de las gafas: cerrado (solo video por Bluetooth)" : "HFP Bluetooth: abierto")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("meta_audio_hfp_state")
                             Text("Se usa una sola entrada activa. Un receptor USB de dos canales podrá separarse en pistas cuando el hardware lo permita.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }

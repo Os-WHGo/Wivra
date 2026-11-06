@@ -185,7 +185,11 @@ final class MetaB0Model {
             Task { @MainActor [weak self] in
                 guard let self, self.recordingArmed,
                       self.captureSelectedAudio, !self.audioRoute.hasSelectedRoute else { return }
-                self.recordingStatus = "Se perdió el micrófono seleccionado; cerrando la grabación."
+                // Never switch silently to another input (and never to the glasses): close safely, then offer
+                // the microphones still available for the next take.
+                let others = self.audioRoute.nonGlassesAlternatives.map(\.name)
+                self.recordingStatus = "Se perdió el micrófono seleccionado; cerrando la grabación sin cambiar de micrófono." +
+                    (others.isEmpty ? "" : " Para la siguiente toma puedes elegir: " + others.joined(separator: ", ") + ".")
                 await self.finishRecording()
             }
         }
