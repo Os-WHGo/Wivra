@@ -11,7 +11,7 @@ test('Android: the start confirmation includes the network and the data use; no 
   assert.match(kt, /\+ "\\n\\n" \+ networkLine/);
   assert.match(kt, /val liveBps = 1_200_000L \+/);                                     // same bitrate as prepareVideo
   assert.match(kt, /prepareVideo\(\s*640, 480, 1_200_000/);
-  assert.doesNotMatch(kt.slice(kt.indexOf('val networkLine'), kt.indexOf('private fun startLive')), /address|endpoint|key/i);   // never shows the stream key
+  assert.doesNotMatch(kt.slice(kt.indexOf('val (route, metered)'), kt.indexOf('val confirmMessage')), /address|endpoint/i);   // the network line never uses the stream address
 });
 
 test('iPhone: network line on the LIVE screen and in the confirmation; start disabled offline', () => {
@@ -27,6 +27,7 @@ test('texts in 8 languages on both platforms', () => {
     const x = read(`streaming/android/app/src/main/res/${d}/strings.xml`);
     for (const k of ['plive_network_wifi', 'plive_network_cellular', 'plive_network_metered', 'plive_network_other', 'plive_network_offline']) {
       const m = new RegExp(`<string name="${k}">([^<]+)</string>`).exec(x); assert.ok(m, `${d} ${k}`); assert.doesNotMatch(m[1], /(^|[^\\])'/, `${d} ${k}`);
+      assert.doesNotMatch(m[1], /%\d*\$?s/, `${d} ${k}: numbers only, never the address`);
     }
   }
   for (const l of ['es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh']) {
