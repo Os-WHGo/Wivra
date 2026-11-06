@@ -303,6 +303,8 @@ public final class MainActivity extends Activity {
             startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity"));
         } else if ("screen".equals(scene) && full) {
             startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity"));
+        } else if ("screenrec".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenRecordActivity"));
         } else if ("tour".equals(scene)) {
             // Press the editor's own buttons in order (language, Skip, Capturar),
             // exactly like a person would; no editor data is read or written.
@@ -357,7 +359,15 @@ public final class MainActivity extends Activity {
     }
 
     private void showCameraSourceChooser() {
-        final String[] options = {
+        // W99 (Claude, owner decision 2A): local screen recording, FULL edition only
+        // (MediaProjection is not packaged in Wivra Capture). Nothing is transmitted.
+        final boolean screenRecord = "com.oswhgo.wivra".equals(getPackageName());
+        final String[] options = screenRecord ? new String[] {
+            getString(R.string.source_meta_option),
+            getString(R.string.source_phone_option),
+            getString(R.string.source_dual_option),
+            getString(R.string.source_screen_record_option)
+        } : new String[] {
             getString(R.string.source_meta_option),
             getString(R.string.source_phone_option),
             // Offered to every phone with a camera; the screen itself checks
@@ -369,7 +379,9 @@ public final class MainActivity extends Activity {
             // Android lists and messages share the same content area.
             // Keep setItems visible and move caveats to a separate dialog.
             .setItems(options, (dialog, selected) -> {
-                if (selected == 0) {
+                if (selected == 3 && screenRecord) {
+                    startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenRecordActivity"));
+                } else if (selected == 0) {
                     launchRayBanCameraFromDirector();
                 } else if (selected == 2 && hasPhoneCameraHardware()) {
                     startActivity(new Intent(this, WivraDualCameraActivity.class));

@@ -61,6 +61,8 @@ jobs:
             adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot tour; sleep 18; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/2-bienvenida.png"
             sleep 9; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/3-portada.png"
             sleep 9; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/4-capturar.png"
+            # W99: the local screen-recording screen (no stream key, so no FLAG_SECURE).
+            adb shell am start -W -S -n com.oswhgo.wivra/.MainActivity --es wivra_screenshot screenrec; sleep 14; adb exec-out screencap -p > "$RUNNER_TEMP/wivra-screens/5-grabar-pantalla.png"
             # LIVE screens use FLAG_SECURE (the stream key must never appear in a
             # screenshot), so they are not photographed here on purpose.
             adb shell am force-stop com.oswhgo.wivra
