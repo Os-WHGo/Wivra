@@ -488,16 +488,11 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         }
         // W93: say which network carries the stream and, on mobile data or a metered network,
         // how much of the data plan it uses, before anything is sent.
-        val (route, metered) = liveNetworkRoute()
-        if (route == WivraLiveNetwork.Route.OFFLINE) {
+        val liveBps = 1_200_000L + (if (withAudio) 64_000L else 0L)
+        val networkLine = WivraLiveNetworkProbe.confirmationLine(this, liveBps) ?: run {
             setStatus(getString(R.string.plive_network_offline))
             return
         }
-        val liveBps = 1_200_000L + (if (withAudio) 64_000L else 0L)
-        val networkLine = if (WivraLiveNetwork.warnsAboutData(route, metered))
-            getString(if (route == WivraLiveNetwork.Route.CELLULAR) R.string.plive_network_cellular else R.string.plive_network_metered,
-                WivraLiveNetwork.mbPerMinute(liveBps), WivraLiveNetwork.mbPerHour(liveBps))
-            else getString(if (route == WivraLiveNetwork.Route.WIFI) R.string.plive_network_wifi else R.string.plive_network_other)
         val confirmMessage = getString(if (saveCopy) R.string.plive_confirm_with_copy
             else R.string.plive_confirm_without_copy) + "\n\n" + networkLine
         // Never render the private endpoint or stream key in the dialog.
@@ -509,20 +504,6 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 startLive(address, withAudio, saveCopy)
             }
             .show()
-    }
-
-    private fun liveNetworkRoute(): Pair<WivraLiveNetwork.Route, Boolean> {
-        val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-            ?: return WivraLiveNetwork.Route.OTHER to false
-        val caps = try { cm.getNetworkCapabilities(cm.activeNetwork) } catch (_: SecurityException) { null }
-            ?: return WivraLiveNetwork.Route.OFFLINE to false
-        val route = when {
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> WivraLiveNetwork.Route.WIFI
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> WivraLiveNetwork.Route.CELLULAR
-            caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> WivraLiveNetwork.Route.ETHERNET
-            else -> WivraLiveNetwork.Route.OTHER
-        }
-        return route to cm.isActiveNetworkMetered
     }
 
     private fun startLive(address: String, withAudio: Boolean, saveCopy: Boolean) {
