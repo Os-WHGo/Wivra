@@ -501,6 +501,9 @@ struct MetaB0Screen: View {
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("start_meta_preview")
 
+                // Ray-Ban → LIVE through the existing iPhone LIVE engine (Claude).
+                WivraGlassesLiveSection(model: model)
+
                 Group {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Fotografía desde las gafas", systemImage: "camera")

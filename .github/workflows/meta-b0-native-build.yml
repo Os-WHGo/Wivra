@@ -11,6 +11,7 @@ on:
       - 'streaming/tests/WivraDatProfilesSmoke.swift'
       - 'streaming/tests/WivraRayBanSyncSmoke.swift'
       - 'streaming/contracts/rayban-audio-sync.json'
+      - 'streaming/contracts/rayban-live.json'
       - 'streaming/contracts/dat-profiles.json'
       - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
       - 'streaming/tests/ios-screenrec-import-editor.mjs'
@@ -74,10 +75,11 @@ jobs:
         run: |
           set -eu
           xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraDatProfiles.swift \
             streaming/ios/B0/Sources/WivraRayBanSync.swift \
             streaming/tests/WivraRayBanSyncSmoke.swift \
             -o /tmp/wivra-rayban-sync-smoke
-          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json
+          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json streaming/contracts/rayban-live.json
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu

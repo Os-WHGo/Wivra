@@ -145,3 +145,19 @@ test('Ray-Ban LIVE (Android): existing RootEncoder engine, chosen microphone onl
     assert.equal(px.toString(16).toUpperCase().padStart(8, '0'), c.argb[r * c.width + x]);
   }
 });
+
+test('Ray-Ban LIVE (iPhone): same HaishinKit controller, host-clock frames, chosen microphone, address cleared', () => {
+  const live = read('streaming/ios/B0/Sources/WivraIPhoneLiveScreen.swift');
+  assert.match(live, /func prepareGlasses\(audioRoute: WivraAudioRoute\?, profile: WivraDatProfile, relay: WivraGlassesFrameRelay\) async/);
+  assert.match(live, /try audioRoute\.activateSelectedInput\(\)/, 'WivraAudioRoute keeps HFP closed unless Bluetooth was chosen');
+  assert.match(live, /bufferingPolicy: \.bufferingNewest\(2\)/, 'bounded: older frames dropped');
+  assert.match(live, /clock\.hostTime\(pts:/);
+  assert.match(live, /videoSize: CGSize\(width: plan\.width, height: plan\.height\)/);
+  assert.match(live, /glassesRelay\?\.attach\(nil\)/);
+  const view = read('streaming/ios/B0/Sources/WivraGlassesLive.swift');
+  assert.match(view, /SecureField\(t\("ios\.rblive\.address"\), text: \$destination\)/);
+  assert.match(view, /let address = destination\n\s+destination = ""/);
+  assert.doesNotMatch(view, /AppStorage|UserDefaults|print\(/);
+  const model = read('streaming/ios/B0/Sources/MetaB0Model.swift');
+  assert.match(model, /if relay\.isAttached \{ relay\.push\(frame\.sampleBuffer\) \}/);
+});

@@ -305,3 +305,17 @@
 "ios.srec.checking" = "正在检查视频…";
 "ios.srec.imported" = "完成：它在「我的拍摄」以及编辑器的「导入 → Wivra 录制」中。";
 "ios.srec.import_failed" = "无法检查或移动视频；录制仍保留在这里。";
+
+/* Ray-Ban → LIVE (Claude) */
+"ios.rblive.title" = "用眼镜直播";
+"ios.rblive.note" = "预览开启时，iPhone 将眼镜视频（H.264）和上方所选麦克风（绝不使用眼镜麦克风）编码并通过 RTMP/RTMPS 发送。";
+"ios.rblive.prepare" = "准备用眼镜直播";
+"ios.rblive.address" = "rtmps://服务器/app/密钥（不保存）";
+"ios.rblive.copy" = "同时保留私密 MP4 副本";
+"ios.rblive.stop" = "停止眼镜直播";
+"ios.rblive.ready" = "就绪。请输入服务器的私密地址。";
+"ios.rblive.mic_route_failed" = "无法使用所选麦克风。请在上方选择其他麦克风或关闭音频。";
+"ios.rblive.confirm_title" = "开始用眼镜直播？";
+"ios.rblive.confirm" = "眼镜视频 %d × %d，%d FPS。音频：%@。将公开直播到你输入的服务器。";
+"ios.rblive.no_audio" = "无音频";
+"ios.rblive.copy_where" = "副本保持私密；可在 iPhone 直播 → 已保存视频中查看。";

@@ -91,6 +91,7 @@ extension MediaMixer {
     func wivraAppendAudio(_ box: WivraSampleBox, track: UInt8) {
         append(box.buffer, track: track)
     }
+    // Ray-Ban LIVE frames use the same hand-over (MediaMixer.append routes by media type). — Claude
 }
 
 /// Reads the video's audio as 16-bit PCM and appends it to the mixer at the

@@ -305,3 +305,17 @@
 "ios.srec.checking" = "Video wird geprüft…";
 "ios.srec.imported" = "Fertig: Sie ist in Meine Aufnahmen und im Editor unter Importieren → Wivra-Aufnahmen.";
 "ios.srec.import_failed" = "Das Video konnte nicht geprüft oder verschoben werden; die Aufnahme bleibt hier.";
+
+/* Ray-Ban → LIVE (Claude) */
+"ios.rblive.title" = "LIVE mit der Brille";
+"ios.rblive.note" = "Bei aktiver Vorschau kodiert das iPhone das Brillenvideo (H.264) und das oben gewählte Mikrofon (nie das der Brille) und sendet per RTMP/RTMPS.";
+"ios.rblive.prepare" = "LIVE mit der Brille vorbereiten";
+"ios.rblive.address" = "rtmps://server/app/schlüssel (wird nicht gespeichert)";
+"ios.rblive.copy" = "Auch eine private MP4-Kopie behalten";
+"ios.rblive.stop" = "Brillen-LIVE beenden";
+"ios.rblive.ready" = "Bereit. Gib die private Serveradresse ein.";
+"ios.rblive.mic_route_failed" = "Das gewählte Mikrofon ließ sich nicht verwenden. Wähle oben ein anderes oder schalte Audio aus.";
+"ios.rblive.confirm_title" = "LIVE mit der Brille starten?";
+"ios.rblive.confirm" = "Brillenvideo %d × %d, %d FPS. Audio: %@. Wird öffentlich an den eingegebenen Server gesendet.";
+"ios.rblive.no_audio" = "ohne Audio";
+"ios.rblive.copy_where" = "Die Kopie bleibt privat; prüfe sie unter iPhone-LIVE → gespeicherte Videos.";

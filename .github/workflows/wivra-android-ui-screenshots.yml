@@ -61,6 +61,8 @@ jobs:
             adb install -r streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
             adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraScreenRecordInstrumentedTest,com.oswhgo.wivra.WivraAcceleratedWebViewTest,com.oswhgo.wivra.WivraRayBanLiveInstrumentedTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/screen-record.txt"
             grep -E 'WIVRA-SCREENREC|WIVRA-ACCEL|WIVRA-RBLIVE|shortMsg|Error|assert' "$RUNNER_TEMP/screen-record.txt" || true
+            # Only Android's crash buffer (stack traces), to explain a "Process crashed" result. — Claude
+            adb logcat -d -b crash | tail -n 80 || true
             grep -Eq '^OK \(3 tests\)' "$RUNNER_TEMP/screen-record.txt"
             adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
             mkdir -p "$RUNNER_TEMP/wivra-screens"

@@ -1,6 +1,8 @@
 // Wivra iPhone LIVE P0 · real native phone camera -> RTMP/RTMPS.
-// Meta DAT is deliberately excluded: a registered device is not a verified LIVE source.
+// Ray-Ban (Claude, 06-11): the same controller also takes decoded DAT frames from an ACTIVE glasses preview
+// (prepareGlasses), never a merely registered device; audio only from the microphone chosen in WivraAudioRoute.
 import AVFoundation
+import VideoToolbox
 import HaishinKit
 import Observation
 import RTMPHaishinKit
@@ -41,6 +43,11 @@ final class WivraIPhoneLiveController {
     // W75 (Claude): watches the RTMP connection while on air and reconnects.
     private var connectionWatcher: Task<Void, Never>?
     private(set) var onAir = false
+    // Ray-Ban source: no phone camera; frames come through the relay into the same mixer.
+    private var glassesPlan: WivraRayBanLivePlan?
+    private var glassesRelay: WivraGlassesFrameRelay?
+    private var glassesFeed: Task<Void, Never>?
+    var isGlassesSource: Bool { glassesPlan != nil }
     private let minimumRecordingFreeBytes: Int64 = 256 * 1024 * 1024
 
     var canPrepare: Bool { phase == .idle }
@@ -131,6 +138,56 @@ final class WivraIPhoneLiveController {
         }
     }
 
+    /// Ray-Ban: a mixer without the phone camera, fed by the glasses preview. With `microphone`, only the
+    /// input already chosen in WivraAudioRoute (HFP stays closed unless a Bluetooth input was chosen).
+    func prepareGlasses(audioRoute: WivraAudioRoute?, profile: WivraDatProfile, relay: WivraGlassesFrameRelay) async {
+        guard phase == .idle else { return }
+        phase = .preparing
+        let current = UUID()
+        generation = current
+        status = wivraLiveText("ios.plive.status_requesting")
+        let microphone = audioRoute != nil
+        let capture = MediaMixer()
+        do {
+            if let audioRoute {
+                guard await AVCaptureDevice.requestAccess(for: .audio), generation == current else {
+                    status = wivraLiveText("ios.plive.mic_denied"); phase = .idle; return
+                }
+                try audioRoute.activateSelectedInput()
+                guard let input = AVCaptureDevice.default(for: .audio) else {
+                    status = wivraLiveText("ios.plive.no_mic_input"); phase = .idle; return
+                }
+                try await capture.attachAudio(input)
+            }
+            await capture.startRunning()
+            guard generation == current else { await capture.stopRunning(); return }
+            let (frames, continuation) = AsyncStream<WivraGlassesFrame>.makeStream(bufferingPolicy: .bufferingNewest(2))
+            glassesFeed = Task.detached {
+                var clock = WivraGlassesLiveClock()
+                for await frame in frames {
+                    let pts = CMSampleBufferGetPresentationTimeStamp(frame.buffer).seconds
+                    let host = clock.hostTime(pts: pts.isFinite ? pts : frame.arrival, arrival: frame.arrival)
+                    if let retimed = WivraGlassesFrameRelay.retimed(frame.buffer, hostSeconds: host) {
+                        await capture.wivraAppendAudio(WivraSampleBox(buffer: retimed), track: 0)
+                    }
+                }
+            }
+            relay.attach(continuation)
+            glassesRelay = relay
+            glassesPlan = .forProfile(profile, withAudio: microphone)
+            includesMicrophone = microphone
+            mixer = capture
+            if let preview { await capture.addOutput(preview) }
+            phase = .ready
+            status = wivraLiveText("ios.rblive.ready")
+        } catch {
+            await capture.stopRunning()
+            if microphone { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+            phase = .idle
+            status = wivraLiveText("ios.rblive.mic_route_failed")
+        }
+    }
+
     func startConfirmed(rawEndpoint: String, saveLocalCopy: Bool) async {
         guard phase == .ready, let mixer else { return }
         guard let endpoint = WivraIOSLiveEndpoint.parse(rawEndpoint) else {
@@ -148,6 +205,13 @@ final class WivraIPhoneLiveController {
         let liveStream = RTMPStream(connection: liveConnection)
         connection = liveConnection
         stream = liveStream
+        if let plan = glassesPlan {
+            // The glasses' own portrait size (never up-scaled), H.264 High, keyframe every 2 s.
+            try? await liveStream.setVideoSettings(VideoCodecSettings(
+                videoSize: CGSize(width: plan.width, height: plan.height), bitRate: plan.videoBitrate,
+                profileLevel: kVTProfileLevel_H264_High_AutoLevel as String,
+                maxKeyFrameIntervalDuration: Int32(plan.keyframeSeconds), expectedFrameRate: Double(plan.fps)))
+        }
         await mixer.addOutput(liveStream)
         // STOP may run while this actor hop is suspended. Never allocate or
         // rearm a recorder for a session that was already dismissed.
@@ -239,6 +303,11 @@ final class WivraIPhoneLiveController {
         onAir = false
         generation = UUID() // Invalidate all pending permission/connect/publish awaits.
         status = wivraLiveText("ios.plive.closing")
+        glassesRelay?.attach(nil)
+        glassesRelay = nil
+        glassesFeed?.cancel()
+        glassesFeed = nil
+        glassesPlan = nil
         await scenes?.detach()
         let localStream = stream
         let localConnection = connection

@@ -39,6 +39,10 @@ final class MetaB0Model {
               framesReceived > 0, let lastFrameUptime else { return false }
         return CACurrentMediaTime() - lastFrameUptime <= 4
     }
+    /// Ray-Ban → LIVE: decoded frames are handed to the LIVE engine only while a LIVE is prepared. — Claude
+    let liveRelay = WivraGlassesFrameRelay()
+    var glassesPreviewLive: Bool { hasFreshDATFrames && !receiveCompressedHEVC }
+
     var cameraSignalDiagnostic: String {
         if !isRegistered { return "registro pendiente" }
         if camera == nil { return "no iniciada" }
@@ -866,6 +870,7 @@ final class MetaB0Model {
             let recorder = clipRecorder
             let checkpointRecorder = segmentedRecorder
             let separateAudio = captureSelectedAudio
+            let relay = liveRelay
             stream.videoFramePublisher.listen { [weak self] frame in
                 if compressed {
                     if separateAudio {
@@ -883,6 +888,7 @@ final class MetaB0Model {
                             compressedBytes: payloadBytes)
                     }
                 } else {
+                    if relay.isAttached { relay.push(frame.sampleBuffer) }
                     let image = frame.makeUIImage()
                     Task { @MainActor [weak self] in
                         self?.onFrame(image)

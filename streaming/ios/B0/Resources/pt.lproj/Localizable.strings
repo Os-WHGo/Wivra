@@ -305,3 +305,17 @@
 "ios.srec.checking" = "Verificando o vídeo…";
 "ios.srec.imported" = "Pronto: está em Minhas capturas e no editor, em Importar → Gravações do Wivra.";
 "ios.srec.import_failed" = "Não foi possível verificar ou mover o vídeo; a gravação continua aqui.";
+
+/* Ray-Ban → LIVE (Claude) */
+"ios.rblive.title" = "LIVE com os óculos";
+"ios.rblive.note" = "Com a pré-visualização ativa: o iPhone codifica o vídeo dos óculos (H.264) e o microfone escolhido acima (nunca o dos óculos) e envia por RTMP/RTMPS.";
+"ios.rblive.prepare" = "Preparar LIVE com os óculos";
+"ios.rblive.address" = "rtmps://servidor/app/chave (não é salva)";
+"ios.rblive.copy" = "Guardar também uma cópia MP4 privada";
+"ios.rblive.stop" = "Parar LIVE dos óculos";
+"ios.rblive.ready" = "Pronto. Escreva o endereço privado do servidor.";
+"ios.rblive.mic_route_failed" = "Não foi possível usar o microfone escolhido. Escolha outro acima ou desative o áudio.";
+"ios.rblive.confirm_title" = "Começar o LIVE com os óculos?";
+"ios.rblive.confirm" = "Vídeo dos óculos %d × %d, %d FPS. Áudio: %@. Será transmitido publicamente ao servidor que escreveu.";
+"ios.rblive.no_audio" = "sem áudio";
+"ios.rblive.copy_where" = "A cópia fica privada; reveja em LIVE do iPhone → vídeos guardados.";

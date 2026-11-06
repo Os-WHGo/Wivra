@@ -305,3 +305,17 @@
 "ios.srec.checking" = "動画を確認中…";
 "ios.srec.imported" = "完了：「マイキャプチャ」とエディタの「読み込み → Wivra の録画」にあります。";
 "ios.srec.import_failed" = "動画を確認または移動できませんでした。録画はここに残っています。";
+
+/* Ray-Ban → LIVE (Claude) */
+"ios.rblive.title" = "メガネで LIVE";
+"ios.rblive.note" = "プレビュー中に、iPhone がメガネの映像（H.264）と上で選んだマイク（メガネのマイクは使いません）をエンコードし、RTMP/RTMPS で送信します。";
+"ios.rblive.prepare" = "メガネで LIVE を準備";
+"ios.rblive.address" = "rtmps://サーバー/app/キー（保存されません）";
+"ios.rblive.copy" = "非公開の MP4 コピーも保存";
+"ios.rblive.stop" = "メガネの LIVE を停止";
+"ios.rblive.ready" = "準備完了。サーバーの非公開アドレスを入力してください。";
+"ios.rblive.mic_route_failed" = "選んだマイクを使えませんでした。上で別のマイクを選ぶか、音声をオフにしてください。";
+"ios.rblive.confirm_title" = "メガネで LIVE を開始しますか？";
+"ios.rblive.confirm" = "メガネの映像 %d × %d、%d FPS。音声: %@。入力したサーバーへ公開配信されます。";
+"ios.rblive.no_audio" = "音声なし";
+"ios.rblive.copy_where" = "コピーは非公開です。iPhone の LIVE → 保存した動画で確認できます。";

@@ -21,6 +21,21 @@ struct WivraRayBanSyncSmoke {
             check(abs(clock.duration - (c["expectDurationUs"] as! NSNumber).doubleValue / 1e6) < 1e-9, why + " (duration)")
             check(clock.ptsMonotonic == (c["expectMonotonic"] as! Bool), why + " (monotonic)")
         }
+        // Ray-Ban → LIVE: host-clock times for DAT frames and the output plan (streaming/contracts/rayban-live.json).
+        let livePath = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "streaming/contracts/rayban-live.json"
+        let live = try! JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: livePath))) as! [String: Any]
+        for c in live["liveClock"] as! [[String: Any]] {
+            var clock = WivraGlassesLiveClock()
+            let got = (c["frames"] as! [[NSNumber]]).map { clock.hostTime(pts: $0[0].doubleValue, arrival: $0[1].doubleValue) }
+            let want = (c["expect"] as! [NSNumber]).map(\.doubleValue)
+            check(got.count == want.count && zip(got, want).allSatisfy { abs($0 - $1) < 1e-6 }, "live clock: " + (c["why"] as! String))
+        }
+        for p in live["plans"] as! [[String: Any]] {
+            let plan = WivraRayBanLivePlan.forProfile(WivraDatProfile(rawValue: p["profile"] as! String)!, withAudio: p["audio"] as! Bool)
+            let want = (p["expect"] as! [NSNumber]).map(\.intValue)
+            check([plan.width, plan.height, plan.fallbackWidth, plan.fallbackHeight, plan.fps, plan.videoBitrate,
+                   plan.keyframeSeconds, plan.audioSampleRate, plan.audioBitrate] == want, "live plan: " + (p["profile"] as! String))
+        }
         print("all Ray-Ban sync checks passed (iPhone code)")
     }
 }
