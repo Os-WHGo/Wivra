@@ -2599,7 +2599,7 @@ const AI_PH_LOCAL = 'Ej.: Recorta clip 1 de 2 a 7 y agrega texto "Vancouver"', A
 let aiPhLocal = null;
 function aiSync() {
   const local = $('aiMode').value === 'local';
-  $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8);
+  $('aiAsk').disabled = !session || aiBusy || !$('ask').value.trim() || (!local && $('aiKey').value.trim().length < 8 && !wvWantsAutoSubtitles($('ask').value));
   $('aiAsk').textContent = local ? 'Revisar cambio gratis' : 'Pedir propuesta a IA';
   if (aiPhLocal !== local) { aiPhLocal = local; $('ask').placeholder = local ? AI_PH_LOCAL : AI_PH_CONNECTED; }
 }
@@ -2613,6 +2613,15 @@ let aiHistory = [];
 function aiLogAdd(who, text, final) { const d = document.createElement('div'), mine = who === 'tú'; d.className = 'item ai-msg ' + (mine ? 'ai-user' : 'ai-assistant'); d.style.whiteSpace = 'pre-wrap'; d.style.textAlign = mine ? 'right' : 'left'; if (mine || final) d.dataset.notr = '1'; if (!mine) { const s = document.createElement('span'); s.textContent = '✨ '; s.setAttribute('aria-hidden', 'true'); d.appendChild(s); } d.appendChild(document.createTextNode(text)); $('aiEmpty').hidden = true; $('aiLog').appendChild(d); $('aiLog').scrollTop = $('aiLog').scrollHeight; $('aiNew').style.display = 'inline-flex'; }
 $('aiNew').onclick = () => { aiHistory = []; $('aiLog').replaceChildren($('aiEmpty')); $('aiEmpty').hidden = false; $('aiNew').style.display = 'none'; aiClear(); setDirectorAIContext(null); aiSay('Conversación nueva.'); };
 $('aiAsk').onclick = async () => {
+  if (!aiBusy && session && wvWantsAutoSubtitles($('ask').value)) {      // W86: same engine and button as Texto → Subtítulos automáticos; works without an AI key
+    const request = $('ask').value.trim(); aiLogAdd('tú', request); $('ask').value = ''; aiSync();
+    aiLogAdd('ia', aiT('Creo los subtítulos aquí mismo en el teléfono con whisper.cpp; tu audio no sale de él. Sigue el avance en Texto → Subtítulos automáticos.'));
+    selText = null; textEditorSync(); openSheet('sText'); await wvRefresh(); $('wvBox').scrollIntoView({ block: 'center' });
+    const m = WV_MODELS[$('wvModel').value]; let pack = null; try { pack = await wvGetPack(m.id); } catch {}
+    if (!pack) { aiLogAdd('ia', aiT('Primero descarga el paquete de voz «{1}».', aiT(m.name))); $('wvGet').focus(); return; }
+    if (!wvBusy) $('wvRun').onclick();
+    return;
+  }
   if (aiBusy || !session) return; aiBusy = true; aiClear(); aiSync(); aiSay('Pensando…');
   const pr = PRESETS.find(x => x.id === $('aiProv').value) || PRESETS[0], request = $('ask').value.trim();
   try {

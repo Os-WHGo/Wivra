@@ -735,3 +735,4 @@ El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez. || Impossib
 Escuchando… parte {1} de {2} · faltan unos {3} min || Ascolto… parte {1} di {2} · mancano circa {3} min
 El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta. || Il motore vocale non risponde più (forse il telefono l'ha chiuso quando sei uscito da Wivra). Non è stato aggiunto nulla; riprova con Wivra aperta.
 Mantén Wivra abierta mientras escucha: la pantalla no se apagará. || Tieni Wivra aperta mentre ascolta: lo schermo resterà acceso.
+Creo los subtítulos aquí mismo en el teléfono con whisper.cpp; tu audio no sale de él. Sigue el avance en Texto → Subtítulos automáticos. || Creo i sottotitoli qui sul telefono con whisper.cpp; il tuo audio non esce. Segui l'avanzamento in Testo → Sottotitoli automatici.

@@ -92,6 +92,11 @@ export function wvEtaMinutes(doneSamples, totalSamples, elapsedMs) {
   return Math.max(1, Math.ceil((elapsedMs / doneSamples) * (totalSamples - doneSamples) / 60000));
 }
 
+/** A chat request for automatic subtitles (8 languages), not to import, save or remove them. */
+const WV_ASK = /(subt[ií]tul|subtitl|legenda|sous-titr|untertitel|sottotitol|\bcaptions?\b|transcrib|transcrev|transkrib|trascriv|字幕)/iu;
+const WV_NOT = /(\.srt|\.vtt|\bsrt\b|\bvtt\b|import|guard|export|quita|borra|elimina|remove|delete|apaga|entfern|lösch|supprim|rimuov|cancella|apag|削除|删除)/iu;
+export const wvWantsAutoSubtitles = (text) => { const t = String(text || ''); return t.length <= 200 && WV_ASK.test(t) && !WV_NOT.test(t); };
+
 /** SHA-256 as lowercase hex (WebCrypto; available in WebView/WKWebView and Node 18+). */
 export async function wvSha256Hex(buf, subtle = globalThis.crypto?.subtle) {
   if (!subtle) throw new Error('WebCrypto no disponible');

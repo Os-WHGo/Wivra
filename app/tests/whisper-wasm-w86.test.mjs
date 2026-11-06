@@ -73,3 +73,11 @@ test('time left from the measured pace; nothing before the first piece', async (
   assert.equal(wvEtaMinutes(30, 31, 1000), 1);           // never «0 min»
   assert.equal(wvEtaMinutes(90, 90, 60000), null);
 });
+
+test('chat requests for automatic subtitles in 8 languages; import, save or remove are not', async () => {
+  const { wvWantsAutoSubtitles: w } = await import('../ai/whisper-wasm.mjs');
+  for (const t of ['Ponle subtítulos', 'subtitula el video', 'add captions', 'Add subtitles please', 'coloca legendas', 'ajoute des sous-titres', 'Untertitel hinzufügen', 'aggiungi i sottotitoli', '字幕をつけて', '加字幕', 'transcribe el audio'])
+    assert.equal(w(t), true, t);
+  for (const t of ['guarda los subtítulos como srt', 'importa subtítulos .vtt', 'quita los subtítulos', 'remove the captions', 'pon un texto «Hola»', 'recorta el video 1 de 2 a 5', ''])
+    assert.equal(w(t), false, t);
+});
