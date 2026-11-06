@@ -13,6 +13,7 @@ on:
     paths:
       - 'tools/whisper-wasm/**'
       - 'tools/browser-whisper-subtitles.cjs'
+      - 'tools/browser-whisper-dictation.cjs'
       - 'app/vendor/whisper/**'
       - 'app/ai/whisper-wasm.mjs'
       - 'streaming/ios/B0/Sources/WivraEditorE2EHook.swift'
@@ -182,6 +183,11 @@ jobs:
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/en.webm video/webm base en country,ask
       - name: Editor flow in Chromium · Tiny · Spanish (no word requirement)
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm tiny es ''
+      - name: Dictation in the editor chat · Chromium fake microphone · Tiny and Base · Spanish
+        run: |
+          w=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$w" ] || w=/tmp/wv-fx/es.wav
+          node tools/browser-whisper-dictation.cjs "$w" tiny es "$(cat /tmp/wv-fx/flow-words.txt)" 9
+          node tools/browser-whisper-dictation.cjs "$w" base es "$(cat /tmp/wv-fx/flow-words.txt)" 9
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-fixtures

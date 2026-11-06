@@ -99,3 +99,10 @@ test('long recognized sentences become short captions without losing a word', as
   assert.match(c[1].text + ' ' + c[2].text, /you\. Ask|^Ask/);               // sentence end respected somewhere
   assert.deepEqual(wvCaptionCues([{ start: 1, end: 2, text: 'Hola.' }]), [{ start: 1, end: 2, text: 'Hola.' }]);
 });
+
+test('W89: short encoder window for short audio only', async () => {
+  const { wvAudioCtx } = await import('../ai/whisper-wasm.mjs');
+  assert.equal(wvAudioCtx(16000 * 3), 278);        // 3 s → 150 frames + 128 margin
+  assert.equal(wvAudioCtx(16000 * 30), 0);         // full pieces keep the full window
+  assert.ok(wvAudioCtx(16000 * 28) <= 1500);
+});

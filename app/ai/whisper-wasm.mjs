@@ -32,6 +32,10 @@ export function wvAudioCtx(nSamples, rate = WV_RATE, margin = 128) {
   const s = nSamples / rate;
   return s >= 29 ? 0 : Math.min(1500, Math.ceil(s * 50) + margin);
 }
+/** Dictation in the editor chat (W89): at most this many seconds per take. */
+export const WV_DICT_MAX_S = 30;
+/** Dictation uses the short encoder window (wvAudioCtx). Set from the CI comparison W89. */
+export const WV_DICT_SHORT_WINDOW = true;
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
