@@ -7,6 +7,7 @@ on:
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - 'streaming/tests/WivraPhotosActiveSaveSmoke.swift'
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
+      - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
@@ -31,6 +32,16 @@ jobs:
         run: node --test streaming/tests/unified-ios-pending-video-review.test.mjs
       - name: Verify recoverable CAF-only recording and consent contracts
         run: node --test streaming/tests/unified-ios-audio-orphan-recovery.test.mjs
+      - name: W108 · iPhone screen-recording writer with synthetic frames and sound (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Shared/WivraScreenRecordShared.swift \
+            streaming/ios/B0/Shared/WivraScreenRecordWriter.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraScreenRecordWriterSmoke.swift \
+            -o /tmp/wivra-screenrec-writer-smoke
+          /tmp/wivra-screenrec-writer-smoke
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu
