@@ -44,7 +44,7 @@ tasks.named('preBuild') { dependsOn 'syncWivraAssets' }
 // Test APK only. Without build/wivra-e2e-input/input.json the whisper test skips itself.
 tasks.register('syncWivraE2E', Sync) {
     from(rootProject.file('../../tools/whisper-wasm')) { include 'e2e-driver.js' }
-    from(layout.buildDirectory.dir('wivra-e2e-input')) { include 'input.json' }
+    from(layout.buildDirectory.dir('wivra-e2e-input')) { include 'input.json'; include 'long.webm' }   // W106: 11-min long-mode video
     into(layout.buildDirectory.dir('generated/wivra-e2e'))
 }
 tasks.named('preBuild') { dependsOn 'syncWivraE2E' }
