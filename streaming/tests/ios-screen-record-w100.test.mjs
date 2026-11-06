@@ -11,6 +11,8 @@ const plist = read(b0+'ScreenRecordExtension/Info.plist');
 const extEnt = read(b0+'ScreenRecordExtension/WivraScreenRecord.entitlements');
 const appEnt = read(b0+'WivraMetaB0.entitlements');
 const shared = read(b0+'Shared/WivraScreenRecordShared.swift');
+// W108: the file writing moved from the extension to a shared writer (checked on macOS); same rules.
+const writer = read(b0+'Shared/WivraScreenRecordWriter.swift');
 const inbox = read(b0+'Sources/WivraScreenRecordInbox.swift');
 const screen = read(b0+'Sources/WivraScreenRecordScreen.swift');
 const app = read(b0+'Sources/WivraMetaB0App.swift');
@@ -34,11 +36,12 @@ test('a ReplayKit upload extension embedded in the app, sharing only one App Gro
 });
 
 test('nothing is uploaded: files are written locally and the network is never used', () => {
-  for (const src of [handler, inbox, screen, shared]) {
+  for (const src of [handler, writer, inbox, screen, shared]) {
     assert.doesNotMatch(src, /URLSession|URLRequest|http:|https:|RTMP|HaishinKit|NWConnection|upload\(/);
   }
-  assert.match(handler, /AVAssetWriter\(outputURL: folder\.appendingPathComponent\(name\), fileType: \.mov\)/);
-  assert.match(handler, /fileType: \.m4a/);
+  assert.match(writer, /AVAssetWriter\(outputURL: videoURL, fileType: \.mov\)/);
+  assert.match(writer, /fileType: \.m4a/);
+  assert.match(handler, /writer = WivraScreenRecordWriter\(folder: dir, id: id\)/);
 });
 
 test('iOS starts and stops it; the microphone is the person\'s choice in the iOS sheet', () => {
@@ -50,17 +53,18 @@ test('iOS starts and stops it; the microphone is the person\'s choice in the iOS
 });
 
 test('small memory: frames go straight to the encoder or are dropped, never queued', () => {
-  assert.match(handler, /input\.expectsMediaDataInRealTime = true/);
-  assert.match(handler, /if input\.isReadyForMoreMediaData \{ input\.append\(sample\) \}/);
-  assert.doesNotMatch(handler, /\[CMSampleBuffer\]|CIContext|UIImage|append\(contentsOf/);
+  assert.match(writer, /input\.expectsMediaDataInRealTime = true/);
+  assert.match(writer, /if input\.isReadyForMoreMediaData \{ input\.append\(sample\) \}/);
+  for (const src of [handler, writer]) assert.doesNotMatch(src, /\[CMSampleBuffer\]|CIContext|UIImage|append\(contentsOf/);
 });
 
 test('every stop keeps what was recorded; an abrupt end is still recoverable', () => {
-  assert.match(handler, /writer\.movieFragmentInterval = CMTime\(seconds: 2/);
-  assert.match(handler, /override func broadcastFinished\(\)/);
-  assert.match(handler, /writer\.finishWriting \{ done\.signal\(\) \}/);
+  assert.match(writer, /writer\.movieFragmentInterval = CMTime\(seconds: Self\.fragmentSeconds/);
+  assert.match(writer, /static let fragmentSeconds = 2\.0/);
+  assert.match(handler, /override func broadcastFinished\(\) \{\s*queue\.sync \{\s*ended = true\s*writer\?\.close\(reason: "stopped"\)/);
+  assert.match(writer, /writer\.finishWriting \{ done\.signal\(\) \}/);
   assert.match(handler, /Shared\.mustStop\(freeBytes:/);
-  assert.match(handler, /session\?\.finished = allClean/);
+  assert.match(writer, /session\.finished = videoClean/);
   assert.match(handler, /DispatchQueue\.main\.async \{ \[weak self\] in self\?\.finishBroadcastWithError\(error\) \}/);
   // A recording still being written is never listed; an interrupted one is offered, marked as such.
   assert.match(inbox, /if !session\.finished && now\.timeIntervalSince\(lastWrite\) < Shared\.staleSeconds \{ continue \}/);
