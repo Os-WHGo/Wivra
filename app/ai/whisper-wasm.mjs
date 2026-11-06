@@ -24,6 +24,14 @@ export const WV_CHUNK_S = 30;          // whisper's own window; keeps memory sma
 export const WV_FALLBACK = true;
 /** Silence put before each piece: speech that starts right at 0.0 s loses its first word (measured in CI W86). */
 export const WV_LEAD_S = 0.5;
+/**
+ * Encoder window for short audio (whisper encodes 30 s even for 3 s of speech): 50 frames per second
+ * of audio plus a margin, capped at the full 1500. 0 = full window (pieces of ~30 s, subtitles).
+ */
+export function wvAudioCtx(nSamples, rate = WV_RATE, margin = 128) {
+  const s = nSamples / rate;
+  return s >= 29 ? 0 : Math.min(1500, Math.ceil(s * 50) + margin);
+}
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
@@ -144,7 +152,7 @@ self.onmessage = async (e) => {
     } else if (m.type === 'run') {
       const pcm = m.pcm, sp = wvMod._malloc(pcm.length * 4);
       if (!sp) { postMessage({ type: 'result', id: m.id, json: '{"error":"MEMORY"}' }); return; }
-      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang, m.fallback ? 1 : 0); wvMod._free(sp);
+      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang, m.fallback ? 1 : 0, m.audioCtx | 0); wvMod._free(sp);
       postMessage({ type: 'result', id: m.id, json });
     }
   } catch (err) { postMessage({ type: 'error', message: String((err && err.message) || err) }); }
