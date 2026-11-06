@@ -51,15 +51,23 @@ object WivraPhoneMediaStore {
             file.name.startsWith(PRIVATE_PREFIX) && file.name.endsWith(".mp4")
     }
 
+    // W99 (Claude): a file still being written (screen recording running in the
+    // background) is never offered for review, saving or deleting elsewhere.
+    private val writing = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    fun markWriting(file: File) { writing.add(file.canonicalPath) }
+    fun doneWriting(file: File) { writing.remove(file.canonicalPath) }
+    fun isWriting(file: File): Boolean = writing.contains(file.canonicalPath)
+
     fun pendingVideos(context: Context): List<File> =
         directory(context).listFiles()
-            ?.filter { it.isFile && isWivraPrivate(context, it) && it.length() > 0L }
+            ?.filter { it.isFile && isWivraPrivate(context, it) && it.length() > 0L && !isWriting(it) }
             ?.sortedByDescending { it.lastModified() }
             ?.take(30) ?: emptyList()
 
     /** Atomic-ish MediaStore publishing: hidden until copy fully closes. */
     fun publish(context: Context, privateVideo: File): Uri {
         require(isWivraPrivate(context, privateVideo)) { "Not a Wivra-owned pending video" }
+        require(!isWriting(privateVideo)) { "Still being recorded" }
         if (!privateVideo.isFile || privateVideo.length() == 0L)
             throw IOException("No valid pending MP4 data")
         val resolver = context.contentResolver
@@ -91,6 +99,7 @@ object WivraPhoneMediaStore {
 
     fun discard(context: Context, privateVideo: File): Boolean {
         require(isWivraPrivate(context, privateVideo)) { "Not a Wivra-owned pending video" }
+        require(!isWriting(privateVideo)) { "Still being recorded" }
         val wav = privateWav(context, privateVideo)
         val timing = File(directory(context), privateVideo.name.removeSuffix(".mp4") + ".wivra.json")
         val videoGone = !privateVideo.exists() || privateVideo.delete()

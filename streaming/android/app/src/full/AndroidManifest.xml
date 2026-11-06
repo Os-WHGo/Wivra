@@ -18,5 +18,13 @@
         <service android:name=".WivraScreenLiveService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|camera|microphone" />
+        <!-- W99 (Claude, owner decision 2A): local screen recording, never transmitted.
+             Microphone type only when the owner ticks it and grants RECORD_AUDIO. -->
+        <activity android:name=".WivraScreenRecordActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+        <service android:name=".WivraScreenRecordService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|microphone" />
     </application>
 </manifest>
