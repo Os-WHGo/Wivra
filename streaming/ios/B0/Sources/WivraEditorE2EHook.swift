@@ -18,12 +18,26 @@ enum WivraEditorE2EHook {
             print("WIVRA-E2E: no driver/input in \(dir.path)")
             return
         }
+        // W107: an optional long video, handed to the native piece reader exactly as the file chooser does.
+        let longVideo = dir.appendingPathComponent("Wivra_Long.mp4")
+        let longData = try? Data(contentsOf: longVideo)
+        if longData != nil { WivraAudioSegments.remember([longVideo]) }
         let output = dir.appendingPathComponent("output.json")
         try? FileManager.default.removeItem(at: output)
         Task { @MainActor [weak webView] in
             try? await Task.sleep(for: .seconds(8))
             guard let webView else { return }
             _ = await run(webView, "window.__wvE2EIn = " + input + "; 'set'")
+            if let longData {
+                let b64 = longData.base64EncodedString()
+                _ = await run(webView, "window.__wvLongB64 = []; 'ok'")
+                var at = b64.startIndex
+                while at < b64.endIndex {
+                    let end = b64.index(at, offsetBy: 1_000_000, limitedBy: b64.endIndex) ?? b64.endIndex
+                    _ = await run(webView, "window.__wvLongB64.push('" + String(b64[at..<end]) + "'); 'ok'")
+                    at = end
+                }
+            }
             _ = await run(webView, driver + "\n;'started'")
             print("WIVRA-E2E: started")
             for _ in 0..<900 {
