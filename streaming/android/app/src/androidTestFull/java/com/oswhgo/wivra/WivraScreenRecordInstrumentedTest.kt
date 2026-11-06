@@ -37,15 +37,22 @@ class WivraScreenRecordInstrumentedTest {
         return what()
     }
 
+    /** Any letter case: Android may show dialog buttons in capitals. */
+    private fun text(id: Int) = By.text(Pattern.compile("(?i)" + Pattern.quote(context.getString(id))))
+
+    /** What is on screen, for a readable failure message. */
+    private fun screen(device: UiDevice): String =
+        device.findObjects(By.textContains("")).mapNotNull { it.text }.filter { it.isNotBlank() }.joinToString(" | ").take(600)
+
     @Test fun recordsTheScreenToAValidPrivateMp4() {
         val device = UiDevice.getInstance(instrumentation)
         shell("appops set ${context.packageName} PROJECT_MEDIA allow")
         context.startActivity(Intent(context, WivraScreenRecordActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        val start = device.wait(Until.findObject(By.text(context.getString(R.string.srec_start_button))), 15_000)
-        assertNotNull("start button", start)
+        val start = device.wait(Until.findObject(text(R.string.srec_start_button)), 15_000)
+        assertNotNull("start button; on screen: ${screen(device)}", start)
         start.click()
-        val go = device.wait(Until.findObject(By.text(context.getString(R.string.srec_confirm_go))), 10_000)
-        assertNotNull("confirmation dialog", go)
+        val go = device.wait(Until.findObject(text(R.string.srec_confirm_go)), 10_000)
+        assertNotNull("confirmation dialog; on screen: ${screen(device)}", go)
         go.click()
         // If Android still shows its own dialog: whole screen, then start.
         if (!waitFor(4_000) { WivraScreenRecordService.active }) {
@@ -55,7 +62,8 @@ class WivraScreenRecordInstrumentedTest {
             }
             device.wait(Until.findObject(By.text(Pattern.compile("(?i)^(start|start now|start recording|next)$"))), 5_000)?.click()
         }
-        assertTrue("recording started", waitFor(20_000) { WivraScreenRecordService.recording })
+        assertTrue("recording started; status «${WivraScreenRecordService.statusMessage}»; on screen: ${screen(device)}",
+            waitFor(20_000) { WivraScreenRecordService.recording })
         SystemClock.sleep(4_000)
         // Leave Wivra's screen so it does not take the finished file for its own review dialog.
         device.pressHome()
