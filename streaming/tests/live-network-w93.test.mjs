@@ -6,12 +6,18 @@ const read = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8')
 
 test('Android: the start confirmation includes the network and the data use; no start without Internet', () => {
   const kt = read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraPhoneLiveActivity.kt');
-  assert.match(kt, /if \(route == WivraLiveNetwork\.Route\.OFFLINE\) \{\s*setStatus\(getString\(R\.string\.plive_network_offline\)\)\s*return/);
-  assert.match(kt, /WivraLiveNetwork\.warnsAboutData\(route, metered\)/);
+  assert.match(kt, /WivraLiveNetworkProbe\.confirmationLine\(this, liveBps\) \?: run \{\s*setStatus\(getString\(R\.string\.plive_network_offline\)\)\s*return/);
+  const probe = read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraLiveNetworkProbe.kt');
+  assert.match(probe, /WivraLiveNetwork\.warnsAboutData\(route, metered\)/);
+  assert.match(probe, /if \(route == WivraLiveNetwork\.Route\.OFFLINE\) return null/);
+  const screen = read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraScreenLiveActivity.kt');                  // W94
+  assert.match(screen, /WivraLiveNetworkProbe\.confirmationLine\(this, 1_200_000L/);
+  assert.match(screen, /getString\(R\.string\.slive_confirm_outro\) \+ "\\n\\n" \+ networkLine/);
+  assert.match(read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraScreenLiveService.kt'), /prepareVideo\(640, 480, 1_200_000/);
   assert.match(kt, /\+ "\\n\\n" \+ networkLine/);
   assert.match(kt, /val liveBps = 1_200_000L \+/);                                     // same bitrate as prepareVideo
   assert.match(kt, /prepareVideo\(\s*640, 480, 1_200_000/);
-  assert.doesNotMatch(kt.slice(kt.indexOf('val (route, metered)'), kt.indexOf('val confirmMessage')), /address|endpoint/i);   // the network line never uses the stream address
+  assert.doesNotMatch(kt.slice(kt.indexOf('val liveBps'), kt.indexOf('val confirmMessage')), /address|endpoint/i);   // the network line never uses the stream address
 });
 
 test('iPhone: network line on the LIVE screen and in the confirmation; start disabled offline', () => {

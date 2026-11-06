@@ -198,13 +198,18 @@ class WivraScreenLiveActivity : ComponentActivity() {
             status.text = getString(R.string.slive_endpoint_invalid)
             return
         }
+        // W94: same network line as the phone LIVE (same 1.2 Mbps profile in WivraScreenLiveService).
+        val networkLine = WivraLiveNetworkProbe.confirmationLine(this, 1_200_000L + (if (micOption.isChecked) 64_000L else 0L)) ?: run {
+            status.text = getString(R.string.plive_network_offline)
+            return
+        }
         AlertDialog.Builder(this)
             .setTitle(R.string.slive_confirm_title)
             .setMessage(
                 getString(R.string.slive_confirm_intro) + " " +
                     (if (cameraOption.isChecked) getString(R.string.screen_confirm_camera) + " " else "") +
                     (if (micOption.isChecked) getString(R.string.screen_confirm_mic) + " " else "") +
-                    getString(R.string.slive_confirm_outro)
+                    getString(R.string.slive_confirm_outro) + "\n\n" + networkLine
             )
             .setNegativeButton(R.string.plive_cancel, null)
             .setPositiveButton(R.string.slive_choose_screen) { _, _ ->
