@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">AO VIVO · câmera (sem áudio, sem MP4 local).</string>
     <string name="slive_on_air_camera_mic">AO VIVO · câmera (com microfone, sem MP4 local).</string>
     <string name="plive_preview_description">Pré-visualização da câmera para o LIVE</string>
+    <string name="phone_camera_ev_minus">Exposição −</string>
+    <string name="phone_camera_ev_plus">Exposição +</string>
+    <string name="phone_camera_ev_unsupported">Este celular não permite ajustar a exposição.</string>
+    <string name="phone_camera_night_off">Foto noturna: não</string>
+    <string name="phone_camera_night_on">Foto noturna: sim (%1$s)</string>
+    <string name="phone_camera_night_hint">Foto noturna (experimental): apoie o celular e não o mova durante %1$s.</string>
+    <string name="phone_camera_night_unsupported">Este celular não permite uma exposição longa real; a foto noturna não está disponível.</string>
+    <string name="phone_camera_night_not_during_video">A foto noturna não pode ser usada enquanto você grava vídeo.</string>
 </resources>

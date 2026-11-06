@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">配信中 · カメラ（音声なし、ローカルMP4なし）。</string>
     <string name="slive_on_air_camera_mic">配信中 · カメラ（マイクあり、ローカルMP4なし）。</string>
     <string name="plive_preview_description">LIVE用のカメラプレビュー</string>
+    <string name="phone_camera_ev_minus">露出 −</string>
+    <string name="phone_camera_ev_plus">露出 +</string>
+    <string name="phone_camera_ev_unsupported">このスマホは露出補正に対応していません。</string>
+    <string name="phone_camera_night_off">夜景写真: オフ</string>
+    <string name="phone_camera_night_on">夜景写真: オン (%1$s)</string>
+    <string name="phone_camera_night_hint">夜景写真 (試験的): スマホを置いて %1$s 動かさないでください。</string>
+    <string name="phone_camera_night_unsupported">このスマホは本当の長時間露光に対応していないため、夜景写真は使えません。</string>
+    <string name="phone_camera_night_not_during_video">動画の撮影中は夜景写真を使えません。</string>
 </resources>

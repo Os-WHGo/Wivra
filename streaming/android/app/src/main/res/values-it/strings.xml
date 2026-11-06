@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">IN ONDA · fotocamera (senza audio, senza MP4 locale).</string>
     <string name="slive_on_air_camera_mic">IN ONDA · fotocamera (con microfono, senza MP4 locale).</string>
     <string name="plive_preview_description">Anteprima della fotocamera per il LIVE</string>
+    <string name="phone_camera_ev_minus">Esposizione −</string>
+    <string name="phone_camera_ev_plus">Esposizione +</string>
+    <string name="phone_camera_ev_unsupported">Questo telefono non permette di regolare l\'esposizione.</string>
+    <string name="phone_camera_night_off">Foto notturna: no</string>
+    <string name="phone_camera_night_on">Foto notturna: sì (%1$s)</string>
+    <string name="phone_camera_night_hint">Foto notturna (sperimentale): appoggia il telefono e non muoverlo per %1$s.</string>
+    <string name="phone_camera_night_unsupported">Questo telefono non permette una vera lunga esposizione; la foto notturna non è disponibile.</string>
+    <string name="phone_camera_night_not_during_video">La foto notturna non si può usare mentre registri un video.</string>
 </resources>

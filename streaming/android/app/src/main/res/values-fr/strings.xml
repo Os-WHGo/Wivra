@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">EN DIRECT · caméra (sans audio, sans MP4 local).</string>
     <string name="slive_on_air_camera_mic">EN DIRECT · caméra (avec micro, sans MP4 local).</string>
     <string name="plive_preview_description">Aperçu de la caméra pour le LIVE</string>
+    <string name="phone_camera_ev_minus">Exposition −</string>
+    <string name="phone_camera_ev_plus">Exposition +</string>
+    <string name="phone_camera_ev_unsupported">Ce téléphone ne permet pas de régler l\'exposition.</string>
+    <string name="phone_camera_night_off">Photo de nuit : non</string>
+    <string name="phone_camera_night_on">Photo de nuit : oui (%1$s)</string>
+    <string name="phone_camera_night_hint">Photo de nuit (expérimental) : pose le téléphone et ne le bouge pas pendant %1$s.</string>
+    <string name="phone_camera_night_unsupported">Ce téléphone ne permet pas une vraie pose longue ; la photo de nuit n\'est pas disponible.</string>
+    <string name="phone_camera_night_not_during_video">La photo de nuit n\'est pas disponible pendant l\'enregistrement vidéo.</string>
 </resources>

@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">AUF SENDUNG · Kamera (ohne Ton, ohne lokale MP4).</string>
     <string name="slive_on_air_camera_mic">AUF SENDUNG · Kamera (mit Mikrofon, ohne lokale MP4).</string>
     <string name="plive_preview_description">Kameravorschau für LIVE</string>
+    <string name="phone_camera_ev_minus">Belichtung −</string>
+    <string name="phone_camera_ev_plus">Belichtung +</string>
+    <string name="phone_camera_ev_unsupported">Dieses Handy erlaubt keine Belichtungskorrektur.</string>
+    <string name="phone_camera_night_off">Nachtfoto: aus</string>
+    <string name="phone_camera_night_on">Nachtfoto: an (%1$s)</string>
+    <string name="phone_camera_night_hint">Nachtfoto (experimentell): Handy abstützen und %1$s lang nicht bewegen.</string>
+    <string name="phone_camera_night_unsupported">Dieses Handy erlaubt keine echte Langzeitbelichtung; Nachtfoto ist nicht verfügbar.</string>
+    <string name="phone_camera_night_not_during_video">Nachtfoto ist während einer Videoaufnahme nicht möglich.</string>
 </resources>

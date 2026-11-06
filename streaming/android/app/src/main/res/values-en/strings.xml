@@ -403,4 +403,12 @@
     <string name="slive_on_air_camera">ON AIR · camera (no audio, no local MP4).</string>
     <string name="slive_on_air_camera_mic">ON AIR · camera (with microphone, no local MP4).</string>
     <string name="plive_preview_description">Camera preview for LIVE</string>
+    <string name="phone_camera_ev_minus">Exposure −</string>
+    <string name="phone_camera_ev_plus">Exposure +</string>
+    <string name="phone_camera_ev_unsupported">This phone does not allow adjusting the exposure.</string>
+    <string name="phone_camera_night_off">Night photo: off</string>
+    <string name="phone_camera_night_on">Night photo: on (%1$s)</string>
+    <string name="phone_camera_night_hint">Night photo (experimental): rest the phone and keep it still for %1$s.</string>
+    <string name="phone_camera_night_unsupported">This phone does not allow a real long exposure; night photo is not available.</string>
+    <string name="phone_camera_night_not_during_video">Night photo cannot be used while recording video.</string>
 </resources>
