@@ -5157,9 +5157,10 @@ const wvModelUrl = (m) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/
 const WV_LANGS = ['auto', 'es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh'];
 const WV_RATE = 16000;
 const WV_CHUNK_S = 30;          // whisper's own window; keeps memory small and progress visible
-/** Temperature fallback (whisper re-decodes doubtful pieces at higher temperatures). Measured in CI W86:
- *  see docs/WIVRA_W86_AUTO_SUBTITLES_WHISPER_2026-11-06.md. Off = one greedy pass (faster on phones). */
-const WV_FALLBACK = false;
+/** Temperature fallback: whisper re-decodes doubtful pieces (repetition loops, low confidence) at higher
+ *  temperatures. On: protects against loops («de la parte de la parte…», seen with Tiny without it); costs
+ *  time only on doubtful pieces. Measured in CI W86 (docs/WIVRA_W86_AUTO_SUBTITLES_WHISPER_2026-11-06.md). */
+const WV_FALLBACK = true;
 const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
