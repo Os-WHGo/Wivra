@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "On revient tout de suite";
 "ios.live.standby_thanks" = "Merci d'avoir regardé";
 "ios.live.standby_footer" = "En direct avec Wivra";
+"ios.plive.net_wifi" = "Réseau : Wi‑Fi.";
+"ios.plive.net_cellular" = "Réseau : données mobiles. Une vidéo en direct consomme en général 5 à 15 Mo par minute de ton forfait.";
+"ios.plive.net_metered" = "Réseau limité ou en mode données réduites : une vidéo en direct consomme en général 5 à 15 Mo par minute.";
+"ios.plive.net_other" = "Réseau : connecté.";
+"ios.plive.net_offline" = "Pas de connexion Internet. Connecte-toi au Wi‑Fi ou aux données mobiles pour diffuser.";

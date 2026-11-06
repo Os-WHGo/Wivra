@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "Bin gleich zurück";
 "ios.live.standby_thanks" = "Danke fürs Zuschauen";
 "ios.live.standby_footer" = "Live mit Wivra";
+"ios.plive.net_wifi" = "Netz: WLAN.";
+"ios.plive.net_cellular" = "Netz: mobile Daten. Ein Live-Video verbraucht meist 5 bis 15 MB pro Minute deines Tarifs.";
+"ios.plive.net_metered" = "Begrenztes Netz oder Datensparmodus: Ein Live-Video verbraucht meist 5 bis 15 MB pro Minute.";
+"ios.plive.net_other" = "Netz: verbunden.";
+"ios.plive.net_offline" = "Keine Internetverbindung. Verbinde dich mit WLAN oder mobilen Daten, um zu streamen.";

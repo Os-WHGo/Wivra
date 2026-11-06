@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "马上回来";
 "ios.live.standby_thanks" = "感谢观看";
 "ios.live.standby_footer" = "用 Wivra 直播";
+"ios.plive.net_wifi" = "网络：Wi‑Fi。";
+"ios.plive.net_cellular" = "网络：移动数据。直播通常每分钟消耗 5 到 15 MB 套餐流量。";
+"ios.plive.net_metered" = "受限网络或低数据模式：直播通常每分钟消耗 5 到 15 MB。";
+"ios.plive.net_other" = "网络：已连接。";
+"ios.plive.net_offline" = "没有网络连接。请连接 Wi‑Fi 或移动数据后再直播。";

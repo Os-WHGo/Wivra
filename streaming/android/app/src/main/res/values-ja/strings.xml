@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">ご視聴ありがとうございました</string>
     <string name="scene_standby_footer">Wivra でライブ配信中</string>
     <string name="scene_standby_ready">待機画面の準備ができました。表示中はマイクがミュートになります。</string>
+    <string name="plive_network_wifi">ネットワーク：Wi‑Fi。</string>
+    <string name="plive_network_cellular">ネットワーク：モバイルデータ。配信するとプランのデータを 1 分あたり約 %1$d MB（1 時間あたり約 %2$d MB）使います。</string>
+    <string name="plive_network_metered">従量制ネットワーク：配信すると 1 分あたり約 %1$d MB（1 時間あたり約 %2$d MB）使います。</string>
+    <string name="plive_network_other">ネットワーク：接続中。</string>
+    <string name="plive_network_offline">インターネットに接続されていません。配信するには Wi‑Fi かモバイルデータに接続してください。</string>
 </resources>
