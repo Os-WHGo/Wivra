@@ -9,6 +9,8 @@ on:
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
       - 'streaming/tests/WivraDatProfilesSmoke.swift'
+      - 'streaming/tests/WivraRayBanSyncSmoke.swift'
+      - 'streaming/contracts/rayban-audio-sync.json'
       - 'streaming/contracts/dat-profiles.json'
       - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
       - 'streaming/tests/ios-screenrec-import-editor.mjs'
@@ -68,6 +70,14 @@ jobs:
             streaming/tests/WivraDatProfilesSmoke.swift \
             -o /tmp/wivra-dat-profiles-smoke
           /tmp/wivra-dat-profiles-smoke streaming/contracts/dat-profiles.json
+      - name: Ray-Ban · video anchoring for the independent microphone on iPhone code (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraRayBanSync.swift \
+            streaming/tests/WivraRayBanSyncSmoke.swift \
+            -o /tmp/wivra-rayban-sync-smoke
+          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu

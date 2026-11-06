@@ -76,6 +76,47 @@ This is not yet measured on Wivra's glasses; the physical matrix below confirms 
   - Simultaneous local MP4.
   - Reconnection with the existing policy.
 
+## «Solo vídeo» + independent microphone (Gen 2 priority)
+
+The glasses' microphone (Bluetooth HFP) is **never** used for these recordings. The person chooses the audio:
+
+- the phone's microphone (default);
+- a wired or USB-C one, including USB wireless receivers;
+- an external Bluetooth one, only if Android/iOS gives it a readable name that is not the glasses';
+- no audio («Solo vídeo»).
+
+### iPhone
+
+- `WivraAudioRoute`: Bluetooth (HFP) stays closed unless the person explicitly picks a Bluetooth input. If HFP is open for another choice, the audio does not start.
+- It records the existing CAF sidecar, the manifest v2 and the local mux.
+- The CAF offset is now anchored on the **least-delayed** DAT sample, `min(arrival − pts)`, instead of the first arrival (`WivraRayBanSync.swift`). This is checked by a macOS Swift smoke test.
+
+### Android
+
+| Item | What happens |
+|-|-|
+| Capture | The chosen input records a 48 kHz WAV inside the capture service, next to the HEVC parts. The `microphone` service type is declared only when a microphone was chosen. The recorder checks, on every read, that the routed input is the chosen one. |
+| Missing microphone | The person is told and offered the inputs that are connected, or «Grabar solo vídeo». Wivra never switches by itself. |
+| Microphone lost midway | The video continues, the audio up to that moment is kept, and the person is told. |
+| Sync | Everything uses one monotonic clock (`elapsedRealtimeNanos`). Each 30-second part is anchored on its least-delayed sample. The audio is anchored on its first read minus the first chunk. Drift is measured, and corrected only after ≥ 5 min of audio and when it is ≤ 2000 ppm. |
+| «Conservar» | Each part gets its exact PCM frames: a byte copy, with no re-encoding. The audio is published in `Music/Wivra/` with the same name as its MP4, and the editor imports the pair as a capture (manifest v2, `android-rayban-dat`). If a part cannot get its slice, the complete WAV is published. The private original is deleted only when its audio is already public. |
+| «Descartar» | Confirmed twice. The audio of the discarded parts is deleted with them. |
+
+- **Contract:** `streaming/contracts/rayban-audio-sync.json`, checked by a JVM test, a JavaScript twin and the Swift smoke test.
+- **Not measured:** the delay between the glasses' sensor and the phone. DAT 1.0.1 does not expose it. The manifest says `videoLinkLatencyMs: null`. The physical clap test measures it.
+
+### LIVE with an external microphone (next step)
+
+The same choice will feed the existing LIVE engine: Ray-Ban video plus AAC from the selected microphone, over RTMP/RTMPS. It is not implemented yet in this block.
+
+### Physical tests for this mode (from 16-11)
+
+1. Clap in front of the glasses at 1 m with each microphone (phone, USB-C, USB wireless receiver, external Bluetooth). In the editor, note the gap between the image and the sound of the clap, at the start and at minute 10.
+2. With the glasses connected: check that the HFP line says «cerrado» and that Android/iOS shows no Bluetooth call.
+3. Unplug the USB microphone in the middle of a recording. Check that the video continues, the notice appears, and the audio up to that point is saved.
+4. Record 10 minutes, then «Conservar». Check that each part has its WAV with the same name, and that the editor imports «Captura» with its audio.
+5. Compare one take with the glasses' microphone (outside Wivra, for reference) against the phone or USB microphone: noise, volume and sync.
+
 ## Image improvements
 
 None were added in this block. The original image stays untouched, and resolution is not invented. Possible options for later, measuring heat:

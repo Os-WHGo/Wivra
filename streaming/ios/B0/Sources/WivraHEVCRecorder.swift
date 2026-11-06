@@ -28,8 +28,10 @@ final class WivraHEVCRecorder: @unchecked Sendable {
     private var sourceStartTime: CMTime?
     private var previousDTS: CMTime?
     private var videoStartUptime: Double?
+    // Ray-Ban + independent microphone: anchor on the least-delayed written sample (WivraRayBanSync.swift).
+    private var partClock = WivraRayBanPartClock()
     func firstVideoSampleUptime() -> Double? {
-        queue.sync { videoStartUptime }
+        queue.sync { partClock.start ?? videoStartUptime }
     }
     var writtenFrames: Int { queue.sync { appendedCount } }
     private var appendedCount = 0
@@ -49,6 +51,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
             sourceStartTime = nil
             previousDTS = nil
             videoStartUptime = nil
+            partClock = WivraRayBanPartClock()
             appendedCount = 0
             droppedCount = 0
             return true
@@ -144,6 +147,7 @@ final class WivraHEVCRecorder: @unchecked Sendable {
                 // Anchor the FIRST successfully appended keyframe, never a
                 // discarded frame or the time AVAssetWriter was constructed.
                 if appendedCount == 0 { videoStartUptime = receivedAtUptime }
+                partClock.observe(arrival: receivedAtUptime, pts: originalPTS.seconds)
                 previousDTS = dts
                 appendedCount += 1
             } else {

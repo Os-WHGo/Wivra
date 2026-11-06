@@ -106,3 +106,13 @@ test('editor import: Ray-Ban part + its slice as one manifest v2 capture', () =>
   const manifest = read('streaming/android/app/src/main/AndroidManifest.xml');
   assert.match(manifest, /FOREGROUND_SERVICE_MICROPHONE/);
 });
+
+test('iPhone uses the same least-delayed anchor for the CAF offset, checked by a Swift smoke test', () => {
+  const rec = read('streaming/ios/B0/Sources/WivraHEVCRecorder.swift');
+  assert.match(rec, /queue\.sync \{ partClock\.start \?\? videoStartUptime \}/);
+  assert.match(rec, /partClock\.observe\(arrival: receivedAtUptime, pts: originalPTS\.seconds\)/);
+  const sync = read('streaming/ios/B0/Sources/WivraRayBanSync.swift');
+  assert.match(sync, /return ptsMonotonic \? minDelta \+ firstPts : firstArrival/);
+  const wf = read('.github/workflows/meta-b0-native-build.yml');
+  assert.match(wf, /\/tmp\/wivra-rayban-sync-smoke streaming\/contracts\/rayban-audio-sync\.json/);
+});
