@@ -240,6 +240,11 @@ jobs:
           for language in es en pt fr de ja zh it; do
             test -s "$app/${language}.lproj/Localizable.strings"
           done
+          # W100: the screen-recording extension is embedded with ReplayKit's upload point.
+          ext="$app/PlugIns/WivraScreenRecord.appex"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$ext/Info.plist")" = "com.apple.broadcast-services-upload"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$ext/Info.plist")" = "com.oswhgo.WivraMetaB0.ScreenRecord"
+          test -s "$ext/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$ext/Info.plist")"
       - name: Package UNSIGNED IPA (owner must sign before installing)
         working-directory: streaming/ios/B0
         run: |

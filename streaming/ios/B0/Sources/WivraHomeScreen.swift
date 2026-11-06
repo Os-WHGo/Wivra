@@ -5,6 +5,7 @@ import SwiftUI
 
 enum WivraHomeAction: Hashable {
     case newProject, director, aiChat, capturePhone, captureRayBan, live, captures, exports
+    case screenRecord   // W100: iPhone screen recording (local only)
 }
 
 struct WivraHomeScreen: View {
@@ -43,6 +44,7 @@ struct WivraHomeScreen: View {
                         .padding(.top, 10)
                         .accessibilityAddTraits(.isHeader)
                     row(.captures, "folder", "ios.home.captures", "ios.home.captures_sub")
+                    row(.screenRecord, "record.circle", "ios.home.screen_record", "ios.home.screen_record_sub")
                     row(.exports, "square.and.arrow.up.on.square", "ios.home.exports", "ios.home.exports_sub")
                     if !camerasFree {
                         Label("ios.app.handoff", systemImage: "hourglass")

@@ -54,7 +54,7 @@ jobs:
           app=.simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
           xcrun simctl install "$udid" "$app"
           mkdir -p "$RUNNER_TEMP/wivra-screens"
-          for scene in home live editor capture; do
+          for scene in home live editor capture screenrec; do
             SIMCTL_CHILD_WIVRA_SCREENSHOT="$scene" xcrun simctl launch --terminate-running-process "$udid" com.oswhgo.WivraMetaB0 -AppleLanguages '(es)' -AppleLocale es_ES
             sleep 12
             xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/wivra-screens/$scene.png"
