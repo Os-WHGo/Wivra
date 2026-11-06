@@ -78,4 +78,6 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'junit:junit:4.13.2'
+    // W105 (Claude): taps in the screen-recording emulator test (Apache-2.0, test APK only).
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
 }
