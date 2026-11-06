@@ -119,3 +119,16 @@ test('W89: recognized speech becomes AutoCut evidence per clip, only when nothin
   assert.equal(wvTimedSpeechByAsset({ ...project, audioClips: [{ asset_id: 'm', start: 0, in: 0, out: 5, muted: true }] }, segs).size, 2);
   assert.equal(wvTimedSpeechByAsset({ ...project, clips: [{ ...project.clips[0], speed: 2 }] }, segs).size, 0);
 });
+
+test('W98: each 30 s window reads only the pieces that sound in it (speed, mute, volume, layers, tracks)', async () => {
+  const { wvWindowSources, wvMixInto, wvPcmFromBase64 } = await import('../ai/whisper-wasm.mjs');
+  const project = { assets: [{ id: 'v', duration: 3600 }, { id: 'm', duration: 200 }, { id: 'p', duration: 5, kind: 'image' }],
+    clips: [{ id: 'c1', asset_id: 'v', start: 0, in: 100, out: 3700 }], overlayClips: [{ id: 'o', asset_id: 'p', start: 0, in: 0, out: 5 }],
+    audioClips: [{ id: 'a', asset_id: 'm', start: 50, in: 0, out: 100, volume: 0.5 }, { id: 'b', asset_id: 'm', start: 0, in: 0, out: 100, muted: true }] };
+  const w = wvWindowSources(project, 30, 60, 16000);
+  assert.deepEqual(w.map((x) => [x.assetId, x.from, x.to, x.at, x.frames, x.gain]), [['v', 130, 160, 0, 480000, 1], ['m', 0, 10, 320000, 160000, 0.5]]);
+  const fast = wvWindowSources({ ...project, clips: [{ ...project.clips[0], speed: 2 }], audioClips: [] }, 0, 30, 16000);
+  assert.deepEqual([fast[0].from, fast[0].to, fast[0].speed], [100, 160, 2]);
+  const win = new Float32Array(8); wvMixInto(win, 2, Float32Array.from([1, 2, 3, 4]), 3, 1, 0.5); assert.deepEqual([...win], [0, 0, 0.5, 1, 1.5, 0, 0, 0]);
+  assert.deepEqual([...wvPcmFromBase64(Buffer.from(Int16Array.from([16384, -32768]).buffer).toString('base64'))], [0.5, -1]);
+});

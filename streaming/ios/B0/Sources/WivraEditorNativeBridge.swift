@@ -47,6 +47,23 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
             if what == "capture", let script = WivraTeleprompterStore.sanitized(body["script"] as? String) { info["script"] = script }
             NotificationCenter.default.post(name: .wivraOpenNative, object: nil, userInfo: info)
             replyHandler(["opened": what], nil)
+        case "audio.pcm16k":
+            // W98: sound of one ≤ 35 s piece of a file the person chose for the editor (WivraAudioSegments);
+            // decoded 16 kHz mono PCM only, never the file or a path.
+            guard let name = body["name"] as? String, let size = (body["size"] as? NSNumber)?.int64Value,
+                  let from = (body["from"] as? NSNumber)?.doubleValue, let to = (body["to"] as? NSNumber)?.doubleValue,
+                  let url = WivraAudioSegments.lookup(name: name, size: size) else {
+                replyHandler(["ok": false, "error": "NOT_GRANTED"], nil)
+                return
+            }
+            Task { @MainActor in
+                do {
+                    let pcm = try await WivraAudioSegments.extract(url: url, from: from, to: to)
+                    replyHandler(["ok": true, "rate": WivraAudioSegments.rate, "b64": pcm.base64EncodedString()], nil)
+                } catch {
+                    replyHandler(["ok": false, "error": "UNREADABLE"], nil)
+                }
+            }
         case "capture.verifyFile":
             guard let id = body["sessionId"] as? String,
                   id.range(of: #"^[0-9a-f]{32}$"#, options: .regularExpression) != nil,
