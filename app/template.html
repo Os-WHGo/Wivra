@@ -2338,13 +2338,13 @@ $('wvRun').onclick = async () => {
     if (!ready.ok) throw Object.assign(new Error('MODEL'), { code: ready.why === 'MEMORY' ? 'WORKER' : 'MODEL' });
     for (current = 0; current < chunks.length; current++) {
       alive();
-      const c = chunks[current], pcm = mono.slice(c.from, c.to);
+      const c = chunks[current], lead = Math.round(WV_LEAD_S * WV_RATE), pcm = new Float32Array(lead + c.to - c.from); pcm.set(mono.subarray(c.from, c.to), lead);
       eta = wvEtaMinutes(c.from, mono.length, Date.now() - t0);
       wvUi(true, listening(), 5 + 95 * current / chunks.length);
       const r = await ask({ type: 'run', id: current, pcm, lang, fallback: WV_FALLBACK }, [pcm.buffer]);
       let err = null; try { err = JSON.parse(r.json).error || null; } catch { err = 'WHISPER_FAILED'; }
       if (err === 'CANCELLED') throw wvCancelled(); if (err) throw oom(err);      // never drop a piece silently
-      pieces.push({ offset: c.from / WV_RATE, limit: Math.min(duration, c.to / WV_RATE), json: r.json });
+      pieces.push({ offset: (c.from - lead) / WV_RATE, from: c.from / WV_RATE, limit: Math.min(duration, c.to / WV_RATE), json: r.json });
     }
     worker.terminate(); wvWorker = null; worker = null; job.reject = null; alive();
     const v = validateTranscript(wvMerge(pieces), { duration });

@@ -81,3 +81,9 @@ test('chat requests for automatic subtitles in 8 languages; import, save or remo
   for (const t of ['guarda los subtítulos como srt', 'importa subtítulos .vtt', 'quita los subtítulos', 'remove the captions', 'pon un texto «Hola»', 'recorta el video 1 de 2 a 5', ''])
     assert.equal(w(t), false, t);
 });
+
+test('lead silence: timestamps shift back to the timeline and never start before the piece', () => {
+  const json = JSON.stringify({ result: { language: 'es' }, transcription: [{ offsets: { from: 0, to: 2500 }, text: ' Hola.' }, { offsets: { from: 2500, to: 4000 }, text: ' Adiós.' }] });
+  const r = wvMerge([{ offset: 30 - 0.5, from: 30, limit: 60, json }]);
+  assert.deepEqual(r.segments.map((s) => [s.start, s.end]), [[30, 32], [32, 33.5]]);
+});

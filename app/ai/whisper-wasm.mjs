@@ -12,7 +12,7 @@ export const WV_MODELS = {
   base: { id: 'base', file: 'ggml-base-q5_1.bin', name: 'Preciso', approxMB: 57, bytes: 59707625, sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898' },
 };
 /** SHA-256 of app/vendor/whisper/wivra-whisper.js (whisper.cpp 0c7be69, Emscripten 3.1.74), checked at build and before each use. */
-export const WV_ENGINE_SHA256 = '7fba29c3515d10fc7df7a68e5c90d8174153f83e0381ca004c77ece9df810307';
+export const WV_ENGINE_SHA256 = '2bf5f898fa61e4f3774ba45a2308b959170eb731b764fd58283cc4273f643213';
 export const wvModelUrl = (m) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/${WV_REV}/${m.file}`;
 export const WV_LANGS = ['auto', 'es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh'];
 export const WV_RATE = 16000;
@@ -21,6 +21,8 @@ export const WV_CHUNK_S = 30;          // whisper's own window; keeps memory sma
  *  temperatures. On: protects against loops («de la parte de la parte…», seen with Tiny without it); costs
  *  time only on doubtful pieces. Measured in CI W86 (docs/WIVRA_W86_AUTO_SUBTITLES_WHISPER_2026-11-06.md). */
 export const WV_FALLBACK = true;
+/** Silence put before each piece: speech that starts right at 0.0 s loses its first word (measured in CI W86). */
+export const WV_LEAD_S = 0.5;
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
@@ -55,7 +57,7 @@ const NOISE = /^\s*[\[(（【].*[\])）】]\s*$/u;   // [BLANK_AUDIO], (música)
 
 /**
  * Merge whisper.cpp JSON results of each piece into one transcript for the contract.
- * pieces: [{ offset: seconds on the TIMELINE, limit: last valid second, json }]
+ * pieces: [{ offset: seconds on the TIMELINE of the piece's sample 0, from: first valid second, limit: last valid second, json }]
  * → { version:1, engine:'whisper.cpp', language, segments:[{start,end,text}] }
  */
 export function wvMerge(pieces) {
@@ -67,7 +69,8 @@ export function wvMerge(pieces) {
     for (const t of r.transcription) {
       const text = String(t.text || '').replace(/\s+/g, ' ').trim();
       if (!text || NOISE.test(text)) continue;
-      const start = Math.round((p.offset + t.offsets.from / 1000) * 1000) / 1000;
+      let start = Math.round((p.offset + t.offsets.from / 1000) * 1000) / 1000;
+      if (Number.isFinite(p.from)) start = Math.max(start, p.from);      // never inside the added lead silence
       let end = Math.round((p.offset + t.offsets.to / 1000) * 1000) / 1000;
       if (Number.isFinite(p.limit)) end = Math.min(end, p.limit);
       if (!(end > start)) continue;

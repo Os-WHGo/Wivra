@@ -47,9 +47,25 @@ Un mismo guion dentro de la página (`tools/whisper-wasm/e2e-driver.js`) pulsa l
 
 Nada de esto certifica un teléfono físico: el emulador y el simulador usan la CPU del servidor. Las pruebas físicas las hace el propietario.
 
-## Resultados
+## Resultados (CI Linux, Node; no es un teléfono)
 
-Se completan con los números del CI de este PR (ver el PR #196).
+Ejecución 42147xxxxx del workflow «Wivra Whisper WASM», 06-11-2026. % = palabras de la frase de referencia reconocidas.
+
+| Muestra | Base Q5_1 (Preciso) | Tiny Q5_1 (Ligero) |
+|---|---|---|
+| Inglés, voz real (JFK) | 100 % | 100 % |
+| Español, 2 voces naturales de macOS × 3 frases cotidianas | 93 · 100 · 92 · 93 · 100 · 85 (≈ 94 %) | 87 · 93 · 92 · 87 · 93 · 77 (≈ 88 %), a veces con basura («微 bra», «Polcam») |
+| Español robótico (espeak-ng) que empieza a hablar en 0,0 s | 33–67 % | 67 % |
+| El mismo con 0,5 s de silencio antes | 60 % | 67 % |
+| Tiempo por trozo (whisper siempre procesa una ventana de 30 s) | ~32 s → ≈ ×1,1 del tiempo real en trozos completos | ~13 s → ≈ ×0,45 |
+
+- **Cuantización:** Base Q8_0 y F16 dan lo mismo que Q5_1 en voz natural. Los errores de Base no vienen de la cuantización. Q8_0 fue ~30 % más rápido en WASM, pero el paquete es más grande; queda como posible mejora.
+- **Fallback de temperatura:** misma precisión en voz natural. Sin fallback, Tiny entró una vez en un bucle («de la parte de la parte…»), así que queda **encendido**.
+- **Primera palabra:** si la voz empieza en 0,0 s, se pierde. Wivra pone 0,5 s de silencio antes de cada trozo y corrige los tiempos.
+- **Decisión:** **Preciso (Base) por defecto**; Ligero (Tiny) se sugiere en teléfonos que informan menos de 4 GB de RAM.
+- **Android System WebView 124 (emulador Android 35):** flujo completo, y el paquete se conserva al reabrir la app. 43 s para 6,7 s de audio (una ventana de 30 s en la CPU emulada).
+- **Chromium:** flujo completo, y la recarga sin red funciona.
+- **iPhone (WKWebView del simulador):** pendiente de la ejecución con el motor nuevo.
 
 ## Si WebAssembly falla en teléfonos reales
 
