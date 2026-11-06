@@ -407,6 +407,15 @@ extension WivraIPhoneLiveController: MTHKViewRepresentable.PreviewSource {
     }
 }
 
+/// W95: localized name of each local-copy preference (literal keys, checked by the i18n test).
+fileprivate func wivraArchiveTitle(_ mode: WivraLiveArchivePreference) -> String {
+    switch mode {
+    case .always: return wivraLiveText("ios.plive.archive_always")
+    case .ask: return wivraLiveText("ios.plive.archive_ask")
+    case .never: return wivraLiveText("ios.plive.archive_never")
+    }
+}
+
 struct WivraIPhoneLiveScreen: View {
     /// W93: the network line shown on the LIVE screen and in the start confirmation.
     private var liveNetworkLine: String {
@@ -425,6 +434,8 @@ struct WivraIPhoneLiveScreen: View {
     @State private var includeMicrophone = false
     @State private var frontCamera = false
     @State private var archiveVideo = true
+    // W95 (#95): remembered choice for the local copy (stored by WivraLiveArchiveStore, mode name only).
+    @State private var archiveMode = WivraLiveArchiveStore.load()
     @State private var confirmPublication = false
     // W93: which network carries the stream; mobile data or a limited plan is said before starting.
     @State private var network = WivraPhoneNetworkStatus()
@@ -476,8 +487,16 @@ struct WivraIPhoneLiveScreen: View {
                         .accessibilityIdentifier("wivra_ios_live_front_camera")
                     Toggle(wivraLiveText("ios.plive.microphone"), isOn: $includeMicrophone)
                         .disabled(controller.phase != .idle)
+                    Picker(wivraLiveText("ios.plive.archive_title"), selection: $archiveMode) {
+                        ForEach(WivraLiveArchivePreference.allCases, id: \.self) { Text(wivraArchiveTitle($0)).tag($0) }
+                    }
+                    .disabled(controller.phase != .idle && controller.phase != .ready)
+                    .onChange(of: archiveMode) { _, mode in
+                        WivraLiveArchiveStore.save(mode)
+                        archiveVideo = mode.initiallyOn
+                    }
                     Toggle(wivraLiveText("ios.plive.save_copy"), isOn: $archiveVideo)
-                        .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
+                        .disabled(!archiveMode.toggleEditable || controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
                     Button(wivraLiveText("ios.plive.prepare")) {
                         Task { await controller.prepareCamera(microphone: includeMicrophone,
                                                               frontCamera: frontCamera) }
@@ -539,7 +558,7 @@ struct WivraIPhoneLiveScreen: View {
                 }
             }
             .navigationTitle(wivraLiveText("ios.plive.title"))
-            .onAppear { controller.scenes = scenes; network.start() }
+            .onAppear { controller.scenes = scenes; network.start(); if !archiveMode.toggleEditable { archiveVideo = archiveMode.initiallyOn } }
             // W87 (Claude): VoiceOver hears connection, reconnection and copy changes.
             .onChange(of: controller.status) { _, text in
                 UIAccessibility.post(notification: .announcement, argument: text)

@@ -271,3 +271,7 @@
 "ios.plive.net_metered" = "受限网络或低数据模式：直播通常每分钟消耗 5 到 15 MB。";
 "ios.plive.net_other" = "网络：已连接。";
 "ios.plive.net_offline" = "没有网络连接。请连接 Wi‑Fi 或移动数据后再直播。";
+"ios.plive.archive_title" = "每次直播的本地 MP4 副本";
+"ios.plive.archive_always" = "始终保存";
+"ios.plive.archive_ask" = "每次直播时询问";
+"ios.plive.archive_never" = "不保存";

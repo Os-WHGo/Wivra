@@ -271,3 +271,7 @@
 "ios.plive.net_metered" = "制限のあるネットワーク（省データモード）：ライブ配信は通常 1 分あたり 5〜15 MB 使います。";
 "ios.plive.net_other" = "ネットワーク：接続中。";
 "ios.plive.net_offline" = "インターネットに接続されていません。配信するには Wi‑Fi かモバイルデータに接続してください。";
+"ios.plive.archive_title" = "各 LIVE の MP4 ローカルコピー";
+"ios.plive.archive_always" = "常に保存";
+"ios.plive.archive_ask" = "LIVE ごとに確認";
+"ios.plive.archive_never" = "保存しない";

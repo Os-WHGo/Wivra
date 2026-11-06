@@ -422,4 +422,9 @@
     <string name="plive_network_metered">Metered network: streaming uses about %1$d MB per minute (about %2$d MB per hour).</string>
     <string name="plive_network_other">Network: connected.</string>
     <string name="plive_network_offline">No Internet connection. Connect to Wi‑Fi or mobile data to stream.</string>
+    <string name="plive_archive_button">Local copy: %1$s</string>
+    <string name="plive_archive_title">Local MP4 copy of each LIVE</string>
+    <string name="plive_archive_always">Always save</string>
+    <string name="plive_archive_ask">Ask for each LIVE</string>
+    <string name="plive_archive_never">Don\'t save</string>
 </resources>

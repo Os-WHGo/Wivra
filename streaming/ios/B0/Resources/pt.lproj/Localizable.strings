@@ -271,3 +271,7 @@
 "ios.plive.net_metered" = "Rede limitada ou em modo de poucos dados: um vídeo ao vivo costuma gastar de 5 a 15 MB por minuto.";
 "ios.plive.net_other" = "Rede: conectada.";
 "ios.plive.net_offline" = "Sem conexão com a Internet. Conecte-se ao Wi‑Fi ou aos dados móveis para transmitir.";
+"ios.plive.archive_title" = "Cópia MP4 local de cada LIVE";
+"ios.plive.archive_always" = "Sempre salvar";
+"ios.plive.archive_ask" = "Perguntar em cada LIVE";
+"ios.plive.archive_never" = "Não salvar";

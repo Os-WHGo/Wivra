@@ -422,4 +422,9 @@
     <string name="plive_network_metered">Réseau limité : diffuser consomme environ %1$d Mo par minute (environ %2$d Mo par heure).</string>
     <string name="plive_network_other">Réseau : connecté.</string>
     <string name="plive_network_offline">Pas de connexion Internet. Connecte-toi au Wi‑Fi ou aux données mobiles pour diffuser.</string>
+    <string name="plive_archive_button">Copie locale : %1$s</string>
+    <string name="plive_archive_title">Copie MP4 locale de chaque LIVE</string>
+    <string name="plive_archive_always">Toujours enregistrer</string>
+    <string name="plive_archive_ask">Demander à chaque LIVE</string>
+    <string name="plive_archive_never">Ne pas enregistrer</string>
 </resources>

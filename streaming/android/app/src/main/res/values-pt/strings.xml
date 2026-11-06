@@ -422,4 +422,9 @@
     <string name="plive_network_metered">Rede com limite de dados: transmitir gasta cerca de %1$d MB por minuto (cerca de %2$d MB por hora).</string>
     <string name="plive_network_other">Rede: conectada.</string>
     <string name="plive_network_offline">Sem conexão com a Internet. Conecte-se ao Wi‑Fi ou aos dados móveis para transmitir.</string>
+    <string name="plive_archive_button">Cópia local: %1$s</string>
+    <string name="plive_archive_title">Cópia MP4 local de cada LIVE</string>
+    <string name="plive_archive_always">Sempre salvar</string>
+    <string name="plive_archive_ask">Perguntar em cada LIVE</string>
+    <string name="plive_archive_never">Não salvar</string>
 </resources>

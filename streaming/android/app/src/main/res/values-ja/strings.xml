@@ -422,4 +422,9 @@
     <string name="plive_network_metered">従量制ネットワーク：配信すると 1 分あたり約 %1$d MB（1 時間あたり約 %2$d MB）使います。</string>
     <string name="plive_network_other">ネットワーク：接続中。</string>
     <string name="plive_network_offline">インターネットに接続されていません。配信するには Wi‑Fi かモバイルデータに接続してください。</string>
+    <string name="plive_archive_button">ローカルコピー：%1$s</string>
+    <string name="plive_archive_title">各 LIVE の MP4 ローカルコピー</string>
+    <string name="plive_archive_always">常に保存</string>
+    <string name="plive_archive_ask">LIVE ごとに確認</string>
+    <string name="plive_archive_never">保存しない</string>
 </resources>
