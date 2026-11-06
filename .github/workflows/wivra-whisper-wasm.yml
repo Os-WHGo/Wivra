@@ -23,7 +23,7 @@ permissions:
   contents: read
 concurrency:
   group: wivra-whisper-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false   # a newer commit waits; it never cancels long emulator/simulator runs
 env:
   WHISPER_COMMIT: 0c7be696371069e0baa2515ed7aa08d5a5473aa6
   EMSDK_VERSION: 3.1.74
