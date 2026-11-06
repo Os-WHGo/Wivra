@@ -62,7 +62,7 @@ Consequence: **3K LIVE cannot be enabled through a parameter.** The highest stre
 
 This is not yet measured on Wivra's glasses; the physical matrix below confirms it or changes it.
 
-## LIVE with Ray-Ban (analysis; next step)
+## LIVE with Ray-Ban (analysis; implemented below)
 
 - **Path:** DAT (`.raw`, already-decoded frames) → existing LIVE engine (HaishinKit on iPhone, RootEncoder on Android) → H.264/AAC → RTMP/RTMPS. No new engine is created.
 - **HEVC instead of raw?** Decoding HEVC and re-encoding H.264 on the phone adds a step and latency. `.raw` already delivers decoded frames over the same link. For LIVE, `.raw` is preferred; for local recording, HEVC passthrough (already implemented).
@@ -70,11 +70,12 @@ This is not yet measured on Wivra's glasses; the physical matrix below confirms 
   - 720×1280@24 raw → HaishinKit, H.264 High 3.1, 2.5 Mbps, keyframe every 2 s.
   - Its useful idea is «priming»: send frames before `publish` so the metadata carries the real size (no black screen and no 1×1).
   - It stores the Twitch key on the phone. Wivra does not do this and does not copy that part. No code is copied.
-- **Still to implement:**
-  - The Ray-Ban source inside the existing LIVE, iPhone first. DAT's `VideoFrame.sampleBuffer` feeds HaishinKit directly.
-  - Bounded queue that drops old frames.
-  - Simultaneous local MP4.
-  - Reconnection with the existing policy.
+- **Done (see «LIVE with Ray-Ban (implemented)»):**
+  - the Ray-Ban source inside the existing LIVE, on both platforms;
+  - the bounded queue that drops old frames;
+  - the simultaneous private MP4;
+  - reconnection with the existing policy.
+- **Not copied from specbridge:** the «priming» before `publish` is not needed on Android, because RootEncoder sends the size from `prepareVideo`. On iPhone, the fixed `videoSize` plays the same role.
 
 ## «Solo vídeo» + independent microphone (Gen 2 priority)
 
@@ -105,9 +106,19 @@ The glasses' microphone (Bluetooth HFP) is **never** used for these recordings. 
 - **Contract:** `streaming/contracts/rayban-audio-sync.json`, checked by a JVM test, a JavaScript twin and the Swift smoke test.
 - **Not measured:** the delay between the glasses' sensor and the phone. DAT 1.0.1 does not expose it. The manifest says `videoLinkLatencyMs: null`. The physical clap test measures it.
 
-### LIVE with an external microphone (next step)
+### LIVE with Ray-Ban (implemented; existing engines only)
 
-The same choice will feed the existing LIVE engine: Ray-Ban video plus AAC from the selected microphone, over RTMP/RTMPS. It is not implemented yet in this block.
+| | Android (full package) | iPhone |
+|-|-|-|
+| Engine | The same RootEncoder `RtmpStream` as the phone LIVE (`WivraRayBanLivePublisher`) | The same `WivraIPhoneLiveController` / HaishinKit as the phone LIVE (`prepareGlasses`) |
+| Video | DAT `.raw` → bounded slot (newest frame, older dropped and counted) → `WivraRayBanVideoSource` → H.264 at the glasses' own size (16-aligned fallback) | DAT `.raw` `sampleBuffer` → bounded stream (newest 2) → host-clock time (`WivraGlassesLiveClock`) → MediaMixer → H.264 at the glasses' size |
+| Colour | Direct I420 → ARGB, full-range BT.601, as the preview (DAT range not documented: **to verify**) | Frames as given by DAT; whether `.raw` carries a pixel buffer HaishinKit accepts is **unverified** until 16-11 |
+| Audio | AAC from the chosen microphone (RootEncoder's own AudioRecord, preferred device). If it is lost, the LIVE is **muted** and the person is told. | AAC from the input chosen in `WivraAudioRoute` (HFP closed unless Bluetooth was chosen) |
+| Network | RTMP/RTMPS, the W75 reconnection policy, an optional private MP4 copy with Keep / Later / Delete | Same as the iPhone LIVE: private copy reviewed in its screen |
+| Key | Typed in a `FLAG_SECURE` dialog, cleared at once, never stored, logged or shown | `SecureField`, cleared before connecting |
+| Tests | JVM (colour, slot, plan); emulator: synthetic DAT-shaped frames → MP4, checking size, duration and an upright, unmirrored picture | macOS Swift smoke test (clock, plan) |
+
+The preview must be active, and profile changes are blocked during LIVE. **Not done:** LIVE while the screen is off (Android, as the phone LIVE: foreground only), HEVC → H.264, and image filters.
 
 ### Physical tests for this mode (from 16-11)
 
@@ -116,6 +127,9 @@ The same choice will feed the existing LIVE engine: Ray-Ban video plus AAC from 
 3. Unplug the USB microphone in the middle of a recording. Check that the video continues, the notice appears, and the audio up to that point is saved.
 4. Record 10 minutes, then «Conservar». Check that each part has its WAV with the same name, and that the editor imports «Captura» with its audio.
 5. Compare one take with the glasses' microphone (outside Wivra, for reference) against the phone or USB microphone: noise, volume and sync.
+6. LIVE to a private test channel, 10 min, each profile with the phone microphone. Note the LIVE line (sent / repeated / dropped / conversion ms), the delay seen on the platform, the phone temperature and the battery.
+7. During LIVE, unplug the USB microphone: the LIVE continues muted and the notice appears. Turn the router off for 20 s: reconnection, and the private copy continues.
+8. iPhone: the same as 6. If the platform shows black video, write it down (the `.raw` frame format is not verified).
 
 ## Image improvements
 
