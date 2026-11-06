@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "Immer speichern";
 "ios.plive.archive_ask" = "Bei jedem LIVE fragen";
 "ios.plive.archive_never" = "Nicht speichern";
+"ios.tprompt.script" = "Skript";
+"ios.tprompt.play" = "▶︎ Lesen";
+"ios.tprompt.pause" = "⏸ Pause";
+"ios.tprompt.slower" = "Langsamer";
+"ios.tprompt.faster" = "Schneller";
+"ios.tprompt.restart" = "Zum Anfang";
+"ios.tprompt.close" = "Skript schließen";
+"ios.tprompt.not_recorded" = "Das Skript erscheint hier, wird aber nicht im Video aufgenommen.";

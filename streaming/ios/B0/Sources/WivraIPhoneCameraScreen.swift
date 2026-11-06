@@ -52,6 +52,7 @@ struct WivraIPhoneCameraScreen: View {
                     .background(.black)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel("Vista previa en directo de la cámara nativa del iPhone")
+                    .overlay(alignment: .top) { WivraTeleprompterOverlay(store: .shared) }      // W96: Director script, never recorded
 
                 Picker("Lente del iPhone", selection: $camera.selectedLensID) {
                     ForEach(camera.lenses) { lens in

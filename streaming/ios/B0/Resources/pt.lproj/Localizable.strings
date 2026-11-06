@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "Sempre salvar";
 "ios.plive.archive_ask" = "Perguntar em cada LIVE";
 "ios.plive.archive_never" = "Não salvar";
+"ios.tprompt.script" = "Roteiro";
+"ios.tprompt.play" = "▶︎ Ler";
+"ios.tprompt.pause" = "⏸ Pausar";
+"ios.tprompt.slower" = "Mais lento";
+"ios.tprompt.faster" = "Mais rápido";
+"ios.tprompt.restart" = "Ao início";
+"ios.tprompt.close" = "Fechar roteiro";
+"ios.tprompt.not_recorded" = "O roteiro aparece aqui, mas não é gravado no vídeo.";

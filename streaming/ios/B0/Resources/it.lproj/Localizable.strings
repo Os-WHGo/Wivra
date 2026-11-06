@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "Salva sempre";
 "ios.plive.archive_ask" = "Chiedi a ogni LIVE";
 "ios.plive.archive_never" = "Non salvare";
+"ios.tprompt.script" = "Copione";
+"ios.tprompt.play" = "▶︎ Leggi";
+"ios.tprompt.pause" = "⏸ Pausa";
+"ios.tprompt.slower" = "Più lento";
+"ios.tprompt.faster" = "Più veloce";
+"ios.tprompt.restart" = "All'inizio";
+"ios.tprompt.close" = "Chiudi copione";
+"ios.tprompt.not_recorded" = "Il copione si vede qui, ma non viene registrato nel video.";

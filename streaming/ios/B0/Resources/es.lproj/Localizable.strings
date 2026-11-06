@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "Guardar siempre";
 "ios.plive.archive_ask" = "Preguntar en cada LIVE";
 "ios.plive.archive_never" = "No guardar";
+"ios.tprompt.script" = "Guion";
+"ios.tprompt.play" = "▶︎ Leer";
+"ios.tprompt.pause" = "⏸ Pausa";
+"ios.tprompt.slower" = "Más lento";
+"ios.tprompt.faster" = "Más rápido";
+"ios.tprompt.restart" = "Al inicio";
+"ios.tprompt.close" = "Cerrar guion";
+"ios.tprompt.not_recorded" = "El guion se ve aquí, pero no se graba en el video.";

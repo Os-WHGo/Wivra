@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "始终保存";
 "ios.plive.archive_ask" = "每次直播时询问";
 "ios.plive.archive_never" = "不保存";
+"ios.tprompt.script" = "脚本";
+"ios.tprompt.play" = "▶︎ 朗读";
+"ios.tprompt.pause" = "⏸ 暂停";
+"ios.tprompt.slower" = "更慢";
+"ios.tprompt.faster" = "更快";
+"ios.tprompt.restart" = "回到开头";
+"ios.tprompt.close" = "关闭脚本";
+"ios.tprompt.not_recorded" = "脚本只显示在这里，不会录进视频。";

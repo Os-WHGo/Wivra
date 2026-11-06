@@ -355,7 +355,7 @@ private struct WivraEditorWebView: UIViewRepresentable {
               verifyFile: ({id, file}) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'capture.verifyFile', sessionId: id, file}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
               checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId}),
-              openNative: (what) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.openNative', what})
+              openNative: (what, script) => window.webkit.messageHandlers.wivraNative.postMessage(Object.assign({version: 1, method: 'host.openNative', what}, typeof script === 'string' ? {script: script.slice(0, 2200)} : {}))
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
