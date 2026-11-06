@@ -16,6 +16,7 @@ struct WivraMetaB0App: App {
     @State private var experimentalBackgroundMetaCapture = false
     @State private var showingCaptureLibrary = false
     @State private var showingExportLibrary = false
+    @State private var showingScreenRecord = false   // W100
     @State private var showingUnifiedEditor = false
     @State private var showingPhoneLive = false
     // W80 (Claude): native home first (owner's mockups); the capture tabs stay underneath.
@@ -38,6 +39,7 @@ struct WivraMetaB0App: App {
         case .live: showingPhoneLive = true
         case .captures: showingCaptureLibrary = true
         case .exports: showingExportLibrary = true
+        case .screenRecord: showingScreenRecord = true
         }
     }
 
@@ -224,6 +226,7 @@ struct WivraMetaB0App: App {
                 case "live": showingPhoneLive = true
                 case "editor": showingUnifiedEditor = true
                 case "capture": showingHome = false
+                case "screenrec": showingScreenRecord = true
                 default: break
                 }
                 #endif
@@ -234,6 +237,10 @@ struct WivraMetaB0App: App {
             }
             .sheet(isPresented: $showingExportLibrary) {
                 WivraNativeExportLibraryScreen()
+                    .wivraStyled()
+            }
+            .sheet(isPresented: $showingScreenRecord) {
+                WivraScreenRecordScreen()
                     .wivraStyled()
             }
             .fullScreenCover(isPresented: $showingUnifiedEditor, onDismiss: {
