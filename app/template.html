@@ -3094,6 +3094,11 @@ function renderShootPlan(){
     }catch(e){say(e.message,'bad')}
   };
   row.append(cam,choose);
+  // W96: inside the iPhone app, film this shot with Wivra's camera and its script as a teleprompter (shown, never recorded).
+  const teleText=String(shot.script||shot.direction||'').trim();
+  if(teleText&&window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.wivraNative&&window.WivraHost&&typeof window.WivraHost.openNative==='function'){
+   row.append(mkBtn('🎥 '+aiT('Grabar con teleprompter'),()=>{selectedShootId=shot.id;try{window.WivraHost.openNative('capture',teleText.slice(0,2200))}catch{say(aiT('No se pudo abrir la cámara de Wivra.'),'bad')}}));
+  }
   if(!shot.assetId||canContinueParts)row.append(importParts);
   const row2=document.createElement('div');row2.className='row';row2.append(...stateBtns);
   if(shot.script){

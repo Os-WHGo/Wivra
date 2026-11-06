@@ -34,7 +34,9 @@ test('editor routes are fixed values and never navigate away from the bundled ed
 });
 
 test('editor can ask to OPEN capture or LIVE, never to start them', () => {
-  assert.match(editor, /openNative: \(what\) => window\.webkit\.messageHandlers\.wivraNative\.postMessage\(\{version: 1, method: 'host\.openNative', what\}\)/);
+  // W96: an optional Director script (≤ 2200 characters) travels with «capture» for the camera teleprompter.
+  assert.match(editor, /openNative: \(what, script\) => window\.webkit\.messageHandlers\.wivraNative\.postMessage\(Object\.assign\(\{version: 1, method: 'host\.openNative', what\}, typeof script === 'string' \? \{script: script\.slice\(0, 2200\)\} : \{\}\)\)/);
+  assert.match(bridge, /if what == "capture", let script = WivraTeleprompterStore\.sanitized\(body\["script"\] as\? String\)/);
   assert.match(bridge, /case "host\.openNative":[\s\S]*?what == "live" \|\| what == "capture"/);
   assert.doesNotMatch(bridge, /case "live\.start"/);
   assert.match(app, /onDismiss: \{\s+editorRoute = \.home\s+openPendingNativeScreen\(\)/);

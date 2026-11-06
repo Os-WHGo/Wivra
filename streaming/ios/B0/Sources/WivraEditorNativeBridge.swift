@@ -42,7 +42,10 @@ final class WivraEditorNativeBridge: NSObject, WKScriptMessageHandlerWithReply {
                 replyHandler(nil, "Pantalla no disponible.")
                 return
             }
-            NotificationCenter.default.post(name: .wivraOpenNative, object: nil, userInfo: ["what": what])
+            // W96: an optional Director script for the camera teleprompter (shown, never recorded).
+            var info: [String: String] = ["what": what]
+            if what == "capture", let script = WivraTeleprompterStore.sanitized(body["script"] as? String) { info["script"] = script }
+            NotificationCenter.default.post(name: .wivraOpenNative, object: nil, userInfo: info)
             replyHandler(["opened": what], nil)
         case "capture.verifyFile":
             guard let id = body["sessionId"] as? String,

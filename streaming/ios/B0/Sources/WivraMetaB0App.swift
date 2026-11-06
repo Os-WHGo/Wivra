@@ -265,6 +265,8 @@ struct WivraMetaB0App: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: .wivraOpenNative)) { note in
                 guard let what = note.userInfo?["what"] as? String else { return }
+                // W96: the camera shows this script (or none when Capturar is opened without one).
+                if what == "capture" { WivraTeleprompterStore.shared.script = note.userInfo?["script"] as? String }
                 pendingNativeOpen = what
                 showingUnifiedEditor = false
             }

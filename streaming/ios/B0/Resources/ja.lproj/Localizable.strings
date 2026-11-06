@@ -275,3 +275,11 @@
 "ios.plive.archive_always" = "常に保存";
 "ios.plive.archive_ask" = "LIVE ごとに確認";
 "ios.plive.archive_never" = "保存しない";
+"ios.tprompt.script" = "台本";
+"ios.tprompt.play" = "▶︎ 読む";
+"ios.tprompt.pause" = "⏸ 一時停止";
+"ios.tprompt.slower" = "遅く";
+"ios.tprompt.faster" = "速く";
+"ios.tprompt.restart" = "最初へ";
+"ios.tprompt.close" = "台本を閉じる";
+"ios.tprompt.not_recorded" = "台本はここに表示されますが、動画には録画されません。";
