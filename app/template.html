@@ -380,6 +380,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
     <div id="tpTitleBox" style="display:none"><label for="tpTitle" style="display:block;margin-top:8px">Título (opcional)</label><input id="tpTitle" maxlength="60" style="width:100%" autocomplete="off"></div>
     <div id="tpInfo" class="m" role="status" aria-live="polite">Elige una plantilla para ver qué cambia.</div>
     <button class="btn" id="tpApply" type="button" disabled>Aplicar plantilla</button>
+    <button class="btn sec" id="tpShoot" type="button" style="display:none">🎬 Grabar para esta plantilla</button>
   </details>
   <details id="qaBox" style="margin:10px 0"><summary style="cursor:pointer;font-weight:600">Montaje rápido</summary>
     <p class="m">Acorta los clips para que el video dure lo que quieras. Cada clip aporta su parte central y las fotos duran 2 s. No analiza el contenido: revisa el resultado. Se puede deshacer.</p>
@@ -1648,7 +1649,8 @@ function tpRender() {      // la lista de plantillas (nombres traducibles: cada 
 function tpPreview() {
   const info = $('tpInfo'), btn = $('tpApply'); info.replaceChildren(); btn.disabled = true; $('tpTitleBox').style.display = 'none';
   for (const b of document.querySelectorAll('#tpList button')) b.setAttribute('aria-pressed', String(b.dataset.id === tpSel));
-  const t = TPL_CATALOG.find(x => x.id === tpSel); if (!t) { info.textContent = 'Elige una plantilla para ver qué cambia.'; return; }
+  const t = TPL_CATALOG.find(x => x.id === tpSel); $('tpShoot').style.display = t && shootPlanFromTemplate(t.id) ? '' : 'none';
+  if (!t) { info.textContent = 'Elige una plantilla para ver qué cambia.'; return; }
   $('tpTitleBox').style.display = t.title ? 'block' : 'none';
   const add = (txt, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = txt; info.appendChild(d); };
   add(t.desc);
@@ -1656,6 +1658,13 @@ function tpPreview() {
   if (!pl.ok) { add(pl.error, 'bad'); return; }
   for (const x of pl.lines) add(x, 'ln'); for (const w of pl.warnings) add(w); btn.disabled = !pl.ops.length;
 }
+/* W90: the template's slots become the Director's shot list (what to film, in order, and how long). */
+$('tpShoot').onclick = () => {
+  const plan = tpSel && shootPlanFromTemplate(tpSel, aiT); if (!plan) return;
+  if (shootPlan && shootPlan.shots.some((x) => x.state !== 'todo') && !confirm(aiT('Ya tienes una lista de tomas con avances. ¿Reemplazarla por la de la plantilla «{1}»?', aiT(plan.subject)))) return;
+  shootPlan = plan; selectedShootId = null; saveShootPlan(); renderShootPlan(); refreshDirectorAssets(); openSheet('sDirector');
+  say(aiT('Lista de tomas para «{1}»: graba en este orden y después aplica la plantilla.', aiT(plan.subject)), 'ok');
+};
 $('tpList').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) { tpSel = b.dataset.id; tpPreview(); } });
 $('tpTitle').addEventListener('input', tpPreview);
 $('tpApply').onclick = () => {
@@ -2972,6 +2981,10 @@ function renderShootPlan(){
  infoLine(p.done+' de '+p.total+' tomas hechas.');
  if(nRetry)infoLine('Por repetir: '+nRetry);
  if(nSkip)infoLine('Saltadas: '+nSkip+' (no cuentan como grabadas)');
+ const tplOf=shootPlan.templateId&&TPL_CATALOG.find(x=>x.id===shootPlan.templateId);
+ if(tplOf){infoLine(aiT('Para la plantilla «{1}»: graba en este orden.',aiT(tplOf.name)));
+  if(p.remaining===0||p.readyToEdit){const b=document.createElement('button');b.className='btn';b.type='button';b.textContent=aiT('Aplicar la plantilla «{1}»',aiT(tplOf.name));
+   b.onclick=()=>{tpSel=tplOf.id;renderVids();$('tpBox').open=true;openSheet('sVids');tpPreview()};info.append(b)}}
  infoLine(p.readyToEdit?'Lista lista para revisar tus videos.':p.remaining===0?'Todas las tomas están saltadas: no hay nada que editar.':'Marca las tomas que hayas grabado.');
  const sub=document.createElement('p');sub.className='m';
  sub.textContent='Lugares o ángulos sugeridos, sin datos geográficos verificados:';
