@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">感谢观看</string>
     <string name="scene_standby_footer">用 Wivra 直播</string>
     <string name="scene_standby_ready">等待画面已就绪：显示期间麦克风保持静音。</string>
+    <string name="plive_network_wifi">网络：Wi‑Fi。</string>
+    <string name="plive_network_cellular">网络：移动数据。直播每分钟约用 %1$d MB（每小时约 %2$d MB）套餐流量。</string>
+    <string name="plive_network_metered">按流量计费的网络：直播每分钟约用 %1$d MB（每小时约 %2$d MB）。</string>
+    <string name="plive_network_other">网络：已连接。</string>
+    <string name="plive_network_offline">没有网络连接。请连接 Wi‑Fi 或移动数据后再直播。</string>
 </resources>

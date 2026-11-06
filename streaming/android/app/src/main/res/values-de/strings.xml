@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">Danke fürs Zuschauen</string>
     <string name="scene_standby_footer">Live mit Wivra</string>
     <string name="scene_standby_ready">Warte-Bildschirm bereit: Das Mikrofon bleibt stumm, solange er angezeigt wird.</string>
+    <string name="plive_network_wifi">Netz: WLAN.</string>
+    <string name="plive_network_cellular">Netz: mobile Daten. Streamen verbraucht etwa %1$d MB pro Minute (etwa %2$d MB pro Stunde) deines Tarifs.</string>
+    <string name="plive_network_metered">Getaktetes Netz: Streamen verbraucht etwa %1$d MB pro Minute (etwa %2$d MB pro Stunde).</string>
+    <string name="plive_network_other">Netz: verbunden.</string>
+    <string name="plive_network_offline">Keine Internetverbindung. Verbinde dich mit WLAN oder mobilen Daten, um zu streamen.</string>
 </resources>

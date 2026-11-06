@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">Thanks for watching</string>
     <string name="scene_standby_footer">Live with Wivra</string>
     <string name="scene_standby_ready">Standby screen ready: the microphone stays muted while it is shown.</string>
+    <string name="plive_network_wifi">Network: Wi‑Fi.</string>
+    <string name="plive_network_cellular">Network: mobile data. Streaming uses about %1$d MB per minute (about %2$d MB per hour) of your plan.</string>
+    <string name="plive_network_metered">Metered network: streaming uses about %1$d MB per minute (about %2$d MB per hour).</string>
+    <string name="plive_network_other">Network: connected.</string>
+    <string name="plive_network_offline">No Internet connection. Connect to Wi‑Fi or mobile data to stream.</string>
 </resources>

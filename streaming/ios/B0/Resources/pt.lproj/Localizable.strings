@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "Voltamos já";
 "ios.live.standby_thanks" = "Obrigado por assistir";
 "ios.live.standby_footer" = "Ao vivo com Wivra";
+"ios.plive.net_wifi" = "Rede: Wi‑Fi.";
+"ios.plive.net_cellular" = "Rede: dados móveis. Um vídeo ao vivo costuma gastar de 5 a 15 MB por minuto do seu plano.";
+"ios.plive.net_metered" = "Rede limitada ou em modo de poucos dados: um vídeo ao vivo costuma gastar de 5 a 15 MB por minuto.";
+"ios.plive.net_other" = "Rede: conectada.";
+"ios.plive.net_offline" = "Sem conexão com a Internet. Conecte-se ao Wi‑Fi ou aos dados móveis para transmitir.";

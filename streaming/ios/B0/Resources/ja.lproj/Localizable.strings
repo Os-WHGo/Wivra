@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "すぐ戻ります";
 "ios.live.standby_thanks" = "ご視聴ありがとうございました";
 "ios.live.standby_footer" = "Wivra でライブ配信中";
+"ios.plive.net_wifi" = "ネットワーク：Wi‑Fi。";
+"ios.plive.net_cellular" = "ネットワーク：モバイルデータ。ライブ配信は通常 1 分あたり 5〜15 MB のデータを使います。";
+"ios.plive.net_metered" = "制限のあるネットワーク（省データモード）：ライブ配信は通常 1 分あたり 5〜15 MB 使います。";
+"ios.plive.net_other" = "ネットワーク：接続中。";
+"ios.plive.net_offline" = "インターネットに接続されていません。配信するには Wi‑Fi かモバイルデータに接続してください。";

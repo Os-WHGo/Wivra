@@ -266,3 +266,8 @@
 "ios.live.standby_brb" = "Be right back";
 "ios.live.standby_thanks" = "Thanks for watching";
 "ios.live.standby_footer" = "Live with Wivra";
+"ios.plive.net_wifi" = "Network: Wi‑Fi.";
+"ios.plive.net_cellular" = "Network: mobile data. A live video usually uses 5 to 15 MB per minute of your plan.";
+"ios.plive.net_metered" = "Limited or Low Data Mode network: a live video usually uses 5 to 15 MB per minute.";
+"ios.plive.net_other" = "Network: connected.";
+"ios.plive.net_offline" = "No Internet connection. Connect to Wi‑Fi or mobile data to stream.";

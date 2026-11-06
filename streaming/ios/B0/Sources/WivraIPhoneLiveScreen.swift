@@ -408,6 +408,16 @@ extension WivraIPhoneLiveController: MTHKViewRepresentable.PreviewSource {
 }
 
 struct WivraIPhoneLiveScreen: View {
+    /// W93: the network line shown on the LIVE screen and in the start confirmation.
+    private var liveNetworkLine: String {
+        switch network.route {
+        case .offline: return wivraLiveText("ios.plive.net_offline")
+        case .cellular: return wivraLiveText("ios.plive.net_cellular")
+        case .wifi where !(network.isExpensive || network.isConstrained): return wivraLiveText("ios.plive.net_wifi")
+        default: return network.isExpensive || network.isConstrained ? wivraLiveText("ios.plive.net_metered") : wivraLiveText("ios.plive.net_other")
+        }
+    }
+
     @Environment(\.dismiss) private var dismiss
     @State private var controller = WivraIPhoneLiveController()
     @State private var scenes = WivraLiveSceneModel()
@@ -416,6 +426,8 @@ struct WivraIPhoneLiveScreen: View {
     @State private var frontCamera = false
     @State private var archiveVideo = true
     @State private var confirmPublication = false
+    // W93: which network carries the stream; mobile data or a limited plan is said before starting.
+    @State private var network = WivraPhoneNetworkStatus()
     @State private var savingPhotos = false
     @State private var photosReview: [URL: WivraPhotosSaveJournal.ReviewStatus] = [:]
     @State private var pendingPhotosRetry: URL?
@@ -484,8 +496,9 @@ struct WivraIPhoneLiveScreen: View {
                         .disabled(controller.phase == .connecting || controller.phase == .live || controller.phase == .stopping)
                     Text(wivraLiveText("ios.plive.key_note"))
                         .font(.caption)
+                    Text(liveNetworkLine).font(.caption).foregroundStyle(network.route == .cellular || network.isExpensive || network.route == .offline ? .orange : .secondary)
                     Button(wivraLiveText("ios.plive.confirm_button")) { confirmPublication = true }
-                        .disabled(!controller.canStart || WivraIOSLiveEndpoint.parse(destination) == nil)
+                        .disabled(!controller.canStart || WivraIOSLiveEndpoint.parse(destination) == nil || network.route == .offline)
                         .buttonStyle(WivraPrimaryButtonStyle())
                         .listRowBackground(Color.clear)
                     Button(wivraLiveText("ios.plive.stop_button")) {
@@ -526,7 +539,7 @@ struct WivraIPhoneLiveScreen: View {
                 }
             }
             .navigationTitle(wivraLiveText("ios.plive.title"))
-            .onAppear { controller.scenes = scenes }
+            .onAppear { controller.scenes = scenes; network.start() }
             // W87 (Claude): VoiceOver hears connection, reconnection and copy changes.
             .onChange(of: controller.status) { _, text in
                 UIAccessibility.post(notification: .announcement, argument: text)
@@ -552,9 +565,9 @@ struct WivraIPhoneLiveScreen: View {
                 }
                 Button(wivraLiveText("ios.plive.cancel"), role: .cancel) {}
             } message: {
-                Text(archiveVideo
+                Text((archiveVideo
                     ? wivraLiveText("ios.plive.confirm_with_copy")
-                    : wivraLiveText("ios.plive.confirm_without_copy"))
+                    : wivraLiveText("ios.plive.confirm_without_copy")) + "\n\n" + liveNetworkLine)
             }
             .confirmationDialog(
                 wivraLiveText("ios.plive.photos_retry_title"),

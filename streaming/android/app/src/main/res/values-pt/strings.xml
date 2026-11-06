@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">Obrigado por assistir</string>
     <string name="scene_standby_footer">Ao vivo com Wivra</string>
     <string name="scene_standby_ready">Tela de espera pronta: o microfone fica mudo enquanto ela aparece.</string>
+    <string name="plive_network_wifi">Rede: Wi‑Fi.</string>
+    <string name="plive_network_cellular">Rede: dados móveis. Transmitir gasta cerca de %1$d MB por minuto (cerca de %2$d MB por hora) do seu plano.</string>
+    <string name="plive_network_metered">Rede com limite de dados: transmitir gasta cerca de %1$d MB por minuto (cerca de %2$d MB por hora).</string>
+    <string name="plive_network_other">Rede: conectada.</string>
+    <string name="plive_network_offline">Sem conexão com a Internet. Conecte-se ao Wi‑Fi ou aos dados móveis para transmitir.</string>
 </resources>

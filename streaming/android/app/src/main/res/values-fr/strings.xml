@@ -417,4 +417,9 @@
     <string name="scene_standby_thanks">Merci d\'avoir regardé</string>
     <string name="scene_standby_footer">En direct avec Wivra</string>
     <string name="scene_standby_ready">Écran d\'attente prêt : le micro reste coupé pendant qu\'il s\'affiche.</string>
+    <string name="plive_network_wifi">Réseau : Wi‑Fi.</string>
+    <string name="plive_network_cellular">Réseau : données mobiles. Diffuser consomme environ %1$d Mo par minute (environ %2$d Mo par heure) de ton forfait.</string>
+    <string name="plive_network_metered">Réseau limité : diffuser consomme environ %1$d Mo par minute (environ %2$d Mo par heure).</string>
+    <string name="plive_network_other">Réseau : connecté.</string>
+    <string name="plive_network_offline">Pas de connexion Internet. Connecte-toi au Wi‑Fi ou aux données mobiles pour diffuser.</string>
 </resources>
