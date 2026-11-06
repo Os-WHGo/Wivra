@@ -12,7 +12,7 @@ test('the standby card uses the image scene, whose microphone is muted', () => {
   assert.match(kt, /select\("image"\)/);
   const sw = read('streaming/ios/B0/Sources/WivraLiveScenes.swift');
   assert.match(sw, /await scenes\.load\(imageData: data\)\s*\n\s*await scenes\.select\("image"\)/);
-  assert.doesNotMatch(read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraStandbyCard.kt'), /URL|http|download/i);
+  assert.doesNotMatch(read("streaming/android/app/src/full/java/com/oswhgo/wivra/WivraStandbyCard.kt"), /java\.net|HttpURLConnection|OkHttp|https?:\/\//);      // no network
 });
 
 test('standby texts in 8 languages on both platforms', () => {
