@@ -463,7 +463,8 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
   <div class="dockbar"><button class="btn sec" type="button" data-more>Ver más</button><button id="ovDone" class="btn" type="button">✓ Listo</button></div></div>
 <div class="sheet" id="sTrack"><h2>Agregar</h2><p class="m">El video se mete en el corte más cercano a la línea blanca (si está al principio, va al principio; al final, al final). El audio va en una pista aparte donde está la línea blanca.</p>
   <label class="btn" for="file" style="cursor:pointer">Video</label><label class="btn sec" for="ovFile" style="cursor:pointer">Video o foto encima (capa)</label><input id="ovFile" type="file" accept="video/*,image/*,.gif,.png,.webp" style="position:absolute;width:1px;height:1px;opacity:0">
-  <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
+  <label class="btn sec" for="auFile" style="cursor:pointer">Audio (música, voz)</label>
+  <button id="voRec" class="btn sec" type="button">🎙️ Grabar voz en off</button><p class="m" id="voInfo" role="status" aria-live="polite">Narra mientras ves el video desde la línea blanca; el sonido del video se silencia para que no se grabe. Con audífonos se oye mejor.</p><input id="auFile" type="file" accept="audio/*,.caf,.wav,.m4a,.mp3" style="position:absolute;width:1px;height:1px;opacity:0">
   <label for="wivraMusicSelect">Música original Wivra (30 s)</label><select id="wivraMusicSelect" aria-label="Música original Wivra"><option value="">Elegir pista</option></select><button id="wivraMusicAdd" class="btn sec" type="button">Agregar música</button>
   <p class="m" id="trkNote">Grabar tu voz con el micrófono: todavía no está.</p>
   <p class="m"><b>Capas (un video encima de otro):</b> mantén pulsado un clip y arrástralo a la fila «Capas», debajo del audio. Para volverlo parte del video, arrástralo hacia arriba. En el botón Capa eliges la forma y si va adelante o atrás.</p>
@@ -666,6 +667,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
 const $ = (id) => document.getElementById(id);
 let session = null, objUrl = null;
 let visualEvidence = null, visualBusy = false;
+let voMuteAll = false;      // W92: while a voice-over is recorded nothing plays aloud (it would leak into the microphone)
 let tlTime = 0, pps = 40, selId = null, selPart = 'v', playing = false, drag = null, toastTimer = null, tlPinch = null;   // tlPinch: pellizco de dos dedos en curso sobre la línea de tiempo
 const tlAborts = new Set();   // cancelan el gesto de UN dedo en curso (recortar o mover un bloque) si llega un segundo dedo y es un pellizco
 const GKEYS = ['clips', 'overlayClips', 'audioClips'];
@@ -790,7 +792,7 @@ if (window.ResizeObserver) new ResizeObserver(() => dockMeasure()).observe(docum
 function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('back').classList.remove('on'); document.body.classList.remove('sheetopen', 'sov', 'dock', 'dockexp'); document.body.style.removeProperty('--dockh'); try { showFrame(); syncOverlays(); } catch {} }
 $('back').onclick = closeSheets;
 $('bVids').onclick = () => { renderVids(); openSheet('sVids'); }; $('vdone').onclick = closeSheets;
-function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
+function previewAudio(c) { const v = $('v'); if (!c) return; v.muted = voMuteAll || !!c.muted; try { v.volume = Math.max(0, Math.min(1, typeof c.volume === 'number' ? c.volume : 1)); } catch {} }
 function auSync() {
   const c = anyClip(selId);
   $('auInfo').textContent = c ? `Clip ${c.id} · ${fmt(clipLength(c))} s` : 'Toca un clip en la línea de tiempo para elegirlo.';
@@ -914,7 +916,7 @@ function syncAudioPreview() {
   const list = session ? (session.project.audioClips || []) : [];
   for (const c of list) {
     const m = media[c.asset_id], a0 = apool[c.id];
-    const on = playing && m && !c.muted && tlTime >= c.start && tlTime < c.start + (clipLength(c));
+    const on = playing && m && !c.muted && !voMuteAll && tlTime >= c.start && tlTime < c.start + (clipLength(c));
     if (!on) { if (a0 && !a0.paused) a0.pause(); continue; }
     const a = a0 || (apool[c.id] = Object.assign(new Audio(m.url), { preload: 'auto' }));
     const want = srcTime(c, tlTime);
@@ -966,7 +968,7 @@ function syncOverlays() {
     ovPlace(el, cr); el.dataset.cr = JSON.stringify([cr.x, cr.y, cr.w, cr.h]);
     if (c.id === selId && ovMode !== 'all') ovGhostShow(el, wr, cr, w, h); else if (c.id === selId) $('ovGhost').style.display = 'none';
     let fs = wr.querySelector('svg.ofr'); if (c.frame > 0) { if (!fs) { fs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); fs.setAttribute('class', 'ofr'); fs.setAttribute('viewBox', '0 0 1 1'); fs.setAttribute('preserveAspectRatio', 'none'); fs.innerHTML = '<path fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'; wr.appendChild(fs); } const fp = fs.firstChild; fp.setAttribute('d', SHAPE_PATHS[c.shape] || 'M0 0H1V1H0Z'); fp.setAttribute('stroke', c.frameColor || '#ffffff'); fp.setAttribute('stroke-width', String(2 * c.frame * w)); } else if (fs) fs.remove();
-    wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = !!c0.muted;
+    wr.style.zIndex = String(c.track); wr.classList.toggle('sel', c.id === selId); el.muted = voMuteAll || !!c0.muted;
     el.style.visibility = ''; if (fltOverlay(el, wr, c)) fltAny = true;
     if (c.id === selId) { const hh = $('ovHandle'); hh.style.display = 'block'; hh.style.left = Math.max(0, Math.min(vr.width - 16, c.x * vr.width + w / 2 - 8)) + 'px'; hh.style.top = Math.max(0, Math.min(vr.height - 16, c.y * vr.height + h / 2 - 8)) + 'px'; handleShown = true; }
     if (playing) {
@@ -1209,6 +1211,50 @@ async function addTrackFile(file, kind) {
 }
 $('ovFile').addEventListener('change', () => { const f = $('ovFile').files[0]; $('ovFile').value = ''; addTrackFile(f, 'video'); });
 $('auFile').addEventListener('change', () => { const f = $('auFile').files[0]; $('auFile').value = ''; addTrackFile(f, 'audio'); });
+/* W92: voz en off. Graba el micrófono mientras el video avanza desde la línea blanca (sin sonido, para que no se
+   cuele), y la deja como pista de audio independiente en ese mismo instante, con la importación normal (se guarda,
+   se mueve, se recorta y se mezcla como cualquier audio). Se detiene con el botón, al final del video o si Wivra pasa a
+   segundo plano; lo grabado hasta ahí se conserva. */
+let voTake = null, voCount = 0;
+async function voStop(reason) {
+  const t = voTake; if (!t || t.stopping) return; t.stopping = true; clearInterval(t.watch);
+  const blob = await new Promise((ok) => { t.recorder.onstop = () => ok(new Blob(t.chunks, { type: t.recorder.mimeType || 'audio/webm' })); try { t.recorder.stop(); } catch { ok(new Blob(t.chunks)); } });
+  t.stream.getTracks().forEach((x) => x.stop());
+  voMuteAll = false; stopPlayIfAny(); document.removeEventListener('visibilitychange', t.onHide);
+  $('voRec').textContent = '🎙️ ' + aiT('Grabar voz en off'); voTake = null;
+  if (!blob.size || (performance.now() - t.t0) < 500) { $('voInfo').textContent = aiT('La grabación fue demasiado corta; no se agregó nada.'); return; }
+  // MediaRecorder files (WebM/MP4) often carry no duration, and some players refuse them: keep the voice as a plain
+  // WAV (mono, 16-bit, same sample rate), which every phone opens and whose length is exact.
+  let file;
+  try {
+    const ab = await blob.arrayBuffer(), AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+    try {
+      const buf = await new Promise((ok, no) => { const q = ctx.decodeAudioData(ab, ok, no); if (q && q.catch) q.catch(no); });
+      const mono = new Float32Array(buf.length); for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
+      file = new File([encodeWavMono(mono, buf.sampleRate)], aiT('Voz en off {1}', ++voCount) + '.wav', { type: 'audio/wav' });
+    } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch {} }
+  } catch { $('voInfo').textContent = aiT('No pude leer la voz grabada; no se agregó nada.'); return; }
+  const before = (session.project.audioClips || []).length;
+  tlTime = t.start; await addTrackFile(file, 'audio');      // same import as any audio: independent track at the start point
+  if ((session.project.audioClips || []).length <= before) { $('voInfo').textContent = aiT('No se pudo agregar la voz en off a la línea de tiempo.'); return; }
+  $('voInfo').textContent = reason === 'hidden' ? aiT('Wivra pasó a segundo plano: se guardó la voz grabada hasta ese momento.') : aiT('Voz en off agregada como pista de audio desde {1} s. Puedes moverla, recortarla o bajarle el volumen.', String(t.start).replace('.', ','));
+}
+$('voRec').onclick = async () => {
+  if (voTake) { voStop('button'); return; }
+  if (!session || timelineEnd(session.project) <= 0) { say(aiT('Primero agrega un video.'), 'bad'); return; }
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) { say(aiT('Aquí no se puede grabar el micrófono. Graba la voz con otra app e impórtala con «Audio (música, voz)».'), 'bad'); return; }
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+  catch { say(aiT('No pude usar el micrófono. Permite el micrófono para Wivra en Ajustes del teléfono, o usa el micrófono del teclado.'), 'bad'); return; }
+  stopPlayIfAny(); if (tlTime >= timelineEnd(session.project) - 0.1) tlTime = 0;
+  const recorder = new MediaRecorder(stream), chunks = [], start = round2(tlTime);
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  const t = voTake = { stream, recorder, chunks, start, t0: performance.now(), stopping: false, onHide: () => { if (document.visibilityState === 'hidden') voStop('hidden'); } };
+  document.addEventListener('visibilitychange', t.onHide);
+  voMuteAll = true; recorder.start(1000);      // chunks every second: a sudden stop keeps what was said
+  $('voRec').textContent = '⏹ ' + aiT('Detener voz en off'); $('voInfo').textContent = aiT('Grabando… narra ahora. Toca Detener cuando termines.');
+  $('play').onclick();
+  t.watch = setInterval(() => { if (voTake === t && !playing && performance.now() - t.t0 > 800) voStop('end'); }, 250);      // the video reached its end
+};
 // Música original local: usa la misma importación y persistencia que cualquier WAV del usuario.
 if (typeof MUSIC_TRACKS !== 'undefined') {
   const select = $('wivraMusicSelect');

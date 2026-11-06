@@ -807,3 +807,16 @@ Permitir exportación incompleta si falta una pista, no funciona el audio o una 
 Permitir exportar aunque falte un video, GIF o imagen superpuesta. Podrían desaparecer logos o tomas. Desmarcado por seguridad. || Consenti l'esportazione anche se manca un video, GIF o immagine sovrapposta. Loghi o riprese potrebbero sparire. Deselezionato per sicurezza.
 Toma completada: {} || Ripresa completata: {}
 Asociar archivo a {} || Associa un file a {}
+🎙️ Grabar voz en off || 🎙️ Registra voce fuori campo
+Grabar voz en off || Registra voce fuori campo
+Narra mientras ves el video desde la línea blanca; el sonido del video se silencia para que no se grabe. Con audífonos se oye mejor. || Racconta mentre guardi il video dalla linea bianca; l'audio del video è disattivato per non registrarlo. Con le cuffie è meglio.
+Detener voz en off || Ferma voce fuori campo
+Grabando… narra ahora. Toca Detener cuando termines. || Registrazione… racconta ora. Tocca Ferma quando hai finito.
+La grabación fue demasiado corta; no se agregó nada. || La registrazione era troppo breve; non è stato aggiunto nulla.
+Voz en off {1} || Voce fuori campo {1}
+Wivra pasó a segundo plano: se guardó la voz grabada hasta ese momento. || Wivra è passata in secondo piano: la voce registrata fino a quel momento è stata conservata.
+Voz en off agregada como pista de audio desde {1} s. Puedes moverla, recortarla o bajarle el volumen. || Voce fuori campo aggiunta come traccia audio da {1} s. Puoi spostarla, tagliarla o abbassarne il volume.
+Primero agrega un video. || Prima aggiungi un video.
+Aquí no se puede grabar el micrófono. Graba la voz con otra app e impórtala con «Audio (música, voz)». || Qui non si può registrare il microfono. Registra la voce con un'altra app e importala con «Audio (musica, voce)».
+No pude leer la voz grabada; no se agregó nada. || Non sono riuscito a leggere la voce registrata; non è stato aggiunto nulla.
+No se pudo agregar la voz en off a la línea de tiempo. || Non è stato possibile aggiungere la voce fuori campo alla timeline.
