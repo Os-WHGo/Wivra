@@ -3,6 +3,7 @@
 // transcript contract. The engine runs in a Web Worker; the model is downloaded only
 // after explicit consent, verified by SHA-256 and kept on the phone for offline use.
 // Multilingual models only (no English-only variants). whisper.cpp: MIT.
+import { splitText } from '../subtitles.mjs';
 
 /** Voice packs (multilingual, Q5_1). Source pinned to one revision of the official repo. */
 export const WV_REV = '5359861';
@@ -100,6 +101,26 @@ export function wvEtaMinutes(doneSamples, totalSamples, elapsedMs) {
 const WV_ASK = /(subt[ií]tul|subtitl|legenda|sous-titr|untertitel|sottotitol|\bcaptions?\b|transcrib|transcrev|transkrib|trascriv|字幕)/iu;
 const WV_NOT = /(\.srt|\.vtt|\bsrt\b|\bvtt\b|import|guard|export|quita|borra|elimina|remove|delete|apaga|entfern|lösch|supprim|rimuov|cancella|apag|削除|删除)/iu;
 export const wvWantsAutoSubtitles = (text) => { const t = String(text || ''); return t.length <= 200 && WV_ASK.test(t) && !WV_NOT.test(t); };
+
+/** Characters per automatic caption: short enough for a vertical video, never words lost. */
+export const WV_CAPTION_CHARS = 42;
+
+/**
+ * whisper segments (can be a long sentence, up to the 120-char text limit and beyond) → short captions:
+ * first at sentence ends, then at spaces (≤ max chars); time shared by length, with no gaps or overlaps.
+ */
+export function wvCaptionCues(segments, max = WV_CAPTION_CHARS) {
+  const out = [];
+  for (const s of segments) {
+    const parts = String(s.text).split(/(?<=[.!?…。！？])\s+/u).flatMap((p) => splitText(p.trim(), max)).filter(Boolean);
+    const total = parts.reduce((n, p) => n + p.length, 0) || 1; let t = s.start;
+    parts.forEach((p, i) => {
+      const e = i === parts.length - 1 ? s.end : Math.round((t + ((s.end - s.start) * p.length) / total) * 1000) / 1000;
+      if (e > t) out.push({ start: t, end: e, text: p }); t = e;
+    });
+  }
+  return out;
+}
 
 /** SHA-256 as lowercase hex (WebCrypto; available in WebView/WKWebView and Node 18+). */
 export async function wvSha256Hex(buf, subtle = globalThis.crypto?.subtle) {

@@ -2349,7 +2349,7 @@ $('wvRun').onclick = async () => {
     worker.terminate(); wvWorker = null; worker = null; job.reject = null; alive();
     const v = validateTranscript(wvMerge(pieces), { duration });
     if (!v.ok) throw new Error(v.message);
-    const { ops, late } = cuesToOps(v.value.segments.map(({ start, end, text }) => ({ start, end, text: text.slice(0, MAX_TEXT) })), duration);
+    const { ops, late } = cuesToOps(wvCaptionCues(v.value.segments), duration);      // short captions; no word is cut off
     wvUi(false);
     if (!ops.length) { $('wvState').textContent = aiT('No se reconoció voz en el video.'); say(aiT('No se reconoció voz en el video.'), 'bad'); return; }
     if (!confirm(aiT('Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer.', ops.length))) { wvRefresh(); return; }

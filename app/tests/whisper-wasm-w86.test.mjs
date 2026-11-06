@@ -87,3 +87,15 @@ test('lead silence: timestamps shift back to the timeline and never start before
   const r = wvMerge([{ offset: 30 - 0.5, from: 30, limit: 60, json }]);
   assert.deepEqual(r.segments.map((s) => [s.start, s.end]), [[30, 32], [32, 33.5]]);
 });
+
+test('long recognized sentences become short captions without losing a word', async () => {
+  const { wvCaptionCues, WV_CAPTION_CHARS } = await import('../ai/whisper-wasm.mjs');
+  const text = 'And so my fellow Americans, ask not what your country can do for you. Ask what you can do for your country, and keep going with many more words here.';
+  const c = wvCaptionCues([{ start: 0, end: 11, text }]);
+  assert.ok(c.length >= 4 && c.every((x) => x.text.length <= WV_CAPTION_CHARS), JSON.stringify(c));
+  assert.equal(c.map((x) => x.text).join(' '), text);                       // nothing cut off
+  assert.equal(c[0].start, 0); assert.equal(c[c.length - 1].end, 11);
+  for (let i = 1; i < c.length; i++) assert.equal(c[i].start, c[i - 1].end);   // no gaps, no overlaps
+  assert.match(c[1].text + ' ' + c[2].text, /you\. Ask|^Ask/);               // sentence end respected somewhere
+  assert.deepEqual(wvCaptionCues([{ start: 1, end: 2, text: 'Hola.' }]), [{ start: 1, end: 2, text: 'Hola.' }]);
+});
