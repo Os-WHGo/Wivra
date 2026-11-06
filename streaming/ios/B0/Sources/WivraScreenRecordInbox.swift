@@ -30,8 +30,8 @@ enum WivraScreenRecordInbox {
 
     /// Recordings waiting for a decision. One still being written (fresh session file,
     /// not finished) is left alone, so its files are never touched while in use.
-    static func list(now: Date = Date()) -> [WivraScreenRecording] {
-        guard let root = Shared.root(),
+    static func list(root: URL? = WivraScreenRecordShared.root(), now: Date = Date()) -> [WivraScreenRecording] {
+        guard let root,
               let dirs = try? FileManager.default.contentsOfDirectory(
                 at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else { return [] }
         var found: [WivraScreenRecording] = []
@@ -71,11 +71,12 @@ enum WivraScreenRecordInbox {
     /// Checks the video (and each sound file), moves them into Wivra's capture folder and
     /// writes a manifest v2 there. A sound file that does not pass the check is left out
     /// (the video is still imported); a video that does not pass stops everything.
-    static func importRecording(_ item: WivraScreenRecording) async throws -> URL {
+    /// `destination` is only overridden by the macOS check (W109); the app always uses Documents/WivraIPhoneMedia.
+    static func importRecording(_ item: WivraScreenRecording, destination: URL? = nil) async throws -> URL {
         guard await WivraCaptureMediaVerifier.verifyFile(
             item.folder.appendingPathComponent(item.session.videoFile), in: item.folder) else { throw Failure.videoUnreadable }
         let fm = FileManager.default
-        let destination = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let destination = destination ?? fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraIPhoneMedia", isDirectory: true)
         try fm.createDirectory(at: destination, withIntermediateDirectories: true)
 
@@ -120,8 +121,8 @@ enum WivraScreenRecordInbox {
     }
 
     /// Deletes one recording; the screen asks for confirmation first.
-    static func discard(_ item: WivraScreenRecording) -> Bool {
-        guard let root = Shared.root(),
+    static func discard(_ item: WivraScreenRecording, root: URL? = WivraScreenRecordShared.root()) -> Bool {
+        guard let root,
               item.folder.standardizedFileURL.deletingLastPathComponent() == root.standardizedFileURL,
               Shared.safeID(item.folder.lastPathComponent) else { return false }
         return (try? FileManager.default.removeItem(at: item.folder)) != nil

@@ -8,6 +8,9 @@ on:
       - 'streaming/tests/WivraPhotosActiveSaveSmoke.swift'
       - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
       - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
+      - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
+      - 'streaming/tests/ios-screenrec-import-editor.mjs'
+      - 'app/capture-manifest.mjs'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
@@ -42,6 +45,19 @@ jobs:
             streaming/tests/WivraScreenRecordWriterSmoke.swift \
             -o /tmp/wivra-screenrec-writer-smoke
           /tmp/wivra-screenrec-writer-smoke
+      - name: W109 · iPhone «Pasar a Wivra» for screen recordings + the editor's own manifest parser (macOS) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Shared/WivraScreenRecordShared.swift \
+            streaming/ios/B0/Shared/WivraScreenRecordWriter.swift \
+            streaming/ios/B0/Sources/WivraScreenRecordInbox.swift \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraScreenRecordImportSmoke.swift \
+            -o /tmp/wivra-screenrec-import-smoke
+          /tmp/wivra-screenrec-import-smoke "$RUNNER_TEMP"
+          node streaming/tests/ios-screenrec-import-editor.mjs "$RUNNER_TEMP"
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu
