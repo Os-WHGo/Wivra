@@ -107,6 +107,23 @@ export function wvMerge(pieces) {
 /** No message from the engine for this long while Wivra is on screen = the engine was lost (e.g. the system closed it). */
 export const WV_STALL_MS = 10 * 60 * 1000;
 
+/**
+ * W101 (Claude): a window with no sound at all is not sent to whisper (long videos often
+ * have long pauses; each window costs ~30 s of engine time on a phone). Conservative: the
+ * window is skipped only if NO 30 ms slice reaches about −48 dBFS, so even quiet speech,
+ * a whisper or a distant voice is still transcribed. Room noise / music are not "silent".
+ */
+export const WV_SILENCE_RMS = 0.004;
+export function wvIsSilent(pcm, from = 0, rate = WV_RATE, threshold = WV_SILENCE_RMS) {
+  const frame = Math.max(1, Math.round(0.03 * rate));
+  for (let s = Math.max(0, from); s < pcm.length; s += frame) {
+    const e = Math.min(pcm.length, s + frame); let sum = 0;
+    for (let i = s; i < e; i++) sum += pcm[i] * pcm[i];
+    if (Math.sqrt(sum / (e - s)) >= threshold) return false;
+  }
+  return true;
+}
+
 /** Minutes left (rounded up, ≥ 1) after some pieces, from the measured pace; null before the first piece or at the end. */
 export function wvEtaMinutes(doneSamples, totalSamples, elapsedMs) {
   if (!(doneSamples > 0) || !(elapsedMs > 0) || !(totalSamples > doneSamples)) return null;

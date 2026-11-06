@@ -132,3 +132,16 @@ test('W98: each 30 s window reads only the pieces that sound in it (speed, mute,
   const win = new Float32Array(8); wvMixInto(win, 2, Float32Array.from([1, 2, 3, 4]), 3, 1, 0.5); assert.deepEqual([...win], [0, 0, 0.5, 1, 1.5, 0, 0, 0]);
   assert.deepEqual([...wvPcmFromBase64(Buffer.from(Int16Array.from([16384, -32768]).buffer).toString('base64'))], [0.5, -1]);
 });
+
+test('W101: only truly silent windows are skipped; quiet speech is never skipped', async () => {
+  const { wvIsSilent, WV_RATE } = await import('../ai/whisper-wasm.mjs');
+  const n = WV_RATE * 2, tone = (amp) => Float32Array.from({ length: n }, (_, i) => amp * Math.sin(2 * Math.PI * 220 * i / WV_RATE));
+  assert.equal(wvIsSilent(new Float32Array(n)), true);                       // digital silence
+  assert.equal(wvIsSilent(tone(0.001)), true);                               // ≈ −63 dBFS hiss
+  assert.equal(wvIsSilent(tone(0.02)), false);                               // ≈ −37 dBFS: a quiet voice
+  const burst = new Float32Array(n); burst.set(tone(0.2).subarray(0, 480), WV_RATE);   // one 30 ms word in 2 s of silence
+  assert.equal(wvIsSilent(burst), false);
+  const lead = Math.round(0.5 * WV_RATE), loudLead = tone(0); loudLead.fill(0.5, 0, lead);
+  assert.equal(wvIsSilent(loudLead, lead), true);                            // the added lead is not judged
+  assert.equal(wvIsSilent(new Float32Array(0)), true);
+});
