@@ -54,12 +54,13 @@ jobs:
           script: |
             set -eu
             adb install -r streaming/android/app/build/outputs/apk/full/debug/app-full-debug.apk
+            # MU V4: + the accelerated export (WebCodecs + Mediabunny) in the real editor WebView through the native v2 writer.
             # W105: the W99 local screen recording, recorded for real (no network, no microphone),
             # before the app language is changed for the screenshots.
             adb install -r streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
-            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraScreenRecordInstrumentedTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/screen-record.txt"
-            grep -E 'WIVRA-SCREENREC|shortMsg|Error|assert' "$RUNNER_TEMP/screen-record.txt" || true
-            grep -Eq '^OK \(1 test\)' "$RUNNER_TEMP/screen-record.txt"
+            adb shell am instrument -w -r -e class com.oswhgo.wivra.WivraScreenRecordInstrumentedTest,com.oswhgo.wivra.WivraAcceleratedWebViewTest com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/screen-record.txt"
+            grep -E 'WIVRA-SCREENREC|WIVRA-ACCEL|shortMsg|Error|assert' "$RUNNER_TEMP/screen-record.txt" || true
+            grep -Eq '^OK \(2 tests\)' "$RUNNER_TEMP/screen-record.txt"
             adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
             mkdir -p "$RUNNER_TEMP/wivra-screens"
             adb shell pm grant com.oswhgo.wivra android.permission.CAMERA || true
