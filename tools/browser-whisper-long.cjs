@@ -38,11 +38,12 @@ const pcmB64 = wavBytes.subarray(dataAt).toString('base64');
     if (!(await wvGetPack(model))) return { error: 'no pack', says };
     const t0 = performance.now(); await $('wvRun').onclick();
     return { duration, ms: Math.round(performance.now() - t0), calls, maxSpan, heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
-      texts: session.project.texts.map((x) => ({ start: x.start, end: x.end, text: x.text })), says: says.slice(-3) };
+      texts: session.project.texts.map((x) => ({ start: x.start, end: x.end, text: x.text })), says: says.slice(-3), run: window.wvLastRun || null };
   }, { vid: fs.readFileSync(video).toString('base64'), type, pcmB64, model, lang });
   await browser.close();
   if (out.error) { console.log('not ok - ' + out.error + ' ' + JSON.stringify(out.says)); process.exit(1); }
   console.log(`${model} ${lang}: ${out.duration.toFixed(0)} s project in ${(out.ms / 1000).toFixed(0)} s, ${out.calls} native pieces (longest ${out.maxSpan.toFixed(1)} s), heap ${out.heapMB} MB, ${out.texts.length} subtitles`);
+  if (out.run) console.log(`  ${out.run.windows} windows, ${out.run.silent} silent ones not sent to whisper`);
   for (const t of out.texts) console.log(`  [${t.start.toFixed(1)}–${t.end.toFixed(1)}] ${t.text}`);
   const checks = [[out.duration > 600, 'project longer than the 10-minute single-decode limit'], [out.maxSpan <= 35, 'every native piece ≤ 35 s'], [!errors.length, 'no page errors ' + errors.join(' | ')]];
   for (const e of expect.split(',').filter(Boolean)) {

@@ -2427,7 +2427,7 @@ $('wvRun').onclick = async () => {
     workerUrl = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' }));
     worker = wvWorker = new Worker(workerUrl);
     const total = long ? Math.round(duration * WV_RATE) : mono.length;
-    const chunks = long ? wvChunks(total, null, WV_RATE) : wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0, eta = null; const t0 = Date.now();
+    const chunks = long ? wvChunks(total, null, WV_RATE) : wvChunks(mono.length, mono, WV_RATE), pieces = []; let current = 0, eta = null, skipped = 0; const t0 = Date.now();
     const listening = () => eta ? aiT('Escuchando… parte {1} de {2} · faltan unos {3} min', current + 1, chunks.length, eta) : aiT('Escuchando… parte {1} de {2}', current + 1, chunks.length);
     watchdog = setInterval(() => {      // an engine that stops answering (closed by the system) must not leave the job waiting forever
       if (document.visibilityState === 'visible' && Date.now() - job.lastMsg > WV_STALL_MS && job.reject) job.reject(Object.assign(new Error('STALLED'), { code: 'STALLED' }));
@@ -2446,6 +2446,7 @@ $('wvRun').onclick = async () => {
       const c = chunks[current], lead = Math.round(WV_LEAD_S * WV_RATE);
       let pcm; if (long) pcm = await wvLongWindow(project, c.from / WV_RATE, c.to / WV_RATE, lead, alive, shortCache);
       else { pcm = new Float32Array(lead + c.to - c.from); pcm.set(mono.subarray(c.from, c.to), lead); }
+      if (wvIsSilent(pcm, lead)) { skipped++; continue; }      // W101: nothing to hear in this window
       eta = wvEtaMinutes(c.from, total, Date.now() - t0);
       wvUi(true, listening(), 5 + 95 * current / chunks.length);
       const r = await ask({ type: 'run', id: current, pcm, lang, fallback: WV_FALLBACK }, [pcm.buffer]);
@@ -2454,6 +2455,7 @@ $('wvRun').onclick = async () => {
       pieces.push({ offset: (c.from - lead) / WV_RATE, from: c.from / WV_RATE, limit: Math.min(duration, c.to / WV_RATE), json: r.json });
     }
     worker.terminate(); wvWorker = null; worker = null; job.reject = null; alive();
+    window.wvLastRun = { windows: chunks.length, silent: skipped };      // W101: shown by the CI long-video test
     const v = validateTranscript(wvMerge(pieces), { duration });
     if (!v.ok) throw new Error(v.message);
     const { ops, late } = cuesToOps(wvCaptionCues(v.value.segments), duration);      // short captions; no word is cut off
