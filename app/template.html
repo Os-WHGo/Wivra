@@ -2376,14 +2376,14 @@ $('wvRun').onclick = async () => {
     document.removeEventListener('visibilitychange', onVisible); try { if (job.wake) job.wake.release(); } catch {}
   }
 };
-/** W89: the pack used for dictation: Ligero if saved (fast), else the chosen one, else Preciso. */
+/** W89: the pack used for dictation: Preciso if saved (as fast as Ligero with the short window, more accurate), else Ligero. */
 async function wvDictPack() {
-  for (const id of ['tiny', $('wvModel').value, 'base']) { const p = await wvGetPack(id); if (p) return Object.assign({ id }, p); }
+  for (const id of ['base', 'tiny']) { const p = await wvGetPack(id); if (p) return Object.assign({ id }, p); }
   return null;
 }
 /** W89: short audio (≤ 30 s, dictation) → text, with the same engine and checks as the subtitles. */
 async function wvTranscribeShort(mono, lang) {
-  const pack = await wvDictPack(); if (!pack) throw new Error(aiT('Primero descarga el paquete de voz «{1}».', aiT(WV_MODELS.tiny.name)));
+  const pack = await wvDictPack(); if (!pack) throw new Error(aiT('Primero descarga el paquete de voz «{1}».', aiT(WV_MODELS.base.name)));
   const model = await pack.blob.arrayBuffer();
   if (await wvSha256Hex(model) !== pack.sha256) { await wvDelPack(pack.id); throw new Error(aiT('El paquete de voz guardado está dañado y se borró. Descárgalo otra vez.')); }
   const src = await wvEngineSource(), url = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' })), worker = new Worker(url);
@@ -2396,7 +2396,7 @@ async function wvTranscribeShort(mono, lang) {
     const ready = await ask({ type: 'init', model }, [model]); if (!ready.ok) throw new Error('MODEL');
     const body = mono.length > WV_DICT_MAX_S * WV_RATE ? mono.subarray(0, WV_DICT_MAX_S * WV_RATE) : mono;
     const lead = Math.round(WV_LEAD_S * WV_RATE), pcm = new Float32Array(lead + body.length); pcm.set(body, lead);
-    const r = await ask({ type: 'run', id: 0, pcm, lang, fallback: WV_FALLBACK, audioCtx: WV_DICT_SHORT_WINDOW ? wvAudioCtx(pcm.length) : 0 }, [pcm.buffer]);
+    const r = await ask({ type: 'run', id: 0, pcm, lang, fallback: WV_FALLBACK, audioCtx: WV_SHORT_WINDOW_PACKS.includes(pack.id) ? wvAudioCtx(pcm.length) : 0 }, [pcm.buffer]);
     const merged = wvMerge([{ offset: -WV_LEAD_S, from: 0, limit: Infinity, json: r.json }]);
     return merged.segments.map((x) => x.text).join(' ').trim();
   } finally { worker.terminate(); URL.revokeObjectURL(url); }

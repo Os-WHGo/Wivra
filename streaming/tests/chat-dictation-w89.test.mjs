@@ -21,5 +21,5 @@ test('dictation stays local with a pack, never sends the request by itself, and 
   assert.match(block, /l\.stream\.getTracks\(\)\.forEach\(\(t\) => t\.stop\(\)\)/);
   assert.match(block, /\$\('ask'\)\.value = \(base \+ ' ' \+ text\)\.trim\(\)/);
   assert.doesNotMatch(block, /\$\('aiAsk'\)\.onclick\(\)|\.click\(\)/);            // the person reviews and sends
-  assert.match(t, /audioCtx: WV_DICT_SHORT_WINDOW \? wvAudioCtx\(pcm\.length\) : 0/);
+  assert.match(t, /audioCtx: WV_SHORT_WINDOW_PACKS\.includes\(pack\.id\) \? wvAudioCtx\(pcm\.length\) : 0/);
 });

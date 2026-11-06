@@ -13,7 +13,7 @@ export const WV_MODELS = {
   base: { id: 'base', file: 'ggml-base-q5_1.bin', name: 'Preciso', approxMB: 57, bytes: 59707625, sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898' },
 };
 /** SHA-256 of app/vendor/whisper/wivra-whisper.js (whisper.cpp 0c7be69, Emscripten 3.1.74), checked at build and before each use. */
-export const WV_ENGINE_SHA256 = '2bf5f898fa61e4f3774ba45a2308b959170eb731b764fd58283cc4273f643213';
+export const WV_ENGINE_SHA256 = '0693b9c328b04407a0c45fe9a05443ad8d0340df101ca366f9605e810a261eba';
 export const wvModelUrl = (m) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/${WV_REV}/${m.file}`;
 export const WV_LANGS = ['auto', 'es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh'];
 export const WV_RATE = 16000;
@@ -34,8 +34,10 @@ export function wvAudioCtx(nSamples, rate = WV_RATE, margin = 128) {
 }
 /** Dictation in the editor chat (W89): at most this many seconds per take. */
 export const WV_DICT_MAX_S = 30;
-/** Dictation uses the short encoder window (wvAudioCtx). Set from the CI comparison W89. */
-export const WV_DICT_SHORT_WINDOW = true;
+/** Packs whose dictation uses the short encoder window (wvAudioCtx). CI W89, 6 natural-voice sentences:
+ *  Base ≈ 94 % with both windows and 2.6× faster with the short one (~12 s vs ~32 s per sentence);
+ *  Tiny drops from ≈ 88 % to ≈ 72 % (and loops on a robotic voice), so Tiny keeps the full window. */
+export const WV_SHORT_WINDOW_PACKS = ['base'];
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
