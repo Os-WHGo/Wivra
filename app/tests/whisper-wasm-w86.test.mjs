@@ -99,3 +99,23 @@ test('long recognized sentences become short captions without losing a word', as
   assert.match(c[1].text + ' ' + c[2].text, /you\. Ask|^Ask/);               // sentence end respected somewhere
   assert.deepEqual(wvCaptionCues([{ start: 1, end: 2, text: 'Hola.' }]), [{ start: 1, end: 2, text: 'Hola.' }]);
 });
+
+test('W89: short encoder window for short audio only', async () => {
+  const { wvAudioCtx } = await import('../ai/whisper-wasm.mjs');
+  assert.equal(wvAudioCtx(16000 * 3), 278);        // 3 s → 150 frames + 128 margin
+  assert.equal(wvAudioCtx(16000 * 30), 0);         // full pieces keep the full window
+  assert.ok(wvAudioCtx(16000 * 28) <= 1500);
+});
+
+test('W89: recognized speech becomes AutoCut evidence per clip, only when nothing else can sound', async () => {
+  const { wvTimedSpeechByAsset } = await import('../ai/whisper-wasm.mjs');
+  const project = { assets: [{ id: 'a', duration: 20 }, { id: 'b', duration: 30 }], clips: [{ id: 'c1', asset_id: 'a', start: 0, in: 5, out: 15 }, { id: 'c2', asset_id: 'b', start: 10, in: 0, out: 10 }], overlayClips: [], audioClips: [] };
+  const segs = [{ start: 1, end: 3, text: 'hola' }, { start: 9, end: 12, text: 'cruza el corte' }];
+  const m = wvTimedSpeechByAsset(project, segs);
+  assert.deepEqual(m.get('a').segments, [{ start: 6, end: 8, text: 'hola' }, { start: 14, end: 15, text: 'cruza el corte' }]);
+  assert.deepEqual(m.get('b').segments, [{ start: 0, end: 2, text: 'cruza el corte' }]);
+  assert.equal(m.get('a').source, 'local_asr');
+  assert.equal(wvTimedSpeechByAsset({ ...project, audioClips: [{ asset_id: 'm', start: 0, in: 0, out: 5 }] }, segs).size, 0);    // music could be the voice
+  assert.equal(wvTimedSpeechByAsset({ ...project, audioClips: [{ asset_id: 'm', start: 0, in: 0, out: 5, muted: true }] }, segs).size, 2);
+  assert.equal(wvTimedSpeechByAsset({ ...project, clips: [{ ...project.clips[0], speed: 2 }] }, segs).size, 0);
+});

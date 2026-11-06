@@ -11,6 +11,7 @@ import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -25,6 +26,9 @@ import android.webkit.WebViewClient;
  * No telemetry, account gate, SDK tokens or paid services.
  */
 public final class MainActivity extends Activity {
+    // W89: the editor's on-phone dictation (whisper.cpp) asks for the microphone through the WebView.
+    private static final int REQUEST_EDITOR_MICROPHONE = 4189;
+    private PermissionRequest pendingEditorMicrophone;
     private static final int PICK_FILES_REQUEST = 4207;
     // Keep native picker limits identical to the Editor's 40-file import limit.
     private static final int MAX_PICKER_FILES = 40;
@@ -82,6 +86,29 @@ public final class MainActivity extends Activity {
             }
         });
         editor.setWebChromeClient(new WebChromeClient() {
+            // W89: only AUDIO, only for the packaged editor (file:///android_asset), and only after
+            // Android's own microphone permission. Camera or any other resource is always denied.
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                Uri origin = request.getOrigin();
+                boolean packagedEditor = origin != null && "file".equals(origin.getScheme());
+                boolean onlyAudio = request.getResources().length == 1 &&
+                    PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(request.getResources()[0]);
+                if (!packagedEditor || !onlyAudio) { request.deny(); return; }
+                if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                    return;
+                }
+                if (pendingEditorMicrophone != null) pendingEditorMicrophone.deny();
+                pendingEditorMicrophone = request;
+                requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_EDITOR_MICROPHONE);
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (pendingEditorMicrophone == request) pendingEditorMicrophone = null;
+            }
+
             @Override
             public boolean onShowFileChooser(
                 WebView webView,
@@ -756,6 +783,20 @@ public final class MainActivity extends Activity {
         super.onSaveInstanceState(state);
         state.putString("directorShotAwaitingSave", pendingDirectorShotId);
         state.putString("directorProjectAwaitingSave", pendingDirectorProjectId);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQUEST_EDITOR_MICROPHONE) return;
+        PermissionRequest request = pendingEditorMicrophone;
+        pendingEditorMicrophone = null;
+        if (request == null) return;
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+        } else {
+            request.deny();
+        }
     }
 
     @Override

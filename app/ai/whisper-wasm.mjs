@@ -4,6 +4,7 @@
 // after explicit consent, verified by SHA-256 and kept on the phone for offline use.
 // Multilingual models only (no English-only variants). whisper.cpp: MIT.
 import { splitText } from '../subtitles.mjs';
+import { AUTOCUT_TIMED_SCHEMA, normalizeTimedSpeech } from '../autocut-evidence.mjs';
 
 /** Voice packs (multilingual, Q5_1). Source pinned to one revision of the official repo. */
 export const WV_REV = '5359861';
@@ -13,7 +14,7 @@ export const WV_MODELS = {
   base: { id: 'base', file: 'ggml-base-q5_1.bin', name: 'Preciso', approxMB: 57, bytes: 59707625, sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898' },
 };
 /** SHA-256 of app/vendor/whisper/wivra-whisper.js (whisper.cpp 0c7be69, Emscripten 3.1.74), checked at build and before each use. */
-export const WV_ENGINE_SHA256 = '2bf5f898fa61e4f3774ba45a2308b959170eb731b764fd58283cc4273f643213';
+export const WV_ENGINE_SHA256 = '0693b9c328b04407a0c45fe9a05443ad8d0340df101ca366f9605e810a261eba';
 export const wvModelUrl = (m) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/${WV_REV}/${m.file}`;
 export const WV_LANGS = ['auto', 'es', 'en', 'pt', 'fr', 'de', 'it', 'ja', 'zh'];
 export const WV_RATE = 16000;
@@ -24,6 +25,20 @@ export const WV_CHUNK_S = 30;          // whisper's own window; keeps memory sma
 export const WV_FALLBACK = true;
 /** Silence put before each piece: speech that starts right at 0.0 s loses its first word (measured in CI W86). */
 export const WV_LEAD_S = 0.5;
+/**
+ * Encoder window for short audio (whisper encodes 30 s even for 3 s of speech): 50 frames per second
+ * of audio plus a margin, capped at the full 1500. 0 = full window (pieces of ~30 s, subtitles).
+ */
+export function wvAudioCtx(nSamples, rate = WV_RATE, margin = 128) {
+  const s = nSamples / rate;
+  return s >= 29 ? 0 : Math.min(1500, Math.ceil(s * 50) + margin);
+}
+/** Dictation in the editor chat (W89): at most this many seconds per take. */
+export const WV_DICT_MAX_S = 30;
+/** Packs whose dictation uses the short encoder window (wvAudioCtx). CI W89, 6 natural-voice sentences:
+ *  Base ≈ 94 % with both windows and 2.6× faster with the short one (~12 s vs ~32 s per sentence);
+ *  Tiny drops from ≈ 88 % to ≈ 72 % (and loops on a robotic voice), so Tiny keeps the full window. */
+export const WV_SHORT_WINDOW_PACKS = ['base'];
 export const WV_MAX_AUDIO_S = 10 * 60;  // one job: up to 10 min (decoding the video's sound is the memory peak; longer: by parts)
 
 /** Which pack to suggest from what the device tells (Android exposes deviceMemory; iOS does not). */
@@ -122,6 +137,38 @@ export function wvCaptionCues(segments, max = WV_CAPTION_CHARS) {
   return out;
 }
 
+/**
+ * W89: recognized speech (timeline seconds) → AutoCut evidence per media file (its own seconds), source
+ * 'local_asr'. Honest attribution only: when nothing else in the project can sound (no audio tracks, no
+ * layer with sound), each piece of speech belongs to the main clip playing at that moment. Clips with a
+ * speed change or muted are skipped. → Map(assetId → evidence)
+ */
+export function wvTimedSpeechByAsset(project, segments) {
+  const out = new Map(), assets = new Map((project.assets || []).map((a) => [a.id, a]));
+  const sounding = (c) => !c.muted && !(typeof c.volume === 'number' && c.volume <= 0);
+  if ((project.audioClips || []).some(sounding)) return out;
+  if ((project.overlayClips || []).some((c) => sounding(c) && assets.get(c.asset_id)?.kind !== 'image')) return out;
+  const per = new Map();
+  for (const c of project.clips || []) {
+    const a = assets.get(c.asset_id);
+    if (!a || a.kind === 'image' || !sounding(c) || (c.speed !== undefined && c.speed !== 1) || !(a.duration > 0)) continue;
+    const end = c.start + c.out - c.in;
+    for (const s of segments) {
+      const from = Math.max(c.start, s.start), to = Math.min(end, s.end);
+      if (to - from < 0.02 || !String(s.text).trim()) continue;
+      const list = per.get(a.id) || []; per.set(a.id, list);
+      list.push({ start: Math.round((c.in + from - c.start) * 1000) / 1000, end: Math.round((c.in + to - c.start) * 1000) / 1000, text: String(s.text).trim().slice(0, 512) });
+    }
+  }
+  for (const [id, list] of per) {
+    list.sort((x, y) => x.start - y.start);
+    const evidence = { schema: AUTOCUT_TIMED_SCHEMA, source: 'local_asr', granularity: 'segment', durationSeconds: assets.get(id).duration,
+      segments: list.filter((x, i) => !i || x.start !== list[i - 1].start || x.text !== list[i - 1].text) };
+    if (normalizeTimedSpeech(evidence)) out.set(id, evidence);
+  }
+  return out;
+}
+
 /** SHA-256 as lowercase hex (WebCrypto; available in WebView/WKWebView and Node 18+). */
 export async function wvSha256Hex(buf, subtle = globalThis.crypto?.subtle) {
   if (!subtle) throw new Error('WebCrypto no disponible');
@@ -144,7 +191,7 @@ self.onmessage = async (e) => {
     } else if (m.type === 'run') {
       const pcm = m.pcm, sp = wvMod._malloc(pcm.length * 4);
       if (!sp) { postMessage({ type: 'result', id: m.id, json: '{"error":"MEMORY"}' }); return; }
-      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang, m.fallback ? 1 : 0); wvMod._free(sp);
+      wvMod.HEAPF32.set(pcm, sp >> 2); const json = wvMod.transcribe(sp, pcm.length, m.lang, m.fallback ? 1 : 0, m.audioCtx | 0); wvMod._free(sp);
       postMessage({ type: 'result', id: m.id, json });
     }
   } catch (err) { postMessage({ type: 'error', message: String((err && err.message) || err) }); }

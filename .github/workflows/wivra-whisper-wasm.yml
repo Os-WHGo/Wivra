@@ -13,6 +13,7 @@ on:
     paths:
       - 'tools/whisper-wasm/**'
       - 'tools/browser-whisper-subtitles.cjs'
+      - 'tools/browser-whisper-dictation.cjs'
       - 'app/vendor/whisper/**'
       - 'app/ai/whisper-wasm.mjs'
       - 'streaming/ios/B0/Sources/WivraEditorE2EHook.swift'
@@ -151,23 +152,17 @@ jobs:
             -c:v libx264 -pix_fmt yuv420p -preset veryfast -c:a aac -b:a 64k -movflags +faststart /tmp/wv-fx/flow.mp4
           echo "editor-flow sample: $nat (required words: $words)"
           ls -la /tmp/wv-fx
-      - name: Base vs Tiny on Spanish (robotic and natural voices); Base Q8_0 and F16 as diagnostics only
-        # Fallback (re-decoding doubtful pieces) is compared again: Tiny looped without it in run 42143459395.
+      - name: Base vs Tiny on Spanish, full 30 s window vs short window for short audio (dictation)
+        # Measured before (runs 42142290172, 42147xxxxx): fallback kept on; Q8_0/F16 ≈ Q5_1 in accuracy.
         run: |
           set -eu
           args=(/tmp/wv-fx/es-tight.wav es "$ES_TEXT" /tmp/wv-fx/es.wav es "$ES_TEXT")
           if [ -s /tmp/wv-mac/samples.tsv ]; then while IFS=$'\t' read -r f t; do args+=("/tmp/wv-mac/$f" es "$t"); done < /tmp/wv-mac/samples.tsv; fi
-          for q in q8_0 f16; do
-            n="ggml-base-$q.bin"; [ "$q" = f16 ] && n="ggml-base.bin"
-            curl --fail --location --retry 3 --silent --show-error --max-time 300 "https://huggingface.co/ggerganov/whisper.cpp/resolve/$HF_REV/$n" -o "/tmp/wv-models/$n" || echo "could not download $n"
-          done
           for m in tiny base; do
-            WV_FALLBACK=0 WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
-            for fb in 0 1; do WV_FALLBACK=$fb node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 "${args[@]}"; done
+            WV_MIN_RECALL=0.8 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT"
+            node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 "${args[@]}"
+            WV_AUDIO_CTX=auto node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-$m-q5_1.bin $m-q5_1 /tmp/wv-fx/en.wav en "$EN_TEXT" "${args[@]}"
           done
-          if [ -s /tmp/wv-models/ggml-base-q8_0.bin ]; then WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q8_0.bin base-q8_0 "${args[@]}"; fi
-          if [ -s /tmp/wv-models/ggml-base.bin ]; then WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base.bin base-f16 "${args[@]}"; fi
-          WV_FALLBACK=1 node tools/whisper-wasm/node-check.cjs out/wivra-whisper.js /tmp/wv-models/ggml-base-q5_1.bin base-q5_1 /tmp/wv-fx/es.wav auto "$ES_TEXT"
       - name: The vendored module must be byte-identical to this build
         run: |
           sha256sum out/wivra-whisper.js app/vendor/whisper/wivra-whisper.js
@@ -188,6 +183,11 @@ jobs:
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/en.webm video/webm base en country,ask
       - name: Editor flow in Chromium · Tiny · Spanish (no word requirement)
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm tiny es ''
+      - name: Dictation in the editor chat · Chromium fake microphone · Tiny and Base · Spanish
+        run: |
+          w=/tmp/wv-mac/es-nat-v1-2.wav; [ -s "$w" ] || w=/tmp/wv-fx/es.wav
+          node tools/browser-whisper-dictation.cjs "$w" tiny es "$(cat /tmp/wv-fx/flow-words.txt)" 9
+          node tools/browser-whisper-dictation.cjs "$w" base es "$(cat /tmp/wv-fx/flow-words.txt)" 9
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-fixtures

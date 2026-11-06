@@ -608,6 +608,7 @@ body { background:radial-gradient(110% 50% at 100% -10%, rgba(139,92,255,.22) 0%
       <input id="dirCmd" list="dirCmdList" autocomplete="off" placeholder="Ej.: ya la hice · siguiente · repite · saltar">
       <datalist id="dirCmdList"><option value="siguiente"><option value="repite"><option value="ya la hice"><option value="repetir toma"><option value="saltar"></datalist>
       <button id="dirCmdGo" class="btn sec" type="button">Enviar orden</button>
+      <button id="dirCmdMic" class="btn sec" type="button" style="display:none" aria-label="Dar la orden con la voz">🎤</button>
       <p class="m" id="dirCmdOut" role="status" aria-live="polite"></p>
     </div>
     <div id="dirPlaceHints"></div><div id="dirChecklist"></div>
@@ -2255,6 +2256,7 @@ async function wvRefresh() {
   if (wvBusy) return; const m = WV_MODELS[$('wvModel').value]; let pack = null; try { pack = await wvGetPack(m.id); } catch {}
   wvUi(false, pack ? aiT('Paquete «{1}» guardado en el teléfono ({2} MB). Funciona sin Internet.', aiT(m.name), m.approxMB) : aiT('Paquete «{1}» no descargado ({2} MB).', aiT(m.name), m.approxMB));
   $('wvDel').disabled = !pack;
+  if (window.wvDictHint) window.wvDictHint();      // the chat's 🎤 follows the saved packs
 }
 async function wvEngineSource() {
   const b64 = ($('wvEngine') && $('wvEngine').textContent || '').trim(); if (!b64) throw Object.assign(new Error('ENGINE_MISSING'), { code: 'ENGINE_MISSING' });
@@ -2354,8 +2356,8 @@ $('wvRun').onclick = async () => {
     if (!ops.length) { $('wvState').textContent = aiT('No se reconoció voz en el video.'); say(aiT('No se reconoció voz en el video.'), 'bad'); return; }
     if (!confirm(aiT('Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer.', ops.length))) { wvRefresh(); return; }
     const applied = run(ops); if (!applied.ok) { say(aiT('No se pudo agregar: {1}', applied.message), 'bad'); return; }
-    const timed = timedSpeechFromSingleClipCues(session.project, v.value.segments);
-    if (timed) { const items = siTimed.get(session) || new Map(); items.set(timed.assetId, timed.evidence); siTimed.set(session, items); }
+    const byAsset = wvTimedSpeechByAsset(project, v.value.segments);      // AutoCut can now use what was said, per clip (W89)
+    if (byAsset.size) { const items = siTimed.get(session) || new Map(); for (const [id, ev] of byAsset) items.set(id, ev); siTimed.set(session, items); }
     wvRefresh(); render();
     say(aiT('Se agregaron {1} subtítulos automáticos. Revísalos: el reconocimiento puede equivocarse.', ops.length) + (late ? ' ' + aiT('{1} quedaron fuera del video.', late) : ''), 'ok');
   } catch (e) {
@@ -2375,6 +2377,67 @@ $('wvRun').onclick = async () => {
     document.removeEventListener('visibilitychange', onVisible); try { if (job.wake) job.wake.release(); } catch {}
   }
 };
+/** W89: the pack used for dictation: Preciso if saved (as fast as Ligero with the short window, more accurate), else Ligero. */
+async function wvDictPack() {
+  for (const id of ['base', 'tiny']) { const p = await wvGetPack(id); if (p) return Object.assign({ id }, p); }
+  return null;
+}
+/** W89: short audio (≤ 30 s, dictation) → text, with the same engine and checks as the subtitles. */
+async function wvTranscribeShort(mono, lang) {
+  const pack = await wvDictPack(); if (!pack) throw new Error(aiT('Primero descarga el paquete de voz «{1}».', aiT(WV_MODELS.base.name)));
+  const model = await pack.blob.arrayBuffer();
+  if (await wvSha256Hex(model) !== pack.sha256) { await wvDelPack(pack.id); throw new Error(aiT('El paquete de voz guardado está dañado y se borró. Descárgalo otra vez.')); }
+  const src = await wvEngineSource(), url = URL.createObjectURL(new Blob([src + '\n' + WV_WORKER_GLUE], { type: 'text/javascript' })), worker = new Worker(url);
+  try {
+    const ask = (msg, transfer) => new Promise((ok, no) => {
+      worker.onmessage = (e) => { const d = e.data; if (d.type === 'progress') return; if (d.type === 'error') no(new Error(d.message)); else ok(d); };
+      worker.onerror = (e) => { e.preventDefault && e.preventDefault(); no(new Error('WORKER')); };
+      worker.postMessage(msg, transfer || []);
+    });
+    const ready = await ask({ type: 'init', model }, [model]); if (!ready.ok) throw new Error('MODEL');
+    const body = mono.length > WV_DICT_MAX_S * WV_RATE ? mono.subarray(0, WV_DICT_MAX_S * WV_RATE) : mono;
+    const lead = Math.round(WV_LEAD_S * WV_RATE), pcm = new Float32Array(lead + body.length); pcm.set(body, lead);
+    const r = await ask({ type: 'run', id: 0, pcm, lang, fallback: WV_FALLBACK, audioCtx: WV_SHORT_WINDOW_PACKS.includes(pack.id) ? wvAudioCtx(pcm.length) : 0 }, [pcm.buffer]);
+    const merged = wvMerge([{ offset: -WV_LEAD_S, from: 0, limit: Infinity, json: r.json }]);
+    return merged.segments.map((x) => x.text).join(' ').trim();
+  } finally { worker.terminate(); URL.revokeObjectURL(url); }
+}
+/**
+ * W89: one microphone take with the on-phone engine, for any button (chat, Director). First tap: record (≤ maxS);
+ * second tap or the time limit: stop, transcribe locally, onText(text). report(msg, kind) shows the steps.
+ * The microphone is released right after each take. Returns the tap handler.
+ */
+function wvMicButton(btn, { maxS = WV_DICT_MAX_S, onText, report, idleLabel = '🎤' }) {
+  let take = null;
+  const idle = () => { take = null; btn.disabled = false; btn.textContent = idleLabel; };
+  async function finish() {
+    const t = take; if (!t || t.done) return; t.done = true; clearTimeout(t.timer); btn.disabled = true; btn.textContent = aiT('Transcribiendo…');
+    try {
+      const blob = await new Promise((ok) => { t.recorder.onstop = () => ok(new Blob(t.chunks, { type: t.recorder.mimeType || 'audio/webm' })); try { t.recorder.stop(); } catch { ok(new Blob(t.chunks)); } });
+      t.stream.getTracks().forEach((x) => x.stop());
+      const ab = await blob.arrayBuffer(), AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+      let mono; try { const buf = await new Promise((ok, no) => { const q = ctx.decodeAudioData(ab, ok, no); if (q && q.catch) q.catch(no); });
+        const chans = []; for (let c = 0; c < buf.numberOfChannels; c++) chans.push(buf.getChannelData(c)); mono = monoOf(pcmFromChannels(chans, buf.sampleRate, WV_RATE));
+      } finally { try { const c = ctx.close(); if (c && c.catch) c.catch(() => {}); } catch {} }
+      if (!mono || mono.length < WV_RATE * 0.3) { report(aiT('No escuché nada. Toca 🎤 y habla cerca del teléfono.'), 'bad'); return; }
+      const text = await wvTranscribeShort(mono, WV_LANGS.includes(i18nCur) ? i18nCur : 'auto');
+      if (!text) { report(aiT('No reconocí palabras. Prueba otra vez, más cerca del teléfono.'), 'bad'); return; }
+      await onText(text);
+    } catch (e) { report(aiT('No pude transcribir el dictado: {1}', e && e.message || e), 'bad'); }
+    finally { idle(); }
+  }
+  return async () => {
+    if (take) { finish(); return; }
+    if (wvBusy || wvJob) { report(aiT('Espera a que terminen los subtítulos automáticos.'), 'bad'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      const recorder = new MediaRecorder(stream), chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      recorder.start(); take = { stream, recorder, chunks, done: false, timer: setTimeout(finish, maxS * 1000) };
+      btn.textContent = '⏹ ' + aiT('Detener'); report(aiT('Escuchando… habla y toca Detener cuando termines (máx. {1} s).', maxS));
+    } catch { report(aiT('No pude usar el micrófono. Permite el micrófono para Wivra en Ajustes del teléfono, o usa el micrófono del teclado.'), 'bad'); }
+  };
+}
 $('subFile').addEventListener('change', async () => {
   const f = $('subFile').files[0]; $('subFile').value = ''; if (!f) return;
   if (!session || !session.project.clips.length) { say('Primero elige el video principal.', 'bad'); return; }
@@ -2643,19 +2706,36 @@ $('aiAsk').onclick = async () => {
     try { $('aiProp').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e2) { /* el botón Aplicar queda donde está */ }
   } catch (e) { aiSay(e.message, 'bad'); } finally { aiBusy = false; aiSync(); }
 };
-/* Dictado: Web Speech del navegador (si existe). El micrófono del teclado del iPhone también sirve en el cuadro de texto. */
+/* Dictado del chat (W89). 1) Con un paquete de voz guardado: whisper.cpp en el teléfono, sin Internet; el audio
+   no sale del teléfono ni se guarda. 2) Sin paquete: el dictado del navegador si existe (puede usar servidores de
+   Apple o Google). 3) Si no: el micrófono del teclado. El texto queda en el cuadro para revisarlo; nunca se aplica solo. */
 (() => {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { $('aiMicHint').textContent = 'Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba.'; return; }
-  $('aiMic').style.display = 'inline-flex'; $('aiMicHint').textContent = 'El dictado lo hace tu navegador y puede usar los servidores de Apple o Google; Wivra no guarda audio. (Sin verificar en tu teléfono.)';
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition, canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  const hint = async () => {
+    let pack = null; try { pack = await wvDictPack(); } catch {}
+    $('aiMic').style.display = pack && canRecord || SR ? 'inline-flex' : 'none';
+    $('aiMicHint').textContent = pack && canRecord ? aiT('Dictado en el teléfono con whisper.cpp: sin Internet y tu voz no sale del teléfono.')
+      : SR ? aiT('El dictado lo hace tu navegador y puede usar los servidores de Apple o Google; Wivra no guarda audio. Para dictar sin Internet, descarga un paquete de voz en Texto → Subtítulos automáticos.')
+      : aiT('Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba, o descarga un paquete de voz en Texto → Subtítulos automáticos.');
+    if (window.dirMicSync) window.dirMicSync();
+  };
+  window.wvDictHint = hint; setTimeout(hint, 0); $('bAI').addEventListener('click', hint);      // after the whole script (translations) is ready
   let rec = null, base = '';
-  $('aiMic').onclick = () => {
+  const idle = () => { $('aiMic').textContent = '🎤 Dictar'; aiSync(); };
+  const localTap = wvMicButton($('aiMic'), { idleLabel: '🎤 Dictar', report: (m, k) => aiSay(m, k),
+    onText: (text) => { $('ask').value = (base + ' ' + text).trim(); aiSync(); $('ask').focus(); aiSay(aiT('Listo: revisa el texto y toca el botón para enviarlo.')); } });
+  $('aiMic').onclick = async () => {
     if (rec) { rec.stop(); return; }
-    rec = new SR(); rec.lang = /^es/i.test(navigator.language || '') ? navigator.language : 'es-ES'; rec.continuous = true; rec.interimResults = true; base = $('ask').value.trim();
+    if (/⏹/.test($('aiMic').textContent)) return localTap();      // a local take is recording: stop and transcribe
+    base = $('ask').value.trim();
+    let pack = null; try { pack = await wvDictPack(); } catch {}
+    if (pack && canRecord) return localTap();
+    if (!SR) { hint(); return; }
+    rec = new SR(); rec.lang = /^es/i.test(navigator.language || '') ? navigator.language : 'es-ES'; rec.continuous = true; rec.interimResults = true;
     rec.onresult = (e) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; $('ask').value = (base + ' ' + t).trim(); aiSync(); };
     rec.onerror = (e) => aiSay(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'El navegador no dejó usar el micrófono. Actívalo en Ajustes del teléfono, o usa el micrófono del teclado.' : 'Micrófono: ' + e.error, 'bad');
-    rec.onend = () => { rec = null; $('aiMic').textContent = '🎤 Dictar'; aiSync(); };
-    try { rec.start(); $('aiMic').textContent = '⏹ Detener'; aiSay('Escuchando… habla y toca Detener cuando termines.'); } catch (err) { rec = null; aiSay('No pude iniciar el dictado: ' + err.message, 'bad'); }
+    rec.onend = () => { rec = null; idle(); };
+    try { rec.start(); $('aiMic').textContent = '⏹ ' + aiT('Detener'); aiSay('Escuchando… habla y toca Detener cuando termines.'); } catch (err) { rec = null; aiSay('No pude iniciar el dictado: ' + err.message, 'bad'); }
   };
 })();
 $('aiApply').onclick = () => {
@@ -3006,6 +3086,10 @@ $('dirCmdGo').onclick=()=>{
  }catch(e){out.textContent=e.message}
 };
 $('dirCmd').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('dirCmdGo').click()}});
+/* W89: «siguiente», «ya la hice», «repite»… dichas en voz alta, reconocidas en el teléfono (paquete de voz guardado). Saltar sigue pidiendo confirmación. */
+$('dirCmdMic').onclick=wvMicButton($('dirCmdMic'),{maxS:8,report:(m)=>{$('dirCmdOut').textContent=m},onText:(text)=>{$('dirCmd').value=text.replace(/[.!?¿¡]+/g,'').trim();$('dirCmdGo').click()}});
+const dirMicSync=window.dirMicSync=async()=>{let p=null;try{p=await wvDictPack()}catch{}$('dirCmdMic').style.display=p&&navigator.mediaDevices&&window.MediaRecorder?'':'none'};
+setTimeout(dirMicSync,0);$('bDirector')&&$('bDirector').addEventListener('click',dirMicSync);
 /* Teleprompter (app/teleprompter.mjs): el guion de la toma se desplaza en pantalla; NO se graba ni se incrusta en ningún video. */
 let tprRaf=0,tprOn=false,tprSize=TP_DEFAULT_SIZE,tprLast=0;
 function tprStop(){tprOn=false;cancelAnimationFrame(tprRaf);$('tprPlay').textContent='Empezar'}

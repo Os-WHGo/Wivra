@@ -736,3 +736,16 @@ Escuchando… parte {1} de {2} · faltan unos {3} min || Ascolto… parte {1} di
 El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta. || Il motore vocale non risponde più (forse il telefono l'ha chiuso quando sei uscito da Wivra). Non è stato aggiunto nulla; riprova con Wivra aperta.
 Mantén Wivra abierta mientras escucha: la pantalla no se apagará. || Tieni Wivra aperta mentre ascolta: lo schermo resterà acceso.
 Creo los subtítulos aquí mismo en el teléfono con whisper.cpp; tu audio no sale de él. Sigue el avance en Texto → Subtítulos automáticos. || Creo i sottotitoli qui sul telefono con whisper.cpp; il tuo audio non esce. Segui l'avanzamento in Testo → Sottotitoli automatici.
+Dictado en el teléfono con whisper.cpp: sin Internet y tu voz no sale del teléfono. || Dettatura sul telefono con whisper.cpp: senza Internet, la tua voce non esce dal telefono.
+El dictado lo hace tu navegador y puede usar los servidores de Apple o Google; Wivra no guarda audio. Para dictar sin Internet, descarga un paquete de voz en Texto → Subtítulos automáticos. || La dettatura la fa il tuo browser e può usare i server di Apple o Google; Wivra non conserva l'audio. Per dettare senza Internet, scarica un pacchetto vocale in Testo → Sottotitoli automatici.
+Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba, o descarga un paquete de voz en Texto → Subtítulos automáticos. || Per dettare, usa il microfono della tastiera nel riquadro sopra, oppure scarica un pacchetto vocale in Testo → Sottotitoli automatici.
+Transcribiendo… || Trascrizione…
+No escuché nada. Toca 🎤 y habla cerca del teléfono. || Non ho sentito nulla. Tocca 🎤 e parla vicino al telefono.
+No reconocí palabras. Prueba otra vez, más cerca del teléfono. || Non ho riconosciuto parole. Riprova, più vicino al telefono.
+Listo: revisa el texto y toca el botón para enviarlo. || Fatto: controlla il testo e tocca il pulsante per inviarlo.
+No pude transcribir el dictado: {1} || Non sono riuscito a trascrivere la dettatura: {1}
+Espera a que terminen los subtítulos automáticos. || Aspetta che finiscano i sottotitoli automatici.
+Detener || Ferma
+Escuchando… habla y toca Detener cuando termines (máx. {1} s). || Ascolto… parla e tocca Ferma quando hai finito (max {1} s).
+No pude usar el micrófono. Permite el micrófono para Wivra en Ajustes del teléfono, o usa el micrófono del teclado. || Non ho potuto usare il microfono. Consenti il microfono a Wivra nelle Impostazioni del telefono, oppure usa il microfono della tastiera.
+Dar la orden con la voz || Dare l'ordine con la voce
