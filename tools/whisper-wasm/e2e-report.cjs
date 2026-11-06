@@ -3,9 +3,9 @@
 // Usage: node e2e-report.cjs <result.json> <label> [require: consent,cancel]
 'use strict';
 const fs = require('node:fs');
-const [, , file, label, require = ''] = process.argv;
+const [, , file, label, needs = ''] = process.argv;
 let r; try { r = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { console.log(`not ok - ${label}: no result (${e.message})`); process.exit(1); }
-const need = require.split(',').filter(Boolean), get = (n) => (r.steps || []).find((s) => s.name === n);
+const need = needs.split(',').filter(Boolean), get = (n) => (r.steps || []).find((s) => s.name === n);
 const checks = [[r.ok === true, 'recognized with network blocked, words found, no overlaps']];
 if (need.includes('consent')) checks.push([!!(get('download-end') && get('download-end').consentAsked && get('download-end').saved), 'consent asked, pack downloaded, verified and saved']);
 if (need.includes('cancel')) checks.push([!!(get('cancel') && get('cancel').textsAdded === 0 && get('cancel').workerGone), 'cancel added nothing and stopped the engine']);

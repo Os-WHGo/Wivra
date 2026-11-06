@@ -264,7 +264,8 @@ jobs:
             rm -f "$data/Documents/wv-e2e/output.json"
             SIMCTL_CHILD_WIVRA_E2E=1 SIMCTL_CHILD_WIVRA_SCREENSHOT=editor xcrun simctl launch --terminate-running-process "$udid" com.oswhgo.WivraMetaB0 -AppleLanguages '(es)' -AppleLocale es_ES
             for i in $(seq 1 600); do [ -s "$data/Documents/wv-e2e/output.json" ] && break; sleep 3; done
-            cp "$data/Documents/wv-e2e/output.json" "$1" || echo '{"ok":false,"error":"no output"}' > "$1"
+            cp "$data/Documents/wv-e2e/output.json" "$1" || echo '{"ok":false,"error":"no output"}' > "$1
+            ls -la "$data/Documents/wv-e2e"; head -c 1500 "$1"; echo"
           }
           run_once /tmp/ios.full.json
           python3 - "$data/Documents/wv-e2e/input.json" <<'PY'
