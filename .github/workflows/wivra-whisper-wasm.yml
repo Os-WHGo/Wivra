@@ -118,10 +118,15 @@ jobs:
             test "$sum" = "$want"
           done
       - name: English (real voice) and Spanish (synthetic voice) samples, plus small videos
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           set -eu
-          timeout 600 sudo apt-get update -qq && timeout 600 sudo apt-get install -y -qq espeak-ng ffmpeg >/dev/null
+          # The runner's package index is usually enough; refresh it only if the install fails (mirrors can be very slow).
+          need=""; command -v espeak-ng >/dev/null || need="$need espeak-ng"; command -v ffmpeg >/dev/null || need="$need ffmpeg"
+          if [ -n "$need" ]; then
+            timeout 300 sudo apt-get install -y -qq --no-install-recommends $need >/dev/null || \
+              { timeout 600 sudo apt-get update -qq; timeout 600 sudo apt-get install -y -qq --no-install-recommends $need >/dev/null; }
+          fi
           mkdir -p /tmp/wv-fx
           cp /tmp/whisper/samples/jfk.wav /tmp/wv-fx/en.wav
           timeout 60 espeak-ng -v es -s 135 -w /tmp/wv-fx/es-raw.wav "$ES_TEXT"
