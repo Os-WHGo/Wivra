@@ -24,7 +24,9 @@ Fecha: 15 octubre 2026. Este archivo complementa WIVRA_MASTER_FREE_UNIFIED_SCOPE
 | ID | Idea que debe mantenerse | Estado |
 | --- | --- | --- |
 | B01 | iPhone y Ray-Ban Meta DAT integrados en misma app; Android nativo después y futuros lentes si soporte real | PROTOTIPOS separados |
-| B02 | Cámara sencilla Auto/Pro, cambio de lente/frontal-trasera, ISO, enfoque, obturación; foto nocturna/larga exposición hasta límite real del hardware | PROTOTIPO iOS, validar |
+| B02 | Cámara sencilla Auto/Pro, cambio de lente/frontal-trasera, ISO, enfoque, obturación; foto nocturna/larga exposición hasta límite real del hardware | PROTOTIPO iOS; Android exposición ± y foto nocturna ≤ 1 s (W88, 06-11-2026), validar |
+| B02b | Exposiciones de 10, 20, 30 s o más (estrellas, estelas de luz) por **apilado** de muchas fotos (promedio para noche/estrellas; «más brillante» para estelas); en Android usar el máximo real por foto cuando el teléfono pase de 1 s. iOS limita cada foto a ~1 s | **DESPUÉS DE LA BETA** (decisión del propietario, 06-11-2026) |
+| B02c | Timelapse con intervalómetro (cada cuánto y por cuánto tiempo); las fotos llegan al editor como video editable | **DESPUÉS DE LA BETA** (decisión del propietario, 06-11-2026) |
 | B03 | Foto durante grabación de video o LIVE, y desde Ray-Ban solo cuando SDK lo permita | CONDICIONADO, validar |
 | B04 | Filtros tipo estilos fotográficos de Wivra, grano/vintage/B&N/cálido, intensidad; originales intactos; efectos propios no copias de Snapseed | PARCIAL |
 | B05 | Entradas de micrófono seleccionables: móvil, Ray-Ban, AirPods/Bluetooth, USB/DJI/receptores externos cuando se detecten realmente | PROTOTIPO, falta hardware |
