@@ -72,3 +72,18 @@ test('Android recovered copy is verified before reuse and UI distinguishes idemp
  assert.match(qa,/response\.alreadyPublished===true/);
  assert.match(qa,/No se creó ninguna copia duplicada/);
 });
+
+test('owner beta prioritizes accelerated UI but keeps classic MediaRecorder one tap away',()=>{
+ assert.match(qa,/enable\.checked=true/);
+ assert.match(qa,/Exportar rápido \(beta\) · WebCodecs \+ Mediabunny','btn'/);
+ assert.match(qa,/startStable\.textContent='Exportar con motor clásico \(MediaRecorder\)'/);
+ assert.match(qa,/startStable\.classList\.add\('sec'\)/);
+ assert.match(qa,/if\(running\|\|!enable\.checked\)/);
+ assert.match(qa,/experimentalAccelerated:true/);
+ assert.match(qa,/No se ha cambiado automáticamente de motor/);
+ // There must never be an unconditional export call on page load.
+ assert.match(qa,/start\.onclick=async\(\)=>/);
+ assert.doesNotMatch(qa,/start\.click\(\)/);
+ // The guard in export-engine-policy.mjs is intentionally unchanged.
+ assert.match(build,/export-engine-policy\.mjs/);
+});
