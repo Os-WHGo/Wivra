@@ -76,12 +76,21 @@ class WivraRayBanLiveInstrumentedTest {
                 (vw == plan.width && vh == plan.height) || (vw == plan.fallbackWidth && vh == plan.fallbackHeight))
             assertEquals("no rotation flag", 0, rot)
             assertTrue("about 4 s: $ms", ms in 2_500L..6_000L)
-            val picture = r.getFrameAtTime(2_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)!!
-            val topLeft = Color.luminance(picture.getPixel(picture.width / 8, picture.height / 8))
-            val bottomRight = Color.luminance(picture.getPixel(picture.width * 7 / 8, picture.height * 5 / 8))
-            val topRight = Color.luminance(picture.getPixel(picture.width * 7 / 8, picture.height / 8))
-            report("luminance topLeft=$topLeft topRight=$topRight bottomRight=$bottomRight")
-            assertTrue("upright, not mirrored: marker stays top-left", topLeft > 0.6f && topRight < 0.3f && bottomRight < 0.3f)
+            // Quadrant centres and mean luminance at two times, so an orientation problem is visible in the log.
+            fun lum(b: android.graphics.Bitmap, fx: Float, fy: Float) =
+                Color.luminance(b.getPixel((b.width * fx).toInt().coerceIn(0, b.width - 1), (b.height * fy).toInt().coerceIn(0, b.height - 1)))
+            var verdict = false
+            for (atUs in longArrayOf(2_000_000L, 3_500_000L)) {
+                val picture = r.getFrameAtTime(atUs, MediaMetadataRetriever.OPTION_CLOSEST) ?: continue
+                var sum = 0.0
+                for (yy in 0 until picture.height step 16) for (xx in 0 until picture.width step 16) sum += Color.luminance(picture.getPixel(xx, yy))
+                val mean = sum / (((picture.height + 15) / 16) * ((picture.width + 15) / 16))
+                val tl = lum(picture, .25f, .25f); val tr = lum(picture, .75f, .25f)
+                val bl = lum(picture, .25f, .75f); val br = lum(picture, .75f, .75f)
+                report("at=${atUs / 1000}ms frame=${picture.width}x${picture.height} mean=${"%.3f".format(mean)} tl=${"%.2f".format(tl)} tr=${"%.2f".format(tr)} bl=${"%.2f".format(bl)} br=${"%.2f".format(br)}")
+                if (tl > 0.6f && tr < 0.3f && bl < 0.3f && br < 0.3f) verdict = true
+            }
+            assertTrue("upright, not mirrored: marker stays top-left", verdict)
         } finally {
             r.release()
             copy.delete()
