@@ -64,10 +64,10 @@ class WivraRayBanLiveTest {
 }
 
 class WivraRayBanLookTest {
-    private val v: org.json.JSONObject by lazy {
+    private val v: JSONObject by lazy {
         val f = listOf("../../contracts/rayban-looks.json", "../contracts/rayban-looks.json", "streaming/contracts/rayban-looks.json")
-            .map(::java.io.File).first { it.isFile }
-        org.json.JSONObject(f.readText())
+            .map(::File).first { it.isFile }
+        JSONObject(f.readText())
     }
 
     @Test fun looksMatchTheSharedTableAndReference() {
