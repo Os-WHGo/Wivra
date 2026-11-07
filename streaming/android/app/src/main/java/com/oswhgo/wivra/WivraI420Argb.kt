@@ -15,19 +15,23 @@ object WivraI420Argb {
         val chromaWidth = width / 2
         val uBase = ySize
         val vBase = ySize + ySize / 4
-        for (row in 0 until height) {
-            val chromaRow = (row shr 1) * chromaWidth
-            var index = row * width
-            for (column in 0 until width) {
-                val y = src[index].toInt() and 255
-                val c = chromaRow + (column shr 1)
+        // One chroma sample serves a 2×2 block: its three products are computed once (same integers as per pixel).
+        for (cy in 0 until height / 2) {
+            for (cx in 0 until chromaWidth) {
+                val c = cy * chromaWidth + cx
                 val u = (src[uBase + c].toInt() and 255) - 128
                 val v = (src[vBase + c].toInt() and 255) - 128
-                val r = clamp(y + ((1436 * v) shr 10))
-                val g = clamp(y - ((352 * u + 731 * v) shr 10))
-                val b = clamp(y + ((1815 * u) shr 10))
-                out[index] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
-                index++
+                val rv = (1436 * v) shr 10
+                val guv = (352 * u + 731 * v) shr 10
+                val bu = (1815 * u) shr 10
+                var index = (cy * 2) * width + cx * 2
+                for (dy in 0..1) {
+                    for (dx in 0..1) {
+                        val y = src[index + dx].toInt() and 255
+                        out[index + dx] = (0xFF shl 24) or (clamp(y + rv) shl 16) or (clamp(y - guv) shl 8) or clamp(y + bu)
+                    }
+                    index += width
+                }
             }
         }
         return true
