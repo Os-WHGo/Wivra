@@ -134,7 +134,7 @@ test('Ray-Ban LIVE (Android): existing RootEncoder engine, chosen microphone onl
   assert.doesNotMatch(activity, /putString\("(rtmp|live_address|endpoint)/i);
   const wf = read('.github/workflows/wivra-android-ui-screenshots.yml');
   assert.match(wf, /WivraRayBanLiveInstrumentedTest/);
-  assert.match(wf, /OK \\\(3 tests\\\)/);
+  assert.match(wf, /grep -c '\^OK \(1 test\)' "\$RUNNER_TEMP\/screen-record\.txt"\)" = 3/);
   // The colour converter is checked against the shared vector here too.
   const v2 = JSON.parse(read('streaming/contracts/rayban-live.json'));
   const c = v2.i420, b = c.bytes, ys = c.width * c.height, cw = c.width / 2;
