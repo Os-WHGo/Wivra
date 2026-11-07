@@ -47,11 +47,27 @@ class WivraScreenRecordInstrumentedTest {
                 .filter { it.isNotBlank() }.joinToString(" | ").take(600)
         }.getOrDefault("?")
 
+    /** The emulator's own launcher sometimes stops answering («isn't responding»): wait for it, it is not Wivra. */
+    private fun dismissSystemNotResponding(device: UiDevice) {
+        repeat(3) {
+            val wait = device.wait(Until.findObject(By.text(Pattern.compile("(?i)^wait$"))), 1_500) ?: return
+            if (device.findObject(By.textContains("isn't responding")) == null && device.findObject(By.textContains("not responding")) == null) return
+            wait.click()
+            SystemClock.sleep(1_000)
+        }
+    }
+
     @Test fun recordsTheScreenToAValidPrivateMp4() {
         val device = UiDevice.getInstance(instrumentation)
+        shell("settings put global hide_error_dialogs 1")
         shell("appops set ${context.packageName} PROJECT_MEDIA allow")
+        dismissSystemNotResponding(device)
         context.startActivity(Intent(context, WivraScreenRecordActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        val start = device.wait(Until.findObject(text(R.string.srec_start_button)), 15_000)
+        var start = device.wait(Until.findObject(text(R.string.srec_start_button)), 15_000)
+        if (start == null) {
+            dismissSystemNotResponding(device)
+            start = device.wait(Until.findObject(text(R.string.srec_start_button)), 10_000)
+        }
         if (start == null) fail("start button; on screen: ${screen(device)}")
         start!!.click()
         val go = device.wait(Until.findObject(text(R.string.srec_confirm_go)), 10_000)
