@@ -36,6 +36,22 @@ struct WivraRayBanSyncSmoke {
             check([plan.width, plan.height, plan.fallbackWidth, plan.fallbackHeight, plan.fps, plan.videoBitrate,
                    plan.keyframeSeconds, plan.audioSampleRate, plan.audioBitrate] == want, "live plan: " + (p["profile"] as! String))
         }
+        // Light LIVE looks (streaming/contracts/rayban-looks.json): table and CPU reference of the chain.
+        let looksPath = CommandLine.arguments.count > 3 ? CommandLine.arguments[3] : "streaming/contracts/rayban-looks.json"
+        let lk = try! JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: looksPath))) as! [String: Any]
+        let table = lk["looks"] as! [[String: Any]]
+        check(table.count == WivraRayBanLook.allCases.count && WivraRayBanLook.defaultLook.rawValue == lk["default"] as! String, "looks table")
+        for l in table {
+            let look = WivraRayBanLook(rawValue: l["id"] as! String)!
+            check(abs(look.exposureEv - (l["exposureEv"] as! NSNumber).doubleValue) < 1e-9 &&
+                  abs(look.contrast - (l["contrast"] as! NSNumber).doubleValue) < 1e-9 &&
+                  abs(look.sharpen - (l["sharpen"] as! NSNumber).doubleValue) < 1e-9, "look " + look.rawValue)
+        }
+        for r in lk["reference"] as! [[String: Any]] {
+            let p = (r["pixel"] as! [NSNumber]).map(\.doubleValue)
+            let got = WivraRayBanLook.reference(WivraRayBanLook(rawValue: r["look"] as! String)!, p[0], p[1], p[2], p[3], p[4])
+            check(abs(got - (r["expect"] as! NSNumber).doubleValue) < 1e-4, "look reference " + (r["look"] as! String))
+        }
         print("all Ray-Ban sync checks passed (iPhone code)")
     }
 }

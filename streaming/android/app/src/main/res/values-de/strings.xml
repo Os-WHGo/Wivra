@@ -517,4 +517,11 @@
     <string name="rblive_copy_pending">Die MP4-Kopie des LIVE bleibt privat in Wivra zur späteren Prüfung.</string>
     <string name="rblive_keep_title">LIVE-Kopie behalten?</string>
     <string name="rblive_keep_message">Die MP4-Kopie ist privat auf dem Telefon. In der Galerie speichern, später entscheiden oder löschen.</string>
+    <string name="dat_look_button">LIVE-Bild: %1$s</string>
+    <string name="dat_look_title">LIVE-Bild (leicht, optional)</string>
+    <string name="dat_look_note">Nur der Stream und seine Kopie ändern sich; die Originalaufnahme der Brille bleibt unberührt.</string>
+    <string name="dat_look_off">Original (ohne Filter)</string>
+    <string name="dat_look_clear">Scharf</string>
+    <string name="dat_look_lowlight">Wenig Licht</string>
+    <string name="dat_look_vivid">Lebendig</string>
 </resources>

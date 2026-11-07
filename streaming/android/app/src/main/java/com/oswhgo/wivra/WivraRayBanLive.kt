@@ -21,7 +21,10 @@ interface WivraRayBanLive {
 
     /** address null = local copy only (used by tests). The address is never stored, logged or shown. */
     fun start(context: Context, address: String?, plan: WivraRayBanLivePlan.Plan, microphone: AudioDeviceInfo?,
-              copy: File?, listener: Listener): Boolean
+              copy: File?, listener: Listener, look: WivraRayBanLook = WivraRayBanLook.DEFAULT): Boolean
+
+    /** Light GPU look on the transmitted image only (the glasses' original is never filtered). No restart. */
+    fun setLook(look: WivraRayBanLook)
 
     /** Latest frame wins: a bounded slot that drops older frames instead of queueing them. */
     fun offerI420(frame: ByteBuffer, width: Int, height: Int)

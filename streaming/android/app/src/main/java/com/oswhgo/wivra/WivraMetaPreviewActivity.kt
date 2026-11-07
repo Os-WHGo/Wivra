@@ -115,6 +115,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     // Ray-Ban → LIVE on the existing engine (full package only; null otherwise). — Claude
     private val rayBanLive: WivraRayBanLive? by lazy { WivraRayBanLiveFactory.create() }
     private var liveButton: Button? = null
+    private var lookButton: Button? = null
     private var liveRunning = false
     private var liveCopy: File? = null
     private var liveAudioDeviceId = -1
@@ -290,8 +291,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         datHfpStatus = TextView(this).apply { textSize = 12f }
         root.addView(datHfpStatus)
         refreshDatAudio()
-        if (rayBanLive != null) liveButton = button(root, getString(R.string.rblive_start_button)) {
-            if (liveRunning) stopRayBanLive(review = true) else requestRayBanLive()
+        if (rayBanLive != null) {
+            liveButton = button(root, getString(R.string.rblive_start_button)) {
+                if (liveRunning) stopRayBanLive(review = true) else requestRayBanLive()
+            }
+            lookButton = button(root, "") { chooseLook() }
+            refreshLookButton()
         }
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
         recordButton = button(root, getString(R.string.record_video_only)) {
@@ -1318,6 +1323,34 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         return "\n" + getString(R.string.rblive_stats, st.drawn, st.repeated, st.dropped, st.convertMs)
     }
 
+    private fun currentLook(): WivraRayBanLook =
+        WivraRayBanLook.from(getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_look", null))
+
+    private fun lookName(look: WivraRayBanLook) = getString(when (look) {
+        WivraRayBanLook.OFF -> R.string.dat_look_off
+        WivraRayBanLook.CLEAR -> R.string.dat_look_clear
+        WivraRayBanLook.LOW_LIGHT -> R.string.dat_look_lowlight
+        WivraRayBanLook.VIVID -> R.string.dat_look_vivid
+    })
+
+    private fun refreshLookButton() { lookButton?.text = getString(R.string.dat_look_button, lookName(currentLook())) }
+
+    /** Light GPU look for the LIVE image only; can change during LIVE without restarting the camera. */
+    private fun chooseLook() {
+        val looks = WivraRayBanLook.entries
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dat_look_title)
+            .setSingleChoiceItems(looks.map { lookName(it) }.toTypedArray(), looks.indexOf(currentLook())) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_look", looks[which].id).apply()
+                if (liveRunning) rayBanLive?.setLook(looks[which])
+                refreshLookButton()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+        show(getString(R.string.dat_look_note))
+    }
+
     private fun requestRayBanLive() {
         val engine = rayBanLive ?: return
         if (camera == null || recordingMode || stream == null || WivraCaptureForegroundService.isCaptureActive()) {
@@ -1379,7 +1412,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     else -> getString(if (liveCopy != null) R.string.plive_failed_copy_continues else R.string.plive_failed_no_copy)
                 })
             }
-        })
+        }, currentLook())
         if (!started) {
             copy?.let { WivraPhoneMediaStore.doneWriting(it); if (it.length() == 0L) it.delete() }
             show(getString(R.string.plive_start_failed))

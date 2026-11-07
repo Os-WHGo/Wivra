@@ -517,4 +517,11 @@
     <string name="rblive_copy_pending">The LIVE MP4 copy stays private in Wivra to review later.</string>
     <string name="rblive_keep_title">Keep the LIVE copy?</string>
     <string name="rblive_keep_message">The MP4 copy is private on the phone. Save it to the Gallery, decide later or delete it.</string>
+    <string name="dat_look_button">LIVE image: %1$s</string>
+    <string name="dat_look_title">LIVE image (light, optional)</string>
+    <string name="dat_look_note">Only what is transmitted and its copy change; the glasses’ original recording is untouched.</string>
+    <string name="dat_look_off">Original (no filter)</string>
+    <string name="dat_look_clear">Sharp</string>
+    <string name="dat_look_lowlight">Low light</string>
+    <string name="dat_look_vivid">Vivid</string>
 </resources>

@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "Brillenvideo %d × %d, %d FPS. Audio: %@. Wird öffentlich an den eingegebenen Server gesendet.";
 "ios.rblive.no_audio" = "ohne Audio";
 "ios.rblive.copy_where" = "Die Kopie bleibt privat; prüfe sie unter iPhone-LIVE → gespeicherte Videos.";
+"ios.rblive.look_title" = "LIVE-Bild";
+"ios.rblive.look_note" = "Nur der Stream und seine Kopie ändern sich; die Originalaufnahme der Brille bleibt unberührt.";
+"ios.rblive.look_off" = "Original (ohne Filter)";
+"ios.rblive.look_clear" = "Scharf";
+"ios.rblive.look_lowlight" = "Wenig Licht";
+"ios.rblive.look_vivid" = "Lebendig";

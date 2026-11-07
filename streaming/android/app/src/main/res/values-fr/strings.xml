@@ -517,4 +517,11 @@
     <string name="rblive_copy_pending">La copie MP4 du LIVE reste privée dans Wivra pour la revoir plus tard.</string>
     <string name="rblive_keep_title">Garder la copie du LIVE ?</string>
     <string name="rblive_keep_message">La copie MP4 est privée sur le téléphone. Enregistrez-la dans la Galerie, décidez plus tard ou supprimez-la.</string>
+    <string name="dat_look_button">Image du LIVE : %1$s</string>
+    <string name="dat_look_title">Image du LIVE (légère, facultative)</string>
+    <string name="dat_look_note">Seuls le flux et sa copie changent ; l’enregistrement original des lunettes n’est pas touché.</string>
+    <string name="dat_look_off">Original (sans filtre)</string>
+    <string name="dat_look_clear">Net</string>
+    <string name="dat_look_lowlight">Faible lumière</string>
+    <string name="dat_look_vivid">Vif</string>
 </resources>

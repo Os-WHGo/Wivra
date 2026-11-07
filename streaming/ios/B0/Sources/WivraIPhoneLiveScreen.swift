@@ -48,6 +48,24 @@ final class WivraIPhoneLiveController {
     private var glassesRelay: WivraGlassesFrameRelay?
     private var glassesFeed: Task<Void, Never>?
     var isGlassesSource: Bool { glassesPlan != nil }
+    private var glassesEffect: WivraLookEffect?
+
+    /// Light look on the transmitted glasses image (offscreen mixer, like the LIVE scenes). The original
+    /// glasses recording is a different path and is never filtered. Changing it does not restart anything.
+    func setGlassesLook(_ look: WivraRayBanLook) async {
+        guard let mixer, let plan = glassesPlan else { return }
+        let old = glassesEffect
+        let new: WivraLookEffect? = look == .off ? nil : WivraLookEffect(look)
+        glassesEffect = new
+        if new != nil { await mixer.setVideoMixerSettings(VideoMixerSettings(mode: .offscreen)) }
+        let size = CGSize(width: plan.width, height: plan.height)
+        await Task { @ScreenActor in
+            let screen = await mixer.screen
+            screen.size = size
+            if let old { _ = screen.unregisterVideoEffect(old) }
+            if let new { _ = screen.registerVideoEffect(new) }
+        }.value
+    }
     private let minimumRecordingFreeBytes: Int64 = 256 * 1024 * 1024
 
     var canPrepare: Bool { phase == .idle }
@@ -305,6 +323,7 @@ final class WivraIPhoneLiveController {
         status = wivraLiveText("ios.plive.closing")
         glassesRelay?.attach(nil)
         glassesRelay = nil
+        glassesEffect = nil
         glassesFeed?.cancel()
         glassesFeed = nil
         glassesPlan = nil

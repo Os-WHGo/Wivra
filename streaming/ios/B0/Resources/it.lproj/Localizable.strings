@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "Video degli occhiali %d × %d, %d FPS. Audio: %@. Sarà trasmesso pubblicamente al server indicato.";
 "ios.rblive.no_audio" = "senza audio";
 "ios.rblive.copy_where" = "La copia resta privata; rivedila in LIVE iPhone → video salvati.";
+"ios.rblive.look_title" = "Immagine del LIVE";
+"ios.rblive.look_note" = "Cambia solo ciò che viene trasmesso e la sua copia; la registrazione originale degli occhiali non si tocca.";
+"ios.rblive.look_off" = "Originale (senza filtro)";
+"ios.rblive.look_clear" = "Nitido";
+"ios.rblive.look_lowlight" = "Poca luce";
+"ios.rblive.look_vivid" = "Vivace";

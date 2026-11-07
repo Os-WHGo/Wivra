@@ -62,3 +62,33 @@ class WivraRayBanLiveTest {
         }
     }
 }
+
+class WivraRayBanLookTest {
+    private val v: org.json.JSONObject by lazy {
+        val f = listOf("../../contracts/rayban-looks.json", "../contracts/rayban-looks.json", "streaming/contracts/rayban-looks.json")
+            .map(::java.io.File).first { it.isFile }
+        org.json.JSONObject(f.readText())
+    }
+
+    @Test fun looksMatchTheSharedTableAndReference() {
+        val looks = v.getJSONArray("looks")
+        assertEquals(looks.length(), WivraRayBanLook.entries.size)
+        for (i in 0 until looks.length()) {
+            val l = looks.getJSONObject(i)
+            val k = WivraRayBanLook.from(l.getString("id"))
+            assertEquals(l.getString("id"), k.id)
+            assertEquals(l.getDouble("exposureEv"), k.exposureEv.toDouble(), 1e-6)
+            assertEquals(l.getDouble("contrast"), k.contrast.toDouble(), 1e-6)
+            assertEquals(l.getDouble("sharpen"), k.sharpen.toDouble(), 1e-6)
+        }
+        assertEquals(v.getString("default"), WivraRayBanLook.DEFAULT.id)
+        val refs = v.getJSONArray("reference")
+        for (i in 0 until refs.length()) {
+            val r = refs.getJSONObject(i)
+            val p = r.getJSONArray("pixel")
+            val got = WivraRayBanLook.reference(WivraRayBanLook.from(r.getString("look")),
+                p.getDouble(0).toFloat(), p.getDouble(1).toFloat(), p.getDouble(2).toFloat(), p.getDouble(3).toFloat(), p.getDouble(4).toFloat())
+            assertEquals(r.getString("look") + " #" + i, r.getDouble("expect"), got.toDouble(), 1e-4)
+        }
+    }
+}

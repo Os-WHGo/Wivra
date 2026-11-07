@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "Glasses video %d × %d, %d FPS. Audio: %@. It will be broadcast publicly to the server you typed.";
 "ios.rblive.no_audio" = "no audio";
 "ios.rblive.copy_where" = "The copy stays private; review it in iPhone LIVE → saved videos.";
+"ios.rblive.look_title" = "LIVE image";
+"ios.rblive.look_note" = "Only what is transmitted and its copy change; the glasses’ original recording is untouched.";
+"ios.rblive.look_off" = "Original (no filter)";
+"ios.rblive.look_clear" = "Sharp";
+"ios.rblive.look_lowlight" = "Low light";
+"ios.rblive.look_vivid" = "Vivid";

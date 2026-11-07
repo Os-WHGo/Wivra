@@ -5,6 +5,9 @@ import android.media.AudioDeviceInfo
 import android.os.Handler
 import android.os.Looper
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.gl.render.filters.ContrastFilterRender
+import com.pedro.encoder.input.gl.render.filters.ExposureFilterRender
+import com.pedro.encoder.input.gl.render.filters.SharpnessFilterRender
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.library.base.recording.RecordController
@@ -31,7 +34,7 @@ class WivraRayBanLivePublisher : WivraRayBanLive, ConnectChecker {
     override val isLive: Boolean get() = live
 
     override fun start(context: Context, address: String?, plan: WivraRayBanLivePlan.Plan, microphone: AudioDeviceInfo?,
-                       copy: File?, listener: WivraRayBanLive.Listener): Boolean {
+                       copy: File?, listener: WivraRayBanLive.Listener, look: WivraRayBanLook): Boolean {
         if (stream != null || (address == null && copy == null)) return false
         if (address != null && !WivraLiveEndpoint.valid(address)) return false
         this.listener = listener
@@ -60,11 +63,23 @@ class WivraRayBanLivePublisher : WivraRayBanLive, ConnectChecker {
                 live = true
                 publisher.startStream(address)
             }
+            // GL runs now (record and/or stream started): filters can be attached.
+            setLook(look)
             return true
         } catch (_: Exception) {
             runCatching { publisher.wivraStopOnce() }
             stream = null; source = null; this.microphone = null; live = false
             return false
+        }
+    }
+
+    override fun setLook(look: WivraRayBanLook) {
+        val gl = stream?.getGlInterface() ?: return
+        runCatching {
+            gl.clearFilters()
+            if (look.exposureEv != 0f) gl.addFilter(ExposureFilterRender().apply { setExposure(look.exposureEv) })
+            if (look.contrast != 1f) gl.addFilter(ContrastFilterRender().apply { setContrast(look.contrast) })
+            if (look.sharpen > 0f) gl.addFilter(SharpnessFilterRender().apply { setSharpness(look.sharpen) })
         }
     }
 

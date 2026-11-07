@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "Vídeo de las gafas %d × %d, %d FPS. Audio: %@. Se transmitirá en público al servidor que escribiste.";
 "ios.rblive.no_audio" = "sin audio";
 "ios.rblive.copy_where" = "La copia queda privada; revísala en LIVE del iPhone → videos guardados.";
+"ios.rblive.look_title" = "Imagen del LIVE";
+"ios.rblive.look_note" = "Solo cambia lo que se transmite y su copia; la grabación original de las gafas no se toca.";
+"ios.rblive.look_off" = "Original (sin filtro)";
+"ios.rblive.look_clear" = "Nítido";
+"ios.rblive.look_lowlight" = "Poca luz";
+"ios.rblive.look_vivid" = "Vivo";

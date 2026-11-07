@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "眼镜视频 %d × %d，%d FPS。音频：%@。将公开直播到你输入的服务器。";
 "ios.rblive.no_audio" = "无音频";
 "ios.rblive.copy_where" = "副本保持私密；可在 iPhone 直播 → 已保存视频中查看。";
+"ios.rblive.look_title" = "直播画面";
+"ios.rblive.look_note" = "只改变直播内容及其副本；眼镜的原始录制不会被修改。";
+"ios.rblive.look_off" = "原始（无滤镜）";
+"ios.rblive.look_clear" = "清晰";
+"ios.rblive.look_lowlight" = "弱光";
+"ios.rblive.look_vivid" = "鲜艳";

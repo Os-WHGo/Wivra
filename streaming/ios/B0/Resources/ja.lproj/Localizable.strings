@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "メガネの映像 %d × %d、%d FPS。音声: %@。入力したサーバーへ公開配信されます。";
 "ios.rblive.no_audio" = "音声なし";
 "ios.rblive.copy_where" = "コピーは非公開です。iPhone の LIVE → 保存した動画で確認できます。";
+"ios.rblive.look_title" = "LIVE の映像";
+"ios.rblive.look_note" = "変わるのは配信とそのコピーだけです。メガネの元の録画は変更しません。";
+"ios.rblive.look_off" = "オリジナル（フィルターなし）";
+"ios.rblive.look_clear" = "くっきり";
+"ios.rblive.look_lowlight" = "暗い場所";
+"ios.rblive.look_vivid" = "鮮やか";

@@ -517,4 +517,11 @@
     <string name="rblive_copy_pending">直播的 MP4 副本私密保存在 Wivra 中，稍后可查看。</string>
     <string name="rblive_keep_title">保留直播副本？</string>
     <string name="rblive_keep_message">MP4 副本私密保存在手机上。可保存到相册、稍后决定或删除。</string>
+    <string name="dat_look_button">直播画面：%1$s</string>
+    <string name="dat_look_title">直播画面（轻度，可选）</string>
+    <string name="dat_look_note">只改变直播内容及其副本；眼镜的原始录制不会被修改。</string>
+    <string name="dat_look_off">原始（无滤镜）</string>
+    <string name="dat_look_clear">清晰</string>
+    <string name="dat_look_lowlight">弱光</string>
+    <string name="dat_look_vivid">鲜艳</string>
 </resources>

@@ -319,3 +319,9 @@
 "ios.rblive.confirm" = "Vidéo des lunettes %d × %d, %d FPS. Audio : %@. Diffusion publique vers le serveur saisi.";
 "ios.rblive.no_audio" = "sans audio";
 "ios.rblive.copy_where" = "La copie reste privée ; revoyez-la dans LIVE iPhone → vidéos enregistrées.";
+"ios.rblive.look_title" = "Image du LIVE";
+"ios.rblive.look_note" = "Seuls le flux et sa copie changent ; l’enregistrement original des lunettes n’est pas touché.";
+"ios.rblive.look_off" = "Original (sans filtre)";
+"ios.rblive.look_clear" = "Net";
+"ios.rblive.look_lowlight" = "Faible lumière";
+"ios.rblive.look_vivid" = "Vif";

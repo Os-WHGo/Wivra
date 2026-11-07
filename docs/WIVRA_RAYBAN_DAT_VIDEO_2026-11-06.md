@@ -131,12 +131,22 @@ The preview must be active, and profile changes are blocked during LIVE. **Not d
 7. During LIVE, unplug the USB microphone: the LIVE continues muted and the notice appears. Turn the router off for 20 s: reconnection, and the private copy continues.
 8. iPhone: the same as 6. If the platform shows black video, write it down (the `.raw` frame format is not verified).
 
-## Image improvements
+## Image improvements (LIVE looks, implemented)
 
-None were added in this block. The original image stays untouched, and resolution is not invented. Possible options for later, measuring heat:
+Light and optional. They change **only** what is transmitted and its private copy; the glasses' original recording (HEVC/MP4) is never filtered and no resolution is invented. The look can be changed during LIVE without restarting the camera.
 
-- Core Image or Metal on iPhone, and GPU shaders on Android;
-- mild noise reduction, exposure and sharpness, only on the copy that is transmitted or exported.
+| Look | Exposure | Contrast | Sharpness |
+|-|-|-|-|
+| Original (default) | 0 | 1 | 0 |
+| Nítido | 0 | 1.05 | 0.2 |
+| Poca luz | +0.35 EV | 0.97 | 0 |
+| Vivo | 0 | 1.12 | 0.1 |
+
+- **Android:** RootEncoder GPU filters (`Exposure`, `Contrast`, `Sharpness`), with the same formulas as their shaders.
+- **iPhone:** Core Image (`CIExposureAdjust`, `CIColorMatrix`, `CIConvolution3X3`) on the offscreen mixer, as in the LIVE scenes. It is **approximate**: Core Image works in linear light.
+- **No noise reduction:** too costly for a phone in a pocket.
+- **Contract:** `streaming/contracts/rayban-looks.json`, with the table and a CPU reference, checked by JVM, Swift and Node.
+- **Physical:** compare heat and fps with and without a look, in 10 min of LIVE.
 
 ## Short physical matrix (from 16-11)
 

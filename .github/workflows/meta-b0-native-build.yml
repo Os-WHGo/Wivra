@@ -12,6 +12,7 @@ on:
       - 'streaming/tests/WivraRayBanSyncSmoke.swift'
       - 'streaming/contracts/rayban-audio-sync.json'
       - 'streaming/contracts/rayban-live.json'
+      - 'streaming/contracts/rayban-looks.json'
       - 'streaming/contracts/dat-profiles.json'
       - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
       - 'streaming/tests/ios-screenrec-import-editor.mjs'
@@ -79,7 +80,7 @@ jobs:
             streaming/ios/B0/Sources/WivraRayBanSync.swift \
             streaming/tests/WivraRayBanSyncSmoke.swift \
             -o /tmp/wivra-rayban-sync-smoke
-          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json streaming/contracts/rayban-live.json
+          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json streaming/contracts/rayban-live.json streaming/contracts/rayban-looks.json
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu

@@ -517,4 +517,11 @@
     <string name="rblive_copy_pending">LIVE の MP4 コピーは後で確認できるよう Wivra 内に非公開で残ります。</string>
     <string name="rblive_keep_title">LIVE のコピーを保存しますか？</string>
     <string name="rblive_keep_message">MP4 コピーはスマホ内で非公開です。ギャラリーに保存、後で決める、または削除を選んでください。</string>
+    <string name="dat_look_button">LIVE の映像: %1$s</string>
+    <string name="dat_look_title">LIVE の映像（軽め・任意）</string>
+    <string name="dat_look_note">変わるのは配信とそのコピーだけです。メガネの元の録画は変更しません。</string>
+    <string name="dat_look_off">オリジナル（フィルターなし）</string>
+    <string name="dat_look_clear">くっきり</string>
+    <string name="dat_look_lowlight">暗い場所</string>
+    <string name="dat_look_vivid">鮮やか</string>
 </resources>

@@ -161,3 +161,27 @@ test('Ray-Ban LIVE (iPhone): same HaishinKit controller, host-clock frames, chos
   const model = read('streaming/ios/B0/Sources/MetaB0Model.swift');
   assert.match(model, /if relay\.isAttached \{ relay\.push\(frame\.sampleBuffer\) \}/);
 });
+
+test('LIVE looks: same table and math on both platforms, GPU only, the original is never filtered', () => {
+  const v3 = JSON.parse(read('streaming/contracts/rayban-looks.json'));
+  const L = Object.fromEntries(v3.looks.map((l) => [l.id, l]));
+  const cl = (x) => Math.min(1, Math.max(0, x));
+  for (const r of v3.reference) {
+    const l = L[r.look], ec = (x) => cl((cl(x * 2 ** l.exposureEv) - 0.5) * l.contrast + 0.5);
+    const [c, u, le, ri, d] = r.pixel, x = ec(c), k = l.sharpen;
+    const got = k > 0 ? cl((1 + 4 * k) * x - k * (ec(u) + ec(le) + ec(ri) + ec(d))) : x;
+    assert.ok(Math.abs(got - r.expect) < 1e-6, r.look);
+  }
+  const kt = read(A + 'WivraRayBanLook.kt');
+  for (const l of v3.looks) assert.match(kt, new RegExp(`\\("${l.id}", ${l.exposureEv}f?, ${l.contrast}f?, ${l.sharpen}f?\\)`.replace(/(\d)f\?/g, '$1(\\.0)?f?')), l.id);
+  const pub = read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraRayBanLivePublisher.kt');
+  assert.match(pub, /gl\.clearFilters\(\)/);
+  assert.match(pub, /SharpnessFilterRender\(\)\.apply \{ setSharpness\(look\.sharpen\) \}/);
+  // The original HEVC recording path never sees a filter.
+  for (const f of ['WivraCaptureForegroundService.kt', 'WivraSegmentedHevcRecorder.kt', 'WivraHevcMp4Recorder.kt'])
+    assert.doesNotMatch(read(A + f), /FilterRender|WivraRayBanLook/, f);
+  const effect = read('streaming/ios/B0/Sources/WivraGlassesLive.swift');
+  assert.match(effect, /CIConvolution3X3/);
+  assert.match(effect, /CIExposureAdjust/);
+  assert.doesNotMatch(read('streaming/ios/B0/Sources/WivraHEVCRecorder.swift'), /WivraLookEffect|CIFilter/);
+});
