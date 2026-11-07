@@ -313,10 +313,20 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-                if (prepared && !stopping && stream?.isOnPreview != true) {
-                    runCatching { stream?.startPreview(preview); scenes.reattach() }
+                // Surface creation can occur AFTER preparePreview(): refresh the user-visible state.
+                val opened = if (prepared && !stopping && stream?.isOnPreview != true) {
+                    runCatching { stream?.startPreview(preview); scenes.reattach() }.isSuccess
+                } else true
+                if (opened) {
+                    refreshPreviewReadiness()
+                    // Camera2 sometimes completes preview startup asynchronously. Read state only;
+                    // never start a LIVE, recording or microphone from either delayed check.
+                    preview.postDelayed({ refreshPreviewReadiness() }, 400L)
+                    preview.postDelayed({ refreshPreviewReadiness() }, 1_500L)
+                } else {
+                    startButton.isEnabled = false
+                    setStatus(getString(R.string.plive_camera_open_failed))
                 }
-                if (!initiatedByUser) startButton.isEnabled = cameraReadyForLive()
             }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int,
                 width: Int, height: Int
@@ -330,6 +340,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 if (!initiatedByUser) startButton.isEnabled = false
                 runCatching { if (stream?.isOnPreview == true) stream?.stopPreview() }
+                if (prepared && !initiatedByUser && !stopping && !mediaBusy) {
+                    setStatus(getString(R.string.plive_preview_waiting))
+                }
             }
         })
         if (checkSelfPermission(Manifest.permission.CAMERA) ==
@@ -408,6 +421,16 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         return prepared && !stopping && !isFinishing &&
             checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
             preview.holder.surface.isValid && publisher.isOnPreview
+    }
+
+    // A valid surface and a running preview are mandatory. An initialized encoder alone
+    // is not proof that the camera is ready or that a public LIVE may start.
+    private fun refreshPreviewReadiness() {
+        if (!prepared || stopping || initiatedByUser || mediaBusy || isFinishing ||
+            isDestroyed || !::startButton.isInitialized) return
+        val ready = cameraReadyForLive()
+        startButton.isEnabled = ready
+        setStatus(getString(if (ready) R.string.plive_preview_ready else R.string.plive_preview_waiting))
     }
 
     private fun preparePreview() {
@@ -858,9 +881,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             stream?.isOnPreview != true) {
             runCatching { stream?.startPreview(preview); scenes.reattach() }
         }
-        if (::startButton.isInitialized && !initiatedByUser) {
-            startButton.isEnabled = cameraReadyForLive() && !mediaBusy
-        }
+        refreshPreviewReadiness()
     }
 
     override fun onDestroy() {
