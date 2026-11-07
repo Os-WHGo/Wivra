@@ -62,9 +62,7 @@ class WivraRayBanLivePublisher : WivraRayBanLive, ConnectChecker {
             }
             return true
         } catch (_: Exception) {
-            runCatching { if (publisher.isStreaming) publisher.stopStream() }
-            runCatching { if (publisher.isRecording) publisher.stopRecord() }
-            runCatching { publisher.release() }
+            runCatching { publisher.wivraStopOnce() }
             stream = null; source = null; this.microphone = null; live = false
             return false
         }
@@ -84,9 +82,7 @@ class WivraRayBanLivePublisher : WivraRayBanLive, ConnectChecker {
         val publisher = stream ?: return false
         stopping = true
         live = false
-        runCatching { if (publisher.isStreaming) publisher.stopStream() }
-        val closed = if (publisher.isRecording) runCatching { publisher.stopRecord(); true }.getOrDefault(false) else false
-        runCatching { publisher.release() }
+        val closed = publisher.wivraStopOnce()
         stream = null; source = null; microphone = null
         return closed
     }

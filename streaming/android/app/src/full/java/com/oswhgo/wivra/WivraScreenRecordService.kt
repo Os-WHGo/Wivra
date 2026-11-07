@@ -246,8 +246,7 @@ class WivraScreenRecordService : Service() {
         val stream = recorder
         recorder = null
         // Closing the muxer is what makes the MP4 readable; never claim it otherwise.
-        val closed = runCatching { if (stream?.isRecording == true) stream.stopRecord() else false }.getOrDefault(false)
-        runCatching { stream?.release() }
+        val closed = stream?.wivraStopOnce() ?: false
         runCatching { projection?.stop() }
         projection = null
         val written = file
