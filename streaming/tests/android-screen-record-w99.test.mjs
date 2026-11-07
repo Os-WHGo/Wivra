@@ -24,7 +24,11 @@ test('nothing is transmitted: no stream start, no network, no upload', () => {
   assert.doesNotMatch(service, /startStream\(|WivraLiveEndpoint|rtmps?:|upload\(|HttpURLConnection|Socket\(/);
   assert.doesNotMatch(activity, /startStream\(|EditText|rtmps?:/);
   assert.match(service, /stream\.startRecord\(/);
-  assert.match(service, /stream\.stopRecord\(\)/);
+  // The muxer is closed through the single RootEncoder stop (no double EGL release). — Claude
+  assert.match(service, /val closed = stream\?\.wivraStopOnce\(\) \?: false/);
+  const once = readFileSync(new URL('../android/app/src/full/java/com/oswhgo/wivra/WivraRootEncoderRelease.kt', import.meta.url), 'utf8');
+  assert.match(once, /if \(isRecording\) runCatching \{ stopRecord\(\) \}/);
+  assert.doesNotMatch(once, /startStream\(|startRecord\(/);
 });
 
 test('one fresh consent per recording, kept in memory, started in the right order', () => {
