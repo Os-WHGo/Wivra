@@ -13,6 +13,7 @@ on:
     paths:
       - 'tools/whisper-wasm/**'
       - 'tools/browser-whisper-subtitles.cjs'
+      - 'tools/browser-journey-a.cjs'
       - 'tools/browser-whisper-dictation.cjs'
       - 'tools/browser-whisper-long.cjs'
       - 'app/vendor/whisper/**'
@@ -183,6 +184,8 @@ jobs:
           node /tmp/wivra-media-lab/node_modules/playwright/cli.js install --with-deps chromium >/dev/null
       - name: Editor flow in Chromium · Base · Spanish (natural voice)
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/flow.webm video/webm base es "$(cat /tmp/wv-fx/flow-words.txt)"
+      - name: Beta journey A in Chromium · capture import → subtitles → 9:16 + title → separate music → stable export → file checks (Claude)
+        run: node tools/browser-journey-a.cjs /tmp/wv-fx/flow.webm video/webm base es
       - name: Editor flow in Chromium · Base · English
         run: node tools/browser-whisper-subtitles.cjs /tmp/wv-fx/en.webm video/webm base en country,ask
       - name: Editor flow in Chromium · Tiny · Spanish (no word requirement)
