@@ -69,7 +69,7 @@ class WivraLiveReconnectInstrumentedTest {
         val began = SystemClock.uptimeMillis()
         try {
             assertTrue("on air at the local server; statuses $statuses", waitFor(25_000) { "on_air" in statuses })
-            SystemClock.sleep(5_000)
+            SystemClock.sleep(8_000)      // the server has written pictures of the first segment
             report("cut: " + control("/cut"))
             val firstOnAir = statuses.indexOf("on_air")
             assertTrue("reconnected after the cut; statuses $statuses", waitFor(45_000) {

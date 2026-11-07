@@ -19,7 +19,7 @@ function listen() {
   n += 1;
   const id = n, file = path.join(dir, `out-${id}.flv`);
   const p = spawn('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-analyzeduration', '1000000', '-probesize', '200000', '-listen', '1', '-i', 'rtmp://0.0.0.0:1935/live/wivra',
-    '-c', 'copy', '-f', 'flv', '-y', file], { stdio: ['ignore', 'inherit', 'inherit'] });
+    '-c', 'copy', '-flush_packets', '1', '-f', 'flv', '-y', file], { stdio: ['ignore', 'inherit', 'inherit'] });
   current = p;
   log(`listening, segment ${id}`);
   p.on('exit', (code, signal) => {
