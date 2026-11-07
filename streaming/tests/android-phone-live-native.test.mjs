@@ -15,8 +15,8 @@ test('the full Wivra edition now has a native, Android RTMP publisher behind exp
   assert.match(live, /RtmpStream\(\s*applicationContext, this,/);
   assert.match(live, /publisher\.prepareVideo\(/);
   assert.match(live, /publisher\.startStream\(address\)/);
-  assert.match(live, /setPositiveButton\("Iniciar LIVE"\)/);
-  assert.match(live, /"Confirmar emisión pública"/);
+  assert.match(live, /setPositiveButton\(R\.string\.plive_start\)/);
+  assert.match(live, /setTitle\(R\.string\.plive_confirm_title\)/);
   assert.match(manifest, /WivraPhoneLiveActivity/);
   assert.match(shell, /"com\.oswhgo\.wivra"\.equals\(getPackageName\(\)\)/);
   assert.match(shell, /setClassName\(this, "com\.oswhgo\.wivra\.WivraPhoneLiveActivity"\)/);
@@ -50,9 +50,9 @@ test('the optional MP4 is armed before LIVE when selected and kept private until
   assert.match(live, /mediaScope\.cancel\(\)/);
   assert.match(live, /WivraPhoneMediaStore\.discard\(this, file\)/);
   assert.match(live, /if \(pending\?\.length\(\) == 0L\) pending\.delete\(\)/);
-  assert.match(live, /Clave LIVE rechazada\. La copia MP4 local continúa/);
-  assert.match(live, /LIVE falló, pero la copia MP4 local continúa/);
-  assert.match(live, /No había copia local/);
+  assert.match(live, /R\.string\.plive_auth_with_copy/);
+  assert.match(live, /R\.string\.plive_failed_copy_continues/);
+  assert.match(live, /R\.string\.plive_failed_no_copy/);
 });
 
 test('critically low storage closes the local MP4 without unnecessarily ending LIVE', () => {

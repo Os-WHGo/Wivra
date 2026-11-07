@@ -32,7 +32,7 @@ test('Android channel is AndroidX WebMessageListener, main frame of the bundled 
   assert.match(gradle, /implementation 'androidx\.webkit:webkit:1\.12\.1'/);
   assert.doesNotMatch(main + bridge, /\.addJavascriptInterface\(/);
   assert.match(bridge, /WebViewCompat\.addWebMessageListener\(webView, JS_OBJECT/);
-  assert.match(bridge, /if \(!isMainFrame \|\| view\.url != EDITOR_URL \|\| disposed\) return@addWebMessageListener/);
+  assert.match(bridge, /if \(!isMainFrame \|\| !isEditor\(view\.url\) \|\| disposed\) return@addWebMessageListener/);
   assert.match(bridge, /const val EDITOR_URL = "file:\/\/\/android_asset\/agentcut\.html"/);
   // Installed before the page loads, disposed (partial deleted) with the Activity.
   assert.ok(main.indexOf('exportBridge.install()') > 0 && main.indexOf('exportBridge.install()') < main.indexOf('editor.loadUrl('));
@@ -61,7 +61,7 @@ test('iOS file is renamed from .partial only after sync and a full re-read', () 
   assert.match(finish, /removeItem\(at: session\.partialURL\)/);
   assert.match(iosStore, /isExcludedFromBackup = true/);
   assert.match(iosStore, /volumeAvailableCapacityForImportantUsage/);
-  assert.match(iosBridge, /approved\?\.standardizedFileURL == message\.frameInfo\.request\.url\?\.standardizedFileURL/);
+  assert.match(iosBridge, /approved\?\.standardizedFileURL == message\.frameInfo\.request\.url\?\.wivraWithoutFragment\.standardizedFileURL/);
   assert.match(iosBridge, /message\.frameInfo\.isMainFrame/);
   assert.match(iosBridge, /deinit \{[\s\S]*abortOwned\(owner: owner\)/);
   assert.match(iosScreen, /name: "wivraExport"\)/);

@@ -13,7 +13,11 @@ const shell=read('streaming/android/app/src/main/java/com/oswhgo/wivra/MainActiv
 test('screen/app capture is FULL only and foreground-service typed for Android 14+',()=>{
   assert.match(fullManifest,/android\.permission\.FOREGROUND_SERVICE_MEDIA_PROJECTION/);
   assert.match(fullManifest,/android:name="\.WivraScreenLiveService"/);
-  assert.match(fullManifest,/android:foregroundServiceType="mediaProjection"/);
+  // Owner-approved 05-11-2026 (Claude W76): camera/microphone types join the
+  // screen service, used only when the owner opts in (see the W76 test below).
+  assert.match(fullManifest,/android:foregroundServiceType="mediaProjection\|camera\|microphone"/);
+  assert.match(fullManifest,/android\.permission\.FOREGROUND_SERVICE_CAMERA/);
+  assert.match(fullManifest,/android\.permission\.FOREGROUND_SERVICE_MICROPHONE/);
   assert.match(fullManifest,/android:name="\.WivraScreenLiveActivity"/);
   assert.match(fullManifest,/android:exported="false"/);
   assert.doesNotMatch(baseManifest,/WivraScreenLiveService|FOREGROUND_SERVICE_MEDIA_PROJECTION/);
@@ -26,10 +30,10 @@ test('one fresh Android MediaProjection consent controls each LIVE session',()=>
   assert.match(activity,/ActivityResultContracts\.StartActivityForResult\(\)/);
   assert.match(activity,/manager\.createScreenCaptureIntent\(\)/);
   assert.match(activity,/result\.resultCode != Activity\.RESULT_OK/);
-  assert.match(activity,/WivraScreenLiveService\.offer\(result\.resultCode, permission, address\)/);
-  assert.match(activity,/setTitle\("Confirmar LIVE público de pantalla"\)/);
-  assert.match(activity,/setPositiveButton\("Elegir pantalla"\)/);
-  assert.match(activity,/No se transmite la pantalla/);
+  assert.match(activity,/WivraScreenLiveService\.offer\(result\.resultCode, permission, address,/);
+  assert.match(activity,/setTitle\(R\.string\.slive_confirm_title\)/);
+  assert.match(activity,/setPositiveButton\(R\.string\.slive_choose_screen\)/);
+  assert.match(activity,/R\.string\.slive_permission_cancelled/);
   assert.match(service,/val request = claim\(\)/);
   assert.match(service,/offered = null/);
   assert.match(service,/return START_NOT_STICKY/);
@@ -47,16 +51,18 @@ test('RootEncoder sends real screen video without camera, other-app audio or mic
   assert.match(service,/stream\.changeVideoSource\(/);
   assert.match(service,/stream\.startStream\(request\.rtmpUrl\)/);
   assert.match(service,/override fun onConnectionSuccess\(\)/);
-  assert.doesNotMatch(service,/MediaRecorder|Camera2Source|InternalAudioSource|MicrophoneSource|startRecord\(/);
+  // Still never: local recording, other-app/internal audio, or a camera opened
+  // by the screen service itself (the optional camera lives in its own layer).
+  assert.doesNotMatch(service,/MediaRecorder|Camera2Source|InternalAudioSource|startRecord\(/);
 });
 test('projection revocation always ends screen sharing, no reuse or stealth background',()=>{
   assert.match(service,/override fun onStop\(\)/);
-  assert.match(service,/Android canceló la captura de pantalla/);
+  assert.match(service,/R\.string\.slive_revoked/);
   assert.match(service,/projection\?\.stop\(\)/);
   assert.match(service,/stream\.stopStream\(\)/);
   assert.match(service,/stopForeground\(STOP_FOREGROUND_REMOVE\)/);
   assert.match(service,/\.setOngoing\(true\)/);
-  assert.match(service,/Detener pantalla LIVE/);
+  assert.match(service,/R\.string\.slive_action_stop\b/);
   assert.match(service,/ACTION_STOP/);
   assert.match(activity,/setAction\(WivraScreenLiveService\.ACTION_STOP\)/);
   assert.match(activity,/onStop\(\)[\s\S]*?handler\.removeCallbacks\(statusPoller\)/);
@@ -73,7 +79,37 @@ test('credentials are memory-only and LIVE confirms actual ingest',()=>{
   assert.match(service,/onConnectionFailed\(reason: String\)/);
   assert.match(service,/if \(!active \|\| stopping\) return@post/);
   assert.match(service,/streaming = true/);
-  assert.match(service,/No existe copia local/);
+  assert.match(service,/R\.string\.slive_connect_failed/);
   assert.doesNotMatch(service,/SharedPreferences|println\(|Log\.|saveVideo\(|upload\(/);
   assert.doesNotMatch(activity,/putExtra\(|SharedPreferences|onSaveInstanceState|Log\./);
+});
+
+// Claude W76 (owner-approved): optional camera layer and microphone in screen
+// LIVE, only when ticked AND granted; the screen can be stopped on its own.
+test('camera and microphone are opt-in, permission-gated and never implicit',()=>{
+  const layer=read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraScreenCameraLayer.kt');
+  const scene=read('streaming/android/app/src/full/java/com/oswhgo/wivra/WivraScreenScene.kt');
+  assert.match(service,/if \(request\.withMic\) stream\.changeAudioSource\(MicrophoneSource\(\)\)/);
+  assert.match(service,/if \(request\.withCamera\) \{\s*val layer = WivraScreenCameraLayer/);
+  assert.match(service,/withCamera = offered\.withCamera && checkSelfPermission\(Manifest\.permission\.CAMERA\)/);
+  assert.match(service,/withMic = offered\.withMic && checkSelfPermission\(Manifest\.permission\.RECORD_AUDIO\)/);
+  assert.match(scene,/if \(withCamera && cameraGranted\) types = types or camera/);
+  assert.match(scene,/if \(withMic && micGranted\) types = types or microphone/);
+  assert.match(layer,/Camera2Source\(context\.applicationContext\)/);
+  assert.match(activity,/val withCamera = cameraOption\.isChecked && granted\(Manifest\.permission\.CAMERA\)/);
+  assert.match(activity,/val withMic = micOption\.isChecked && granted\(Manifest\.permission\.RECORD_AUDIO\)/);
+  assert.match(activity,/ActivityResultContracts\.RequestMultiplePermissions\(\)/);
+  // Camera/mic permissions are asked BEFORE the screen consent, then the same consent rules apply.
+  assert.match(activity,/afterSourcePermissions = \{ requestScreen\(address\) \}/);
+  // The dialog names every extra source that will be broadcast.
+  assert.match(activity,/getString\(R\.string\.screen_confirm_camera\)/);
+  assert.match(activity,/getString\(R\.string\.screen_confirm_mic\)/);
+});
+test('the owner can stop only the screen; a revocation keeps the camera, never silently',()=>{
+  assert.match(service,/ACTION_STOP_SCREEN -> \{/);
+  assert.match(service,/screenStoppedOnPurpose = true/);
+  assert.match(service,/if \(stopping \|\| screenStoppedOnPurpose\) return@post/);
+  assert.match(service,/applyScene\(WivraScreenScene\.screenRevoked\(current\)\)/);
+  assert.match(service,/R\.string\.slive_action_stop_screen/);
+  assert.match(activity,/getString\(R\.string\.screen_stop_only\)/);
 });

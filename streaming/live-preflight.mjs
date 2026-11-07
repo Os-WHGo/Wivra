@@ -27,6 +27,18 @@ const ALLOWED = Object.freeze({
   saved:['idle'],
   recording_failed:['idle'],
 });
+// A serialized or fabricated {liveReady:false} object is NOT proof that it
+// passed this module's non-secret plan validation. Keep provenance local.
+const ISSUED_PREFLIGHTS = new WeakSet();
+function sealPreflight(plan) {
+  Object.freeze(plan.sourceRequested);
+  for (const destination of plan.destinations) Object.freeze(destination);
+  Object.freeze(plan.destinations);
+  Object.freeze(plan.warnings);
+  Object.freeze(plan);
+  ISSUED_PREFLIGHTS.add(plan);
+  return plan;
+}
 function fail(msg) { throw new Error(msg); }
 function bool(v) { return v === true; }
 function requireFinitePositive(value,label) {
@@ -58,7 +70,7 @@ export function createPreflight({
     fail('Camera link cannot be phone-camera for Meta glasses');
   if(!sourceMode.startsWith('meta-') && actualCameraLink!=='phone-camera')
     fail('Phone camera cannot request Meta camera transport');
-  if(!(resolution in RESOLUTIONS))fail('Unsupported resolution');
+  if(!Object.hasOwn(RESOLUTIONS,resolution))fail('Unsupported resolution');
   oneOf(fps,FRAME_RATES,'fps');
   oneOf(audioPath,['phone-mic','glasses-bluetooth-hfp','none'],'audioPath');
   oneOf(forwarding,['single','relay','multiple-direct'],'forwarding');
@@ -83,7 +95,7 @@ export function createPreflight({
     ? 'Glasses Bluetooth HFP audio path is based on the official sample, NOT the experimental DAT PCM path; permissions and live synchronization require hardware tests.'
     : audioPath==='phone-mic'?'Phone microphone may differ from glasses viewpoint; lip/audio synchronization requires hardware tests.'
       : 'Stream without audio; destination compatibility may vary.';
-  return Object.freeze({
+  return sealPreflight({
     schemaVersion:'agentcut-live-preflight-0.1',
     sourceMode,cameraLink:actualCameraLink,phoneUplink,
     sourceRequested:{...RESOLUTIONS[resolution],resolution,fps,codec:'hevc'},
@@ -151,10 +163,13 @@ export class LiveSession {
     this.#step('previewing','live-frame-received');
   }
   ready({plan,recorderPrepared=false,encodedAudioVideoValidated=false}={}){
-    if(!plan||plan.liveReady!==false)fail('Expected validated preflight');
+    if(!ISSUED_PREFLIGHTS.has(plan)||plan.liveReady!==false)
+      fail('Expected validated preflight');
     if(!recorderPrepared)fail('Recording path must be ready');
     if(!encodedAudioVideoValidated)fail('Publisher media must be validated');
-    this.#plan=plan;this.#step('ready','native-media-prepared');
+    // Illegal lifecycle calls must not install a plan on an unready session.
+    this.#step('ready','native-media-prepared');
+    this.#plan=plan;
   }
   startLive({explicitHumanPress=false,nativePublisherConnected=false}={}){
     if(!explicitHumanPress)fail('A human must press the Start LIVE control');
@@ -166,10 +181,11 @@ export class LiveSession {
     this.#step('stopping','human-stopped-live');
   }
   finishRecording({storageVerified=false,bytesWritten=0,localAssetId=null}={}){
-    if(!storageVerified||!Number.isFinite(bytesWritten)||bytesWritten<=0||typeof localAssetId!=='string'||!/^local-[a-zA-Z0-9_-]{5,100}$/.test(localAssetId))
+    if(!storageVerified||!Number.isSafeInteger(bytesWritten)||bytesWritten<=0||typeof localAssetId!=='string'||!/^local-[a-zA-Z0-9_-]{5,100}$/.test(localAssetId))
       fail('A real, verified local artifact is needed');
-    this.#recordedFile={localAssetId,bytesWritten};
+    // Never expose a saved file if the recording did not reach stopping.
     this.#step('saved','final-file-verified');
+    this.#recordedFile={localAssetId,bytesWritten};
   }
   failRecording(){this.#step('recording_failed','no-verified-local-file')}
   reset(){this.#step('idle','new-session');this.#recordedFile=null;this.#plan=null}

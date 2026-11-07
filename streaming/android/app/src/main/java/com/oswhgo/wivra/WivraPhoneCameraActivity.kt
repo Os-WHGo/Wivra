@@ -12,6 +12,8 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.graphics.Color
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureRequest
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -23,6 +25,11 @@ import android.widget.TextView
 import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
@@ -102,6 +109,14 @@ class WivraPhoneCameraActivity : ComponentActivity() {
     private val captureExecutor: Executor by lazy { ContextCompat.getMainExecutor(this) }
     private var provider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
+    // W88: «Pro» controls, parity with the iPhone camera (exposure ± and an experimental night photo).
+    private var boundCamera: Camera? = null
+    private var nightPlan: WivraCameraProPolicy.NightPlan? = null
+    private var nightOn = false
+    private lateinit var evMinus: Button
+    private lateinit var evPlus: Button
+    private lateinit var evLabel: TextView
+    private lateinit var nightButton: Button
     private var videoCapture: VideoCapture<Recorder>? = null
     private var activeRecording: Recording? = null
     private var currentFile: File? = null
@@ -177,6 +192,17 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         secondRow.addView(recordingButton, weight())
         controls.addView(secondRow)
 
+        val proRow = LinearLayout(this)
+        evMinus = button(R.string.phone_camera_ev_minus) { stepExposure(-1) }
+        evLabel = TextView(this).apply { gravity = Gravity.CENTER; textSize = 15f; text = "—" }
+        evPlus = button(R.string.phone_camera_ev_plus) { stepExposure(1) }
+        proRow.addView(evMinus, weight())
+        proRow.addView(evLabel, weight())
+        proRow.addView(evPlus, weight())
+        controls.addView(proRow)
+        nightButton = button(R.string.phone_camera_night_off) { toggleNight() }
+        controls.addView(nightButton)
+
         micButton = button(R.string.phone_camera_mic_off) { toggleMic() }
         audioSourceButton = button(R.string.phone_camera_source_choose) { showAudioInputs() }
         pendingButton = button(R.string.phone_camera_review_pending) { choosePendingVideo() }
@@ -215,6 +241,9 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
         ))
         setContentView(layout)
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(layout)
+        WivraUi.primary(recordingButton)
         refreshControls()
         requireCamera()
     }
@@ -339,14 +368,15 @@ class WivraPhoneCameraActivity : ComponentActivity() {
                 val video = VideoCapture.withOutput(recorder)
                 try {
                     // Some phones support preview+photo+video in one session.
-                    current.bindToLifecycle(this, chosen, preview, photo, video)
+                    boundCamera = current.bindToLifecycle(this, chosen, preview, photo, video)
                     imageCapture = photo
                 } catch (_: IllegalArgumentException) {
                     // Fall back to reliable preview+video on constrained devices.
                     current.unbindAll()
-                    current.bindToLifecycle(this, chosen, preview, video)
+                    boundCamera = current.bindToLifecycle(this, chosen, preview, video)
                     imageCapture = null
                 }
+                readProCapabilities()
                 videoCapture = video
                 message(if (imageCapture == null) R.string.phone_camera_video_only_device
                     else R.string.phone_camera_ready)
@@ -441,20 +471,109 @@ class WivraPhoneCameraActivity : ComponentActivity() {
             return
         }
         photoButton.isEnabled = false
+        val plan = nightPlan
+        if (nightOn && plan != null && activeRecording == null && !recordingFinishing) {
+            // A real long shutter: automatic exposure off only for this photo, then restored.
+            val applied = applyNight(plan)
+            if (applied != null) {
+                message(R.string.phone_camera_night_hint, WivraCameraProPolicy.shutterLabel(plan.exposureNs))
+                applied.addListener({ takePhoto(capture, night = true) }, captureExecutor)
+                return
+            }
+        }
+        takePhoto(capture, night = false)
+    }
+
+    private fun takePhoto(capture: ImageCapture, night: Boolean) {
         val output = ImageCapture.OutputFileOptions.Builder(
             contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             WivraPhoneMediaStore.photoCaptureValues()
         ).build()
         capture.takePicture(output, captureExecutor, object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                if (night) clearNight()
                 photoButton.isEnabled = true
                 message(R.string.phone_camera_photo_saved)
             }
             override fun onError(error: androidx.camera.core.ImageCaptureException) {
+                if (night) clearNight()
                 photoButton.isEnabled = true
                 message(R.string.phone_camera_photo_failed)
             }
         })
+    }
+
+    @androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
+    private fun readProCapabilities() {
+        val cam = boundCamera
+        nightOn = false
+        nightPlan = try {
+            if (cam == null || imageCapture == null) null else {
+                val info = Camera2CameraInfo.from(cam.cameraInfo)
+                val caps = info.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                val manual = caps?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
+                val exposure = info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+                val iso = info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+                WivraCameraProPolicy.nightPlan(manual, exposure?.upper, iso?.lower, iso?.upper)
+            }
+        } catch (_: Exception) { null }
+        updateExposureLabel()
+    }
+
+    private fun stepExposure(delta: Int) {
+        val cam = boundCamera ?: return
+        val state = cam.cameraInfo.exposureState
+        if (!state.isExposureCompensationSupported) {
+            message(R.string.phone_camera_ev_unsupported)
+            return
+        }
+        val range = state.exposureCompensationRange
+        val next = WivraCameraProPolicy.stepIndex(state.exposureCompensationIndex, delta, range.lower, range.upper)
+        cam.cameraControl.setExposureCompensationIndex(next).addListener({ updateExposureLabel() }, captureExecutor)
+        updateExposureLabel(next)
+    }
+
+    private fun updateExposureLabel(index: Int? = null) {
+        if (!::evLabel.isInitialized) return
+        val state = boundCamera?.cameraInfo?.exposureState
+        evLabel.text = if (state == null || !state.isExposureCompensationSupported) "—"
+            else WivraCameraProPolicy.evLabel(index ?: state.exposureCompensationIndex,
+                state.exposureCompensationStep.numerator, state.exposureCompensationStep.denominator)
+        refreshControls()
+    }
+
+    private fun toggleNight() {
+        val plan = nightPlan ?: run {
+            message(R.string.phone_camera_night_unsupported)
+            return
+        }
+        if (activeRecording != null || recordingFinishing) {
+            message(R.string.phone_camera_night_not_during_video)
+            return
+        }
+        nightOn = !nightOn
+        if (nightOn) message(R.string.phone_camera_night_hint, WivraCameraProPolicy.shutterLabel(plan.exposureNs))
+        refreshControls()
+    }
+
+    @androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
+    private fun applyNight(plan: WivraCameraProPolicy.NightPlan): com.google.common.util.concurrent.ListenableFuture<Void>? {
+        val cam = boundCamera ?: return null
+        return try {
+            Camera2CameraControl.from(cam.cameraControl).setCaptureRequestOptions(
+                CaptureRequestOptions.Builder()
+                    .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                    .setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, plan.exposureNs)
+                    .setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, plan.iso)
+                    .build()
+            )
+        } catch (_: Exception) { null }
+    }
+
+    @androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
+    private fun clearNight() {
+        try { boundCamera?.let { Camera2CameraControl.from(it.cameraControl).clearCaptureRequestOptions() } }
+        catch (_: Exception) { }
     }
 
     private fun toggleRecording() {
@@ -636,6 +755,19 @@ class WivraPhoneCameraActivity : ComponentActivity() {
         updateAudioSourceLabel()
         if (::pendingButton.isInitialized) {
             pendingButton.isEnabled = activeRecording == null && !recordingFinishing
+        }
+        if (::evMinus.isInitialized) {
+            val ev = boundCamera?.cameraInfo?.exposureState?.isExposureCompensationSupported == true
+            evMinus.isEnabled = ev
+            evPlus.isEnabled = ev
+        }
+        if (::nightButton.isInitialized) {
+            val plan = nightPlan
+            nightButton.visibility = if (plan != null) View.VISIBLE else View.GONE
+            nightButton.isEnabled = plan != null && imageCapture != null && activeRecording == null && !recordingFinishing
+            nightButton.text = if (nightOn && plan != null)
+                getString(R.string.phone_camera_night_on, WivraCameraProPolicy.shutterLabel(plan.exposureNs))
+                else getString(R.string.phone_camera_night_off)
         }
     }
 

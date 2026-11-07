@@ -39,7 +39,7 @@ class WivraAcceleratedExportBridge(
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return false
         WebViewCompat.addWebMessageListener(webView, OBJECT, setOf("*")) {
             view, message, _, isMainFrame, reply ->
-            if (disposed || !isMainFrame || view.url != WivraExportBridge.EDITOR_URL)
+            if (disposed || !isMainFrame || !WivraExportBridge.isEditor(view.url))
                 return@addWebMessageListener
             onMessage(message, reply)
         }
@@ -59,38 +59,54 @@ class WivraAcceleratedExportBridge(
         val raw = message.data ?: return
         if (raw.length > MAX_MESSAGE_CHARS) return
         val request = try { JSONObject(raw) } catch (_: Exception) { return }
-        if (request.optInt("v", -1) != 2 || request.optInt("protocol", -1) != 2) return
-        val rid = request.optLong("rid", -1L)
-        if (rid <= 0L || rid > Int.MAX_VALUE.toLong()) return
-        when (request.optString("op")) {
+        val version = try { WivraStrictJsonNumber.requireLong(request.opt("v"), "v", 2L, 2L) }
+            catch (_: IllegalArgumentException) { return }
+        val protocol = try { WivraStrictJsonNumber.requireLong(request.opt("protocol"), "protocol", 2L, 2L) }
+            catch (_: IllegalArgumentException) { return }
+        if (version != 2L || protocol != 2L) return
+        val rid = try {
+            WivraStrictJsonNumber.requireLong(request.opt("rid"), "rid", 1L, Int.MAX_VALUE.toLong())
+        } catch (_: IllegalArgumentException) { return }
+        when (request.opt("op") as? String ?: return) {
             "helloRandom" -> enqueue(reply, rid) {
                 JSONObject().put("protocol", 2).put("randomWrite", true)
                     .put("platform", "android").put("maxWriteBytes",
                         WivraRandomAccessExportSession.MAX_WRITE_BYTES)
             }
             "beginRandom" -> enqueue(reply, rid) {
-                val token = WivraRandomExportStore.begin(context, request.getString("mime"),
-                    request.getLong("estimatedBytes"), owner)
+                val mime = request.opt("mime") as? String
+                    ?: throw IOException("Contenedor acelerado inválido.")
+                val estimatedBytes = WivraStrictJsonNumber.requireLong(
+                    request.opt("estimatedBytes"), "estimatedBytes", 1L,
+                    WivraRandomAccessExportSession.MAX_OUTPUT_BYTES)
+                val token = WivraRandomExportStore.begin(context, mime, estimatedBytes, owner)
                 JSONObject().put("token", token)
             }
             "writeAt" -> enqueue(reply, rid) {
-                val size = request.getInt("size")
-                if (size <= 0 || size > WivraRandomAccessExportSession.MAX_WRITE_BYTES)
-                    throw IOException("Bloque acelerado demasiado grande.")
-                val b64 = request.getString("b64")
+                val size = WivraStrictJsonNumber.requireInt(
+                    request.opt("size"), "size", 1, WivraRandomAccessExportSession.MAX_WRITE_BYTES)
+                val token = WivraStrictJsonNumber.requireInt(request.opt("token"), "token", 1, Int.MAX_VALUE)
+                val seq = WivraStrictJsonNumber.requireInt(request.opt("seq"), "seq", 0, Int.MAX_VALUE)
+                val position = WivraStrictJsonNumber.requireLong(
+                    request.opt("position"), "position", 0L, Long.MAX_VALUE)
+                val b64 = request.opt("b64") as? String
+                    ?: throw IOException("Bloque base64 inválido.")
                 if (b64.length > MAX_B64_CHARS) throw IOException("Bloque base64 demasiado grande.")
                 val data = Base64.decode(b64, Base64.DEFAULT)
                 if (data.size != size) throw IOException("Bloque aleatorio truncado.")
-                val ack = WivraRandomExportStore.writeAt(context, request.getInt("token"),
-                    request.getInt("seq"), request.getLong("position"), data, owner)
+                val ack = WivraRandomExportStore.writeAt(context, token, seq, position, data, owner)
                 JSONObject().put("seq", ack.seq).put("writtenBytes", ack.writtenBytes)
                     .put("maxEnd", ack.maxEnd)
             }
             "finishRandom" -> enqueue(reply, rid) {
-                val saved = WivraRandomExportStore.finish(context, request.getInt("token"),
-                    request.getLong("bytes"), request.getInt("writes"),
-                    request.getLong("expectedDurationMs"), request.getBoolean("expectAudio"), owner)
-                JSONObject().put("verified", true).put("token", request.getInt("token"))
+                val token = WivraStrictJsonNumber.requireInt(request.opt("token"), "token", 1, Int.MAX_VALUE)
+                val bytes = WivraStrictJsonNumber.requireLong(request.opt("bytes"), "bytes", 1L, Long.MAX_VALUE)
+                val writes = WivraStrictJsonNumber.requireInt(request.opt("writes"), "writes", 1, Int.MAX_VALUE)
+                val duration = WivraStrictJsonNumber.requireLong(
+                    request.opt("expectedDurationMs"), "expectedDurationMs", 1L, Long.MAX_VALUE)
+                val expectAudio = WivraStrictJsonNumber.requireBoolean(request.opt("expectAudio"), "expectAudio")
+                val saved = WivraRandomExportStore.finish(context, token, bytes, writes, duration, expectAudio, owner)
+                JSONObject().put("verified", true).put("token", token)
                     .put("bytes", saved.bytes).put("sha256", saved.sha256)
                     .put("displayName", saved.name).put("location", "Movies/Wivra")
                     .put("media", JSONObject().put("video", saved.media.video)
@@ -98,7 +114,8 @@ class WivraAcceleratedExportBridge(
                         .put("durationMs", saved.media.durationMs))
             }
             "abortRandom" -> enqueue(reply, rid) {
-                WivraRandomExportStore.abort(request.getInt("token"), owner)
+                val token = WivraStrictJsonNumber.requireInt(request.opt("token"), "token", 1, Int.MAX_VALUE)
+                WivraRandomExportStore.abort(token, owner)
                 JSONObject()
             }
             "listRecovered" -> enqueue(reply, rid) {
@@ -112,13 +129,21 @@ class WivraAcceleratedExportBridge(
             "restoreRecovered" -> enqueue(reply, rid) {
                 // Existing store verifies a sealed private file and copies to
                 // a new MediaStore row; it never accepts arbitrary file paths.
-                val saved = WivraRandomExportStore.restore(
-                    context, request.getString("name"))
+                val name = request.opt("name") as? String
+                    ?: throw IOException("Nombre de recuperación inválido.")
+                val saved = WivraRandomExportStore.restore(context, name)
                 JSONObject().put("restored", true).put("name", saved.name)
                     .put("bytes", saved.bytes)
+                    .put("alreadyPublished", saved.alreadyPublished)
             }
             "share" -> {
-                val saved = WivraRandomExportStore.saved(request.optInt("token", 0), owner)
+                val token = try {
+                    WivraStrictJsonNumber.requireInt(request.opt("token"), "token", 1, Int.MAX_VALUE)
+                } catch (_: IllegalArgumentException) {
+                    send(reply, failure(rid, "Token acelerado inválido."))
+                    return
+                }
+                val saved = WivraRandomExportStore.saved(token, owner)
                 if (saved == null) {
                     send(reply, failure(rid, "No existe un archivo acelerado publicado."))
                     return

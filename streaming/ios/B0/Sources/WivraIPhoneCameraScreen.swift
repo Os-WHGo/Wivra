@@ -37,6 +37,7 @@ struct WivraIPhoneCameraScreen: View {
     // Shared with the tab coordinator so the next camera waits for actual
     // AVCaptureSession shutdown, not merely a SwiftUI view disappearance.
     @Bindable var camera: WivraIPhoneCamera
+    @State private var showingMultiCam = false
 
     var body: some View {
         ScrollView {
@@ -51,6 +52,7 @@ struct WivraIPhoneCameraScreen: View {
                     .background(.black)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel("Vista previa en directo de la cámara nativa del iPhone")
+                    .overlay(alignment: .top) { WivraTeleprompterOverlay(store: .shared) }      // W96: Director script, never recorded
 
                 Picker("Lente del iPhone", selection: $camera.selectedLensID) {
                     ForEach(camera.lenses) { lens in
@@ -171,6 +173,15 @@ struct WivraIPhoneCameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .accessibilityIdentifier("iphone_camera_status")
 
+                // Two cameras need the single-camera session fully released. — Claude
+                Button {
+                    showingMultiCam = true
+                } label: {
+                    Label("Dos cámaras a la vez (recuadro)", systemImage: "rectangle.inset.bottomright.filled")
+                }
+                .disabled(!camera.isReleasedForCameraHandoff)
+                .accessibilityIdentifier("iphone_multicam_entry")
+
                 if let url = camera.lastPhotoURL {
                     Divider()
                     Text("Última foto original").font(.headline)
@@ -225,6 +236,9 @@ struct WivraIPhoneCameraScreen: View {
         .onDisappear { camera.stop() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             camera.stop()
+        }
+        .fullScreenCover(isPresented: $showingMultiCam) {
+            WivraMultiCamScreen()
         }
     }
 }

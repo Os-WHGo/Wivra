@@ -1,0 +1,98 @@
+{
+  "comment": "Ray-Ban LIVE looks: light, optional, GPU only, applied to the TRANSMITTED (and its private copy) image; the glasses' original recording is never filtered. Chain: exposure (×2^EV) → contrast around 0.5 → 5-point sharpen, clamped to 0..1 after each step (8-bit GPU textures). Android: RootEncoder Exposure/Contrast/Sharpness filters (same shader formulas). iPhone: Core Image equivalents (approximate: Core Image works in linear light). No noise reduction (too costly for the phone). — Claude",
+  "default": "off",
+  "looks": [
+    {
+      "id": "off",
+      "exposureEv": 0,
+      "contrast": 1,
+      "sharpen": 0
+    },
+    {
+      "id": "clear",
+      "exposureEv": 0,
+      "contrast": 1.05,
+      "sharpen": 0.2
+    },
+    {
+      "id": "lowlight",
+      "exposureEv": 0.35,
+      "contrast": 0.97,
+      "sharpen": 0
+    },
+    {
+      "id": "vivid",
+      "exposureEv": 0,
+      "contrast": 1.12,
+      "sharpen": 0.1
+    }
+  ],
+  "reference": [
+    {
+      "look": "off",
+      "pixel": [
+        0.5,
+        0.4,
+        0.6,
+        0.5,
+        0.5
+      ],
+      "expect": 0.5
+    },
+    {
+      "look": "clear",
+      "pixel": [
+        0.5,
+        0.4,
+        0.6,
+        0.5,
+        0.5
+      ],
+      "expect": 0.5
+    },
+    {
+      "look": "clear",
+      "pixel": [
+        0.9,
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ],
+      "expect": 1.0
+    },
+    {
+      "look": "lowlight",
+      "pixel": [
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2
+      ],
+      "expect": 0.262265
+    },
+    {
+      "look": "lowlight",
+      "pixel": [
+        0.9,
+        0.9,
+        0.9,
+        0.9,
+        0.9
+      ],
+      "expect": 0.985
+    },
+    {
+      "look": "vivid",
+      "pixel": [
+        0.3,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "expect": 0.1864
+    }
+  ]
+}

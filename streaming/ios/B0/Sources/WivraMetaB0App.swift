@@ -16,8 +16,46 @@ struct WivraMetaB0App: App {
     @State private var experimentalBackgroundMetaCapture = false
     @State private var showingCaptureLibrary = false
     @State private var showingExportLibrary = false
+    @State private var showingScreenRecord = false   // W100
     @State private var showingUnifiedEditor = false
     @State private var showingPhoneLive = false
+    // W80 (Claude): native home first (owner's mockups); the capture tabs stay underneath.
+    @State private var showingHome = true
+    @State private var editorRoute: WivraEditorRoute = .home
+    @State private var pendingNativeOpen: String?
+
+    private var camerasFree: Bool {
+        model.isReleasedForCameraHandoff && iPhoneCamera.isReleasedForCameraHandoff && pendingCaptureTab == nil
+    }
+
+    private func handleHome(_ action: WivraHomeAction) {
+        guard camerasFree else { return }
+        switch action {
+        case .newProject: editorRoute = .newProject; showingUnifiedEditor = true
+        case .director: editorRoute = .director; showingUnifiedEditor = true
+        case .aiChat: editorRoute = .aiChat; showingUnifiedEditor = true
+        case .capturePhone: showingHome = false; requestCaptureTab(.iPhone)
+        case .captureRayBan: showingHome = false; requestCaptureTab(.meta)
+        case .live: showingPhoneLive = true
+        case .captures: showingCaptureLibrary = true
+        case .exports: showingExportLibrary = true
+        case .screenRecord: showingScreenRecord = true
+        }
+    }
+
+    // The editor asked for a native screen (Capturar / LIVE on its home):
+    // open it only after the editor cover is gone. Nothing starts by itself.
+    private func openPendingNativeScreen() {
+        guard let what = pendingNativeOpen else { return }
+        pendingNativeOpen = nil
+        guard camerasFree else { return }
+        if what == "live" {
+            showingPhoneLive = true
+        } else if what == "capture" {
+            showingHome = false
+            requestCaptureTab(.iPhone)
+        }
+    }
 
     // Moving between sources is a two-phase handoff. SwiftUI cannot switch
     // to the destination until the current camera has released AVFoundation
@@ -50,30 +88,36 @@ struct WivraMetaB0App: App {
     }
 
     init() {
+        var datConfigured = false
         do {
             try Wearables.configure()
+            datConfigured = true
         } catch {
             NSLog("[WivraMetaB0] DAT configuration failed: %@", error.localizedDescription)
         }
-        _model = State(initialValue: MetaB0Model(wearables: Wearables.shared))
+        if datConfigured {
+            _model = State(initialValue: MetaB0Model(wearables: Wearables.shared))
+        } else {
+            // W80 (Claude): Wearables.shared traps when configure() failed; the app
+            // must still open (iPhone camera, LIVE, editor) with the glasses unavailable.
+            _model = State(initialValue: MetaB0Model(wearables: WivraUnavailableWearables()))
+        }
     }
 
-    var body: some Scene {
-        WindowGroup {
-            TabView(selection: Binding(
-                get: { captureTab },
-                set: { requestCaptureTab($0) }
-            )) {
-                MetaB0Screen(model: model)
-                    .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
-                    .tag(WivraCaptureTab.meta)
-                WivraIPhoneCameraScreen(camera: iPhoneCamera)
-                    .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
-                    .tag(WivraCaptureTab.iPhone)
-            }
-            .safeAreaInset(edge: .top) {
+    // W83 (Claude): shortcuts + network notes above EACH capture tab. On iOS 26 an
+    // inset on the TabView itself overlapped the tab content (Ray-Ban title hidden).
+    @ViewBuilder private var captureTopBar: some View {
                 VStack(spacing: 4) {
-                    HStack {
+                    // Five shortcuts no longer fit in one line: scroll sideways instead of
+                    // squeezing each label into a vertical column of letters (W80 screenshots).
+                    ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        Button {
+                            showingHome = true
+                        } label: {
+                            Label("ios.home.tab_home", systemImage: "house")
+                        }
+                        .accessibilityIdentifier("wivra_back_to_home")
                         Spacer()
                     Button {
                         showingPhoneLive = true
@@ -109,7 +153,12 @@ struct WivraMetaB0App: App {
                     .disabled(!model.isReleasedForCameraHandoff ||
                               !iPhoneCamera.isReleasedForCameraHandoff ||
                               pendingCaptureTab != nil)
-                        .padding(.horizontal)
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .font(.footnote.bold())
+                    .lineLimit(1)
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
                     }
                     Toggle("ios.app.background_capture_toggle", isOn: $experimentalBackgroundMetaCapture)
                         .font(.footnote)
@@ -143,19 +192,67 @@ struct WivraMetaB0App: App {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                 }
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial)
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            // W80 (Claude): the native home sits ABOVE the capture tabs and fills the
+            // screen; the tabs stay alive underneath for the camera handoff.
+            ZStack {
+            TabView(selection: Binding(
+                get: { captureTab },
+                set: { requestCaptureTab($0) }
+            )) {
+                MetaB0Screen(model: model)
+                    .safeAreaInset(edge: .top) { captureTopBar }
+                    .tabItem { Label("Ray-Ban", systemImage: "eyeglasses") }
+                    .tag(WivraCaptureTab.meta)
+                WivraIPhoneCameraScreen(camera: iPhoneCamera)
+                    .safeAreaInset(edge: .top) { captureTopBar }
+                    .tabItem { Label("iPhone", systemImage: "iphone.gen3") }
+                    .tag(WivraCaptureTab.iPhone)
             }
-            .onAppear { phoneNetwork.start() }
+                if showingHome {
+                    WivraHomeScreen(camerasFree: camerasFree, onAction: handleHome)
+                }
+            }
+            .onAppear {
+                phoneNetwork.start()
+                #if DEBUG
+                // CI-only screenshots in the iOS Simulator (W80); ignored in normal use.
+                switch ProcessInfo.processInfo.environment["WIVRA_SCREENSHOT"] {
+                case "live": showingPhoneLive = true
+                case "editor": showingUnifiedEditor = true
+                case "capture": showingHome = false
+                case "screenrec": showingScreenRecord = true
+                default: break
+                }
+                #endif
+            }
             .sheet(isPresented: $showingCaptureLibrary) {
                 WivraNativeCaptureLibraryScreen()
+                    .wivraStyled()
             }
             .sheet(isPresented: $showingExportLibrary) {
                 WivraNativeExportLibraryScreen()
+                    .wivraStyled()
             }
-            .fullScreenCover(isPresented: $showingUnifiedEditor) {
-                WivraEmbeddedEditorScreen()
+            .sheet(isPresented: $showingScreenRecord) {
+                WivraScreenRecordScreen()
+                    .wivraStyled()
+            }
+            .fullScreenCover(isPresented: $showingUnifiedEditor, onDismiss: {
+                editorRoute = .home
+                openPendingNativeScreen()
+            }) {
+                WivraEmbeddedEditorScreen(route: editorRoute)
+                    .wivraStyled()
             }
             .fullScreenCover(isPresented: $showingPhoneLive) {
                 WivraIPhoneLiveScreen()
+                    .wivraStyled()
             }
             .overlay(alignment: .top) {
                 if pendingCaptureTab != nil {
@@ -173,6 +270,14 @@ struct WivraMetaB0App: App {
             .onChange(of: iPhoneCamera.isReleasedForCameraHandoff) { _, _ in
                 completeCameraHandoffIfReady()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .wivraOpenNative)) { note in
+                guard let what = note.userInfo?["what"] as? String else { return }
+                // W96: the camera shows this script (or none when Capturar is opened without one).
+                if what == "capture" { WivraTeleprompterStore.shared.script = note.userInfo?["script"] as? String }
+                pendingNativeOpen = what
+                showingUnifiedEditor = false
+            }
+            .wivraStyled()
             .onOpenURL { url in
                 Task { @MainActor in
                     await model.handleMetaCallback(url)
@@ -214,11 +319,13 @@ struct MetaB0Screen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     let _ = tick.date
-                    Text("Wivra · Meta B0")
+                    // W82 (Claude): plain title for the owner; technical counters below
+                    // stay available under "Detalles técnicos".
+                    Text("Ray-Ban Meta")
                     .font(.title.bold())
                     .accessibilityIdentifier("wivra_meta_b0_title")
 
-                Text("B0 vista previa. B1D experimental: video HEVC + entrada de audio seleccionada. Sin LIVE.")
+                Text("Conecta tus gafas para ver su video y grabarlo en el iPhone. Experimental: aún sin prueba con gafas reales. El LIVE se hace con la cámara del iPhone.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -276,7 +383,9 @@ struct MetaB0Screen: View {
                     Text("Equilibrado").tag("balanced")
                     Text("Movimiento").tag("motion")
                     Text("Detalle").tag("detail")
+                    Text("Máxima (720p 30)").tag("max")
                     Text("Ahorro").tag("economy")
+                    Text("Automático").tag("auto")
                 }
                 .pickerStyle(.menu)
                 .disabled(model.hasPreview)
@@ -286,11 +395,24 @@ struct MetaB0Screen: View {
                 Text("La calidad recibida depende del enlace Meta; más resolución o FPS pueden aumentar la compresión.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if model.hasPreview {
+                    Text(model.datDiagnosticLine)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("wivra_dat_diagnostic")
+                }
+                if let tip = model.datSuggestion, !model.recordingArmed {
+                    Button("Las gafas no llegan bien: usar " + tip.label + " (reinicia la cámara)") { model.applyDatSuggestion() }
+                        .font(.footnote)
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("wivra_dat_suggestion")
+                }
 
                 Text("Transporte efectivo: gestionado por Meta DAT; aún sin medición de enlace físico.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
+                DisclosureGroup("Detalles técnicos") {
                 Group {
                     Text("Registro: \(model.isRegistered ? "autorizado" : "pendiente")")
                     Text("Sesión: \(String(describing: model.sessionState))")
@@ -306,8 +428,10 @@ struct MetaB0Screen: View {
                 .font(.system(.footnote, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Color(.secondarySystemBackground))
+                .background(WivraTheme.card)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .font(.subheadline)
 
                 Button("1 · Vincular con Meta AI") { model.register() }
                     .disabled(model.isRegistered || model.registrationState == .registering)
@@ -320,6 +444,15 @@ struct MetaB0Screen: View {
                             .disabled(model.sessionState != .idle)
                             .accessibilityIdentifier("meta_b1b_audio_enabled")
                         if model.captureSelectedAudio {
+                            Text("Recomendado: video de las gafas + micrófono del iPhone o USB. El micrófono Bluetooth de las gafas compite con el video por el mismo enlace.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Toggle("Incluir micrófonos Bluetooth (puede bajar la calidad del video)", isOn: Binding(
+                                get: { model.audioRoute.includeBluetooth },
+                                set: { model.audioRoute.includeBluetooth = $0 }
+                            ))
+                            .font(.footnote)
+                            .disabled(model.sessionState != .idle)
+                            .accessibilityIdentifier("meta_audio_include_bluetooth")
                             Button("Detectar entradas de audio") {
                                 Task { await model.audioRoute.discover() }
                             }
@@ -344,6 +477,9 @@ struct MetaB0Screen: View {
                             .disabled(model.sessionState != .idle ||
                                       model.audioRoute.selectedUID.isEmpty)
                             Text(model.audioRoute.status).font(.footnote)
+                            Text(WivraAudioRoute.hfpClosed ? "HFP de las gafas: cerrado (solo video por Bluetooth)" : "HFP Bluetooth: abierto")
+                                .font(.caption2).foregroundStyle(.secondary)
+                                .accessibilityIdentifier("meta_audio_hfp_state")
                             Text("Se usa una sola entrada activa. Un receptor USB de dos canales podrá separarse en pistas cuando el hardware lo permita.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
@@ -364,6 +500,9 @@ struct MetaB0Screen: View {
                 .disabled(!model.canStartPreview)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("start_meta_preview")
+
+                // Ray-Ban → LIVE through the existing iPhone LIVE engine (Claude).
+                WivraGlassesLiveSection(model: model)
 
                 Group {
                     VStack(alignment: .leading, spacing: 8) {
@@ -859,6 +998,8 @@ private struct WivraNativeExportLibraryScreen: View {
     @State private var recoveredAccelerated: [WivraSavedExport] = []
     @State private var savingPhoto: String?
     @State private var savedToPhotos = Set<String>()
+    @State private var photosReview: [String: WivraPhotosSaveJournal.ReviewStatus] = [:]
+    @State private var retryConfirmationVideo: WivraSavedExport?
     @State private var photosError: String?
 
     private func reload() async {
@@ -871,6 +1012,28 @@ private struct WivraNativeExportLibraryScreen: View {
                 forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
             return WivraSavedExport(name: item.url.lastPathComponent,
                 url: item.url, bytes: item.bytes, modifiedAt: date)
+        }
+        var statuses: [String: WivraPhotosSaveJournal.ReviewStatus] = [:]
+        for video in exports + recoveredAccelerated where video.url.pathExtension.lowercased() == "mp4" {
+            statuses[video.id] = try? await WivraPhotosSaveJournal.shared.reviewStatus(for: video.url)
+        }
+        photosReview = statuses
+    }
+
+    private func resolvePhotos(video: WivraSavedExport, present: Bool) {
+        Task { @MainActor in
+            do {
+                if present {
+                    try await WivraPhotosSaveJournal.shared.confirmManuallyPresent(for: video.url)
+                    savedToPhotos.insert(video.id)
+                } else {
+                    try await WivraPhotosSaveJournal.shared.authorizeRetryAfterManualAbsence(for: video.url)
+                    savedToPhotos.remove(video.id)
+                }
+                await reload()
+            } catch {
+                photosError = error.localizedDescription
+            }
         }
     }
 
@@ -915,8 +1078,39 @@ private struct WivraNativeExportLibraryScreen: View {
                                     Label(savedToPhotos.contains(video.id) ? "ios.exports.saved_photos" : "ios.exports.save_photos",
                                           systemImage: "square.and.arrow.down")
                                 }
-                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id))
+                                .disabled(savingPhoto != nil || savedToPhotos.contains(video.id)
+                                    || photosReview[video.id] == .needsManualReview)
                                 .accessibilityIdentifier("wivra_export_library_save_photos")
+                                if photosReview[video.id] == .needsManualReview {
+                                    Text("Guardado anterior sin confirmar. Revisa Fotos antes de decidir.")
+                                        .font(.caption).foregroundStyle(.orange)
+                                    Button {
+                                        resolvePhotos(video: video, present: true)
+                                    } label: {
+                                        Label("Ya aparece en Fotos", systemImage: "checkmark.circle")
+                                    }
+                                    .disabled(savingPhoto != nil)
+                                    Button(role: .destructive) {
+                                        retryConfirmationVideo = video
+                                    } label: {
+                                        Label("No aparece, permitir reintento", systemImage: "arrow.clockwise")
+                                    }
+                                    .disabled(savingPhoto != nil)
+                                    .confirmationDialog(
+                                        "Confirma que buscaste este video en Fotos y no aparece. Solo entonces se permitirá otro guardado.",
+                                        isPresented: Binding(
+                                            get: { retryConfirmationVideo?.id == video.id },
+                                            set: { if !$0 { retryConfirmationVideo = nil } }
+                                        ),
+                                        titleVisibility: .visible
+                                    ) {
+                                        Button("Confirmar que no está en Fotos", role: .destructive) {
+                                            resolvePhotos(video: video, present: false)
+                                            retryConfirmationVideo = nil
+                                        }
+                                        Button("Cancelar", role: .cancel) { retryConfirmationVideo = nil }
+                                    }
+                                }
                             }
                         }
                         .padding(.vertical, 4)

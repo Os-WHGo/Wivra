@@ -4,6 +4,35 @@
 // A later guarded bridge must provide real AVFoundation track inspection.
 import Foundation
 import CryptoKit
+import CoreFoundation
+
+/// Reject NSNumber coercions that blur JSON booleans, strings, and fractions.
+enum WivraStrictJSONValue {
+    static func integer(_ value: Any?) -> Int64? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let type = String(cString: number.objCType)
+        guard type != "f" && type != "d" else { return nil }
+        let token = number.stringValue
+        let bytes = Array(token.utf8)
+        guard !bytes.isEmpty else { return nil }
+        let start = bytes[0] == 45 ? 1 : 0
+        guard start < bytes.count else { return nil }
+        if bytes[start] == 48 {
+            guard bytes.count == start + 1 else { return nil }
+        } else {
+            guard bytes[start] >= 49 && bytes[start] <= 57,
+                  bytes.dropFirst(start + 1).allSatisfy({ $0 >= 48 && $0 <= 57 })
+            else { return nil }
+        }
+        return Int64(token)
+    }
+    static func boolean(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
+    }
+}
 
 actor WivraRandomAccessExportSession {
     static let maxWriteBytes = 1024 * 1024
@@ -37,16 +66,24 @@ actor WivraRandomAccessExportSession {
     private let partial: URL
     private let final: URL
     private let mime: String
+    private let reservedBytes: Int64
     private var file: FileHandle?
     private var covered: [Range<Int64>] = []
+    private var writeRanges: [Range<Int64>] = []
+    private var patchRanges: [Range<Int64>] = []
     private(set) var state: State = .open
     private(set) var maxEnd: Int64 = 0
     private(set) var writes = 0
 
-    init(directory: URL, mime: String) throws {
+    init(directory: URL, mime: String,
+         reservedBytes: Int64 = WivraRandomAccessExportSession.maxOutputBytes) throws {
         guard mime == "video/mp4" || mime == "video/webm" else {
             throw Failure.invalid("Contenedor aleatorio no admitido.")
         }
+        guard (1...Self.maxOutputBytes).contains(reservedBytes) else {
+            throw Failure.invalid("Tamaño reservado de salida fuera de límites.")
+        }
+        self.reservedBytes = reservedBytes
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let ext = mime == "video/mp4" ? "mp4" : "webm"
         let basename = "Wivra_Fast_\(UUID().uuidString).\(ext)"
@@ -83,18 +120,41 @@ actor WivraRandomAccessExportSession {
         covered = merged
     }
 
+    private func validateWriteRange(_ range: Range<Int64>) throws {
+        let overlaps = writeRanges.filter {
+            range.lowerBound < $0.upperBound && range.upperBound > $0.lowerBound
+        }
+        if overlaps.isEmpty { return }
+        let alreadyCovered = covered.contains {
+            $0.lowerBound <= range.lowerBound && $0.upperBound >= range.upperBound
+        }
+        let duplicate = writeRanges.contains { $0 == range }
+        let overlapsPriorPatch = patchRanges.contains {
+            range.lowerBound < $0.upperBound && range.upperBound > $0.lowerBound
+        }
+        guard alreadyCovered, !duplicate, !overlapsPriorPatch else {
+            throw Failure.invalid("La escritura se solapa con bytes existentes fuera de un parche contenido único.")
+        }
+        // Container header/index patches are allowed only inside fully written
+        // bytes. A second patch cannot rewrite any byte patched previously.
+        patchRanges.append(range)
+    }
+
     func writeAt(seq: Int, position: Int64, data: Data) throws -> Ack {
         guard state == .open, seq == writes, seq >= 0,
               !data.isEmpty, data.count <= Self.maxWriteBytes,
-              position >= 0, position <= Self.maxOutputBytes - Int64(data.count),
+              position >= 0, position <= reservedBytes - Int64(data.count),
               let file else {
             throw Failure.invalid("Bloque aleatorio o secuencia inválidos.")
         }
+        let end = position + Int64(data.count)
+        let range = position..<end
+        try validateWriteRange(range)
         do {
             try file.seek(toOffset: UInt64(position))
             try file.write(contentsOf: data)
-            let end = position + Int64(data.count)
-            markCovered(position..<end)
+            writeRanges.append(range)
+            markCovered(range)
             maxEnd = max(maxEnd, end)
             writes += 1
             return Ack(seq: seq, writtenBytes: data.count, maxEnd: maxEnd)

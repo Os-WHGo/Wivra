@@ -629,3 +629,205 @@ Transición en todos los cortes entre clips: || Transizione su ogni taglio tra l
 Transición en los cortes || Transizione sui tagli
 La dirección del proveedor de IA no es válida. || L'indirizzo del fornitore IA non è valido.
 La IA requiere una dirección HTTPS segura, sin credenciales ni parámetros. || L'IA richiede un indirizzo HTTPS sicuro, senza credenziali o parametri.
+Nuevo proyecto || Nuovo progetto
+Director IA || Regista IA
+Capturar || Riprendi
+Teléfono o Ray-Ban Meta || Telefono o Ray-Ban Meta
+LIVE || LIVE
+Transmitir en vivo || Trasmetti in diretta
+Chat IA || Chat IA
+Pide cambios al editor || Chiedi modifiche all’editor
+Proyectos recientes || Progetti recenti
+¿Qué quieres crear hoy? || Cosa vuoi creare oggi?
+Inicio || Home
+Proyectos || Progetti
+Secciones || Sezioni
+Crea, edita, transmite y comparte con IA || Crea, modifica, trasmetti e condividi con l’IA
+Omitir || Salta
+Todo tu contenido en una sola app || Tutti i tuoi contenuti in un’unica app
+Edita con línea de tiempo || Modifica con la timeline
+Cortes, capas, textos, filtros y audio || Tagli, livelli, testi, filtri e audio
+Captura con el teléfono o Ray-Ban Meta || Riprendi con il telefono o Ray-Ban Meta
+Una o dos cámaras a la vez || Una o due fotocamere insieme
+Transmite en vivo (LIVE) || Trasmetti in diretta (LIVE)
+Con escenas y una copia guardada en el teléfono || Con scene e una copia salvata sul telefono
+Crea con el Director IA || Crea con il Regista IA
+Guiones, ideas y ediciones || Copioni, idee e modifiche
+Tus videos se quedan en tu teléfono || I tuoi video restano sul tuo telefono
+Nada se sube a internet sin que lo pidas || Niente va su internet senza che tu lo chieda
+Solo el LIVE o tu IA envían algo, y siempre se avisa || Solo il LIVE o la tua IA inviano qualcosa, sempre con un avviso
+La clave de tu LIVE no se guarda || La chiave del tuo LIVE non viene salvata
+Se usa solo mientras transmites || Si usa solo mentre trasmetti
+La IA propone, tú decides || L’IA propone, tu decidi
+Ves el cambio antes de aplicarlo || Vedi la modifica prima di applicarla
+Nada cambia hasta que tocas Aplicar || Nulla cambia finché non tocchi Applica
+Todo se puede deshacer || Tutto si può annullare
+Con la flecha de deshacer del editor || Con la freccia annulla dell’editor
+Siguiente || Avanti
+Comenzar || Inizia
+LIVE se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android. || Il LIVE si apre dalla schermata principale dell’app Wivra su iPhone o Android.
+Capturar se abre desde la pantalla principal de la app de Wivra en tu iPhone o Android. || Riprendi si apre dalla schermata principale dell’app Wivra su iPhone o Android.
+{} clip · {} s en total · {} audio aparte || {} clip · {} s in totale · {} audio separato
+{} clip · {} s en total · {} audios aparte || {} clip · {} s in totale · {} audio separati
+{} clips · {} s en total · {} audio aparte || {} clip · {} s in totale · {} audio separato
+{} clips · {} s en total · {} audios aparte || {} clip · {} s in totale · {} audio separati
+Un proyecto de || Un progetto di
+Makers Unbound || Makers Unbound
+Reel, collage, Top 3… || Reel, collage, Top 3…
+Agrega tus videos o fotos con «Agregar» y después elige una plantilla. || Aggiungi i tuoi video o foto con «Aggiungi» e poi scegli un modello.
+Fundido cruzado || Dissolvenza incrociata
+Fundido cruzado aplicado. Puedes deshacerlo. || Dissolvenza incrociata applicata. Puoi annullarla.
+Fundido cruzado real: el clip siguiente aparece poco a poco sobre el anterior. Cada corte acorta el video {} s; el sonido sigue cortando en el corte. || Vera dissolvenza incrociata: il clip successivo appare a poco a poco sul precedente. Ogni taglio accorcia il video di {} s; il suono taglia ancora al taglio.
+{} corte quedó sin fundido: el clip no tiene la misma forma que el video final o hay un hueco. || {} taglio è rimasto senza dissolvenza: il clip non ha la stessa forma del video finale o c’è un vuoto.
+{} cortes quedaron sin fundido: el clip no tiene la misma forma que el video final o hay un hueco. || {} tagli sono rimasti senza dissolvenza: il clip non ha la stessa forma del video finale o c’è un vuoto.
+Ningún corte admite fundido cruzado: los clips deben tener la misma forma que el video final (por ejemplo, verticales en 9:16). || Nessun taglio ammette la dissolvenza incrociata: i clip devono avere la stessa forma del video finale (per esempio, verticali in 9:16).
+Las {} filas de capas están ocupadas: borra o junta una capa para poder hacer fundidos cruzados. || Le {} righe di livelli sono occupate: elimina o unisci un livello per fare dissolvenze incrociate.
+Permisos, solo cuando los uses || Permessi, solo quando li usi
+Cámara y micrófono || Fotocamera e microfono
+Para grabar o transmitir. Puedes grabar sin sonido. || Per registrare o trasmettere. Puoi registrare senza audio.
+Fotos o Galería || Foto o Galleria
+Para guardar tus videos terminados. || Per salvare i tuoi video finiti.
+Pantalla (Android) || Schermo (Android)
+Solo si eliges transmitir tu pantalla; Android pregunta cada vez. || Solo se scegli di trasmettere lo schermo; Android lo chiede ogni volta.
+Gafas Ray-Ban Meta || Occhiali Ray-Ban Meta
+Solo si las conectas, con la app Meta AI. || Solo se li colleghi, con l’app Meta AI.
+Puedes cambiar cualquier permiso en los Ajustes del teléfono. || Puoi cambiare qualsiasi permesso nelle Impostazioni del telefono.
+Subtítulos automáticos (en el teléfono) || Sottotitoli automatici (sul telefono)
+Reconoce la voz del video con whisper.cpp dentro del teléfono: tu audio no sale de él. Necesita un paquete de voz que se descarga una sola vez, cuando tú lo pidas. || Riconosce la voce del video con whisper.cpp dentro il telefono: il tuo audio non esce. Serve un pacchetto vocale che si scarica una sola volta, quando lo chiedi tu.
+Paquete de voz || Pacchetto vocale
+Preciso · 57 MB || Preciso · 57 MB
+Ligero · 31 MB || Leggero · 31 MB
+Preciso || Preciso
+Ligero || Leggero
+Idioma del audio || Lingua dell'audio
+Detectar idioma || Rileva lingua
+Descargar paquete de voz || Scarica pacchetto vocale
+Generar subtítulos || Genera sottotitoli
+Borrar paquete || Elimina pacchetto
+Paquete «{1}» guardado en el teléfono ({2} MB). Funciona sin Internet. || Pacchetto «{1}» salvato sul telefono ({2} MB). Funziona senza Internet.
+Paquete «{1}» no descargado ({2} MB). || Pacchetto «{1}» non scaricato ({2} MB).
+Se descargará el paquete de voz «{1}» ({2} MB) desde huggingface.co, del repositorio oficial de whisper.cpp. Se guarda en el teléfono y sirve para crear subtítulos sin Internet; tu audio no se envía. Recomendado con Wi-Fi. ¿Descargar? || Verrà scaricato il pacchetto vocale «{1}» ({2} MB) da huggingface.co, dal repository ufficiale di whisper.cpp. Resta sul telefono e crea sottotitoli senza Internet; il tuo audio non viene inviato. Consigliato il Wi-Fi. Scaricare?
+Descargando el paquete de voz… || Download del pacchetto vocale…
+Descargando… {1} de {2} MB || Download… {1} di {2} MB
+Verificando el paquete… || Verifica del pacchetto…
+Paquete de voz «{1}» listo. Funciona sin Internet. || Pacchetto vocale «{1}» pronto. Funziona senza Internet.
+Descarga cancelada. No se guardó nada. || Download annullato. Non è stato salvato nulla.
+El paquete descargado no coincide con el original verificado. No se guardó; vuelve a intentarlo. || Il pacchetto scaricato non corrisponde all'originale verificato. Non è stato salvato; riprova.
+No se pudo descargar el paquete de voz ({1}). Revisa la conexión; la importación de .srt sigue disponible. || Impossibile scaricare il pacchetto vocale ({1}). Controlla la connessione; l'importazione di .srt resta disponibile.
+¿Borrar el paquete de voz «{1}» del teléfono? Los subtítulos ya creados no se tocan. || Eliminare il pacchetto vocale «{1}» dal telefono? I sottotitoli già creati non vengono toccati.
+Cancelado. No se agregó ningún subtítulo. || Annullato. Nessun sottotitolo è stato aggiunto.
+Primero descarga el paquete de voz «{1}». || Prima scarica il pacchetto vocale «{1}».
+Por ahora, los subtítulos automáticos funcionan con videos de hasta {1} min. Para uno más largo, importa un .srt o .vtt. || Per ora i sottotitoli automatici funzionano con video fino a {1} min. Per uno più lungo, importa un .srt o .vtt.
+Leyendo el sonido del video… || Lettura dell'audio del video…
+Preparando el motor de voz… || Preparazione del motore vocale…
+Escuchando… parte {1} de {2} || Ascolto… parte {1} di {2}
+No se reconoció voz en el video. || Nessuna voce riconosciuta nel video.
+Se reconocieron {1} subtítulos. ¿Agregarlos al video? Podrás corregirlos uno por uno y deshacer. || Riconosciuti {1} sottotitoli. Aggiungerli al video? Potrai correggerli uno per uno e annullare.
+No se pudo agregar: {1} || Impossibile aggiungere: {1}
+Se agregaron {1} subtítulos automáticos. Revísalos: el reconocimiento puede equivocarse. || Aggiunti {1} sottotitoli automatici. Controllali: il riconoscimento può sbagliare.
+{1} quedaron fuera del video. || {1} sono rimasti fuori dal video.
+Esta versión no incluye el motor de voz. Puedes importar subtítulos .srt/.vtt. || Questa versione non include il motore vocale. Puoi importare sottotitoli .srt/.vtt.
+El paquete de voz guardado está dañado y se borró. Descárgalo otra vez. || Il pacchetto vocale salvato era danneggiato ed è stato eliminato. Scaricalo di nuovo.
+No pude leer el sonido del video. || Non sono riuscito a leggere l'audio del video.
+El motor de voz se detuvo, probablemente por falta de memoria. Prueba el paquete «Ligero» o un video más corto. || Il motore vocale si è fermato, probabilmente per mancanza di memoria. Prova il pacchetto «Leggero» o un video più corto.
+No se pudieron crear los subtítulos: {1} || Impossibile creare i sottotitoli: {1}
+El paquete de voz no se pudo abrir. Bórralo y descárgalo otra vez. || Impossibile aprire il pacchetto vocale. Eliminalo e scaricalo di nuovo.
+Escuchando… parte {1} de {2} · faltan unos {3} min || Ascolto… parte {1} di {2} · mancano circa {3} min
+El motor de voz dejó de responder (quizá el teléfono lo cerró al salir de Wivra). No se agregó nada; vuelve a intentarlo con Wivra abierta. || Il motore vocale non risponde più (forse il telefono l'ha chiuso quando sei uscito da Wivra). Non è stato aggiunto nulla; riprova con Wivra aperta.
+Mantén Wivra abierta mientras escucha: la pantalla no se apagará. || Tieni Wivra aperta mentre ascolta: lo schermo resterà acceso.
+Creo los subtítulos aquí mismo en el teléfono con whisper.cpp; tu audio no sale de él. Sigue el avance en Texto → Subtítulos automáticos. || Creo i sottotitoli qui sul telefono con whisper.cpp; il tuo audio non esce. Segui l'avanzamento in Testo → Sottotitoli automatici.
+Dictado en el teléfono con whisper.cpp: sin Internet y tu voz no sale del teléfono. || Dettatura sul telefono con whisper.cpp: senza Internet, la tua voce non esce dal telefono.
+El dictado lo hace tu navegador y puede usar los servidores de Apple o Google; Wivra no guarda audio. Para dictar sin Internet, descarga un paquete de voz en Texto → Subtítulos automáticos. || La dettatura la fa il tuo browser e può usare i server di Apple o Google; Wivra non conserva l'audio. Per dettare senza Internet, scarica un pacchetto vocale in Testo → Sottotitoli automatici.
+Para dictar, usa el micrófono del teclado del teléfono en el cuadro de arriba, o descarga un paquete de voz en Texto → Subtítulos automáticos. || Per dettare, usa il microfono della tastiera nel riquadro sopra, oppure scarica un pacchetto vocale in Testo → Sottotitoli automatici.
+Transcribiendo… || Trascrizione…
+No escuché nada. Toca 🎤 y habla cerca del teléfono. || Non ho sentito nulla. Tocca 🎤 e parla vicino al telefono.
+No reconocí palabras. Prueba otra vez, más cerca del teléfono. || Non ho riconosciuto parole. Riprova, più vicino al telefono.
+Listo: revisa el texto y toca el botón para enviarlo. || Fatto: controlla il testo e tocca il pulsante per inviarlo.
+No pude transcribir el dictado: {1} || Non sono riuscito a trascrivere la dettatura: {1}
+Espera a que terminen los subtítulos automáticos. || Aspetta che finiscano i sottotitoli automatici.
+Detener || Ferma
+Escuchando… habla y toca Detener cuando termines (máx. {1} s). || Ascolto… parla e tocca Ferma quando hai finito (max {1} s).
+No pude usar el micrófono. Permite el micrófono para Wivra en Ajustes del teléfono, o usa el micrófono del teclado. || Non ho potuto usare il microfono. Consenti il microfono a Wivra nelle Impostazioni del telefono, oppure usa il microfono della tastiera.
+Dar la orden con la voz || Dare l'ordine con la voce
+🎬 Grabar para esta plantilla || 🎬 Registra per questo modello
+Ya tienes una lista de tomas con avances. ¿Reemplazarla por la de la plantilla «{1}»? || Hai già una lista di riprese con progressi. Sostituirla con quella del modello «{1}»?
+Lista de tomas para «{1}»: graba en este orden y después aplica la plantilla. || Lista di riprese per «{1}»: registra in quest'ordine e poi applica il modello.
+Para la plantilla «{1}»: graba en este orden. || Per il modello «{1}»: registra in quest'ordine.
+Aplicar la plantilla «{1}» || Applica il modello «{1}»
+Hueco {1} de {2} || Spazio {1} di {2}
+Cuadro {1} de {2} || Riquadro {1} di {2}
+En el video quedan {1} s: graba unos {2} s y se usa el centro. || Nel video restano {1} s: registra circa {2} s e si usa la parte centrale.
+Plano corto y con movimiento, distinto del anterior. || Inquadratura breve e in movimento, diversa dalla precedente.
+«Antes»: el lugar, objeto o persona como está al principio. || «Prima»: il luogo, l'oggetto o la persona com'è all'inizio.
+«Después»: lo mismo al final, desde el mismo ángulo y la misma distancia. || «Dopo»: la stessa cosa alla fine, con la stessa angolazione e distanza.
+«N.º 3»: tu tercer favorito. || «N. 3»: il tuo terzo preferito.
+«N.º 2»: tu segundo favorito. || «N. 2»: il tuo secondo preferito.
+«N.º 1»: tu favorito; guárdalo para el final. || «N. 1»: il tuo preferito; tienilo per la fine.
+Tu cara || Il tuo volto
+Graba la pantalla del teléfono con lo que quieres mostrar. || Registra lo schermo del telefono con ciò che vuoi mostrare.
+Grábate de frente, con buena luz, mientras explicas; tan largo como la grabación de la pantalla. || Riprenditi di fronte, con buona luce, mentre spieghi; lungo quanto la registrazione dello schermo.
+Un plano fijo o con poco movimiento; los tres cuadros se ven a la vez. || Un'inquadratura fissa o con poco movimento; i tre riquadri si vedono insieme.
+Graba las tomas en este orden: la plantilla llena los huecos con los clips en el orden de la línea de tiempo. || Registra le riprese in quest'ordine: il modello riempie gli spazi con le clip nell'ordine della timeline.
+Collage || Collage
+Los primeros 2, 3 o 4 clips (videos o fotos) a la vez, en cuadros. Con 2 o 3: vertical 9:16, uno sobre otro; con 4: cuadrado 1:1, en cuadrícula. || Le prime 2, 3 o 4 clip (video o foto) insieme, in riquadri. Con 2 o 3: verticale 9:16, una sopra l'altra; con 4: quadrato 1:1, a griglia.
+Ráfaga || Raffica
+6 huecos de 1,5 s en vertical 9:16: tus primeros 6 clips (videos o fotos), uno tras otro, rápidos. || 6 spazi da 1,5 s in verticale 9:16: le tue prime 6 clip (video o foto), una dopo l'altra, veloci.
+Antes y después || Prima e dopo
+2 huecos de 4 s en vertical 9:16: el 1.er clip es el «Antes» y el 2.º el «Después», cada uno con su rótulo. || 2 spazi da 4 s in verticale 9:16: la 1ª clip è il «Prima» e la 2ª il «Dopo», ciascuna con la sua etichetta.
+Antes || Prima
+Después || Dopo
+Top 3 || Top 3
+3 huecos de 4 s en vertical 9:16, en cuenta regresiva: el 1.er clip es el N.º 3, el 2.º el N.º 2 y el 3.º el N.º 1. || 3 spazi da 4 s in verticale 9:16, in conto alla rovescia: la 1ª clip è il N. 3, la 2ª il N. 2 e la 3ª il N. 1.
+N.º 3 || N. 3
+N.º 2 || N. 2
+N.º 1 || N. 1
+Importar video de esta toma || Importa il video di questa ripresa
+Importar video guardado || Importa un video salvato
+Importar todos los segmentos Ray-Ban || Importa tutti i segmenti Ray-Ban
+Añadir siguientes segmentos Ray-Ban || Aggiungi i segmenti Ray-Ban successivi
+Lugares o ángulos sugeridos, sin datos geográficos verificados: || Luoghi o angolazioni suggeriti, senza dati geografici verificati:
+No hay clips en la línea de tiempo. || Non ci sono clip nella timeline.
+Aplicar a todos los videos (un solo paso para deshacer) || Applica a tutti i video (un solo passo per annullare)
+Agregar música || Aggiungi musica
+Música original Wivra (30 s) || Musica originale Wivra (30 s)
+Música original Wivra || Musica originale Wivra
+Pulso · Alegre y con ritmo || Pulso · Allegra e ritmata
+Calma · Suave, para fondo || Calma · Morbida, di sottofondo
+Energía · Fuerte, para deporte || Energia · Forte, per lo sport
+Suspenso · Oscuro y tenso || Suspense · Cupa e tesa
+Lo-fi · Tranquilo, con groove || Lo-fi · Tranquilla, con groove
+Importar transcripción Whisper (.json) || Importa trascrizione Whisper (.json)
+Importa un JSON de whisper.cpp ya transcrito. No ejecuta IA en el teléfono. || Importa un JSON già trascritto da whisper.cpp. Non esegue IA sul telefono.
+Estilo del texto || Stile del testo
+Cómo guardar || Come salvare
+Directo al teléfono, por partes (nuevo, beta) || Direttamente sul telefono, a parti (nuovo, beta)
+En memoria (anterior) || In memoria (precedente)
+Por partes: cada segundo grabado se escribe en el teléfono y se comprueba al final; usa poca memoria. En memoria: el método anterior, todo el video se guarda en la RAM hasta terminar. || A parti: ogni secondo registrato viene scritto sul telefono e verificato alla fine; usa poca memoria. In memoria: il metodo precedente, tutto il video resta nella RAM fino alla fine.
+Permitir exportación incompleta si falta una pista, no funciona el audio o una voz queda fuera del video. Puede perderse parte de una voz. Desmarcado por seguridad. || Consenti un'esportazione incompleta se manca una traccia, l'audio non funziona o una voce resta fuori dal video. Si può perdere parte di una voce. Deselezionato per sicurezza.
+Permitir exportar aunque falte un video, GIF o imagen superpuesta. Podrían desaparecer logos o tomas. Desmarcado por seguridad. || Consenti l'esportazione anche se manca un video, GIF o immagine sovrapposta. Loghi o riprese potrebbero sparire. Deselezionato per sicurezza.
+Toma completada: {} || Ripresa completata: {}
+Asociar archivo a {} || Associa un file a {}
+🎙️ Grabar voz en off || 🎙️ Registra voce fuori campo
+Grabar voz en off || Registra voce fuori campo
+Narra mientras ves el video desde la línea blanca; el sonido del video se silencia para que no se grabe. Con audífonos se oye mejor. || Racconta mentre guardi il video dalla linea bianca; l'audio del video è disattivato per non registrarlo. Con le cuffie è meglio.
+Detener voz en off || Ferma voce fuori campo
+Grabando… narra ahora. Toca Detener cuando termines. || Registrazione… racconta ora. Tocca Ferma quando hai finito.
+La grabación fue demasiado corta; no se agregó nada. || La registrazione era troppo breve; non è stato aggiunto nulla.
+Voz en off {1} || Voce fuori campo {1}
+Wivra pasó a segundo plano: se guardó la voz grabada hasta ese momento. || Wivra è passata in secondo piano: la voce registrata fino a quel momento è stata conservata.
+Voz en off agregada como pista de audio desde {1} s. Puedes moverla, recortarla o bajarle el volumen. || Voce fuori campo aggiunta come traccia audio da {1} s. Puoi spostarla, tagliarla o abbassarne il volume.
+Primero agrega un video. || Prima aggiungi un video.
+Aquí no se puede grabar el micrófono. Graba la voz con otra app e impórtala con «Audio (música, voz)». || Qui non si può registrare il microfono. Registra la voce con un'altra app e importala con «Audio (musica, voce)».
+No pude leer la voz grabada; no se agregó nada. || Non sono riuscito a leggere la voce registrata; non è stato aggiunto nulla.
+No se pudo agregar la voz en off a la línea de tiempo. || Non è stato possibile aggiungere la voce fuori campo alla timeline.
+Grabar con teleprompter || Registra con il gobbo
+No se pudo abrir la cámara de Wivra. || Impossibile aprire la fotocamera di Wivra.
+{1} archivo(s) ya estaban en el proyecto: se reutilizaron sin guardarlos dos veces. || {1} file già presenti nel progetto: riutilizzati senza salvarli due volte.
+Para subtítulos de videos largos, agrega el video desde Wivra en el teléfono (así se lee su sonido por partes, sin llenar la memoria). || Per i sottotitoli di video lunghi, aggiungi il video da Wivra sul telefono (così l'audio si legge a parti, senza riempire la memoria).
+Para leer el sonido de un video largo por partes, el teléfono pide que lo elijas otra vez (Wivra se cerró desde que lo agregaste). No se copia ni se cambia nada. || Per leggere a parti l'audio di un video lungo, il telefono chiede di sceglierlo di nuovo (Wivra è stato chiuso da quando l'hai aggiunto). Non si copia né si modifica nulla.
+Elegir otra vez «{1}» || Scegli di nuovo «{1}»
+Ese no es el mismo archivo. Elige «{1}». || Non è lo stesso file. Scegli «{1}».
+El teléfono todavía no deja leer ese archivo. Vuelve a agregar el video al proyecto. || Il telefono non permette ancora di leggere quel file. Aggiungi di nuovo il video al progetto.
+Listo. Toca «Generar subtítulos» otra vez. || Fatto. Tocca di nuovo «Genera sottotitoli».
+Comprobando si «{1}» ya está en el proyecto… || Controllo se «{1}» è già nel progetto…
+Comprobando que es el mismo archivo… || Controllo che sia lo stesso file…

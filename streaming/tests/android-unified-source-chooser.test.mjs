@@ -40,7 +40,7 @@ test('full LIVE selector opens only compiled camera RTMP or consented MediaProje
   assert.match(manifest, /android:name="\.WivraPhoneLiveActivity"/);
   assert.match(manifest, /android:name="\.WivraScreenLiveActivity"/);
   assert.match(screen, /createScreenCaptureIntent\(\)/);
-  assert.match(screen, /setTitle\("Confirmar LIVE público de pantalla"\)/);
+  assert.match(screen, /setTitle\(R\.string\.slive_confirm_title\)/);
   assert.match(phoneLive, /publisher\.startStream\(address\)/);
   assert.match(main, /R\.string\.source_limits_live/);
   assert.match(main, /R\.string\.source_live_screen_option/);

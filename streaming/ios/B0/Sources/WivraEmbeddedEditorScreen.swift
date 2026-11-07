@@ -26,6 +26,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     private func finishSelection(_ urls: [URL]?) {
         guard let completion = pendingFileSelection else { return }
         pendingFileSelection = nil
+        WivraAudioSegments.remember(urls)      // W98: long-video subtitles may read these files' sound piece by piece
         completion(urls)
     }
 
@@ -43,7 +44,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
         guard pendingFileSelection == nil,
               frame.isMainFrame,
-              let requestURL = frame.request.url,
+              let requestURL = frame.request.url?.wivraWithoutFragment,
               requestURL.isFileURL,
               approvedEditor?.standardizedFileURL == requestURL.standardizedFileURL,
               let presenter = visiblePresenter(for: webView) else {
@@ -113,8 +114,19 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         var declaredNames = Set(trackNames)
         declaredNames.insert(original)
         if let muxed = declared["muxedVideoFile"] as? String { declaredNames.insert(muxed) }
+        // Optional second camera (Claude): accepted only when it is the exact
+        // declared file; if absent or unreadable the main camera is imported alone.
+        var secondary: String?
+        if let mc = declared["multicam"] as? [String: Any],
+           let second = mc["secondaryVideoFile"] as? String,
+           names.contains(second), !second.hasPrefix("."),
+           !second.contains("/"), !second.contains("\\"), !declaredNames.contains(second) {
+            secondary = second
+            declaredNames.insert(second)
+        }
         guard names == declaredNames else { return nil }
         let root = captureRoot
+        let optionalSecondary = secondary
         return await Task.detached(priority: .userInitiated) { () -> [URL]? in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey,
                                              .fileSizeKey, .contentModificationDateKey]
@@ -122,13 +134,19 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                   before.isRegularFile == true, before.isSymbolicLink == false,
                   (before.fileSize ?? 0) > 0 else { return nil }
             var videos = 0
+            var dropped: URL?
             for url in urls.dropFirst() {
                 let file = url.standardizedFileURL
                 guard file.deletingLastPathComponent() == root,
                       file.resolvingSymlinksInPath().standardizedFileURL.deletingLastPathComponent() == root else { return nil }
                 switch file.pathExtension.lowercased() {
                 case "mov", "mp4":
-                    guard await WivraCaptureMediaVerifier.verifyFile(file, in: root) else { return nil }
+                    let ok = await WivraCaptureMediaVerifier.verifyFile(file, in: root)
+                    if !ok, file.lastPathComponent == optionalSecondary {
+                        dropped = url // never fail the main take because of the inset camera
+                        continue
+                    }
+                    guard ok else { return nil }
                     videos += 1
                 case "caf", "wav", "m4a":
                     guard WivraCaptureMediaVerifier.verifyAudioFile(file, in: root) else { return nil }
@@ -141,7 +159,7 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                   after.isRegularFile == true, after.isSymbolicLink == false,
                   after.fileSize == before.fileSize,
                   after.contentModificationDate == before.contentModificationDate else { return nil }
-            return urls
+            return dropped.map { d in urls.filter { $0 != d } } ?? urls
         }.value
     }
 
@@ -172,7 +190,8 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
                         return
                     }
                     let urls = [selected.manifestURL, video] +
-                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs
+                        (selected.alternateVideoURL.map { [$0] } ?? []) + selected.audioURLs +
+                        (selected.secondaryVideoURL.map { [$0] } ?? [])
                     Task { @MainActor [weak self] in
                         let checked = await self?.verifiedCaptureURLs(urls)
                         self?.finishSelection(checked)
@@ -208,13 +227,67 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
         finishSelection(nil)
     }
 
+    // W86: WKWebView answers "Cancel" to every confirm() and ignores alert()/prompt() unless
+    // the host shows them. The editor asks consent this way (voice-pack download, deleting a
+    // project, adding recognized subtitles), so show real native dialogs, only for the
+    // bundled editor's main frame.
+    private func editorDialogPresenter(_ webView: WKWebView, _ frame: WKFrameInfo) -> UIViewController? {
+        let approvedEditor = Bundle.main.url(forResource: "agentcut", withExtension: "html")
+        guard frame.isMainFrame, let url = frame.request.url?.wivraWithoutFragment, url.isFileURL,
+              approvedEditor?.standardizedFileURL == url.standardizedFileURL,
+              let presenter = visiblePresenter(for: webView), presenter.presentedViewController == nil else { return nil }
+        return presenter
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptAlertPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable () -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(); return }
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { _ in completionHandler() })
+        presenter.present(alert, animated: true)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptConfirmPanelWithMessage message: String,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable (Bool) -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(false); return }
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_cancel", comment: ""), style: .cancel) { _ in completionHandler(false) })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { _ in completionHandler(true) })
+        presenter.present(alert, animated: true)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        runJavaScriptTextInputPanelWithPrompt prompt: String,
+        defaultText: String?,
+        initiatedByFrame frame: WKFrameInfo,
+        completionHandler: @escaping @MainActor @Sendable (String?) -> Void
+    ) {
+        guard let presenter = editorDialogPresenter(webView, frame) else { completionHandler(nil); return }
+        let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+        alert.addTextField { $0.text = defaultText }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_cancel", comment: ""), style: .cancel) { _ in completionHandler(nil) })
+        alert.addAction(UIAlertAction(title: NSLocalizedString("ios.editor.dialog_ok", comment: ""), style: .default) { [weak alert] _ in
+            completionHandler(alert?.textFields?.first?.text ?? "")
+        })
+        presenter.present(alert, animated: true)
+    }
+
     // A remote page must never receive the file-origin native message bridge.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
     ) {
-        guard let url = navigationAction.request.url else {
+        guard let url = navigationAction.request.url?.wivraWithoutFragment else {
             decisionHandler(.cancel)
             return
         }
@@ -241,7 +314,22 @@ private final class WivraEditorNavigationPolicy: NSObject, WKNavigationDelegate,
     }
 }
 
+/// W80 (Claude): which editor screen the native home opens. Fixed values only.
+enum WivraEditorRoute: String {
+    case home = ""
+    case newProject = "#new"
+    case director = "#new-director"
+    case aiChat = "#new-ai"
+}
+
+extension Notification.Name {
+    /// Posted by the editor bridge when the editor's home asks for Capturar or LIVE.
+    static let wivraOpenNative = Notification.Name("WivraOpenNativeScreen")
+}
+
 private struct WivraEditorWebView: UIViewRepresentable {
+    var route: WivraEditorRoute = .home
+
     func makeCoordinator() -> WivraEditorNavigationPolicy {
         WivraEditorNavigationPolicy()
     }
@@ -267,10 +355,24 @@ private struct WivraEditorWebView: UIViewRepresentable {
               capabilities: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'host.capabilities'}),
               verifyFile: ({id, file}) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'capture.verifyFile', sessionId: id, file}),
               listCaptures: () => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.list'}),
-              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId})
+              checkCapture: (captureId) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'library.importSelection', captureId}),
+              audioPcm: (name, size, from, to) => window.webkit.messageHandlers.wivraNative.postMessage({version: 1, method: 'audio.pcm16k', name: String(name), size: Number(size), from: Number(from), to: Number(to)}),
+              openNative: (what, script) => window.webkit.messageHandlers.wivraNative.postMessage(Object.assign({version: 1, method: 'host.openNative', what}, typeof script === 'string' ? {script: script.slice(0, 2200)} : {}))
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(script)
+        // Native home → a given editor screen, once per editor session. No
+        // navigation: history.replaceState only sets the start hash.
+        if route != .home {
+            configuration.userContentController.addUserScript(WKUserScript(source: """
+                try {
+                  if (!sessionStorage.getItem('wivra.nativeRoute')) {
+                    sessionStorage.setItem('wivra.nativeRoute', '1');
+                    if (!location.hash) history.replaceState(null, '', '\(route.rawValue)');
+                  }
+                } catch (e) {}
+                """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         configuration.userContentController.addScriptMessageHandler(
             WivraEditorNativeBridge(), contentWorld: .page, name: "wivraNative")
         // Progressive export: editor chunks are written to a local file as they are
@@ -303,6 +405,9 @@ private struct WivraEditorWebView: UIViewRepresentable {
         if let html = Bundle.main.url(forResource: "agentcut", withExtension: "html") {
             view.loadFileURL(html, allowingReadAccessTo: html.deletingLastPathComponent())
         }
+        #if DEBUG
+        WivraEditorE2EHook.startIfRequested(view)      // CI-only (W86); inactive unless WIVRA_E2E=1
+        #endif
         return view
     }
 
@@ -350,12 +455,13 @@ private struct WivraCaptureSearchView: View {
 
 struct WivraEmbeddedEditorScreen: View {
     @Environment(\.dismiss) private var dismiss
+    var route: WivraEditorRoute = .home
 
     var body: some View {
         NavigationStack {
             Group {
                 if Bundle.main.url(forResource: "agentcut", withExtension: "html") != nil {
-                    WivraEditorWebView()
+                    WivraEditorWebView(route: route)
                         .ignoresSafeArea(edges: .bottom)
                         .accessibilityIdentifier("wivra_unified_embedded_editor")
                 } else {

@@ -52,8 +52,11 @@ test('foreground connected-device notification is declared and tied to recording
   assert.match(manifest, /android.permission.POST_NOTIFICATIONS/);
   assert.match(activity, /notificationPermissionLauncher\.launch\(Manifest\.permission\.POST_NOTIFICATIONS\)/);
   assert.match(activity, /notification_permission_asked/);
-  assert.match(manifest, /foregroundServiceType="connectedDevice"/);
-  assert.match(service, /startForeground\(NOTIFICATION_ID, captureNotification\(\)\)/);
+  // Ray-Ban «solo vídeo» (owner directive 06-11): the microphone type is declared for the person's chosen
+  // phone/USB/external Bluetooth microphone and requested only when one was chosen. — Claude
+  assert.match(manifest, /foregroundServiceType="connectedDevice\|microphone"/);
+  assert.match(service, /startForeground\(NOTIFICATION_ID, captureNotification\(\), types\)/);
+  assert.match(service, /if \(audioChoice != WivraRayBanSync\.Choice\.OFF\) ServiceInfo\.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0/);
   assert.match(service, /offerSession\(session: DeviceSession\)/);
   assert.match(service, /val handedOff = claimSession\(\)/);
   assert.match(service, /activeStream\.videoStream\.collect/);

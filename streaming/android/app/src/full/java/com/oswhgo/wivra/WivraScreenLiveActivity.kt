@@ -1,8 +1,10 @@
 package com.oswhgo.wivra
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.Handler
@@ -10,6 +12,7 @@ import android.os.Looper
 import android.text.InputType
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -28,15 +31,24 @@ class WivraScreenLiveActivity : ComponentActivity() {
     private lateinit var endpoint: EditText
     private lateinit var status: TextView
     private lateinit var startButton: Button
+    // Optional sources (Claude, owner-approved): only when ticked and granted.
+    private lateinit var cameraOption: CheckBox
+    private lateinit var frontOption: CheckBox
+    private lateinit var micOption: CheckBox
+    private var afterSourcePermissions: (() -> Unit)? = null
     private var pendingEndpoint: String? = null
     private val handler = Handler(Looper.getMainLooper())
 
     private val statusPoller = object : Runnable {
         override fun run() {
             if (!isDestroyed && !isFinishing) {
-                status.text = WivraScreenLiveService.statusMessage
+                status.text = WivraScreenLiveService.statusMessage.ifEmpty { getString(R.string.slive_idle) }
                 startButton.isEnabled = pendingEndpoint == null &&
                     !WivraScreenLiveService.active
+                val idle = !WivraScreenLiveService.active && pendingEndpoint == null
+                cameraOption.isEnabled = idle
+                frontOption.isEnabled = idle && cameraOption.isChecked
+                micOption.isEnabled = idle
                 handler.postDelayed(this, 1_000L)
             }
         }
@@ -50,11 +62,15 @@ class WivraScreenLiveActivity : ComponentActivity() {
         val permission = result.data
         if (result.resultCode != Activity.RESULT_OK ||
             permission == null || address == null) {
-            status.text = "Permiso cancelado. No se transmite la pantalla."
+            status.text = getString(R.string.slive_permission_cancelled)
             return@registerForActivityResult
         }
-        if (!WivraScreenLiveService.offer(result.resultCode, permission, address)) {
-            status.text = "LIVE de pantalla ya activo o dirección no válida."
+        val withCamera = cameraOption.isChecked && granted(Manifest.permission.CAMERA)
+        val withMic = micOption.isChecked && granted(Manifest.permission.RECORD_AUDIO)
+        if (!WivraScreenLiveService.offer(result.resultCode, permission, address,
+                withCamera = withCamera, frontCamera = withCamera && frontOption.isChecked,
+                withMic = withMic, receivedMessage = getString(R.string.slive_offer_received))) {
+            status.text = getString(R.string.slive_already_active)
             return@registerForActivityResult
         }
         // A one-use projection token and private RTMP key are deliberately NOT
@@ -64,11 +80,35 @@ class WivraScreenLiveActivity : ComponentActivity() {
                 .setAction(WivraScreenLiveService.ACTION_START)
             startForegroundService(start)
             endpoint.text?.clear()
-            status.text = "Captura autorizada. Conectando…"
+            status.text = getString(R.string.slive_authorized_connecting)
         } catch (_: Exception) {
             WivraScreenLiveService.withdrawOffer()
-            status.text = "Android no pudo iniciar el servicio de captura."
+            status.text = getString(R.string.slive_service_failed)
         }
+    }
+
+    private val sourcePermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (cameraOption.isChecked && grants[Manifest.permission.CAMERA] == false) {
+            cameraOption.isChecked = false
+            status.text = getString(R.string.screen_no_cam_permission)
+        }
+        if (micOption.isChecked && grants[Manifest.permission.RECORD_AUDIO] == false) {
+            micOption.isChecked = false
+            status.text = getString(R.string.screen_no_mic_permission)
+        }
+        val next = afterSourcePermissions
+        afterSourcePermissions = null
+        next?.invoke()
+    }
+
+    private fun granted(permission: String) =
+        checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun sendToService(action: String) {
+        if (!WivraScreenLiveService.active) return
+        startService(Intent(this, WivraScreenLiveService::class.java).setAction(action))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,17 +120,12 @@ class WivraScreenLiveActivity : ComponentActivity() {
             setPadding(22, 22, 22, 22)
         }
         root.addView(TextView(this).apply {
-            text = "Wivra LIVE · pantalla o aplicación"
+            text = getString(R.string.slive_heading)
             textSize = 19f
+            isAccessibilityHeading = true   // W87 (Claude): TalkBack heading
         })
         root.addView(TextView(this).apply {
-            text = "1. Introduce tu destino RTMP/RTMPS. " +
-                "2. Elige pantalla completa o una aplicación en el selector de Android. " +
-                "3. Confirma para emitir. La notificación visible permite detener LIVE. " +
-                "La captura de pantalla NO incluye audio interno ni micrófono, " +
-                "y esta primera ruta NO guarda copia MP4 local. " +
-                "Antes comprueba que tu plataforma archive el VOD. " +
-                "Contenido protegido puede aparecer en negro."
+            text = getString(R.string.slive_intro)
         })
         endpoint = EditText(this).apply {
             hint = "rtmps://servidor/live/clave"
@@ -100,52 +135,97 @@ class WivraScreenLiveActivity : ComponentActivity() {
             isSaveEnabled = false
             setSingleLine(true)
             importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
-            contentDescription = "URL RTMP/RTMPS privada para pantalla LIVE"
+            contentDescription = getString(R.string.slive_endpoint_description)
         }
         root.addView(endpoint)
+        cameraOption = CheckBox(this).apply { text = getString(R.string.screen_cam_option) }
+        frontOption = CheckBox(this).apply { text = getString(R.string.screen_front_option) }
+        micOption = CheckBox(this).apply { text = getString(R.string.screen_mic_option) }
+        root.addView(cameraOption)
+        root.addView(frontOption)
+        root.addView(micOption)
         status = TextView(this).apply {
-            text = WivraScreenLiveService.statusMessage
+            // TalkBack announces connection, reconnection and camera changes.
+            accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
+            text = WivraScreenLiveService.statusMessage.ifEmpty { getString(R.string.slive_idle) }
             textSize = 15f
         }
         root.addView(status)
         startButton = Button(this).apply {
-            text = "Elegir pantalla o aplicación e iniciar LIVE"
+            text = getString(R.string.slive_choose_and_start)
             setOnClickListener { confirmAndChooseScreen() }
         }
         root.addView(startButton)
         root.addView(Button(this).apply {
-            text = "Detener LIVE de pantalla"
+            text = getString(R.string.slive_stop_button)
             setOnClickListener {
                 startService(Intent(
                     this@WivraScreenLiveActivity, WivraScreenLiveService::class.java
                 ).setAction(WivraScreenLiveService.ACTION_STOP))
             }
         })
+        // Live controls for the camera layer; the screen can be stopped alone.
         root.addView(Button(this).apply {
-            text = "Volver a Wivra"
+            text = getString(R.string.screen_stop_only)
+            setOnClickListener { sendToService(WivraScreenLiveService.ACTION_STOP_SCREEN) }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.screen_toggle_camera)
+            setOnClickListener { sendToService(WivraScreenLiveService.ACTION_TOGGLE_CAMERA) }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.screen_move_camera)
+            setOnClickListener { sendToService(WivraScreenLiveService.ACTION_CAMERA_CORNER) }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.screen_rotate_camera)
+            setOnClickListener { sendToService(WivraScreenLiveService.ACTION_CAMERA_ROTATE) }
+        })
+        root.addView(Button(this).apply {
+            text = getString(R.string.slive_back)
             setOnClickListener { finish() }
         })
         setContentView(root)
+        // W83 (Claude): Wivra button look; texts and states unchanged.
+        WivraUi.styleAll(root)
+        WivraUi.primary(startButton)
     }
 
     private fun confirmAndChooseScreen() {
         if (pendingEndpoint != null || WivraScreenLiveService.active) return
         val address = endpoint.text.toString()
         if (!WivraLiveEndpoint.valid(address)) {
-            status.text = "Introduce una URL RTMP/RTMPS válida."
+            status.text = getString(R.string.slive_endpoint_invalid)
+            return
+        }
+        // W94: same network line as the phone LIVE (same 1.2 Mbps profile in WivraScreenLiveService).
+        val networkLine = WivraLiveNetworkProbe.confirmationLine(this, 1_200_000L + (if (micOption.isChecked) 64_000L else 0L)) ?: run {
+            status.text = getString(R.string.plive_network_offline)
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Confirmar LIVE público de pantalla")
+            .setTitle(R.string.slive_confirm_title)
             .setMessage(
-                "Tu pantalla o la aplicación que elijas puede mostrar datos " +
-                    "privados y se transmitirá a un servidor externo. " +
-                    "Wivra no graba una copia local en este modo. " +
-                    "El VOD del proveedor podría no guardarse. " +
-                    "Android pedirá permiso en cada nueva sesión. ¿Continuar?"
+                getString(R.string.slive_confirm_intro) + " " +
+                    (if (cameraOption.isChecked) getString(R.string.screen_confirm_camera) + " " else "") +
+                    (if (micOption.isChecked) getString(R.string.screen_confirm_mic) + " " else "") +
+                    getString(R.string.slive_confirm_outro) + "\n\n" + networkLine
             )
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Elegir pantalla") { _, _ ->
+            .setNegativeButton(R.string.plive_cancel, null)
+            .setPositiveButton(R.string.slive_choose_screen) { _, _ ->
+                // Camera/microphone permissions first, then the screen consent.
+                val needed = buildList {
+                    if (cameraOption.isChecked && !granted(Manifest.permission.CAMERA)) add(Manifest.permission.CAMERA)
+                    if (micOption.isChecked && !granted(Manifest.permission.RECORD_AUDIO)) add(Manifest.permission.RECORD_AUDIO)
+                }
+                if (needed.isNotEmpty()) {
+                    afterSourcePermissions = { requestScreen(address) }
+                    sourcePermissions.launch(needed.toTypedArray())
+                } else requestScreen(address)
+            }.show()
+    }
+
+    private fun requestScreen(address: String) {
                 try {
                     val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as
                         MediaProjectionManager
@@ -155,9 +235,8 @@ class WivraScreenLiveActivity : ComponentActivity() {
                     // decides what can actually be captured.
                 } catch (_: Exception) {
                     pendingEndpoint = null
-                    status.text = "Android no pudo solicitar el permiso de pantalla."
+                    status.text = getString(R.string.slive_request_failed)
                 }
-            }.show()
     }
 
     override fun onStart() {

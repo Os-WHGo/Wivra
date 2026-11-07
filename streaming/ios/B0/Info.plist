@@ -11,7 +11,12 @@
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>LSRequiresIPhoneOS</key><true/>
-  <key>CFBundleDisplayName</key><string>Wivra Meta B0</string>
+  <!-- W80 (Claude): without a launch screen iOS runs the app in the old
+       3.5-inch compatibility mode (black bars, small UI). An empty
+       UILaunchScreen enables the full screen; Wivra is a dark app. -->
+  <key>UILaunchScreen</key><dict/>
+  <key>UIUserInterfaceStyle</key><string>Dark</string>
+  <key>CFBundleDisplayName</key><string>Wivra</string>
   <key>CFBundleURLTypes</key>
   <array><dict>
     <key>CFBundleTypeRole</key><string>Editor</string>

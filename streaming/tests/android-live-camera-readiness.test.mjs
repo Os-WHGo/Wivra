@@ -28,8 +28,8 @@ test('every public start stage rechecks live camera evidence, even after consent
   const publish=start.indexOf('publisher.startStream(address)');
   assert.ok(cameraCheck>=0&&openMedia>cameraCheck&&publish>openMedia,
     'no MP4 or RTMP attempt before active camera readiness is confirmed');
-  assert.match(confirm,/setTitle\("Confirmar emisión pública"\)/);
-  assert.match(confirm,/setPositiveButton\("Iniciar LIVE"\)/);
+  assert.match(confirm,/setTitle\(R\.string\.plive_confirm_title\)/);
+  assert.match(confirm,/setPositiveButton\(R\.string\.plive_start\)/);
 });
 
 test('surface lifecycle prevents stale preview from presenting camera as ready',()=>{
@@ -39,8 +39,8 @@ test('surface lifecycle prevents stale preview from presenting camera as ready',
   assert.match(created,/startButton\.isEnabled = cameraReadyForLive\(\)/);
   assert.match(destroyed,/startButton\.isEnabled = false/);
   assert.match(live,/startButton\.isEnabled = cameraReadyForLive\(\) && !mediaBusy/);
-  assert.match(live,/Codificador preparado; esperando vista previa de cámara activa/);
-  assert.match(live,/Cámara no disponible o sin vista previa activa/);
+  assert.match(live,/R\.string\.plive_preview_waiting/);
+  assert.match(live,/R\.string\.plive_camera_not_ready/);
 });
 
 test('readiness gate does not disable screen capture or leak RTMP credentials',()=>{

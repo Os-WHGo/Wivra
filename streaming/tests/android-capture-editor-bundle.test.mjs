@@ -10,6 +10,9 @@ const android = read(dir+'AndroidManifest.xml');
 const paths = read(dir+'res/xml/wivra_import_paths.xml');
 const store = read(dir+'java/com/oswhgo/wivra/WivraPhoneMediaStore.kt');
 const build = read('../android/app/build.gradle');
+const acceleratedStoreInstrument = read('../android/app/src/androidTest/java/com/oswhgo/wivra/WivraExportStoreTest.kt');
+const unifiedAndroidWorkflow = read('../../.github/workflows/unified-android-build.yml');
+const betaAssemblyWorkflow = read('../../.github/workflows/wivra-complete-beta-assembly.yml');
 
 test('Saved owner-owned MP4 and WAV are paired, pending recordings never exposed', () => {
   assert.match(bundle,/latestSavedVideos\(context\)/);
@@ -137,4 +140,22 @@ test('Android MainActivity exposes one real camera source selector without doubl
  assert.match(java,/launchPhoneCameraFromDirector\(\)/);
  assert.doesNotMatch(java,/shell\.addView\(glasses|shell\.addView\(phone\)/);
  assert.equal((java.match(/shell\.addView\(cameraSources/g)||[]).length,1);
+});
+
+test('Accelerated v2 orphan MediaStore recovery has instrumented API 35 coverage without default APK assembly',()=>{
+ assert.match(acceleratedStoreInstrument,/acceleratedV2CleanupRemovesOnlyAppOwnedPendingMediaStoreRows/);
+ assert.match(acceleratedStoreInstrument,/acceleratedCleanupKeepsPrivatePartialWhileAWriterIsActive/);
+ assert.match(acceleratedStoreInstrument,/WivraRandomExportStore\.cleanupOrphanPartials\(context\)/);
+ assert.match(acceleratedStoreInstrument,/MediaStore\.MATCH_ONLY/);
+ assert.match(acceleratedStoreInstrument,/MediaStore\.MATCH_EXCLUDE/);
+ assert.match(acceleratedStoreInstrument,/OWNER_PACKAGE_NAME/);
+ assert.match(acceleratedStoreInstrument,/IS_PENDING/);
+ assert.match(unifiedAndroidWorkflow,/compileFullDebugAndroidTestKotlin/);
+ assert.match(unifiedAndroidWorkflow,/compileCaptureDebugAndroidTestKotlin/);
+ assert.match(unifiedAndroidWorkflow,/compileFullDebugAndroidTestJavaWithJavac/);
+ assert.match(unifiedAndroidWorkflow,/compileCaptureDebugAndroidTestJavaWithJavac/);
+ assert.doesNotMatch(unifiedAndroidWorkflow,/assembleFullDebugAndroidTest|assembleCaptureDebugAndroidTest/);
+ assert.match(betaAssemblyWorkflow,/android-media-emulator:[\s\S]*?needs: android-beta/);
+ assert.match(betaAssemblyWorkflow,/api-level: 35/);
+ assert.match(betaAssemblyWorkflow,/com\.oswhgo\.wivra\.WivraExportStoreTest/);
 });

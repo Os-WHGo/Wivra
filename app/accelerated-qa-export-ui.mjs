@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.id='wivraAcceleratedQA';
   qaBox.style.cssText='border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0';
   const title=make('strong','Laboratorio acelerado (solo QA)');
-  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Duración máxima de 180 s y 160 elementos. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
+  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Hasta 60 min (más de 3 min usa el modo largo, escrito por partes en el teléfono) y 160 elementos. El audio que exista en las pistas se conserva; la casilla solo exige que haya audio. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
   const consent=make('label','');
   consent.style.cssText='display:flex;align-items:center;gap:8px';
   const enable=document.createElement('input');enable.type='checkbox';
@@ -80,7 +80,9 @@ document.addEventListener('DOMContentLoaded',()=>{
               throw Error('Restauración no confirmada');
             target.textContent=host.platform==='ios'
               ?'Se abrió Compartir. La copia privada no se ha eliminado.'
-              :'Video recuperado en Movies/Wivra. Revisa la galería.';
+              :response.alreadyPublished===true
+                ?'Este video ya estaba en Movies/Wivra. No se creó ninguna copia duplicada.'
+                :'Video recuperado en Movies/Wivra. Revisa la galería.';
           }catch(error){
             // An uncertain native reply may mean the gallery copy succeeded.
             // Don't send the same request again without a user check.
@@ -111,8 +113,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     running=true;cancelled=false;start.disabled=true;startStable.disabled=true;cancel.hidden=false;
     actions.replaceChildren();status.textContent='Preparando la exportación acelerada…';
     try{
+      // MU V4: projects longer than 3 min use the long-form mode (≤ 60 min, written in pieces).
+      const projectSeconds=typeof totalDuration==='function'?totalDuration(originalSession.project):0;
       const result=await recordOnNative({
-        project:originalSession.project,media,
+        project:originalSession.project,media,longForm:projectSeconds>180,
         expectAudio:requireAudio.checked,experimentalAccelerated:true,
         isCancelled:()=>cancelled||session!==originalSession||
           session.project.revision!==revision,

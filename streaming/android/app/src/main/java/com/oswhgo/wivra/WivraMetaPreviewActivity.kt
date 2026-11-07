@@ -46,6 +46,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import java.io.File
+import android.widget.CheckBox
+import android.widget.EditText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -95,6 +97,37 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private data class LocalPreviewFrame(val bytes: ByteArray, val width: Int, val height: Int)
     private var sdkReady = false
     private var frames = 0L
+    // Ray-Ban profiles shared with iPhone (WivraDatProfiles.kt / streaming/contracts/dat-profiles.json).
+    private var activeDatProfile = WivraDatProfile.DEFAULT
+    private var datStats = WivraDatStreamStats(WivraDatProfile.DEFAULT.fps)
+    private var datSuggestion: WivraDatProfile? = null
+    private var lastSuggestionMs = -1_000_000L
+    private var datThermal = false
+    private lateinit var datProfileButton: Button
+    private lateinit var datDiagnostic: TextView
+    private lateinit var datSuggestionButton: Button
+    // Ray-Ban «solo vídeo» + independent microphone (never the glasses' HFP microphone). — Claude
+    private lateinit var datAudioButton: Button
+    private lateinit var datHfpStatus: TextView
+    private var recordingAudioChoice = WivraRayBanSync.Choice.OFF
+    private var recordingAudioDevice = -1
+    private var audioThen: ((WivraRayBanSync.Choice, Int) -> Unit)? = null
+    // Ray-Ban → LIVE on the existing engine (full package only; null otherwise). — Claude
+    private val rayBanLive: WivraRayBanLive? by lazy { WivraRayBanLiveFactory.create() }
+    private var liveButton: Button? = null
+    private var lookButton: Button? = null
+    private var liveRunning = false
+    private var liveCopy: File? = null
+    private var liveAudioDeviceId = -1
+    private val liveAudioWatch = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) {
+            // The chosen microphone vanished: LIVE goes on muted, never on another microphone.
+            if (liveRunning && removed.any { it.id == liveAudioDeviceId }) {
+                rayBanLive?.muteMicrophone()
+                show(getString(R.string.rblive_mic_lost))
+            }
+        }
+    }
     private lateinit var status: TextView
     private lateinit var datCapabilityStatus: TextView
     private lateinit var phoneNetworkStatus: TextView
@@ -156,7 +189,13 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             // Notifications are optional for FGS operation, but a denied
             // permission can hide the stop action from the notification drawer.
-            handoffCaptureSession()
+            resolveRecordingAudio(::startCaptureWithAudio)
+        }
+
+    private val audioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+            if (allowed) resolveRecordingAudio(audioThen ?: ::startCaptureWithAudio)
+            else offerVideoOnly(getString(R.string.dat_audio_no_permission), emptyList(), audioThen ?: ::startCaptureWithAudio)
         }
 
     private val cameraPermissionLauncher =
@@ -242,6 +281,23 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         ))
         registerButton = button(root, getString(R.string.connect_meta)) { registerMeta() }
         connectButton = button(root, getString(R.string.connect_glasses)) { beginSession() }
+        datProfileButton = button(root, "") { chooseDatProfile() }
+        datDiagnostic = TextView(this).apply { textSize = 12f; visibility = View.GONE }
+        root.addView(datDiagnostic)
+        datSuggestionButton = button(root, "") { applyDatSuggestion() }
+        datSuggestionButton.visibility = View.GONE
+        refreshDatProfileButton()
+        datAudioButton = button(root, "") { chooseDatAudio() }
+        datHfpStatus = TextView(this).apply { textSize = 12f }
+        root.addView(datHfpStatus)
+        refreshDatAudio()
+        if (rayBanLive != null) {
+            liveButton = button(root, getString(R.string.rblive_start_button)) {
+                if (liveRunning) stopRayBanLive(review = true) else requestRayBanLive()
+            }
+            lookButton = button(root, "") { chooseLook() }
+            refreshLookButton()
+        }
         previewButton = button(root, getString(R.string.activate_video)) { checkCameraPermission() }
         recordButton = button(root, getString(R.string.record_video_only)) {
             checkCameraPermission(recording = true)
@@ -269,6 +325,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             text = getString(R.string.preview_disclaimer)
         })
         setContentView(ScrollView(this).apply { addView(root) })
+        WivraUi.styleAll(root)   // W83 (Claude): Wivra button look
         refreshButtons()
         // The service owns DAT while recording. Its lifecycle events, not
         // Activity.onStop(), decide when Stop/Connect and pending clips appear.
@@ -373,6 +430,96 @@ class WivraMetaPreviewActivity : ComponentActivity() {
 
     private fun show(message: String) { status.text = message }
 
+    // ── Ray-Ban stream profile («Automático» decides from the previous session; a change restarts the camera) ──
+    private fun datChoice(): String =
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_profile", null) ?: WivraDatProfile.DEFAULT.id
+
+    private fun datLabel(p: WivraDatProfile) = "${p.width} × ${p.height}, ${p.fps} FPS"
+
+    private fun resolveDatProfile(): WivraDatProfile {
+        val choice = datChoice()
+        return if (choice == WivraDatProfile.AUTO) WivraDatAuto.start(lastDatObserved, datThermal)
+        else WivraDatProfile.from(choice) ?: WivraDatProfile.DEFAULT
+    }
+
+    private fun refreshDatProfileButton() {
+        val choice = datChoice()
+        datProfileButton.text = if (choice == WivraDatProfile.AUTO) getString(R.string.dat_profile_auto_button, datLabel(resolveDatProfile()))
+        else getString(R.string.dat_profile_button, datLabel(WivraDatProfile.from(choice) ?: WivraDatProfile.DEFAULT))
+        datProfileButton.isEnabled = camera == null
+    }
+
+    private fun chooseDatProfile() {
+        if (camera != null) return
+        val ids = listOf("balanced", "motion", "detail", "max", "economy", WivraDatProfile.AUTO)
+        val names = ids.map { id ->
+            if (id == WivraDatProfile.AUTO) getString(R.string.dat_profile_auto)
+            else WivraDatProfile.from(id)!!.let { getString(datNameRes(it)) + " · " + datLabel(it) }
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.dat_profile_title)
+            .setSingleChoiceItems(names.toTypedArray(), ids.indexOf(datChoice()).coerceAtLeast(0)) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_profile", ids[which]).apply()
+                refreshDatProfileButton()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+    }
+
+    private fun datNameRes(p: WivraDatProfile) = when (p) {
+        WivraDatProfile.ECONOMY -> R.string.dat_profile_economy
+        WivraDatProfile.BALANCED -> R.string.dat_profile_balanced
+        WivraDatProfile.MOTION -> R.string.dat_profile_motion
+        WivraDatProfile.DETAIL -> R.string.dat_profile_detail
+        WivraDatProfile.MAX -> R.string.dat_profile_max
+    }
+
+    private fun datFrame(width: Int, height: Int, payloadBytes: Int) {
+        datStats.frame(SystemClock.elapsedRealtime(), width, height, payloadBytes)
+    }
+
+    private fun refreshDatDiagnostic(recording: Boolean) {
+        val s = datStats.snapshot()
+        if (s.frames < 2) return
+        datDiagnostic.visibility = View.VISIBLE
+        datDiagnostic.text = getString(R.string.dat_diagnostic, datLabel(activeDatProfile), s.width, s.height, s.fps, s.p95IntervalMs, s.stalls)
+        val now = SystemClock.elapsedRealtime()
+        val tip = WivraDatAuto.suggest(WivraDatAuto.Observed(activeDatProfile, s.seconds, s.fps, s.stalls, s.height, datThermal),
+            (now - lastSuggestionMs) / 1000.0)
+        if (tip != null) { datSuggestion = tip; lastSuggestionMs = now }
+        val offer = datSuggestion
+        if (offer != null && !recording) {
+            datSuggestionButton.text = getString(R.string.dat_suggestion, datLabel(offer))
+            datSuggestionButton.visibility = View.VISIBLE
+        } else datSuggestionButton.visibility = View.GONE
+    }
+
+    /** A suggested lower profile restarts the camera, so it is only offered while previewing (never recording). */
+    private fun applyDatSuggestion() {
+        if (liveRunning) return // a profile change restarts the camera: never during LIVE
+        val next = datSuggestion ?: return
+        if (recordingMode || WivraCaptureForegroundService.isCaptureActive()) return
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_profile", next.id).apply()
+        datSuggestion = null
+        datSuggestionButton.visibility = View.GONE
+        rememberDatSession()
+        streamJob?.cancel(); streamJob = null
+        streamErrorJob?.cancel(); streamErrorJob = null
+        camera?.close(); camera = null
+        stream = null
+        framesJob?.cancel(); framesJob = null
+        decodeJob?.cancel(); decodeJob = null
+        frameChannel?.close(); frameChannel = null
+        refreshDatProfileButton()
+        imagePreview.postDelayed({ if (!isFinishing && !isDestroyed) startStream() }, 600L)
+    }
+
+    private fun rememberDatSession() {
+        val s = datStats.snapshot()
+        if (s.frames > 1) lastDatObserved = WivraDatAuto.Observed(activeDatProfile, s.seconds, s.fps, s.stalls, s.height, datThermal)
+    }
+
     // The Meta DAT selector can pick any supported model, including future
     // models. Report only what this process actually observed: registration,
     // device discovery, camera frames and native recording service state.
@@ -423,6 +570,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     }
 
     private fun refreshButtons() {
+        if (::datProfileButton.isInitialized) refreshDatProfileButton()
+        refreshDatAudio()
         val serviceRecording = WivraCaptureForegroundService.isCaptureActive()
         registerButton.isEnabled = sdkReady && !serviceRecording &&
             Wearables.registrationState.value != RegistrationState.REGISTERING &&
@@ -430,6 +579,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         connectButton.isEnabled = sdkReady && session == null && !serviceRecording &&
             Wearables.registrationState.value == RegistrationState.REGISTERED &&
             Wearables.devices.value.isNotEmpty()
+        liveButton?.isEnabled = liveRunning ||
+            (camera != null && stream != null && !recordingMode && !serviceRecording)
         previewButton.isEnabled = !serviceRecording &&
             session?.state?.value == DeviceSessionState.STARTED && camera == null
         recordButton.isEnabled = !serviceRecording &&
@@ -586,6 +737,71 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                 return
             }
         }
+        resolveRecordingAudio(::startCaptureWithAudio)
+    }
+
+    // ── Ray-Ban recording audio: the person's choice, resolved before the camera moves to the service ──
+    private fun datAudioChoice(): WivraRayBanSync.Choice = WivraRayBanSync.Choice.from(
+        getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_audio", null)) ?: WivraRayBanSync.Choice.DEFAULT
+
+    private fun refreshDatAudio() {
+        if (!::datAudioButton.isInitialized) return
+        datAudioButton.text = getString(R.string.dat_audio_button, getString(datAudioNameRes(datAudioChoice())))
+        datAudioButton.isEnabled = !WivraCaptureForegroundService.isCaptureActive()
+        datHfpStatus.text = getString(if (WivraRayBanAudioRoute.hfpClosed(this)) R.string.dat_audio_hfp_closed else R.string.dat_audio_hfp_open)
+    }
+
+    private fun chooseDatAudio() {
+        if (WivraCaptureForegroundService.isCaptureActive()) return
+        val choices = listOf(WivraRayBanSync.Choice.PHONE, WivraRayBanSync.Choice.WIRED_USB,
+            WivraRayBanSync.Choice.BLUETOOTH, WivraRayBanSync.Choice.OFF)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dat_audio_title)
+            .setSingleChoiceItems(choices.map { getString(datAudioNameRes(it)) }.toTypedArray(),
+                choices.indexOf(datAudioChoice()).coerceAtLeast(0)) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_audio", choices[which].id).apply()
+                refreshDatAudio()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+        show(getString(R.string.dat_audio_note))
+    }
+
+    /** Resolve the chosen microphone; if it is missing, ask (other microphones / video only), never switch silently. */
+    private fun resolveRecordingAudio(then: (WivraRayBanSync.Choice, Int) -> Unit) {
+        audioThen = then
+        val choice = datAudioChoice()
+        if (choice == WivraRayBanSync.Choice.OFF) { then(choice, -1); return }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        val device = WivraRayBanAudioRoute.pick(this, choice)
+        if (device != null) { then(choice, device.id); return }
+        offerVideoOnly(getString(R.string.dat_audio_missing), WivraRayBanAudioRoute.alternatives(this, choice), then)
+    }
+
+    private fun offerVideoOnly(reason: String, others: List<WivraRayBanSync.Choice>,
+                               then: (WivraRayBanSync.Choice, Int) -> Unit) {
+        val labels = others.map { getString(datAudioNameRes(it)) } + getString(R.string.dat_audio_use_video_only)
+        AlertDialog.Builder(this)
+            .setTitle(reason)
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (which < others.size) {
+                    // The person picked another microphone: remembered as their new choice.
+                    getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_audio", others[which].id).apply()
+                    refreshDatAudio()
+                    resolveRecordingAudio(then)
+                } else then(WivraRayBanSync.Choice.OFF, -1)
+            }
+            .setNegativeButton(R.string.plive_cancel) { _, _ -> show(getString(R.string.wait_session)) }
+            .show()
+    }
+
+    private fun startCaptureWithAudio(choice: WivraRayBanSync.Choice, deviceId: Int) {
+        recordingAudioChoice = choice
+        recordingAudioDevice = deviceId
         handoffCaptureSession()
     }
 
@@ -611,6 +827,8 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             startForegroundService(Intent(this,
                 WivraCaptureForegroundService::class.java).apply {
                 action = WivraCaptureForegroundService.ACTION_START
+                putExtra(WivraCaptureForegroundService.EXTRA_AUDIO_CHOICE, recordingAudioChoice.id)
+                putExtra(WivraCaptureForegroundService.EXTRA_AUDIO_DEVICE_ID, recordingAudioDevice)
             })
             if (WivraDirectorTakeReceipt.validShotId(
                     intent.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID))) {
@@ -647,8 +865,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
     private fun startStream(recording: Boolean = false) {
         val connected = session ?: return
         if (connected.state.value != DeviceSessionState.STARTED || camera != null) return
+        val profile = resolveDatProfile()
+        activeDatProfile = profile
+        datStats = WivraDatStreamStats(profile.fps)
+        datSuggestion = null
         connected.addCamera(StreamConfiguration(
-            videoQuality = VideoQuality.MEDIUM, frameRate = 24,
+            videoQuality = datQuality(profile), frameRate = profile.fps,
             // The video-only MP4 muxer needs the original HEVC stream.
             // Decoded YUV is preserved for normal low-FPS preview mode.
             compressVideo = recording
@@ -723,6 +945,7 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             copied.get(bytes)
                             recorder?.consume(bytes, frame.presentationTimeUs,
                                 frame.width, frame.height, frame.isCodecConfig)
+                            if (!frame.isCodecConfig) datFrame(frame.width, frame.height, bytes.size)
                             compressedPackets += 1
                             if (compressedPackets == 1L || compressedPackets % 24L == 0L) {
                                 withContext(Dispatchers.Main.immediate) {
@@ -735,9 +958,12 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                         }
                         frames += 1
                         lastFrameReceivedMs = SystemClock.elapsedRealtime()
+                        if (liveRunning && !frame.isCompressed) rayBanLive?.offerI420(frame.buffer, frame.width, frame.height)
+                        datFrame(frame.width, frame.height, frame.buffer.remaining())
                         if (frames == 1L || frames % 24L == 0L) {
                             refreshButtons()
-                            show(getString(R.string.frames_status, frames, frame.width, frame.height))
+                            refreshDatDiagnostic(recording = false)
+                            show(getString(R.string.frames_status, frames, frame.width, frame.height) + liveStatsLine())
                         }
                         // Limit JPEG preview workload to roughly 6 images/sec. The full
                         // capture stream is never saved or shared with the WebView here.
@@ -773,7 +999,11 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     }
                 }
                 streamErrorJob = scope.launch {
-                    active.errorStream.collect { error -> show(getString(R.string.stream_failed, error.description)) }
+                    active.errorStream.collect { error ->
+                        // Glasses heat or power limits: «Automático» starts lower next time.
+                        if (error.name.startsWith("THERMAL") || error.name == "PEAK_POWER_LIMIT") datThermal = true
+                        show(getString(R.string.stream_failed, error.description))
+                    }
                 }
                 active.start().onFailure { error, _ ->
                     show(getString(R.string.stream_start_failed, error.description))
@@ -886,21 +1116,39 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .setPositiveButton(R.string.recording_keep) { _, _ ->
                 scope.launch {
                     var freshPublication = false
+                    var audioNote = ""
                     val savedCount = withContext(Dispatchers.IO) {
                         // Persist BEFORE the first part can become visible or
                         // disappear from pending storage. A process-death retry
                         // must never acknowledge the remaining subset as a take.
                         freshPublication = WivraDirectorSaveJournal.begin(applicationContext, pending.id)
-                        pending.parts.count { part ->
-                            WivraHevcMp4Recorder.publishPending(applicationContext, part) != null
+                        // Independent microphone: cut each part's audio BEFORE its private MP4 is published.
+                        val audio = runCatching { WivraRayBanAudioStore.prepare(applicationContext, pending) }
+                            .getOrNull()
+                        var saved = 0
+                        var withAudio = 0
+                        for (part in pending.parts) {
+                            val uri = WivraHevcMp4Recorder.publishPending(applicationContext, part) ?: continue
+                            saved++
+                            if (audio?.hadAudio == true &&
+                                runCatching { WivraRayBanAudioStore.attach(applicationContext, part, uri) }.getOrDefault(false)) withAudio++
                         }
+                        if (audio?.hadAudio == true) {
+                            audioNote = "\n" + getString(R.string.dat_audio_saved, withAudio, pending.parts.size)
+                            // Some part has no slice of its own: the complete original WAV is kept public instead.
+                            if (withAudio < saved && runCatching { WivraRayBanAudioStore.publishComplete(applicationContext, pending.id) }.getOrDefault(false))
+                                audioNote += "\n" + getString(R.string.dat_audio_complete_saved)
+                            else if (withAudio < saved) audioNote += "\n" + getString(R.string.dat_audio_not_saved)
+                        }
+                        runCatching { WivraRayBanAudioStore.cleanup(applicationContext) }
+                        saved
                     }
                     show(when {
                         savedCount == pending.parts.size -> getString(R.string.recording_saved)
                         savedCount > 0 -> getString(R.string.recording_partially_saved,
                             savedCount, pending.parts.size)
                         else -> getString(R.string.recording_keep_failed)
-                    })
+                    } + audioNote)
                     // The Director acknowledgement is strictly later than
                     // the user's Save choice AND successful publication of all
                     // segments. The actual assetId still belongs to the editor's
@@ -1051,6 +1299,9 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                     val deletedCount = withContext(Dispatchers.IO) {
                         pending.parts.count { part ->
                             WivraHevcMp4Recorder.discardPending(applicationContext, part)
+                        }.also {
+                            // The person confirmed: the private microphone audio of these parts goes too.
+                            runCatching { WivraRayBanAudioStore.discardSession(applicationContext, pending.id) }
                         }
                     }
                     show(if (deletedCount == pending.parts.size)
@@ -1065,7 +1316,166 @@ class WivraMetaPreviewActivity : ComponentActivity() {
             .show()
     }
 
+    // ── Ray-Ban → LIVE (existing engine; the address is used once and never stored, logged or shown) ──
+    private fun liveStatsLine(): String {
+        if (!liveRunning) return ""
+        val st = rayBanLive?.stats() ?: return ""
+        return "\n" + getString(R.string.rblive_stats, st.drawn, st.repeated, st.dropped, st.convertMs)
+    }
+
+    private fun currentLook(): WivraRayBanLook =
+        WivraRayBanLook.from(getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).getString("dat_look", null))
+
+    private fun lookName(look: WivraRayBanLook) = getString(when (look) {
+        WivraRayBanLook.OFF -> R.string.dat_look_off
+        WivraRayBanLook.CLEAR -> R.string.dat_look_clear
+        WivraRayBanLook.LOW_LIGHT -> R.string.dat_look_lowlight
+        WivraRayBanLook.VIVID -> R.string.dat_look_vivid
+    })
+
+    private fun refreshLookButton() { lookButton?.text = getString(R.string.dat_look_button, lookName(currentLook())) }
+
+    /** Light GPU look for the LIVE image only; can change during LIVE without restarting the camera. */
+    private fun chooseLook() {
+        val looks = WivraRayBanLook.entries
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dat_look_title)
+            .setSingleChoiceItems(looks.map { lookName(it) }.toTypedArray(), looks.indexOf(currentLook())) { dialog, which ->
+                getSharedPreferences("wivra_capture", Context.MODE_PRIVATE).edit().putString("dat_look", looks[which].id).apply()
+                if (liveRunning) rayBanLive?.setLook(looks[which])
+                refreshLookButton()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.plive_cancel, null)
+            .show()
+        show(getString(R.string.dat_look_note))
+    }
+
+    private fun requestRayBanLive() {
+        val engine = rayBanLive ?: return
+        if (camera == null || recordingMode || stream == null || WivraCaptureForegroundService.isCaptureActive()) {
+            show(getString(R.string.rblive_need_preview)); return
+        }
+        val address = EditText(this).apply {
+            hint = getString(R.string.rblive_address_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+        }
+        val copy = CheckBox(this).apply { text = getString(R.string.rblive_copy); isChecked = true }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 8, 32, 0); addView(address); addView(copy) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.rblive_title)
+            .setView(box)
+            .setNegativeButton(R.string.plive_cancel, null)
+            .setPositiveButton(R.string.rblive_next) { _, _ ->
+                val url = address.text.toString()
+                address.text?.clear()
+                val withCopy = copy.isChecked
+                resolveRecordingAudio { choice, deviceId -> confirmRayBanLive(engine, url, withCopy, choice, deviceId) }
+            }
+            .show()
+            // Like the phone LIVE: the stream key must never appear in a screenshot or the app switcher.
+            .window?.setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    private fun confirmRayBanLive(engine: WivraRayBanLive, url: String, withCopy: Boolean,
+                                  choice: WivraRayBanSync.Choice, deviceId: Int) {
+        val plan = WivraRayBanLivePlan.forProfile(activeDatProfile, deviceId >= 0)
+        val line = engine.confirmation(this, url, WivraRayBanLivePlan.totalBps(plan))
+        if (line == null) { show(getString(R.string.rblive_address_invalid)); return }
+        val audio = if (deviceId >= 0) getString(datAudioNameRes(choice)) else getString(R.string.dat_audio_off)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.rblive_confirm_title)
+            .setMessage(getString(R.string.rblive_confirm, plan.width, plan.height, plan.fps, audio) + "\n" + line +
+                if (withCopy) "\n" + getString(R.string.rblive_copy) else "")
+            .setNegativeButton(R.string.plive_cancel, null)
+            .setPositiveButton(R.string.plive_start) { _, _ -> startRayBanLive(engine, url, withCopy, plan, deviceId) }
+            .show()
+    }
+
+    private fun startRayBanLive(engine: WivraRayBanLive, url: String, withCopy: Boolean,
+                                plan: WivraRayBanLivePlan.Plan, deviceId: Int) {
+        if (liveRunning || camera == null || recordingMode) return
+        val mic = if (deviceId >= 0) WivraRayBanAudioRoute.inputs(this).firstOrNull { it.first.id == deviceId }?.second else null
+        if (deviceId >= 0 && mic == null) { show(getString(R.string.dat_audio_missing)); return }
+        val copy = if (withCopy) runCatching { WivraPhoneMediaStore.createPrivateVideo(applicationContext) }.getOrNull() else null
+        copy?.let { WivraPhoneMediaStore.markWriting(it) }
+        val started = engine.start(this, url, plan, mic, copy, object : WivraRayBanLive.Listener {
+            override fun onLiveStatus(status: String, a: Int, b: Int, c: Int) {
+                if (!liveRunning) return
+                show(when (status) {
+                    "connecting" -> getString(R.string.plive_connecting)
+                    "on_air" -> getString(if (liveCopy != null) R.string.plive_on_air_with_copy else R.string.plive_on_air_without_copy)
+                    "reconnect" -> getString(if (liveCopy != null) R.string.plive_reconnect_with_copy else R.string.plive_reconnect, a, b, c)
+                    "auth" -> getString(if (liveCopy != null) R.string.plive_auth_with_copy else R.string.plive_auth_without_copy)
+                    "disconnected" -> getString(if (liveCopy != null) R.string.plive_disconnected_with_copy else R.string.plive_disconnected_without_copy)
+                    else -> getString(if (liveCopy != null) R.string.plive_failed_copy_continues else R.string.plive_failed_no_copy)
+                })
+            }
+        }, currentLook())
+        if (!started) {
+            copy?.let { WivraPhoneMediaStore.doneWriting(it); if (it.length() == 0L) it.delete() }
+            show(getString(R.string.plive_start_failed))
+            return
+        }
+        liveRunning = true
+        liveCopy = copy
+        liveAudioDeviceId = deviceId
+        if (deviceId >= 0) getSystemService(android.media.AudioManager::class.java)?.registerAudioDeviceCallback(liveAudioWatch, null)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        liveButton?.text = getString(R.string.rblive_stop_button)
+        show(getString(R.string.plive_connecting))
+        refreshButtons()
+    }
+
+    private fun stopRayBanLive(review: Boolean) {
+        if (!liveRunning) return
+        liveRunning = false
+        runCatching { getSystemService(android.media.AudioManager::class.java)?.unregisterAudioDeviceCallback(liveAudioWatch) }
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val closed = rayBanLive?.stop() ?: false
+        val copy = liveCopy
+        liveCopy = null
+        copy?.let { WivraPhoneMediaStore.doneWriting(it) }
+        liveButton?.text = getString(R.string.rblive_start_button)
+        refreshButtons()
+        when {
+            copy == null -> show(getString(R.string.plive_stopped_no_copy))
+            !closed || !WivraCaptureMediaVerifier.verifyFile(copy, copy.parentFile!!).valid ->
+                show(getString(R.string.plive_stopped_copy_uncertified))
+            review -> askKeepLiveCopy(copy)
+            else -> show(getString(R.string.rblive_copy_pending))
+        }
+    }
+
+    private fun askKeepLiveCopy(copy: File) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.rblive_keep_title)
+            .setMessage(R.string.rblive_keep_message)
+            .setPositiveButton(R.string.recording_keep) { _, _ ->
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { runCatching { WivraPhoneMediaStore.publish(applicationContext, copy) }.isSuccess }
+                    show(getString(if (ok) R.string.srec_saved else R.string.srec_save_failed))
+                }
+            }
+            .setNeutralButton(R.string.recording_later) { _, _ -> show(getString(R.string.rblive_copy_pending)) }
+            .setNegativeButton(R.string.recording_discard) { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.recording_discard_confirm_title)
+                    .setMessage(R.string.recording_discard_confirm_message)
+                    .setPositiveButton(R.string.recording_discard_confirm) { _, _ ->
+                        show(getString(if (WivraPhoneMediaStore.discard(applicationContext, copy)) R.string.srec_deleted else R.string.recording_delete_failed))
+                    }
+                    .setNegativeButton(R.string.recording_later, null)
+                    .show()
+            }
+            .show()
+    }
+
     private fun cleanup() {
+        // The glasses stopped: LIVE ends; its private MP4 copy stays pending for review.
+        if (liveRunning) stopRayBanLive(review = false)
+        rememberDatSession()
         if (!deferCaptureServiceStop &&
             !WivraCaptureForegroundService.isCaptureActive()) {
             stopService(Intent(this, WivraCaptureForegroundService::class.java))
@@ -1129,4 +1539,17 @@ class WivraMetaPreviewActivity : ComponentActivity() {
         scope.cancel()
         super.onDestroy()
     }
+
+    companion object {
+        /** What the previous camera session in this app run really delivered (memory only, never stored or sent). */
+        @Volatile var lastDatObserved: WivraDatAuto.Observed? = null
+    }
+
+}
+
+/** DAT resolution for a shared profile (also used by the background capture service). */
+fun datQuality(p: WivraDatProfile): VideoQuality = when (p) {
+    WivraDatProfile.ECONOMY -> VideoQuality.LOW
+    WivraDatProfile.BALANCED, WivraDatProfile.MOTION -> VideoQuality.MEDIUM
+    WivraDatProfile.DETAIL, WivraDatProfile.MAX -> VideoQuality.HIGH
 }

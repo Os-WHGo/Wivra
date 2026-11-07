@@ -1,0 +1,90 @@
+name: Wivra iOS UI Screenshots (Simulator)
+# W80 (Claude): the owner cannot see native screens without installing the app.
+# This builds the Debug app for the iOS SIMULATOR only, opens a few screens
+# and uploads PNG screenshots. No signing, no device install, no IPA or .app
+# is uploaded: installers stay reserved for the authorized beta milestone.
+on:
+  pull_request:
+    paths:
+      - 'streaming/ios/B0/**'
+      - 'app/template.html'
+      - '.github/workflows/wivra-ios-ui-screenshots.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wivra-ios-screens-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build current editor
+        run: node app/build.mjs && test -s app/dist/agentcut.html
+      - name: Generate project
+        working-directory: streaming/ios/B0
+        run: xcodegen generate
+      - name: Build for the iOS Simulator (unsigned)
+        working-directory: streaming/ios/B0
+        run: |
+          set -o pipefail
+          xcodebuild -project WivraMetaB0.xcodeproj -scheme WivraMetaB0 \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$PWD/.simbuild" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee sim-build.log | grep -E 'error:|BUILD (SUCCEEDED|FAILED)' || true
+          test -d .simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
+      - name: Boot an iPhone simulator and take screenshots
+        working-directory: streaming/ios/B0
+        run: |
+          set -eu
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          phones = [x for k, v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone") and "Pro Max" not in x["name"] and "Plus" not in x["name"]]
+          print(phones[-1]["udid"])')
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl ui "$udid" appearance dark || true
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 || true
+          app=.simbuild/Build/Products/Debug-iphonesimulator/WivraMetaB0.app
+          xcrun simctl install "$udid" "$app"
+          mkdir -p "$RUNNER_TEMP/wivra-screens"
+          for scene in home live editor capture screenrec; do
+            SIMCTL_CHILD_WIVRA_SCREENSHOT="$scene" xcrun simctl launch --terminate-running-process "$udid" com.oswhgo.WivraMetaB0 -AppleLanguages '(es)' -AppleLocale es_ES
+            sleep 12
+            xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/wivra-screens/$scene.png"
+          done
+          xcrun simctl terminate "$udid" com.oswhgo.WivraMetaB0 || true
+          ls -la "$RUNNER_TEMP/wivra-screens"
+          # If the app quit by itself, show why (crash report header + app log).
+          for report in "$HOME"/Library/Logs/DiagnosticReports/WivraMetaB0*; do
+            [ -f "$report" ] || continue
+            echo "== crash report: $report"; head -c 6000 "$report"; echo
+          done
+          xcrun simctl spawn "$udid" log show --last 4m --style compact \
+            --predicate 'process == "WivraMetaB0"' 2>/dev/null | tail -60 || true
+          # Small JPEG copies in the log, so a reviewer without artifact access
+          # can still see the screens (decode the base64 between the markers).
+          for f in "$RUNNER_TEMP"/wivra-screens/*.png; do
+            sips -Z 640 -s format jpeg -s formatOptions 55 "$f" --out "$RUNNER_TEMP/preview.jpg" >/dev/null
+            echo "WIVRA-SCREEN-BEGIN $(basename "$f")"; base64 -i "$RUNNER_TEMP/preview.jpg" | tr -d '\n'; echo; echo "WIVRA-SCREEN-END"
+            rm -f "$RUNNER_TEMP/preview.jpg"
+          done
+          # Only PNG files may leave the runner.
+          test -z "$(find "$RUNNER_TEMP/wivra-screens" -type f ! -name '*.png')"
+      - name: Upload screenshots (PNG only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wivra-ios-screens
+          path: ${{ runner.temp }}/wivra-screens/*.png
+          if-no-files-found: error
+          retention-days: 14
+      - name: Show build errors
+        if: failure()
+        working-directory: streaming/ios/B0
+        run: grep -E '(error:|BUILD FAILED|fatal error:)' sim-build.log | tail -40 || true

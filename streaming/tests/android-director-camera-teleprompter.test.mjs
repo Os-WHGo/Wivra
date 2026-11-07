@@ -33,7 +33,7 @@ test('User chooses a pending take or plain camera, never silent implicit capture
   assert.match(host,/startActivity\(launch\)/);
 });
 test('Native bridge reads ONLY packaged offline editor after user tap',()=>{
-  assert.match(host,/file:\/\/\/android_asset\/agentcut\.html"\.equals\(editor\.getUrl\(\)\)/);
+  assert.match(host,/WivraExportBridge\.isEditor\(editor\.getUrl\(\)\)/);
   assert.match(host,/editor\.evaluateJavascript\(readOnly, encoded ->/);
   assert.match(host,/new org\.json\.JSONTokener\(encoded\)\.nextValue\(\)/);
   assert.doesNotMatch(host,/addJavascriptInterface\(/);

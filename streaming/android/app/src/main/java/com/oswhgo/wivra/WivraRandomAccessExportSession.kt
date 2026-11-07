@@ -19,7 +19,8 @@ import java.util.TreeMap
  */
 class WivraRandomAccessExportSession private constructor(
     private val partial: File,
-    val mime: String
+    val mime: String,
+    private val reservedBytes: Long
 ) : Closeable {
     enum class State { OPEN, SEALED, FAILED, ABORTED }
     data class Ack(val seq: Int, val writtenBytes: Int, val maxEnd: Long)
@@ -31,14 +32,19 @@ class WivraRandomAccessExportSession private constructor(
         const val MAX_WRITE_BYTES = 1024 * 1024
         const val MAX_OUTPUT_BYTES = 16L * 1024 * 1024 * 1024
 
-        fun create(privateDirectory: File, mime: String): WivraRandomAccessExportSession {
+        fun create(
+            privateDirectory: File,
+            mime: String,
+            reservedBytes: Long = MAX_OUTPUT_BYTES
+        ): WivraRandomAccessExportSession {
             require(mime == "video/mp4" || mime == "video/webm") { "Invalid random media container" }
+            require(reservedBytes in 1..MAX_OUTPUT_BYTES) { "Invalid reserved output size" }
             if (!privateDirectory.isDirectory && !privateDirectory.mkdirs())
                 throw IOException("Cannot create app-private export directory.")
             val extension = if (mime == "video/mp4") "mp4" else "webm"
             val partial = File.createTempFile("Wivra_Fast_", ".$extension.partial", privateDirectory)
             return try {
-                WivraRandomAccessExportSession(partial, mime)
+                WivraRandomAccessExportSession(partial, mime, reservedBytes)
             } catch (error: Exception) {
                 partial.delete()
                 throw error
@@ -71,7 +77,10 @@ class WivraRandomAccessExportSession private constructor(
     }
 
     private val output = RandomAccessFile(partial, "rw")
+    private data class ByteRange(val start: Long, val end: Long)
     private val covered = TreeMap<Long, Long>()
+    private val writeRanges = mutableListOf<ByteRange>()
+    private val patchRanges = mutableListOf<ByteRange>()
     var state = State.OPEN
         private set
     var maxEnd = 0L
@@ -97,16 +106,31 @@ class WivraRandomAccessExportSession private constructor(
         covered[low] = high
     }
 
+    private fun validateWriteRange(start: Long, end: Long) {
+        val overlaps = writeRanges.filter { start < it.end && end > it.start }
+        if (overlaps.isEmpty()) return
+        val alreadyCovered = covered.floorEntry(start)?.let { start >= it.key && end <= it.value } == true
+        val duplicate = writeRanges.any { it.start == start && it.end == end }
+        val overlapsPriorPatch = patchRanges.any { start < it.end && end > it.start }
+        if (!alreadyCovered || duplicate || overlapsPriorPatch)
+            throw IntegrityException("Random write overlaps existing bytes outside a unique contained patch.")
+        // A contained overwrite is allowed for container-header/index patching,
+        // but two patches may never rewrite the same byte range.
+        patchRanges.add(ByteRange(start, end))
+    }
+
     @Synchronized
     fun writeAt(seq: Int, position: Long, data: ByteArray): Ack {
         if (state != State.OPEN) throw IntegrityException("Random export is not open.")
         if (seq != writes || seq < 0 || data.isEmpty() || data.size > MAX_WRITE_BYTES ||
-            position < 0 || position > MAX_OUTPUT_BYTES - data.size)
+            position < 0 || position > reservedBytes - data.size.toLong())
             throw IntegrityException("Invalid random offset, sequence or write size.")
+        val end = position + data.size
+        validateWriteRange(position, end)
         try {
             output.seek(position)
             output.write(data)
-            val end = position + data.size
+            writeRanges.add(ByteRange(position, end))
             recordCoverage(position, end)
             maxEnd = maxOf(maxEnd, end)
             writes++

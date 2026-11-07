@@ -1,0 +1,217 @@
+{
+  "comment": "Ray-Ban → LIVE on Android: shared vectors for WivraI420Argb, WivraLatestFrameSlot and WivraRayBanLivePlan (JVM test + Node twin). — Claude",
+  "i420": {
+    "width": 4,
+    "height": 2,
+    "bytes": [
+      0,
+      64,
+      128,
+      255,
+      16,
+      235,
+      100,
+      200,
+      90,
+      200,
+      240,
+      60
+    ],
+    "argb": [
+      "FF9D0000",
+      "FFDD0000",
+      "FF2098FF",
+      "FF9FFFFF",
+      "FFAD0000",
+      "FFFFA9A7",
+      "FF047CE3",
+      "FF68E0FF"
+    ]
+  },
+  "i420Neutral": [
+    [
+      0,
+      "FF000000"
+    ],
+    [
+      128,
+      "FF808080"
+    ],
+    [
+      255,
+      "FFFFFFFF"
+    ]
+  ],
+  "plans": [
+    {
+      "profile": "economy",
+      "audio": true,
+      "expect": [
+        360,
+        640,
+        352,
+        624,
+        15,
+        800000,
+        2,
+        44100,
+        96000
+      ]
+    },
+    {
+      "profile": "balanced",
+      "audio": true,
+      "expect": [
+        504,
+        896,
+        480,
+        848,
+        24,
+        1600000,
+        2,
+        44100,
+        96000
+      ]
+    },
+    {
+      "profile": "motion",
+      "audio": false,
+      "expect": [
+        504,
+        896,
+        480,
+        848,
+        30,
+        2000000,
+        2,
+        44100,
+        0
+      ]
+    },
+    {
+      "profile": "detail",
+      "audio": true,
+      "expect": [
+        720,
+        1280,
+        720,
+        1280,
+        15,
+        2500000,
+        2,
+        44100,
+        96000
+      ]
+    },
+    {
+      "profile": "max",
+      "audio": true,
+      "expect": [
+        720,
+        1280,
+        720,
+        1280,
+        30,
+        3000000,
+        2,
+        44100,
+        96000
+      ]
+    }
+  ],
+  "liveClock": [
+    {
+      "why": "steady stream keeps DAT spacing from the first arrival",
+      "frames": [
+        [
+          0.0,
+          100.2
+        ],
+        [
+          0.0416,
+          100.3
+        ],
+        [
+          0.0833,
+          100.27
+        ],
+        [
+          0.125,
+          100.33
+        ]
+      ],
+      "expect": [
+        100.2,
+        100.2416,
+        100.2833,
+        100.325
+      ]
+    },
+    {
+      "why": "pts go back after a pause: re-anchored on arrival",
+      "frames": [
+        [
+          5.0,
+          200.0
+        ],
+        [
+          5.04,
+          200.05
+        ],
+        [
+          0.0,
+          230.0
+        ],
+        [
+          0.04,
+          230.04
+        ]
+      ],
+      "expect": [
+        200.0,
+        200.04,
+        230.0,
+        230.04
+      ]
+    },
+    {
+      "why": "pts wander more than 0.5 s from arrival: re-anchored, never decreasing",
+      "frames": [
+        [
+          0.0,
+          300.0
+        ],
+        [
+          0.04,
+          300.04
+        ],
+        [
+          0.08,
+          301.0
+        ]
+      ],
+      "expect": [
+        300.0,
+        300.04,
+        301.0
+      ]
+    },
+    {
+      "why": "duplicate pts never produce a repeated time",
+      "frames": [
+        [
+          1.0,
+          400.0
+        ],
+        [
+          1.0,
+          400.01
+        ]
+      ],
+      "expect": [
+        400.0,
+        400.001
+      ]
+    }
+  ]
+}

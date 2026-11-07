@@ -204,3 +204,41 @@ export function planSlots(project, tpl, tr = (x) => x) {
   if ((project.overlayClips || []).length || au.other || (project.texts || []).length) warnings.push('Las capas, los audios aparte y los textos que ya había no se mueven: revisa su tiempo.');
   return { ok: true, formatOps: fmtOps, ops, lines, warnings, after: clR(t) };
 }
+
+/**
+ * W90 «Grabar para esta plantilla»: a template with slots → the Director's shot list (same schema as
+ * createShootPlan), one shot per slot in order, with what to film and how long. The slot keeps the CENTRE
+ * of a longer clip, so each shot asks for a little more than it keeps. tr(key, ...args) translates
+ * (default: fills {1}, {2}… in Spanish). null when the template has nothing to film in a fixed order.
+ */
+const tplFill = (k, ...a) => String(k).replace(/\{(\d)\}/g, (_, n) => a[n - 1]);
+export const TPL_SHOOT_GUIDES = {
+  burst: () => 'Plano corto y con movimiento, distinto del anterior.',
+  beforeafter: (i) => i === 0 ? '«Antes»: el lugar, objeto o persona como está al principio.' : '«Después»: lo mismo al final, desde el mismo ángulo y la misma distancia.',
+  top3: (i) => ['«N.º 3»: tu tercer favorito.', '«N.º 2»: tu segundo favorito.', '«N.º 1»: tu favorito; guárdalo para el final.'][i],
+};
+export const tplRawSeconds = (slot) => Math.ceil(slot * 1.5 + 1);
+export function shootPlanFromTemplate(id, tr = tplFill) {
+  const t = TPL_CATALOG.find((x) => x.id === id); if (!t) return null;
+  const num = (x) => String(x).replace('.', ',');
+  let shots;
+  if (t.special === 'slots' && TPL_SHOOT_GUIDES[t.id]) {
+    shots = t.slots.map((s, i) => ({ title: tr('Hueco {1} de {2}', i + 1, t.slots.length),
+      direction: tr(TPL_SHOOT_GUIDES[t.id](i)) + ' ' + tr('En el video quedan {1} s: graba unos {2} s y se usa el centro.', num(s), tplRawSeconds(s)),
+      durationSeconds: tplRawSeconds(s), finalSeconds: s }));
+  } else if (t.special === 'screenface') {
+    shots = [{ title: tr('Pantalla'), direction: tr('Graba la pantalla del teléfono con lo que quieres mostrar.'), durationSeconds: 30, finalSeconds: 30 },
+      { title: tr('Tu cara'), direction: tr('Grábate de frente, con buena luz, mientras explicas; tan largo como la grabación de la pantalla.'), durationSeconds: 30, finalSeconds: 30 }];
+  } else if (t.special === 'collage') {
+    shots = [1, 2, 3].map((n) => ({ title: tr('Cuadro {1} de {2}', n, 3), direction: tr('Un plano fijo o con poco movimiento; los tres cuadros se ven a la vez.'), durationSeconds: 8, finalSeconds: 8 }));
+  } else return null;
+  return {
+    schema: 'agentcut-shoot-plan-v0.1', subject: t.name, platform: 'reels', templateId: t.id,
+    durationSeconds: Math.max(1, Math.round(shots.reduce((n, s) => n + s.finalSeconds, 0))), style: '',
+    locationLabel: null, locationGrounding: 'user_description_only', shotLocations: [],
+    shots: shots.map((s, i) => ({ id: 'shot-' + (i + 1), kind: 'custom', title: s.title, direction: s.direction, durationSeconds: s.durationSeconds,
+      finalSeconds: s.finalSeconds, state: 'todo', assetId: null, verification: 'template_slot_guide', note: '' })),
+    createdBy: 'wivra_template_guide_not_ai', revision: 0, editProjectAssetIds: [],
+    warnings: [tr('Graba las tomas en este orden: la plantilla llena los huecos con los clips en el orden de la línea de tiempo.')],
+  };
+}

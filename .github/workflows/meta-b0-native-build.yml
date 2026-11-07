@@ -3,6 +3,20 @@ on:
   pull_request:
     paths:
       - 'streaming/ios/B0/**'
+      - 'streaming/tests/ios-photos-save-journal-contract.test.mjs'
+      - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
+      - 'streaming/tests/WivraPhotosActiveSaveSmoke.swift'
+      - 'streaming/tests/WivraPhotosSaveJournalSmoke.swift'
+      - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
+      - 'streaming/tests/WivraDatProfilesSmoke.swift'
+      - 'streaming/tests/WivraRayBanSyncSmoke.swift'
+      - 'streaming/contracts/rayban-audio-sync.json'
+      - 'streaming/contracts/rayban-live.json'
+      - 'streaming/contracts/rayban-looks.json'
+      - 'streaming/contracts/dat-profiles.json'
+      - 'streaming/tests/WivraScreenRecordImportSmoke.swift'
+      - 'streaming/tests/ios-screenrec-import-editor.mjs'
+      - 'app/capture-manifest.mjs'
       - '.github/workflows/meta-b0-native-build.yml'
   workflow_dispatch:
 permissions:
@@ -27,6 +41,46 @@ jobs:
         run: node --test streaming/tests/unified-ios-pending-video-review.test.mjs
       - name: Verify recoverable CAF-only recording and consent contracts
         run: node --test streaming/tests/unified-ios-audio-orphan-recovery.test.mjs
+      - name: W108 · iPhone screen-recording writer with synthetic frames and sound (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Shared/WivraScreenRecordShared.swift \
+            streaming/ios/B0/Shared/WivraScreenRecordWriter.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraScreenRecordWriterSmoke.swift \
+            -o /tmp/wivra-screenrec-writer-smoke
+          /tmp/wivra-screenrec-writer-smoke
+      - name: W109 · iPhone «Pasar a Wivra» for screen recordings + the editor's own manifest parser (macOS) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Shared/WivraScreenRecordShared.swift \
+            streaming/ios/B0/Shared/WivraScreenRecordWriter.swift \
+            streaming/ios/B0/Sources/WivraScreenRecordInbox.swift \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/ios/B0/Sources/WivraCaptureMediaVerifier.swift \
+            streaming/tests/WivraScreenRecordImportSmoke.swift \
+            -o /tmp/wivra-screenrec-import-smoke
+          /tmp/wivra-screenrec-import-smoke "$RUNNER_TEMP"
+          node streaming/tests/ios-screenrec-import-editor.mjs "$RUNNER_TEMP"
+      - name: Ray-Ban · shared DAT profiles, «Automático» and stream statistics on iPhone code (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraDatProfiles.swift \
+            streaming/tests/WivraDatProfilesSmoke.swift \
+            -o /tmp/wivra-dat-profiles-smoke
+          /tmp/wivra-dat-profiles-smoke streaming/contracts/dat-profiles.json
+      - name: Ray-Ban · video anchoring for the independent microphone on iPhone code (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraDatProfiles.swift \
+            streaming/ios/B0/Sources/WivraRayBanSync.swift \
+            streaming/tests/WivraRayBanSyncSmoke.swift \
+            -o /tmp/wivra-rayban-sync-smoke
+          /tmp/wivra-rayban-sync-smoke streaming/contracts/rayban-audio-sync.json streaming/contracts/rayban-live.json streaming/contracts/rayban-looks.json
       - name: Run macOS synthetic CAF recovery lifecycle using AVAudioFile
         run: |
           set -eu
@@ -65,9 +119,82 @@ jobs:
             streaming/tests/WivraRandomAccessExportSmoke.swift \
             -o /tmp/wivra-random-v2-smoke
           /tmp/wivra-random-v2-smoke
+      - name: Verify iOS multicamera policy and pair receipt (macOS Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/tests/WivraMultiCamPolicySmoke.swift \
+            -o /tmp/wivra-multicam-policy-smoke
+          /tmp/wivra-multicam-policy-smoke
+      - name: Verify W69 orphaned two-camera receipt policy (macOS Swift 6)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/ios/B0/Sources/WivraMultiCamRecoveryPolicy.swift \
+            streaming/tests/WivraMultiCamRecoveryPolicySmoke.swift \
+            -o /tmp/wivra-multicam-recovery-policy
+          /tmp/wivra-multicam-recovery-policy
+      - name: Verify W70 recovery manifest cannot overwrite existing metadata (macOS Swift 6)
+        run: |
+          set -eu
+          node --test streaming/tests/ios-multicam-orphan-recovery.test.mjs
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraCaptureManifest.swift \
+            streaming/tests/WivraCaptureWriteOnceSmoke.swift \
+            -o /tmp/wivra-write-once-smoke
+          /tmp/wivra-write-once-smoke
+      - name: Verify iOS LIVE scene layout (macOS Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraMultiCamPolicy.swift \
+            streaming/ios/B0/Sources/WivraLiveScenePolicy.swift \
+            streaming/tests/WivraLiveScenePolicySmoke.swift \
+            -o /tmp/wivra-live-scene-policy-smoke
+          /tmp/wivra-live-scene-policy-smoke
+      - name: Verify LIVE reconnection policy (macOS Swift 6) — Claude W75
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraLiveReconnectPolicy.swift \
+            streaming/tests/WivraLiveReconnectPolicySmoke.swift \
+            -o /tmp/wivra-live-reconnect-smoke
+          /tmp/wivra-live-reconnect-smoke
+      - name: Verify Photos save journal integration contracts
+        run: node --test streaming/tests/ios-photos-save-journal-contract.test.mjs
+      - name: Verify Photos save journal idempotency and crash recovery (macOS Swift 6)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift \
+            streaming/tests/WivraPhotosSaveJournalSmoke.swift \
+            -o /tmp/wivra-photos-save-journal-smoke
+          /tmp/wivra-photos-save-journal-smoke
+      - name: Verify active Photos reservations against immutable pre-fix control (macOS Swift 6)
+        run: |
+          set -eu
+          wivra_photos_baseline=9482102d035bf779b290dc6a04f968ae0d359906
+          git fetch --no-tags --depth=1 origin "$wivra_photos_baseline"
+          git show "$wivra_photos_baseline":streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift > /tmp/wivra-photos-before.swift
+          xcrun swiftc -swift-version 6 /tmp/wivra-photos-before.swift \
+            streaming/tests/WivraPhotosActiveSaveSmoke.swift -o /tmp/wivra-photos-active-before
+          if /tmp/wivra-photos-active-before > /tmp/wivra-photos-before.log 2>&1; then
+            echo 'Pre-fix control unexpectedly accepted the active-save regression' >&2
+            exit 1
+          fi
+          cat /tmp/wivra-photos-before.log
+          node -e 'if(!require("fs").readFileSync("/tmp/wivra-photos-before.log","utf8").includes("FAIL: manual absence cleared an active Photos reservation"))process.exit(1)'
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraPhotosSaveJournal.swift \
+            streaming/tests/WivraPhotosActiveSaveSmoke.swift -o /tmp/wivra-photos-active-fixed
+          /tmp/wivra-photos-active-fixed
       - name: Verify accelerated iOS recovery with real MP4 and malicious-name fixtures (macOS)
         run: |
           set -eu
+          node --test streaming/tests/ios-accelerated-recovery-scan-w73.test.mjs
           xcrun swiftc -swift-version 6 -parse-as-library \
             streaming/ios/B0/Sources/WivraRandomAccessExportSession.swift \
             streaming/ios/B0/Sources/WivraAcceleratedExportStore.swift \
@@ -80,6 +207,14 @@ jobs:
         run: node --test streaming/tests/mobile-phone-network-status.test.mjs
       - name: Verify iOS native translations and placeholders
         run: node --test streaming/tests/unified-ios-native-i18n.test.mjs
+      - name: Verify iOS LIVE audio-intent recovery in Swift 6 (synthetic, no device)
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 \
+            streaming/ios/B0/Sources/WivraLiveRecordingReceipt.swift \
+            streaming/tests/WivraLiveRecordingReceiptSmoke.swift \
+            -o /tmp/wivra-live-audio-intent-smoke
+          /tmp/wivra-live-audio-intent-smoke
       - name: Validate iOS RTMP endpoint gate with native Swift 6 (no network)
         run: |
           set -eu

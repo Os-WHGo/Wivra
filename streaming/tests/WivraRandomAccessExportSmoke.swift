@@ -59,6 +59,16 @@ struct WivraRandomAccessExportSmoke {
             }
         }
 
+        let wrongTotals = try WivraRandomAccessExportSession(directory: folder,
+            mime: "video/mp4", reservedBytes: 32)
+        _ = try await wrongTotals.writeAt(seq: 0, position: 0, data: source())
+        try await expectFailure {
+            _ = try await wrongTotals.finish(expectedBytes: 16, expectedWrites: 2,
+                expectedDurationMs: 1000, expectAudio: false) { _ in
+                fatalError("Inspector must not run when final totals differ")
+            }
+        }
+
         let tamper = try WivraRandomAccessExportSession(directory: folder, mime: "video/mp4")
         _ = try await tamper.writeAt(seq: 0, position: 0, data: source())
         try await expectFailure {

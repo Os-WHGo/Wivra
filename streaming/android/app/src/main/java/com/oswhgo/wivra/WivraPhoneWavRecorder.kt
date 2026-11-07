@@ -30,7 +30,11 @@ class WivraPhoneWavRecorder(
         val channels: Int,
         val bytesWritten: Long,
         val estimatedFirstReadElapsedRealtimeNs: Long,
-        val error: String?
+        val error: String?,
+        // Ray-Ban sync (WivraRayBanSync.AudioClock): frames in the first read and the completion time of
+        // the last one, on the same elapsedRealtimeNanos clock. Measured values only. — Claude
+        val firstChunkFrames: Long = 0L,
+        val lastReadElapsedRealtimeNs: Long = 0L
     ) {
         val usable get() = bytesWritten > 0L && error == null
     }
@@ -112,6 +116,8 @@ class WivraPhoneWavRecorder(
         running.set(true)
         worker = Thread({
             var firstReadNs = 0L
+            var firstChunkFrames = 0L
+            var lastReadNs = 0L
             var failure: String? = null
             var written = 0L
             try {
@@ -142,6 +148,7 @@ class WivraPhoneWavRecorder(
                             // This is an approximate read-completion clock,
                             // NOT a hardware-verified first-sample timestamp.
                             firstReadNs = SystemClock.elapsedRealtimeNanos()
+                            firstChunkFrames = (count / (2 * CHANNELS)).toLong()
                         }
                         if (written + count > MAX_DATA_BYTES) {
                             failure = "WAV size reached safe limit"
@@ -149,6 +156,7 @@ class WivraPhoneWavRecorder(
                         }
                         wav.write(buffer, 0, count)
                         written += count
+                        lastReadNs = SystemClock.elapsedRealtimeNanos()
                     }
                     header(wav, written)
                 }
@@ -162,7 +170,8 @@ class WivraPhoneWavRecorder(
                 record.release()
                 input = null
                 stopped.set(true)
-                val result = Result(file, SAMPLE_RATE, CHANNELS, written, firstReadNs, failure)
+                val result = Result(file, SAMPLE_RATE, CHANNELS, written, firstReadNs, failure,
+                    firstChunkFrames, lastReadNs)
                 ui.post { completed?.invoke(result) }
             }
         }, "Wivra-Phone-WAV").apply { isDaemon = true; start() }

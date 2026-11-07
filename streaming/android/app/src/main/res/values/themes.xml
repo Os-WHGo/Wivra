@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- W81 (Claude): dark Wivra look with a magenta accent for every native screen. -->
+<resources>
+    <style name="Theme.Wivra" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/wivra_card</item>
+        <item name="android:colorPrimaryDark">@color/wivra_background</item>
+        <item name="android:colorAccent">@color/wivra_accent</item>
+        <item name="android:colorControlActivated">@color/wivra_accent</item>
+        <item name="android:colorButtonNormal">@color/wivra_card_high</item>
+        <item name="android:colorBackground">@color/wivra_background</item>
+        <item name="android:windowBackground">@color/wivra_background</item>
+        <item name="android:statusBarColor">@color/wivra_background</item>
+        <item name="android:navigationBarColor">@color/wivra_background</item>
+        <item name="android:textColorPrimary">@color/wivra_text</item>
+        <item name="android:textColorSecondary">@color/wivra_muted</item>
+    </style>
+</resources>

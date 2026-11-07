@@ -1,6 +1,8 @@
-import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack} from './accelerated-multitrack-renderer.mjs';
+import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack,ACCELERATED_MULTITRACK_MAX_SECONDS,ACCELERATED_NATIVE_LONG_MAX_SECONDS} from './accelerated-multitrack-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
-import {exportEstimatedBytes} from './export.mjs';
+import {planAcceleratedStorageReservation} from './accelerated-storage-budget.mjs';
+import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-probe.mjs';
+import {exportBitrate} from './export.mjs';
 
 /**
  * W22: iOS private v2 files remain the authoritative recovery copy.
@@ -36,7 +38,7 @@ export async function saveVerifiedAcceleratedVideoToPhotos({
 export async function recordExperimentalNativeMultitrack({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
   isCancelled=()=>false,onProgress=()=>{},imageFactory,
-  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false
+  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false,longForm=false
 }={}) {
   if(experimentalAccelerated!==true)
     throw new Error('La exportación multipista nativa requiere modo experimental explícito.');
@@ -53,18 +55,31 @@ export async function recordExperimentalNativeMultitrack({
      !Number.isSafeInteger(sampleRate)||sampleRate<8000||sampleRate>96000)
     throw new Error('Frecuencia de video/audio acelerado inválida.');
   if(isCancelled())throw new Error('Exportación multipista cancelada antes de comenzar.');
+  // Progress is advisory UI output, never part of encoder correctness.
+  // Throwing in an observer must not discard valid media or claim that an
+  // already sealed private file failed after native finishRandom committed.
+  const safeProgress=progress=>{
+    try { onProgress(progress); } catch { /* optional UI observer */ }
+  };
 
+  if(typeof longForm!=='boolean')throw new Error('Modo largo inválido.');
   const prepared=await prepareAcceleratedMultitrack({
-    project,media,M,platform:host.platform,expectedAudio:expectAudio,
+    project,media,M,platform:host.platform,longForm,
+    maxSeconds:longForm?ACCELERATED_NATIVE_LONG_MAX_SECONDS:ACCELERATED_MULTITRACK_MAX_SECONDS,
+    // The checkbox is a minimum-content requirement, not a mute switch:
+    // when unchecked, keep any authored audio and only make its presence optional.
+    expectedAudio:expectAudio ? true : null,
     isCancelled,...(imageFactory?{imageFactory}:{})
   });
-  let sink;
+  let sink,renderOwnsInputs=false;
   try {
     // Keep estimation inside the same cleanup scope as codec/bridge setup.
     // Invalid space estimates must release every decoder before returning.
-    const expectedBytes=estimatedBytes??exportEstimatedBytes(
-      prepared.totalSeconds,{progressive:true,width:prepared.width,
-        height:prepared.height,fps});
+    const reservation=planAcceleratedStorageReservation({
+      seconds:prepared.totalSeconds,width:prepared.width,
+      height:prepared.height,fps,estimatedBytes,longForm
+    });
+    const expectedBytes=reservation.estimatedBytes;
     // Only mono and stereo are mixed today. A multi-channel source could
     // otherwise lose its center/dialogue channel unnoticed.
     for(const item of prepared.used.values()){
@@ -73,17 +88,28 @@ export async function recordExperimentalNativeMultitrack({
       if(channels!==1&&channels!==2)
         throw new Error('Canales de audio no admitidos por el motor acelerado.');
     }
-    if(!Number.isSafeInteger(expectedBytes)||expectedBytes<0)
-      throw new Error('Tamaño estimado de salida fuera de límites.');
     if(isCancelled())throw new Error('Exportación multipista cancelada antes de abrir archivo.');
+    // Mediabunny can select a codec family without the actual WKWebView or
+    // Android WebView supporting these exact output dimensions, fps and
+    // stereo sample rate. Fail safely BEFORE obtaining a native file token.
+    const videoBitrate=exportBitrate(prepared.totalSeconds,{
+      progressive:true,width:prepared.width,height:prepared.height,fps
+    });
+    const codecCapabilities=await verifyAcceleratedMobileCodecSupport({
+      platform:host.platform,codec:prepared.codec,
+      width:prepared.width,height:prepared.height,fps,sampleRate,
+      videoBitrate
+    });
+    if(isCancelled())throw new Error('Exportación multipista cancelada tras validar códecs.');
     sink=createAcceleratedNativeSink(host,{
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
       expectedDurationMs:Math.round(prepared.totalSeconds*1000),
       expectAudio,estimatedBytes:expectedBytes
     });
     await sink.begin();
+    renderOwnsInputs=true;
     const stats=await renderAcceleratedMultitrack({prepared,
-      fps,sampleRate,isCancelled,onProgress,
+      fps,sampleRate,videoBitrate,isCancelled,onProgress:safeProgress,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
     if(stats.container!==prepared.codec.container ||
        stats.audioCodec!==prepared.codec.audioCodec ||
@@ -108,22 +134,20 @@ export async function recordExperimentalNativeMultitrack({
           error: error instanceof Error ? error.message : 'Fotos no disponible.'};
       }
     }
-    onProgress({t:prepared.totalSeconds,total:prepared.totalSeconds,pct:1});
+    safeProgress({t:prepared.totalSeconds,total:prepared.totalSeconds,pct:1});
     return {experimental:true,verifiedNative:true,verifiedOnDevice:false,
       rendererReadyForProduction:false,
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
-      saved,render:stats,photos};
+      saved,render:stats,photos,codecCapabilities};
   }catch(error){
     if(sink) {
       try{await sink.abort();}catch{}
     }
     throw error;
   } finally {
-    // Guarantee decoder disposal even if output setup fails before the
-    // renderer reaches its own try/finally (e.g. unavailable canvas or
-    // encoder constructor). The renderer also closes inputs on its path;
-    // dispose may be called twice and must not suppress the original error.
-    for(const item of prepared.used.values()){
+    // Before handoff, this adapter owns preparation. Once rendering starts,
+    // the renderer releases inputs on every exit (including setup failures).
+    if(!renderOwnsInputs)for(const item of prepared.used.values()){
       try{await item.input?.dispose?.();}catch{}
     }
   }

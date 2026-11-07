@@ -1,7 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {parseProcessTable,aggregateProcessTree,createAcceleratedResourceMonitor,
- DEFAULT_RSS_BUDGET_MIB}=require('./accelerated-resource-telemetry.cjs');
+ DEFAULT_RSS_BUDGET_MIB,launchObservedChromium}=require('./accelerated-resource-telemetry.cjs');
 test('process-tree RSS aggregates Chromium children without unrelated processes',()=>{
  const rows=parseProcessTable('100 1 102400 12.5\n101 100 204800 50\n102 101 51200 18\n103 1 999999 99\n');
  assert.deepEqual(aggregateProcessTree(rows,100),
@@ -39,4 +39,45 @@ test('missing Chromium root fails observability rather than claiming success',()
  const report=monitor.stop();
  assert.equal(report.samples.length,0);
  assert.equal(report.errors.length,2);
+});
+
+test('observed browser uses BrowserServer PID, closes both handles and never calls browser.process()',async()=>{
+ const operations=[];
+ const browser={close:async()=>operations.push('browser.close')};
+ const server={
+  process:()=>({pid:4321}),wsEndpoint:()=> 'ws://127.0.0.1:9876/session',
+  close:async()=>operations.push('server.close')
+ };
+ const playwright={
+  launchServer:async opts=>{operations.push('launchServer');assert.equal(opts.headless,true);return server;},
+  connect:async (endpoint,opts)=>{
+   operations.push('connect');
+   assert.equal(endpoint,server.wsEndpoint());
+   assert.equal(opts.timeout,30000);
+   return browser;
+  }
+ };
+ const observed=await launchObservedChromium(playwright,{headless:true});
+ assert.equal(observed.browserPid,4321);
+ assert.equal(observed.browser,browser);
+ await observed.close();
+ assert.deepEqual(operations,['launchServer','connect','browser.close','server.close']);
+});
+test('monitor browser launcher fails closed and cleans server on connection/PID failure',async()=>{
+ for(const {server,expectConnect} of [
+  {server:{process:()=>({pid:0}),wsEndpoint:()=> 'ws://localhost',close:async()=>{}},
+   expectConnect:false},
+  {server:{process:()=>({pid:123}),wsEndpoint:()=> 'ws://localhost',close:async()=>{}},
+   expectConnect:true}
+ ]) {
+  let closed=0,connected=0;
+  const original=server.close;
+  server.close=async()=>{closed++;await original();};
+  const chromium={launchServer:async()=>server,
+   connect:async()=>{connected++;throw Error('socket failed');}};
+  await assert.rejects(launchObservedChromium(chromium,{headless:true}),
+   /PID unavailable|socket failed/);
+  assert.equal(connected,expectConnect?1:0);
+  assert.equal(closed,1);
+ }
 });

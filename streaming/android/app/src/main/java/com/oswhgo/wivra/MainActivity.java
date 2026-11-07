@@ -11,6 +11,7 @@ import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -25,6 +26,9 @@ import android.webkit.WebViewClient;
  * No telemetry, account gate, SDK tokens or paid services.
  */
 public final class MainActivity extends Activity {
+    // W89: the editor's on-phone dictation (whisper.cpp) asks for the microphone through the WebView.
+    private static final int REQUEST_EDITOR_MICROPHONE = 4189;
+    private PermissionRequest pendingEditorMicrophone;
     private static final int PICK_FILES_REQUEST = 4207;
     // Keep native picker limits identical to the Editor's 40-file import limit.
     private static final int MAX_PICKER_FILES = 40;
@@ -82,12 +86,41 @@ public final class MainActivity extends Activity {
             }
         });
         editor.setWebChromeClient(new WebChromeClient() {
+            // W89: only AUDIO, only for the packaged editor (file:///android_asset), and only after
+            // Android's own microphone permission. Camera or any other resource is always denied.
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                Uri origin = request.getOrigin();
+                boolean packagedEditor = origin != null && "file".equals(origin.getScheme());
+                boolean onlyAudio = request.getResources().length == 1 &&
+                    PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(request.getResources()[0]);
+                if (!packagedEditor || !onlyAudio) { request.deny(); return; }
+                if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                    return;
+                }
+                if (pendingEditorMicrophone != null) pendingEditorMicrophone.deny();
+                pendingEditorMicrophone = request;
+                requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_EDITOR_MICROPHONE);
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (pendingEditorMicrophone == request) pendingEditorMicrophone = null;
+            }
+
             @Override
             public boolean onShowFileChooser(
                 WebView webView,
-                ValueCallback<Uri[]> callback,
+                ValueCallback<Uri[]> chosenFiles,
                 FileChooserParams params
             ) {
+                // W98: remember what the person gives the editor, so long-video subtitles can read
+                // the sound of those files piece by piece (never other files).
+                ValueCallback<Uri[]> callback = uris -> {
+                    WivraAudioSegments.INSTANCE.remember(MainActivity.this, uris);
+                    chosenFiles.onReceiveValue(uris);
+                };
                 // A newer selection must cancel an outstanding slow cloud
                 // provider opening from the previous request.
                 if (pendingPickerSignal != null) pendingPickerSignal.cancel();
@@ -194,8 +227,10 @@ public final class MainActivity extends Activity {
         // Opening a source is NOT evidence that it has working frames or RTMP.
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(getColor(R.color.wivra_background));
         Button cameraSources = new Button(this);
         cameraSources.setText(R.string.source_camera_button);
+        wivraStyle(cameraSources, true);
         cameraSources.setContentDescription(getString(R.string.source_camera_button));
         cameraSources.setOnClickListener(v -> showCameraSourceChooser());
         shell.addView(cameraSources, new LinearLayout.LayoutParams(
@@ -206,6 +241,7 @@ public final class MainActivity extends Activity {
         if ("com.oswhgo.wivra".equals(getPackageName())) {
             Button liveSources = new Button(this);
             liveSources.setText(R.string.source_live_button);
+            wivraStyle(liveSources, true);
             liveSources.setContentDescription(getString(R.string.source_live_button));
             liveSources.setOnClickListener(v -> showLiveSourceChooser());
             shell.addView(liveSources, new LinearLayout.LayoutParams(
@@ -215,6 +251,7 @@ public final class MainActivity extends Activity {
             // Never expose an accelerated writer or a recovery picker in Capture.
             Button acceleratedRecovery = new Button(this);
             acceleratedRecovery.setText(R.string.accelerated_recovery_button);
+            wivraStyle(acceleratedRecovery, false);
             acceleratedRecovery.setContentDescription(
                 getString(R.string.accelerated_recovery_button));
             acceleratedRecovery.setOnClickListener(v -> showAcceleratedRecovery());
@@ -237,7 +274,73 @@ public final class MainActivity extends Activity {
         }
         captureVerificationBridge = new WivraCaptureVerificationBridge(editor);
         captureVerificationBridge.install();
+        // W98: sound of one short piece of a chosen file, for long-video subtitles.
+        new WivraAudioSegmentBridge(this, editor).install();
+        // W81 (Claude): Capturar / LIVE cards on the editor home only OPEN the
+        // same native choosers as the buttons above. Nothing starts by itself.
+        new WivraHomeBridge(editor, what -> {
+            if ("live".equals(what) && "com.oswhgo.wivra".equals(getPackageName())) {
+                showLiveSourceChooser();
+            } else if ("capture".equals(what)) {
+                showCameraSourceChooser();
+            }
+        }).install();
         editor.loadUrl("file:///android_asset/agentcut.html");
+        applyScreenshotScene();
+    }
+
+    /**
+     * W81 (Claude): CI-only screenshots in the Android emulator. Works ONLY in
+     * debuggable builds; a release/beta APK ignores the extra completely.
+     * The editor's own screens are reached by pressing its buttons, never by touching its data.
+     */
+    private void applyScreenshotScene() {
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return;
+        String scene = getIntent() == null ? null : getIntent().getStringExtra("wivra_screenshot");
+        if (scene == null) return;
+        boolean full = "com.oswhgo.wivra".equals(getPackageName());
+        if ("live".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraPhoneLiveActivity"));
+        } else if ("screen".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenLiveActivity"));
+        } else if ("screenrec".equals(scene) && full) {
+            startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenRecordActivity"));
+        } else if ("tour".equals(scene)) {
+            // Press the editor's own buttons in order (language, Skip, Capturar),
+            // exactly like a person would; no editor data is read or written.
+            final String[] buttons = {"#langList button[data-l=\"es\"]", "#onbSkip", "#hCapture"};
+            for (int i = 0; i < buttons.length; i++) {
+                final String selector = buttons[i];
+                editor.postDelayed(() -> editor.evaluateJavascript(
+                    "(function(){var b=document.querySelector('" + selector + "');if(b)b.click();})()", null),
+                    12000L + 9000L * i);
+            }
+        }
+    }
+
+    /** W81 (Claude): Wivra look for the native buttons above the editor (gradient or dark pill). */
+    private void wivraStyle(Button button, boolean primary) {
+        float d = getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable bg = primary
+            ? new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{getColor(R.color.wivra_violet), getColor(R.color.wivra_pink)})
+            : new android.graphics.drawable.GradientDrawable();
+        if (!primary) {
+            bg.setColor(getColor(R.color.wivra_card_high));
+            bg.setStroke(Math.round(d), getColor(R.color.wivra_line));
+        }
+        bg.setCornerRadius(22 * d);
+        button.setBackground(new android.graphics.drawable.InsetDrawable(
+            bg, Math.round(12 * d), Math.round(3 * d), Math.round(12 * d), Math.round(3 * d)));
+        button.setTextColor(getColor(R.color.wivra_text));
+        button.setAllCaps(false);
+        button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        // Compact: the editor home below already has big Capturar / LIVE cards.
+        button.setMinHeight(Math.round(44 * d));
+        button.setMinimumHeight(Math.round(44 * d));
+        button.setPadding(Math.round(16 * d), 0, Math.round(16 * d), 0);
+        button.setStateListAnimator(null);
     }
 
     // A platform camera feature is only an eligibility hint. CameraX/RootEncoder
@@ -256,17 +359,32 @@ public final class MainActivity extends Activity {
     }
 
     private void showCameraSourceChooser() {
-        final String[] options = {
+        // W99 (Claude, owner decision 2A): local screen recording, FULL edition only
+        // (MediaProjection is not packaged in Wivra Capture). Nothing is transmitted.
+        final boolean screenRecord = "com.oswhgo.wivra".equals(getPackageName());
+        final String[] options = screenRecord ? new String[] {
             getString(R.string.source_meta_option),
-            getString(R.string.source_phone_option)
+            getString(R.string.source_phone_option),
+            getString(R.string.source_dual_option),
+            getString(R.string.source_screen_record_option)
+        } : new String[] {
+            getString(R.string.source_meta_option),
+            getString(R.string.source_phone_option),
+            // Offered to every phone with a camera; the screen itself checks
+            // this phone's concurrent pairs and falls back to one camera.
+            getString(R.string.source_dual_option)
         };
         new AlertDialog.Builder(this)
             .setTitle(R.string.source_camera_title)
             // Android lists and messages share the same content area.
             // Keep setItems visible and move caveats to a separate dialog.
             .setItems(options, (dialog, selected) -> {
-                if (selected == 0) {
+                if (selected == 3 && screenRecord) {
+                    startActivity(new Intent().setClassName(this, "com.oswhgo.wivra.WivraScreenRecordActivity"));
+                } else if (selected == 0) {
                     launchRayBanCameraFromDirector();
+                } else if (selected == 2 && hasPhoneCameraHardware()) {
+                    startActivity(new Intent(this, WivraDualCameraActivity.class));
                 } else if (hasPhoneCameraHardware()) {
                     launchPhoneCameraFromDirector();
                 } else {
@@ -410,7 +528,7 @@ public final class MainActivity extends Activity {
     /** Same sanitized read-only Director checklist for both native cameras. */
     private void launchCameraFromDirector(Class<?> targetActivity) {
         if (editor == null ||
-            !"file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+            !WivraExportBridge.isEditor(editor.getUrl())) {
             startActivity(new Intent(this, targetActivity));
             return;
         }
@@ -688,6 +806,20 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQUEST_EDITOR_MICROPHONE) return;
+        PermissionRequest request = pendingEditorMicrophone;
+        pendingEditorMicrophone = null;
+        if (request == null) return;
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+        } else {
+            request.deny();
+        }
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == DIRECTOR_CAPTURE_REQUEST) {
@@ -703,7 +835,7 @@ public final class MainActivity extends Activity {
                 WivraDirectorProjectGuard.mayComplete(
                     expectedProject, expectedProject, expected,
                     data.getStringExtra(WivraPhoneCameraActivity.EXTRA_SHOT_ID)) &&
-                editor != null && "file:///android_asset/agentcut.html".equals(editor.getUrl())) {
+                editor != null && WivraExportBridge.isEditor(editor.getUrl())) {
                 // A successful, explicitly saved native capture marks the take
                 // recorded, but NOT imported into the editor. Never fabricate an
                 // assetId or expose media URIs. Import remains a separate step.

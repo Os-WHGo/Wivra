@@ -24,6 +24,8 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      # W100 (Claude): values shared with the screen-recording extension.
+      - path: Shared
       # Localization files for the native shell only; Claude's editor keeps its own i18n.
       - path: Resources
         buildPhase: resources
@@ -45,6 +47,11 @@ targets:
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: Info.plist
+        # W82 (Claude): original Wivra icon (Resources/Assets.xcassets).
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # W100 (Claude): App Group shared with the screen-recording extension only
+        # (also available to the free Apple Developer tier; see the W100 doc).
+        CODE_SIGN_ENTITLEMENTS: WivraMetaB0.entitlements
     dependencies:
       - package: MetaDAT
         product: MWDATCore
@@ -54,3 +61,27 @@ targets:
         product: HaishinKit
       - package: HaishinKit
         product: RTMPHaishinKit
+      # W100 (Claude): iOS screen recording (ReplayKit), local files only.
+      - target: WivraScreenRecord
+  WivraScreenRecord:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ScreenRecordExtension
+        excludes:
+          - "*.entitlements"
+          - Info.plist
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oswhgo.WivraMetaB0.ScreenRecord
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: ScreenRecordExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ScreenRecordExtension/WivraScreenRecord.entitlements
+        # Swift 5 language mode for the small ReplayKit callback class.
+        SWIFT_VERSION: "5.0"
+        APPLICATION_EXTENSION_API_ONLY: "YES"
+    dependencies:
+      - sdk: ReplayKit.framework
+      - sdk: AVFoundation.framework

@@ -133,12 +133,15 @@ test('all eight iOS locales distinguish multipart original from a complete expor
 
 test('Meta DAT iOS profile choices expose 504p30 motion without mislabeling requested as observed video quality', () => {
   const model = read('../ios/B0/Sources/MetaB0Model.swift');
-  for (const key of ['balanced', 'motion', 'detail', 'economy']) {
+  // Ray-Ban macroblock (Claude): the same choices now come from the table shared with Android
+  // (WivraDatProfiles.swift / streaming/contracts/dat-profiles.json), plus «Máxima» 720p30 and «Automático».
+  const table = read('../ios/B0/Sources/WivraDatProfiles.swift');
+  for (const key of ['balanced', 'motion', 'detail', 'economy', 'max', 'auto']) {
     assert.ok(app.includes('.tag("' + key + '")'), key + ' profile missing');
-    assert.match(model, new RegExp('"' + key + '"'));
   }
-  assert.match(model, /resolution: economy \? \.low : detail \? \.high : \.medium/);
-  assert.match(model, /frameRate: \(economy \|\| detail\) \? 15 : motion \? 30 : 24/);
+  assert.match(table, /case economy, balanced, motion, detail, max/);
+  assert.match(model, /resolution: profile == \.economy \? \.low : \(profile == \.detail \|\| profile == \.max\) \? \.high : \.medium/);
+  assert.match(model, /frameRate: UInt\(profile\.fps\)/);
   assert.match(app, /model\.requestedDatProfileDescription/);
   assert.match(app, /La calidad recibida depende del enlace Meta/);
 });

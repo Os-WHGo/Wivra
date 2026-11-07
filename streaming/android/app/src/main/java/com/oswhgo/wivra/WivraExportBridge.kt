@@ -38,7 +38,7 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
         // exact-URL check below is the narrowest option. Navigation is already locked
         // to the bundled asset by MainActivity's WebViewClient.
         WebViewCompat.addWebMessageListener(webView, JS_OBJECT, setOf("*")) { view, message, _, isMainFrame, reply ->
-            if (!isMainFrame || view.url != EDITOR_URL || disposed) return@addWebMessageListener
+            if (!isMainFrame || !isEditor(view.url) || disposed) return@addWebMessageListener
             onMessage(message, reply)
         }
         // Rows left pending by a killed process are deleted before any new export.
@@ -150,6 +150,12 @@ class WivraExportBridge(private val activity: Activity, private val webView: Web
         private val io: ExecutorService = Executors.newSingleThreadExecutor()
         const val JS_OBJECT = "WivraExportNative"
         const val EDITOR_URL = "file:///android_asset/agentcut.html"
+        /**
+         * W81 (Claude): the editor switches screens with "#…" (#new, #p=…) and
+         * reloads; it is still the same bundled file. Only the fragment is ignored.
+         */
+        @JvmStatic
+        fun isEditor(url: String?): Boolean = url != null && url.substringBefore('#') == EDITOR_URL
         const val PROTOCOL = 1
     }
 }
