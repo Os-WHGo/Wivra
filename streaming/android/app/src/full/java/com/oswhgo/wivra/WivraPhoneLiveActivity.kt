@@ -294,16 +294,21 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             setOnClickListener { reviewPendingVideo() }
         })
         preview = SurfaceView(this).apply { contentDescription = getString(R.string.plive_preview_description) }
-        root.addView(preview, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
-        ))
         root.addView(Button(this).apply {
             text = getString(R.string.plive_back_to_editor)
             setOnClickListener { finish() }
         })
-        setContentView(root)
+        // The preview leads the screen with a fixed height and the controls scroll below it (Claude): with all
+        // the options stacked, a weight-only preview got almost no height on a normal phone, its surface was never
+        // valid and LIVE could not start (seen in the emulator journey test).
+        val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        screen.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+            (resources.displayMetrics.heightPixels * 0.38f).toInt()))
+        screen.addView(android.widget.ScrollView(this).apply { addView(root) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        setContentView(screen)
         // W83 (Claude): Wivra button look; texts and states unchanged.
-        WivraUi.styleAll(root)
+        WivraUi.styleAll(screen)
         WivraUi.primary(startButton)
         updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
