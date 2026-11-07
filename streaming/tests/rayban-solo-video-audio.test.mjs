@@ -125,7 +125,7 @@ test('Ray-Ban LIVE (Android): existing RootEncoder engine, chosen microphone onl
   assert.match(pub, /WivraLiveReconnect\(\)/);
   assert.doesNotMatch(pub, /Log\.|println|SharedPreferences|putString/);
   const src = read(F + 'WivraRayBanVideoSource.kt');
-  assert.match(src, /OrientationConfig\(forced = OrientationForced\.LANDSCAPE\)/);
+  assert.match(src, /OrientationConfig\(cameraOrientation = 0, isPortrait = true\)/);
   assert.match(src, /private val slot = WivraLatestFrameSlot\(\)/);
   const activity = read(A + 'WivraMetaPreviewActivity.kt');
   assert.match(activity, /address\.text\?\.clear\(\)/);

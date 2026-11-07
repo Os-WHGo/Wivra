@@ -8,7 +8,6 @@ import android.graphics.SurfaceTexture
 import android.os.SystemClock
 import android.view.Surface
 import com.pedro.encoder.input.sources.OrientationConfig
-import com.pedro.encoder.input.sources.OrientationForced
 import com.pedro.encoder.input.sources.video.VideoSource
 import java.nio.ByteBuffer
 
@@ -16,7 +15,7 @@ import java.nio.ByteBuffer
  * RootEncoder video source fed by decoded Ray-Ban frames (DAT `.raw`). A render thread draws the newest
  * frame at the stream's frame rate (repeating the last one if the glasses are late, so the encoder keeps
  * its cadence); older frames are dropped, never queued. The picture is fitted, never stretched or
- * up-scaled into a fake resolution. Orientation: like RootEncoder's VideoFileSource, no camera rotation. — Claude
+ * up-scaled into a fake resolution. Orientation: portrait viewport, no camera rotation. — Claude
  */
 class WivraRayBanVideoSource : VideoSource() {
     private val slot = WivraLatestFrameSlot()
@@ -36,7 +35,9 @@ class WivraRayBanVideoSource : VideoSource() {
 
     override fun create(width: Int, height: Int, fps: Int, rotation: Int): Boolean = width > 0 && height > 0 && fps > 0
 
-    override fun getOrientationConfig() = OrientationConfig(forced = OrientationForced.LANDSCAPE)
+    // Portrait frames, no camera rotation. LANDSCAPE would draw them as a thin centred strip
+    // (RootEncoder's encoder viewport for width < height); seen in the emulator test.
+    override fun getOrientationConfig() = OrientationConfig(cameraOrientation = 0, isPortrait = true)
 
     override fun start(surfaceTexture: SurfaceTexture) {
         this.surfaceTexture = surfaceTexture
