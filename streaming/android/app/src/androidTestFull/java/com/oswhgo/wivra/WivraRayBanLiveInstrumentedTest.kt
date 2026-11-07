@@ -26,16 +26,12 @@ class WivraRayBanLiveInstrumentedTest {
     private fun report(line: String) = InstrumentationRegistry.getInstrumentation()
         .sendStatus(0, android.os.Bundle().apply { putString("WIVRA-RBLIVE", line) })
 
-    private fun frame(w: Int, h: Int, k: Int): ByteBuffer {
+    /** Built once (top-left quarter bright, the rest dark); only a thin bar moves, so the test does not eat the CPU. */
+    private fun baseFrame(w: Int, h: Int): ByteArray {
         val bytes = ByteArray(w * h * 3 / 2)
-        for (y in 0 until h) for (x in 0 until w) {
-            // Top-left quarter bright, the rest dark; a small moving bar keeps the encoder honest.
-            val marker = x < w / 2 && y < h / 2
-            val bar = y in (h * 3 / 4) until (h * 3 / 4 + 8) && x == (k * 7) % w
-            bytes[y * w + x] = (if (marker || bar) 235 else 16).toByte()
-        }
+        for (y in 0 until h) for (x in 0 until w) bytes[y * w + x] = (if (x < w / 2 && y < h / 2) 235 else 16).toByte()
         for (i in w * h until bytes.size) bytes[i] = 128.toByte()
-        return ByteBuffer.wrap(bytes)
+        return bytes
     }
 
     @Test fun decodedGlassesFramesBecomeAnUprightH264Copy() {
@@ -52,9 +48,13 @@ class WivraRayBanLiveInstrumentedTest {
         assertTrue("record-only start", started)
         val w = 504; val h = 896
         val begin = SystemClock.uptimeMillis()
+        val base = baseFrame(w, h)
         var k = 0
         while (SystemClock.uptimeMillis() - begin < 4_000) {
-            publisher!!.offerI420(frame(w, h, k++), w, h)
+            val row = h * 3 / 4 + (k++ % 8)
+            for (x in 0 until w) base[row * w + x] = 235.toByte()
+            publisher!!.offerI420(ByteBuffer.wrap(base), w, h)
+            for (x in 0 until w) base[row * w + x] = 16.toByte()
             SystemClock.sleep(1000L / plan.fps)
         }
         val stats = publisher!!.stats()
