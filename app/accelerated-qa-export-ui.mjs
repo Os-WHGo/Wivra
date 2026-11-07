@@ -1,6 +1,8 @@
-// Wivra W23: controls only embedded by app/build.mjs in the PINNED Mediabunny
-// QA variant. The ordinary beta build never includes or executes this file.
-// All native actions are opt-in. No camera/RTMP or physical-device claim.
+// Owner beta preference (2026-11-07): accelerated is the primary export button on
+// compatible native QA surfaces, classical MediaRecorder remains one tap away.
+// This is NOT an automatic production engine activation: native codecs, writer,
+// verified output and physical acceptance keep their independent safety gates.
+// All exports are started by an explicit user click. No camera/RTMP access.
 export function validAcceleratedRecoveryEntry(item) {
   return typeof item?.name==='string' &&
     /^Wivra_Fast_[A-Za-z0-9_-]{6,80}\.(mp4|webm)$/.test(item.name) &&
@@ -24,20 +26,27 @@ document.addEventListener('DOMContentLoaded',()=>{
   const qaBox=make('section','','');
   qaBox.id='wivraAcceleratedQA';
   qaBox.style.cssText='border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0';
-  const title=make('strong','Laboratorio acelerado (solo QA)');
-  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Hasta 60 min (más de 3 min usa el modo largo, escrito por partes en el teléfono) y 160 elementos. El audio que exista en las pistas se conserva; la casilla solo exige que haya audio. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
+  const title=make('strong','Exportación rápida · beta de pruebas');
+  const note=make('p','Preferido: WebCodecs + Mediabunny. Verifica los códecs y el archivo nativo antes de confirmar el resultado. Hasta 60 min con escritura progresiva cuando sea compatible. Aún falta validación física H.264/AAC. El motor clásico MediaRecorder sigue disponible y nunca se borran tus originales.','m');
   const consent=make('label','');
   consent.style.cssText='display:flex;align-items:center;gap:8px';
   const enable=document.createElement('input');enable.type='checkbox';
-  enable.id='wivraQaEnable';consent.append(enable,
-    document.createTextNode('Acepto probar el motor experimental en esta exportación'));
+  enable.id='wivraQaEnable';
+  // Owner-authorized beta: accelerated is preselected ONLY in the native QA UI.
+  // No export begins until the user explicitly presses its button.
+  enable.checked=true;
+  consent.append(enable,
+    document.createTextNode('Preferir motor acelerado para esta exportación (beta experimental)'));
   const sound=make('label','');
   sound.style.cssText='display:flex;align-items:center;gap:8px';
   const requireAudio=document.createElement('input');requireAudio.type='checkbox';
   requireAudio.id='wivraQaAudio';sound.append(requireAudio,
     document.createTextNode('El montaje debe contener audio; detener si falta'));
-  const start=make('button','Exportar con WebCodecs (QA)','btn sec');
+  const start=make('button','Exportar rápido (beta) · WebCodecs + Mediabunny','btn');
   start.type='button';start.id='wivraQaStart';
+  // The stable button is secondary, but always remains selectable.
+  startStable.textContent='Exportar con motor clásico (MediaRecorder)';
+  startStable.classList.add('sec');
   const cancel=make('button','Cancelar exportación acelerada','btn sec');
   cancel.type='button';cancel.hidden=true;
   const status=make('p','','m');status.setAttribute('role','status');
@@ -160,8 +169,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         actions.append(photos);
       }
-    }catch(error){status.textContent='Ensayo detenido: '+error.message+
-      '. Puedes exportar mediante el motor habitual. No se ha cambiado automáticamente de motor.';}
+    }catch(error){status.textContent='No se completó la exportación acelerada: '+error.message+
+      '. El motor clásico (MediaRecorder) está disponible en el botón inferior. No se ha cambiado automáticamente de motor para evitar archivos duplicados o resultados inciertos.';}
     finally{running=false;cancel.hidden=true;start.disabled=false;startStable.disabled=false;
       enable.checked=false;}
   };
