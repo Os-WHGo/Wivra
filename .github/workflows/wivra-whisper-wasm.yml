@@ -14,6 +14,7 @@ on:
       - 'tools/whisper-wasm/**'
       - 'tools/browser-whisper-subtitles.cjs'
       - 'tools/browser-journey-a.cjs'
+      - 'tools/browser-journey-d.cjs'
       - 'tools/browser-whisper-dictation.cjs'
       - 'tools/browser-whisper-long.cjs'
       - 'app/vendor/whisper/**'
@@ -210,6 +211,14 @@ jobs:
             -c:v libx264 -preset ultrafast -b:v 20k -pix_fmt yuv420p -c:a aac -b:a 32k -movflags +faststart /tmp/wv-fx/long.mp4
           ls -la /tmp/wv-fx/long.*
           node tools/browser-whisper-long.cjs /tmp/wv-fx/long.webm video/webm /tmp/wv-fx/long.wav tiny es "volcán@631"
+      - name: Beta journey D in Chromium · 11-min capture → long subtitles → music + title → editor Export «por partes» → start/middle/end checks (Claude)
+        timeout-minutes: 45
+        run: |
+          set -eu
+          # Mid-grey picture: the export crushes very dark levels (seen locally: 26 → 8), which would hide «is there a picture».
+          timeout 300 ffmpeg -nostdin -loglevel error -y -f lavfi -i color=c=0x707070:size=160x284:rate=2 -i /tmp/wv-fx/long.wav -shortest \
+            -c:v libvpx -b:v 20k -deadline realtime -c:a libopus -b:a 24k /tmp/wv-fx/long-grey.webm
+          node tools/browser-journey-d.cjs /tmp/wv-fx/long-grey.webm video/webm /tmp/wv-fx/long.wav tiny es "volcán@631"
       - uses: actions/upload-artifact@v4
         with:
           name: wivra-whisper-fixtures
