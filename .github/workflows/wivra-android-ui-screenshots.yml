@@ -42,6 +42,14 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Local RTMP server for the LIVE reconnection test (this machine only; the emulator reaches it at 10.0.2.2) — Claude
+        run: |
+          set -eu
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
+          mkdir -p "$RUNNER_TEMP/rtmp"
+          nohup node tools/rtmp-cut-server.cjs "$RUNNER_TEMP/rtmp/out" > "$RUNNER_TEMP/rtmp/server.log" 2>&1 &
+          for i in $(seq 1 20); do grep -q 'listening, segment 1' "$RUNNER_TEMP/rtmp/server.log" && break; sleep 0.5; done
+          cat "$RUNNER_TEMP/rtmp/server.log"
       - name: Take screenshots in an Android 35 emulator
         # Same pinned ReactiveCircus/android-emulator-runner commit as the beta workflow (Apache-2.0).
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -61,11 +69,11 @@ jobs:
             adb install -r streaming/android/app/build/outputs/apk/androidTest/full/debug/app-full-debug-androidTest.apk
             # One process per test class (the screen recording last): a late native teardown crash of one
             # engine must not hide the others' results. Each class must report its own "OK (1 test)". — Claude
-            for t in WivraRayBanLiveInstrumentedTest WivraAcceleratedWebViewTest WivraScreenRecordInstrumentedTest; do adb shell am instrument -w -r -e class com.oswhgo.wivra.$t com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee -a "$RUNNER_TEMP/screen-record.txt"; sleep 3; done
-            grep -E 'WIVRA-SCREENREC|WIVRA-JOURNEY-E|WIVRA-ACCEL|WIVRA-RBLIVE|shortMsg|Error|assert|^OK' "$RUNNER_TEMP/screen-record.txt" || true
+            for t in WivraRayBanLiveInstrumentedTest WivraLiveReconnectInstrumentedTest WivraAcceleratedWebViewTest WivraScreenRecordInstrumentedTest; do adb shell am instrument -w -r -e class com.oswhgo.wivra.$t com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee -a "$RUNNER_TEMP/screen-record.txt"; sleep 3; done
+            grep -E 'WIVRA-SCREENREC|WIVRA-JOURNEY-E|WIVRA-LIVE-C|WIVRA-ACCEL|WIVRA-RBLIVE|shortMsg|Error|assert|^OK' "$RUNNER_TEMP/screen-record.txt" || true
             # Only Android's crash buffer, filtered to the header and app/engine frames, to explain a "Process crashed".
             adb logcat -d -b crash | grep -E 'Cmdline|signal [0-9]|Abort message|>>> |#0[0-9] pc|com\.pedro|com\.oswhgo' | head -n 60 || true
-            test "$(grep -c '^OK (1 test)' "$RUNNER_TEMP/screen-record.txt")" = 3
+            test "$(grep -c '^OK (1 test)' "$RUNNER_TEMP/screen-record.txt")" = 4
             adb shell cmd locale set-app-locales com.oswhgo.wivra --locales es-ES || true
             mkdir -p "$RUNNER_TEMP/wivra-screens"
             adb shell pm grant com.oswhgo.wivra android.permission.CAMERA || true
@@ -80,6 +88,19 @@ jobs:
             adb shell am force-stop com.oswhgo.wivra
             ls -la "$RUNNER_TEMP/wivra-screens"
             test -z "$(find "$RUNNER_TEMP/wivra-screens" -type f ! -name '*.png')"
+      - name: What the local RTMP server received (before and after the cut) — Claude
+        run: |
+          set -eu
+          cat "$RUNNER_TEMP/rtmp/server.log" || true
+          good=0
+          for f in "$RUNNER_TEMP"/rtmp/out/*.flv; do
+            [ -s "$f" ] || continue
+            frames=$(ffprobe -v error -count_frames -select_streams v -show_entries stream=nb_read_frames -of csv=p=0 "$f" || echo 0)
+            echo "$(basename "$f"): $frames video frames"
+            [ "${frames:-0}" -gt 10 ] && good=$((good + 1))
+          done
+          echo "segments with pictures: $good"
+          test "$good" -ge 2
       - name: Small previews in the log (artifact storage is not reachable for every reviewer)
         if: always()
         run: |
