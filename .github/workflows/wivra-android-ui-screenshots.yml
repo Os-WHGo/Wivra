@@ -62,7 +62,7 @@ jobs:
             # One process per test class (the screen recording last): a late native teardown crash of one
             # engine must not hide the others' results. Each class must report its own "OK (1 test)". — Claude
             for t in WivraRayBanLiveInstrumentedTest WivraAcceleratedWebViewTest WivraScreenRecordInstrumentedTest; do adb shell am instrument -w -r -e class com.oswhgo.wivra.$t com.oswhgo.wivra.test/androidx.test.runner.AndroidJUnitRunner | tee -a "$RUNNER_TEMP/screen-record.txt"; sleep 3; done
-            grep -E 'WIVRA-SCREENREC|WIVRA-ACCEL|WIVRA-RBLIVE|shortMsg|Error|assert|^OK' "$RUNNER_TEMP/screen-record.txt" || true
+            grep -E 'WIVRA-SCREENREC|WIVRA-JOURNEY-E|WIVRA-ACCEL|WIVRA-RBLIVE|shortMsg|Error|assert|^OK' "$RUNNER_TEMP/screen-record.txt" || true
             # Only Android's crash buffer, filtered to the header and app/engine frames, to explain a "Process crashed".
             adb logcat -d -b crash | grep -E 'Cmdline|signal [0-9]|Abort message|>>> |#0[0-9] pc|com\.pedro|com\.oswhgo' | head -n 60 || true
             test "$(grep -c '^OK (1 test)' "$RUNNER_TEMP/screen-record.txt")" = 3

@@ -100,9 +100,77 @@ class WivraScreenRecordInstrumentedTest {
                 val portrait = if (rot % 180 == 0) h > w else w > h
                 assertTrue("portrait like the phone (${w}x$h, rotation $rot)", portrait)
             } finally { meta.release() }
+            journeyE(file)
         } finally {
             file?.let { runCatching { WivraPhoneMediaStore.discard(context, it) } }
             shell("appops set ${context.packageName} PROJECT_MEDIA default")
         }
+    }
+
+    /**
+     * Beta journey E chained (Claude): the recording just made → «recover» (listed among the pending private
+     * videos) → «save locally» (the real MediaStore publication to Movies/Wivra) → imported into the REAL editor
+     * WebView from that saved item → exported with the editor's own Export buttons (native progressive save,
+     * verified by the native side). Emulator, not a phone.
+     */
+    private fun journeyE(file: File) {
+        assertTrue("recover: the finished recording is offered among the pending videos",
+            WivraPhoneMediaStore.pendingVideos(context).any { it.canonicalPath == file.canonicalPath })
+        val saved = WivraPhoneMediaStore.publish(context, file)
+        try {
+            val bytes = context.contentResolver.openInputStream(saved)!!.use { it.readBytes() }
+            assertTrue("saved item readable (${bytes.size} bytes)", bytes.size > 1000)
+            val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            instrumentation.waitForIdleSync()
+            try {
+                val editor = findEditor(activity.window.decorView) ?: error("editor WebView")
+                var ready = ""
+                for (i in 0 until 90) {
+                    ready = eval(editor, "(function(){return window.WivraEditorImport&&typeof importSelectedFiles==='function'?'ready':'loading'})()")
+                    if (ready == "\"ready\"") break
+                    SystemClock.sleep(500)
+                }
+                assertTrue("editor ready ($ready)", ready == "\"ready\"")
+                eval(editor, "window.__jeClip='" + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP) + "';'ok'")
+                eval(editor, "window.__jeOut='running';(async()=>{try{" +
+                    "const b=Uint8Array.from(atob(window.__jeClip),c=>c.charCodeAt(0));delete window.__jeClip;" +
+                    "await importSelectedFiles([new File([b],'Wivra_Screen_E.mp4',{type:'video/mp4'})]);" +
+                    "for(let i=0;i<100&&!(session&&session.project.clips.length);i++)await new Promise(r=>setTimeout(r,100));" +
+                    "if(!session||!session.project.clips.length)throw new Error('not imported');" +
+                    "const total=totalDuration(session.project);" +
+                    "$('bExp').onclick();if($('expSave'))$('expSave').value='auto';await $('expGo').onclick();" +
+                    "window.__jeOut=JSON.stringify({ok:$('expDone').style.display==='block'&&$('expMsg').className!=='bad',total,msg:$('expMsg').textContent.slice(0,300)});" +
+                    "}catch(e){window.__jeOut=JSON.stringify({ok:false,error:String(e&&e.message||e)})}})();'started'")
+                var state = "\"running\""
+                for (i in 0 until 120) {
+                    if (state != "\"running\"") break
+                    SystemClock.sleep(1000)
+                    state = eval(editor, "String(window.__jeOut)")
+                }
+                val decoded = org.json.JSONTokener(state).nextValue() as String
+                instrumentation.sendStatus(0, android.os.Bundle().apply { putString("WIVRA-JOURNEY-E", decoded.take(400)) })
+                val out = org.json.JSONObject(decoded)
+                assertTrue("editor export of the screen recording: ${out.optString("error")} ${out.optString("msg")}", out.optBoolean("ok"))
+            } finally {
+                instrumentation.runOnMainSync { activity.finish() }
+                instrumentation.waitForIdleSync()
+            }
+        } finally {
+            runCatching { context.contentResolver.delete(saved, null, null) }
+        }
+    }
+
+    private fun findEditor(node: android.view.View): android.webkit.WebView? {
+        if (node is android.webkit.WebView) return node
+        if (node is android.view.ViewGroup) for (i in 0 until node.childCount) findEditor(node.getChildAt(i))?.let { return it }
+        return null
+    }
+
+    private fun eval(webView: android.webkit.WebView, source: String): String {
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var result = ""
+        instrumentation.runOnMainSync { webView.evaluateJavascript(source) { value -> result = value; latch.countDown() } }
+        assertTrue("WebView JS did not answer", latch.await(60, java.util.concurrent.TimeUnit.SECONDS))
+        return result
     }
 }
