@@ -965,10 +965,14 @@ class WivraMetaPreviewActivity : ComponentActivity() {
                             refreshDatDiagnostic(recording = false)
                             show(getString(R.string.frames_status, frames, frame.width, frame.height) + liveStatsLine())
                         }
-                        // Limit JPEG preview workload to roughly 6 images/sec. The full
-                        // capture stream is never saved or shared with the WebView here.
+                        // During LIVE the separate JPEG preview competes for CPU with the I420->H264
+                        // path. Keep it to 1 image/s while LIVE; all DAT video frames were already
+                        // offered to RootEncoder above. Normal preview remains ~6 FPS.
+                        // Neither stream quality nor the glasses' HEVC originals are downscaled here.
                         val now = SystemClock.elapsedRealtime()
-                        if (now - lastPreviewEnqueueMs >= 160L && !frame.isCompressed) {
+                        if (!frame.isCompressed && WivraRayBanPreviewBudget.shouldRefresh(
+                            now, lastPreviewEnqueueMs, liveRunning
+                        )) {
                             lastPreviewEnqueueMs = now
                             val expectedPixels = frame.width.toLong() * frame.height.toLong()
                             val expectedBytes = expectedPixels * 3 / 2
