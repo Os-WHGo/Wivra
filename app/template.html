@@ -2687,16 +2687,24 @@ $('bExp').onclick = () => {
   if (!session || expBusy) return;
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
-  $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  // The native beta prefers WebCodecs + Mediabunny when its v2 bridge exists.
+  // Never claim its speed or output format before checking exact device codecs.
+  const fastBeta = Boolean(globalThis.WivraAcceleratedQA?.nativeHost?.());
+  $('expInfo').textContent = fastBeta
+    ? `Dura ${fmt(plan.total)} s. Primero puedes probar exportación rápida (WebCodecs + Mediabunny): el tiempo y formato reales dependen de los códecs de este teléfono. Abajo también tienes MediaRecorder, que exporta en tiempo real. Mantén Wivra abierto; tus originales no se tocan.`
+    : `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
   const nativeSave = nativeExportAvailable();
   $('expSaveRow').style.display = nativeSave ? 'block' : 'none';
   const exportRisk = exportMemoryRisk(plan.total, { progressive: nativeSave && $('expSave').value !== 'memory' });
-  $('expLong').textContent = exportRisk.level === 'critical'
+  const classicRiskText = exportRisk.level === 'critical'
     ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
     : exportRisk.level === 'elevated'
       ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
       : exportRisk.bufferedUntilComplete ? 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.'
         : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
+  $('expLong').textContent = fastBeta
+    ? 'Motor rápido (beta): la duración y el tamaño requieren espacio libre, códecs compatibles y validación de archivo. Si eliges MediaRecorder: ' + classicRiskText
+    : classicRiskText;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expAllowOverlayGaps').checked = false; // Explicit consent applies to one export only.
