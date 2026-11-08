@@ -90,3 +90,21 @@ test('microphone and public transmission are opt-in, background publishing canno
   assert.match(live, /if \(stream\?\.isOnPreview == true\) stream\?\.stopPreview\(\)/);
   assert.doesNotMatch(live, /startForegroundService|onConnectionSuccess\(\)[\s\S]*?startStream\(/);
 });
+
+test('LIVE preview surface updates visible readiness without auto-starting a public stream', () => {
+  const lifecycle = live.split('preview.holder.addCallback(object : SurfaceHolder.Callback {')[1]
+    ?.split('if (checkSelfPermission(Manifest.permission.CAMERA)')[0];
+  assert.ok(lifecycle, 'SurfaceView callback remains attached');
+  assert.match(lifecycle, /override fun surfaceCreated[\s\S]*refreshPreviewReadiness\(\)/);
+  assert.match(lifecycle, /preview\.postDelayed\(\{ refreshPreviewReadiness\(\) \}, 400L\)/);
+  assert.match(lifecycle, /override fun surfaceDestroyed[\s\S]*plive_preview_waiting/);
+  const refresh = live.split('private fun refreshPreviewReadiness() {')[1]
+    ?.split('private fun preparePreview()')[0];
+  assert.ok(refresh, 'lifecycle readiness helper is present');
+  assert.match(refresh, /cameraReadyForLive\(\)/);
+  assert.match(refresh, /startButton\.isEnabled = ready/);
+  assert.match(refresh, /plive_preview_ready/);
+  assert.match(refresh, /plive_preview_waiting/);
+  assert.doesNotMatch(refresh, /startStream|startRecord|MicrophoneSource/);
+  assert.match(live, /override fun onStart\(\) {[\s\S]*?refreshPreviewReadiness\(\)/);
+});

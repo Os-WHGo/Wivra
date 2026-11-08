@@ -70,7 +70,11 @@ class WivraPhoneLiveJourneyInstrumentedTest {
         try {
             if (find(device, text(R.string.plive_preview_ready), 30_000) == null)
                 fail("camera preview; on screen: ${screen(device)}")
-            val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000) ?: run { fail("address field"); return }
+            // LIVE uses a fixed-height preview above scrollable controls. The endpoint
+            // can be below the viewport on an emulator or a small phone; navigate
+            // like a person instead of incorrectly declaring a missing field.
+            val field = find(device, By.clazz("android.widget.EditText"), 5_000)
+                ?: run { fail("address field; on screen: ${screen(device)}"); return }
             field.text = "rtmp://10.0.2.2:1935/live/wivra"
             // No microphone: the CI emulator runs without audio (-noaudio); the microphone is a phone test.
             click(device, R.string.plive_prepare, "Prepare LIVE")

@@ -36,7 +36,16 @@ test('surface lifecycle prevents stale preview from presenting camera as ready',
   const created=live.split('override fun surfaceCreated(')[1]?.split('override fun surfaceChanged(')[0];
   const destroyed=live.split('override fun surfaceDestroyed(')[1]?.split('if \(checkSelfPermission')[0];
   assert.ok(created&&destroyed);
-  assert.match(created,/startButton\.isEnabled = cameraReadyForLive\(\)/);
+  // The lifecycle now delegates the visible label AND the button to a single gate.
+  assert.match(created,/refreshPreviewReadiness\(\)/);
+  const refresh=live.split('private fun refreshPreviewReadiness() {')[1]?.split('private fun preparePreview()')[0];
+  assert.ok(refresh,'preview lifecycle helper remains present');
+  assert.match(refresh,/val ready = cameraReadyForLive\(\)/);
+  assert.match(refresh,/startButton\.isEnabled = ready/);
+  assert.match(refresh,/!prepared \|\| stopping \|\| initiatedByUser \|\| mediaBusy/);
+  assert.match(refresh,/plive_preview_ready/);
+  assert.match(refresh,/plive_preview_waiting/);
+  assert.doesNotMatch(refresh,/startStream\(|startRecord\(|MicrophoneSource/);
   assert.match(destroyed,/startButton\.isEnabled = false/);
   assert.match(live,/startButton\.isEnabled = cameraReadyForLive\(\) && !mediaBusy/);
   assert.match(live,/R\.string\.plive_preview_waiting/);
