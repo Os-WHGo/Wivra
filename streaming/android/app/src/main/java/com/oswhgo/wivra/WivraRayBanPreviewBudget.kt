@@ -13,6 +13,6 @@ object WivraRayBanPreviewBudget {
 
     fun shouldRefresh(nowMs: Long, previousMs: Long, live: Boolean): Boolean {
         if (nowMs < 0 || previousMs < 0 || nowMs < previousMs) return false
-        return nowMs - previousMs >= if (live) LIVE_INTERVAL_MS else PREVIEW_INTERVAL_MS
+        return nowMs - previousMs >= (if (live) LIVE_INTERVAL_MS else PREVIEW_INTERVAL_MS)
     }
 }
