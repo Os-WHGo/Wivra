@@ -63,6 +63,20 @@ class WivraRayBanLiveTest {
     }
 }
 
+class WivraRayBanPreviewBudgetTest {
+    @Test fun localPreviewSlowsOnlyDuringLiveWithoutChangingDATEncoding() {
+        assertEquals(160L, WivraRayBanPreviewBudget.PREVIEW_INTERVAL_MS)
+        assertEquals(1000L, WivraRayBanPreviewBudget.LIVE_INTERVAL_MS)
+        assertFalse(WivraRayBanPreviewBudget.shouldRefresh(100L, 0L, false))
+        assertTrue(WivraRayBanPreviewBudget.shouldRefresh(160L, 0L, false))
+        assertFalse(WivraRayBanPreviewBudget.shouldRefresh(999L, 0L, true))
+        assertTrue(WivraRayBanPreviewBudget.shouldRefresh(1000L, 0L, true))
+        assertTrue(WivraRayBanPreviewBudget.shouldRefresh(1160L, 1000L, false))
+        assertFalse(WivraRayBanPreviewBudget.shouldRefresh(1160L, 1000L, true))
+        assertFalse(WivraRayBanPreviewBudget.shouldRefresh(999L, 1000L, true))
+    }
+}
+
 class WivraRayBanLookTest {
     private val v: JSONObject by lazy {
         val f = listOf("../../contracts/rayban-looks.json", "../contracts/rayban-looks.json", "streaming/contracts/rayban-looks.json")
