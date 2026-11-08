@@ -6,6 +6,7 @@ import {validAcceleratedRecoveryEntry} from '../accelerated-qa-export-ui.mjs';
 const code=(path)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const build=code('../build.mjs');
 const qa=code('../accelerated-qa-export-ui.mjs');
+const editor=code('../template.html');
 const swift=code('../../streaming/ios/B0/Sources/WivraAcceleratedExportNativeBridge.swift');
 const kotlin=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraAcceleratedExportBridge.kt');
 const store=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraRandomExportStore.kt');
@@ -86,4 +87,14 @@ test('owner beta prioritizes accelerated UI but keeps classic MediaRecorder one 
  assert.doesNotMatch(qa,/start\.click\(\)/);
  // The guard in export-engine-policy.mjs is intentionally unchanged.
  assert.match(build,/export-engine-policy\.mjs/);
+});
+
+test('native beta export sheet discloses real-time classic versus codec-gated fast export',()=>{
+ assert.match(editor,/const fastBeta = Boolean\(globalThis\.WivraAcceleratedQA\?\.nativeHost\?\.\(\)\)/);
+ assert.match(editor,/WebCodecs \+ Mediabunny/);
+ assert.match(editor,/MediaRecorder, que exporta en tiempo real/);
+ assert.match(editor,/const classicRiskText = exportRisk\.level/);
+ assert.match(editor,/Si eliges MediaRecorder:.*classicRiskText/);
+ assert.match(qa,/enable\.checked=true;\}\s*\};/);
+ assert.doesNotMatch(qa,/enable\.checked=false;\}\s*\};/);
 });
