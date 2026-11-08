@@ -9,6 +9,18 @@ export function validAcceleratedRecoveryEntry(item) {
     Number.isSafeInteger(item.bytes) && item.bytes>0 &&
     Number.isSafeInteger(item.durationMs) && item.durationMs>0;
 }
+/** QA-only throughput, including the native writer's verification time.
+ * This compares elapsed processing to the video's duration, NOT with a second
+ * MediaRecorder export. No media data or identifiers leave the device. */
+export function acceleratedBetaPerformance({mediaSeconds,elapsedMs}={}) {
+  if(!Number.isFinite(mediaSeconds)||mediaSeconds<=0||mediaSeconds>3600 ||
+     !Number.isFinite(elapsedMs)||elapsedMs<=0||elapsedMs>4*3600*1000)return null;
+  const speedX=mediaSeconds*1000/elapsedMs;
+  if(!Number.isFinite(speedX)||speedX<=0)return null;
+  return {speedX:Math.round(speedX*100)/100,
+    elapsedSeconds:Math.round(elapsedMs/100)/10,
+    mediaSeconds:Math.round(mediaSeconds*10)/10};
+}
 if(typeof document!=='undefined' && typeof window!=='undefined')
 document.addEventListener('DOMContentLoaded',()=>{
   const host=nativeHost();
@@ -124,6 +136,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{
       // MU V4: projects longer than 3 min use the long-form mode (≤ 60 min, written in pieces).
       const projectSeconds=typeof totalDuration==='function'?totalDuration(originalSession.project):0;
+      const startedAt=performance.now(); // excludes only the preflight UI click and project lookup
       const result=await recordOnNative({
         project:originalSession.project,media,longForm:projectSeconds>180,
         expectAudio:requireAudio.checked,experimentalAccelerated:true,
@@ -137,9 +150,18 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(result?.verifiedNative!==true || result?.saved?.verified!==true ||
          result?.verifiedOnDevice!==false)
         throw Error('El puente no confirmó la integridad del archivo experimental.');
+      const measured=acceleratedBetaPerformance({
+        mediaSeconds:projectSeconds,elapsedMs:performance.now()-startedAt
+      });
+      const timing=measured
+        ? ' Tiempo total: '+measured.elapsedSeconds.toFixed(1)+' s para '+
+          measured.mediaSeconds.toFixed(1)+' s de vídeo ('+
+          measured.speedX.toFixed(2)+'× respecto al tiempo real).'
+        : '';
       status.textContent='Archivo experimental verificado y guardado: '+
         (result.saved.displayName||'video')+' ('+
-        (result.saved.bytes/1e6).toFixed(1)+' MB). No validado en hardware físico.';
+        (result.saved.bytes/1e6).toFixed(1)+' MB).'+timing+
+        ' Falta validar rendimiento en teléfonos físicos.';
       const share=make('button','Compartir archivo verificado','btn sec');
       share.type='button';
       share.onclick=async()=>{
