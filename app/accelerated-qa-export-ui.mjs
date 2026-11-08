@@ -172,6 +172,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(error){status.textContent='No se completó la exportación acelerada: '+error.message+
       '. El motor clásico (MediaRecorder) está disponible en el botón inferior. No se ha cambiado automáticamente de motor para evitar archivos duplicados o resultados inciertos.';}
     finally{running=false;cancel.hidden=true;start.disabled=false;startStable.disabled=false;
-      enable.checked=false;}
+      // Each subsequent export again prefers the owner-approved fast beta path.
+      // No action starts until the person presses the accelerated button.
+      enable.checked=true;}
   };
 });
