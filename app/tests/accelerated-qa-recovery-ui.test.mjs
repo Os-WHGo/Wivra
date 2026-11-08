@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validAcceleratedRecoveryEntry} from '../accelerated-qa-export-ui.mjs';
+import {validAcceleratedRecoveryEntry,acceleratedBetaPerformance} from '../accelerated-qa-export-ui.mjs';
 
 const code=(path)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const build=code('../build.mjs');
@@ -97,4 +97,19 @@ test('native beta export sheet discloses real-time classic versus codec-gated fa
  assert.match(editor,/Si eliges MediaRecorder:.*classicRiskText/);
  assert.match(qa,/enable\.checked=true;\}\s*\};/);
  assert.doesNotMatch(qa,/enable\.checked=false;\}\s*\};/);
+});
+
+test('accelerated beta measures full elapsed throughput against video duration, not false competitor timings',()=>{
+ assert.deepEqual(acceleratedBetaPerformance({mediaSeconds:60,elapsedMs:12000}),
+   {speedX:5,elapsedSeconds:12,mediaSeconds:60});
+ assert.deepEqual(acceleratedBetaPerformance({mediaSeconds:60,elapsedMs:120000}),
+   {speedX:0.5,elapsedSeconds:120,mediaSeconds:60});
+ for(const input of [{mediaSeconds:0,elapsedMs:100},{mediaSeconds:60,elapsedMs:0},
+  {mediaSeconds:Infinity,elapsedMs:100},{mediaSeconds:60,elapsedMs:NaN},
+  {mediaSeconds:3601,elapsedMs:1000},{mediaSeconds:60,elapsedMs:14400001}])
+  assert.equal(acceleratedBetaPerformance(input),null);
+ assert.match(qa,/const startedAt=performance\.now\(\)/);
+ assert.match(qa,/elapsedMs:performance\.now\(\)-startedAt/);
+ assert.match(qa,/× respecto al tiempo real/);
+ assert.match(qa,/Falta validar rendimiento en teléfonos físicos/);
 });
