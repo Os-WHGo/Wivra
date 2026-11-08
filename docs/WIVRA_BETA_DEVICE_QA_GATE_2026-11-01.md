@@ -272,3 +272,28 @@ El modo LIVE cámara del teléfono necesita permiso actual de cámara, `SurfaceV
 - Previo a StreamRecorder.startRecording, verificar al menos 256 MiB libres mediante FileManager.attributesOfFileSystem; si la consulta falla o no hay reserva, no iniciar stream público con copia prometida. En modo solo LIVE sin MP4 no exigir este espacio adicional.
 - Durante LIVE+MP4, vigilar cada 10 segundos el espacio libre. Al caer por debajo de 256 MiB cerrar LIVE y StreamRecorder, retener el archivo privado para revisión. No fingir que el contenedor que no se puede verificar ya está reproducible; reanálisis posterior es manual.
 - Pruebas negativas de reserva insuficiente y falta de acceso al volumen en la tanda física. La estimación de minutos es por bitrate real y overhead de muxer, no inferir 60 min garantizados solo por tener 256 MiB de reserva. Evitar capturar video de clientes en CI.
+
+
+## Actualización P0 exportación 2026-11-07 · acelerador preferido en beta
+
+**Decisión vigente:** WebCodecs + Mediabunny (Mediabunny 1.61.6 MPL-2.0) debe aparecer como el motor **preferido** en la app beta para pruebas en Android/iPhone; MediaRecorder queda accesible como **motor clásico**. El selector productivo general permanece protegido mientras no pase QA física de MP4 H.264/AAC, pistas, escritura y 30/60 min. Código de superficie beta: PR #221; sin fusión a main. Los resultados Linux/Chromium WebM VP9/Opus de 10/20/30/60 min son válidos **solo para ese entorno**.
+
+### Experimentos mínimos a ejecutar cuando el propietario autorice el lote físico (a partir de 16-11-2026)
+
+1. **Preflight y opción clásica (1–3 min):** comprobar que la beta presenta primero «Exportar rápido» y también «Motor clásico». Intentar exportar con WebCodecs+Mediabunny en un dispositivo sin combinación de códecs compatible (si existe), registrar un error claro **sin** abrir/publicar salida inválida, y usar el botón clásico. La app no debe comenzar una exportación por el mero hecho de abrir el panel ni realizar un segundo intento oculto.
+2. **Paridad A/V (2–5 min):** capturar o importar vídeo propio con voz, música, subtítulos, texto, PiP y fundido; exportar primero rápido y después clásico. Reproducir ambos (principio/medio/final). Anotar si existen todas las pistas, cortes correctos, dimensiones, aspecto, orientación, cuadros negros, niveles de sombra y desincronización audible. No aceptar pérdida silenciosa de audio ni capas.
+3. **Formación real de MP4:** comprobar el formato de contenedor y codecs del archivo final, duración, seek, fotogramas decodificables, muestras de audio, CRC/hash cuando aplique y reproducibilidad en reproductor nativo. Una extensión «.mp4» no es evidencia de H.264/AAC. Si el dispositivo ofrece solo VP9/Opus WebM, registrar esa capacidad **sin** declarar validada la exportación MP4 nativa.
+4. **Vídeo largo (10, 30 y 60 min, progresivamente):** ensayar archivos propios y varios segmentos, una voz cerca del final, vídeo superpuesto y audio independiente. Medir **duración de vídeo / tiempo total del intento acelerado** (factor × respecto de tiempo real), batería inicial/final, temperatura, memoria disponible, tamaño, tiempo de finalización y respuesta de UI. Comparar con el método clásico **solo** si ambos completan el mismo proyecto; no inferir que uno fue más rápido por comparar proyectos distintos. Completar 10 min antes de 30/60 min y no repetir pruebas físicas innecesarias.
+5. **Recuperación y cancelación:** cancelar antes y después de escribir por partes, cortar espacio disponible sin borrar ningún original, suspender la app, forzar cierre de proceso de prueba con consentimiento, volver a abrir Wivra y recuperar solo archivos verificables. Si el sistema pudo publicar el archivo pero perdió el acuse, **revisar galería/Fotos antes de reintentar** para evitar duplicados. Denegar permiso de Fotos y comprobar que la copia privada permanece.
+6. **Firma y privacidad:** asociar resultados al SHA exacto de PR candidata, APK DEBUG o iOS firmado de prueba, versión SO, modelo de teléfono, códecs reportados, temperatura y espacio. No registrar credenciales RTMP, material personal ni identificadores privados en CI/repositorio.
+
+### Formato compacto de cada resultado (rellenar solo después de ensayo)
+
+| Dispositivo / SHA | Duración montaje | Motor | Media codec / contenedor | Tiempo real ejecución / factor × | Imagen y audio | Resultado / bloqueo |
+|---|---:|---|---|---:|---|---|
+| Pendiente dispositivo físico | 10 min | WebCodecs+Mediabunny | Pendiente | Pendiente | Pendiente | NO PROBADO |
+| Pendiente dispositivo físico | 30 min | WebCodecs+Mediabunny | Pendiente | Pendiente | Pendiente | NO PROBADO |
+| Pendiente dispositivo físico | 60 min | WebCodecs+Mediabunny | Pendiente | Pendiente | Pendiente | NO PROBADO |
+| Pendiente dispositivo físico | Proyectos comparables | MediaRecorder (alternativa) | Pendiente | Pendiente | Pendiente | NO PROBADO |
+
+No actualizar «ACCELERATED_EXPORT_IMPLEMENTED» ni publicar una beta de consumo automáticamente por conseguir solamente tiempos sintéticos o un archivo de tamaño positivo. Mantener todos los avances reversibles y el prototipo Capture separado.
