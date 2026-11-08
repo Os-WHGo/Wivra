@@ -189,3 +189,17 @@ test('LIVE looks: same table and math on both platforms, GPU only, the original 
   assert.match(effect, /CIExposureAdjust/);
   assert.doesNotMatch(read('streaming/ios/B0/Sources/WivraHEVCRecorder.swift'), /WivraLookEffect|CIFilter/);
 });
+
+test('Ray-Ban LIVE prioritizes full-rate DAT frames over the optional CPU JPEG preview', () => {
+  const activity=read(A+'WivraMetaPreviewActivity.kt');
+  const policy=read(A+'WivraRayBanPreviewBudget.kt');
+  const first=activity.indexOf('if (liveRunning && !frame.isCompressed) rayBanLive?.offerI420');
+  const throttle=activity.indexOf('WivraRayBanPreviewBudget.shouldRefresh(');
+  const image=activity.indexOf('incoming.trySend(LocalPreviewFrame(');
+  assert.ok(first>0 && throttle>first && image>throttle, 'full DAT video remains upstream from throttled local preview');
+  assert.match(policy,/LIVE_INTERVAL_MS = 1_000L/);
+  assert.match(policy,/PREVIEW_INTERVAL_MS = 160L/);
+  assert.match(policy,/if \(nowMs < 0 \|\| previousMs < 0 \|\| nowMs < previousMs\) return false/);
+  assert.doesNotMatch(activity.slice(first,throttle),/return@collect|stopStream|stopRecord/);
+  assert.match(activity,/Normal preview remains ~6 FPS/);
+});
