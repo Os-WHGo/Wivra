@@ -1,0 +1,11 @@
+<resources>
+    <item name="live_controls_scroll" type="id" />
+    <item name="live_scene_scroll" type="id" />
+    <item name="live_scene_sources" type="id" />
+    <item name="live_scene_camera" type="id" />
+    <item name="live_scene_camera_video" type="id" />
+    <item name="live_scene_split" type="id" />
+    <item name="live_scene_video" type="id" />
+    <item name="live_scene_camera_image" type="id" />
+    <item name="live_scene_image" type="id" />
+</resources>

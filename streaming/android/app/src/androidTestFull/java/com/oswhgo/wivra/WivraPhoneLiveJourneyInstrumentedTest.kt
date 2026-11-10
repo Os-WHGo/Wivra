@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -32,6 +33,7 @@ class WivraPhoneLiveJourneyInstrumentedTest {
 
     private fun shell(cmd: String) { instrumentation.uiAutomation.executeShellCommand(cmd).close() }
     private fun report(line: String) = instrumentation.sendStatus(0, android.os.Bundle().apply { putString("WIVRA-LIVE-PHONE", line) })
+    private fun resource(id: Int) = By.res(context.resources.getResourceName(id))
     private fun text(id: Int) = By.text(Pattern.compile("(?i)" + Pattern.quote(context.getString(id))))
     /** A status that has format arguments: match the words before the first argument. */
     private fun startsWith(id: Int) = By.text(Pattern.compile("(?i)^" + Pattern.quote(context.getString(id).substringBefore("%").trim()) + ".*", Pattern.DOTALL))
@@ -49,10 +51,25 @@ class WivraPhoneLiveJourneyInstrumentedTest {
     private fun find(device: UiDevice, selector: androidx.test.uiautomator.BySelector, timeout: Long): androidx.test.uiautomator.UiObject2? {
         device.wait(Until.findObject(selector), timeout)?.let { return it }
         for (direction in listOf(androidx.test.uiautomator.Direction.DOWN, androidx.test.uiautomator.Direction.UP)) repeat(6) {
-            device.findObject(By.scrollable(true))?.scroll(direction, 0.6f)
+            val panel = device.findObject(resource(R.id.live_controls_scroll)) ?: return null
+            if (!panel.scroll(direction, 0.6f)) return@repeat
             device.wait(Until.findObject(selector), 800)?.let { return it }
         }
         return null
+    }
+
+    /** Reveal the row vertically first, then move only its horizontal viewport. Labels include selection state. */
+    private fun clickScene(device: UiDevice, id: Int) {
+        val row = find(device, resource(R.id.live_scene_scroll), 3_000)
+            ?: run { fail("scene row; on screen: ${screen(device)}"); return }
+        device.findObject(resource(id))?.let { it.click(); return }
+        for (direction in listOf(androidx.test.uiautomator.Direction.RIGHT, androidx.test.uiautomator.Direction.LEFT)) {
+            repeat(8) {
+                row.scroll(direction, 0.65f)
+                device.findObject(resource(id))?.let { it.click(); return }
+            }
+        }
+        fail("scene control $id; on screen: ${screen(device)}")
     }
 
     private fun click(device: UiDevice, id: Int, what: String, timeout: Long = 15_000) {
@@ -65,6 +82,7 @@ class WivraPhoneLiveJourneyInstrumentedTest {
         shell("settings put global hide_error_dialogs 1")
         shell("pm grant ${context.packageName} android.permission.CAMERA")
         shell("pm grant ${context.packageName} android.permission.RECORD_AUDIO")
+        val pendingBefore = WivraPhoneMediaStore.pendingVideos(context).map { it.name }.toSet()
         val savedBefore = WivraPhoneMediaStore.latestSavedVideos(context).map { it.uri.toString() }.toSet()
         context.startActivity(Intent(context, WivraPhoneLiveActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         try {
@@ -87,12 +105,18 @@ class WivraPhoneLiveJourneyInstrumentedTest {
 
             // A scene during LIVE: the standby card (image scene, microphone muted), then back to the camera.
             click(device, R.string.scene_sources_button, "Sources")
+            assertTrue("sources dialog opens during LIVE", device.hasObject(text(R.string.scene_sources_title)))
+            assertFalse("video picker stays blocked during LIVE", device.hasObject(text(R.string.scene_pick_video)))
+            assertFalse("image picker stays blocked during LIVE", device.hasObject(text(R.string.scene_pick_image)))
             click(device, R.string.scene_standby, "Standby screen")
             click(device, R.string.scene_standby_brb, "Be right back")
             if (find(device, text(R.string.scene_standby_ready), 10_000) == null) fail("standby scene; on screen: ${screen(device)}")
             report("scene: standby card")
             SystemClock.sleep(3_000)
-            click(device, R.string.scene_camera, "Camera scene")
+            clickScene(device, R.id.live_scene_image)
+            assertTrue("standby selection is accessible at the right end", device.findObject(resource(R.id.live_scene_image)).isSelected)
+            clickScene(device, R.id.live_scene_camera)
+            assertTrue("camera selected after standby", device.findObject(resource(R.id.live_scene_camera)).isSelected)
             SystemClock.sleep(3_000)
 
             report("cut: " + control("/cut"))
@@ -107,7 +131,19 @@ class WivraPhoneLiveJourneyInstrumentedTest {
 
             click(device, R.string.plive_stop, "Stop LIVE")
             if (find(device, text(R.string.plive_keep_title), 30_000) == null) fail("keep dialog; on screen: ${screen(device)}")
-            click(device, R.string.plive_keep_save, "Save video")
+            // Leave it private, recreate the screen, then recover it through the user-facing pending list.
+            val pending = WivraPhoneMediaStore.pendingVideos(context).firstOrNull { it.name !in pendingBefore && !WivraPhoneMediaStore.isWriting(it) }
+                ?: run { fail("finalized private copy offered for recovery"); return }
+            click(device, R.string.plive_later, "Keep private for later")
+            assertTrue("Later preserves the private MP4", pending.isFile && pending.length() > 0L)
+            device.pressBack()
+            context.startActivity(Intent(context, WivraPhoneLiveActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            click(device, R.string.plive_review_pending, "Recover pending video")
+            val recovered = find(device, By.textStartsWith(pending.name.take(58)), 10_000)
+                ?: run { fail("private copy available after reopening"); return }
+            recovered.click()
+            if (find(device, text(R.string.plive_keep_title), 30_000) == null) fail("recovered keep dialog")
+            click(device, R.string.plive_keep_save, "Save recovered video")
             if (find(device, text(R.string.plive_saved), 30_000) == null) fail("saved; on screen: ${screen(device)}")
 
             val saved = WivraPhoneMediaStore.latestSavedVideos(context).firstOrNull { it.uri.toString() !in savedBefore }

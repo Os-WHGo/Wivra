@@ -17,7 +17,7 @@ test('LIVE has a deliberate opt-out for local MP4 with explicit VOD and storage 
   assert.match(live, /startLive\(address, withAudio, saveCopy\)/);
   assert.match(live, /if \(saveCopy\) WivraPhoneMediaStore\.createPrivateVideo/);
   assert.match(live, /else null/);
-  assert.match(live, /if \(saveCopy && pending != null\) \{\s*publisher\.startRecord\(/);
+  assert.match(live, /if \(saveCopy && pending != null\) \{\s*WivraPhoneMediaStore\.markWriting\(pending\)\s*publisher\.startRecord\(/);
   assert.match(live, /publisher\.startStream\(address\)/);
   assert.match(live, /FLAG_SECURE/);
   assert.doesNotMatch(live, /putString\(.+key|Log\.[a-z]+\(.+address/);

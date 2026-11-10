@@ -7,6 +7,12 @@ package com.oswhgo.wivra
  * small layer are not offered here. — Claude
  */
 object WivraLiveScenes {
+    // File pickers leave this foreground-only publisher. Internal scene changes do not.
+    enum class SourceAction { PICK_VIDEO, PICK_IMAGE, STANDBY, MOVE_INSET, VIDEO_SOUND, REMOVE }
+    fun sourceActions(live: Boolean): List<SourceAction> = SourceAction.entries.filter {
+        !live || it in setOf(SourceAction.STANDBY, SourceAction.MOVE_INSET, SourceAction.VIDEO_SOUND)
+    }
+
     enum class Slot { BACKDROP, VIDEO, IMAGE }
     enum class Place { FULL, PIP, TOP_HALF, BOTTOM_HALF }
 
