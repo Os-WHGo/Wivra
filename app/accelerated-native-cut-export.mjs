@@ -1,6 +1,7 @@
 import {acceleratedCutEligibility,renderAcceleratedCuts}
   from './accelerated-cut-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
+import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-probe.mjs';
 
 // Explicit, experimental native-file path for the already supported cut-only
 // subset. This is NOT connected to recordProject or Wivra's default export UI.
@@ -8,7 +9,8 @@ import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 // A failed stream is aborted; no silent rerun or partial-file publication.
 export async function recordExperimentalNativeAcceleratedCuts({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
-  isCancelled=()=>false,estimatedBytes=0,onProgress=()=>{}
+  isCancelled=()=>false,estimatedBytes=0,onProgress=()=>{},
+  videoEncoder=globalThis.VideoEncoder,audioEncoder=globalThis.AudioEncoder
 }={}) {
   if (experimentalAccelerated !== true)
     throw new Error('Exportación acelerada nativa requiere autorización experimental explícita.');
@@ -58,6 +60,17 @@ export async function recordExperimentalNativeAcceleratedCuts({
   const container=avc?'mp4':'webm';
   if (host.platform==='ios'&&container!=='mp4')
     throw new Error('iPhone requiere MP4/H.264 y AAC para guardado acelerado.');
+  // Family selection by Mediabunny is not a device capability guarantee.
+  // Both video and the exact 96 kbps audio encoder must confirm support
+  // BEFORE native beginRandom opens a private incomplete media file.
+  const nativeCodecPlan={videoCodec:codec,
+    audioCodec:expectAudio?(container==='mp4'?'aac':'opus'):null,
+    container,hasAudio:expectAudio};
+  await verifyAcceleratedMobileCodecSupport({
+    platform:host.platform,codec:nativeCodecPlan,
+    width:selected.width,height:selected.height,fps:30,sampleRate:48000,
+    videoBitrate:2_000_000,audioBitrate:96_000,videoEncoder,audioEncoder
+  });
   if (isCancelled()) throw new Error('Exportación acelerada cancelada durante codec preflight.');
   const mime=container==='mp4'?'video/mp4':'video/webm';
   const sink=createAcceleratedNativeSink(host,{
@@ -70,7 +83,7 @@ export async function recordExperimentalNativeAcceleratedCuts({
       M,sourceUrl:selected.sourceUrl,cuts:selected.cuts,
       width:selected.width,height:selected.height,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes),
-      expectedAudio:expectAudio,isCancelled
+      expectedAudio:expectAudio,isCancelled,nativeCodecPlan
     });
     if (stats.container!==container || stats.audioCodec!==
         (expectAudio?(container==='mp4'?'aac':'opus'):null) ||
