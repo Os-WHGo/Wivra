@@ -9,6 +9,10 @@ const project=()=>({
   overlayClips:[],audioClips:[],texts:[],format:{aspect:'original'}
 });
 const media={v:{kind:'video',url:'blob:sample',w:320,h:240}};
+const supportedCodecProbes={
+ videoEncoder:{isConfigSupported:async config=>({supported:true,config})},
+ audioEncoder:{isConfigSupported:async config=>({supported:true,config})}
+};
 
 function mockM({audio=false,firstCodec='avc',aac=true}={}) {
   let disposals=0,cancelled=0;
@@ -76,12 +80,12 @@ test('experimental native writer requires explicit consent and cuts-only parity 
     project:project(),media,M:mockM(),host,expectAudio:false
   }),/autorización experimental/);
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
-    project:project(),media,M:mockM(),host,experimentalAccelerated:true
+    project:project(),media,M:mockM(),host,experimentalAccelerated:true,...supportedCodecProbes
   }),/declararse explícitamente/);
   const multi=project();multi.audioClips.push({id:'music'});
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
     project:multi,media,M:mockM(),host,expectAudio:false,
-    experimentalAccelerated:true
+    experimentalAccelerated:true,...supportedCodecProbes
   }),/other-tracks/);
   assert.deepEqual(host.ops,[]);
 });
@@ -90,13 +94,13 @@ test('codec audio preflight fails closed before a native file exists',async()=>{
   const host=native(),M=mockM({audio:true});
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
     project:project(),media,M,host,expectAudio:false,
-    experimentalAccelerated:true
+    experimentalAccelerated:true,...supportedCodecProbes
   }),/pista de audio/);
   assert.equal(M.disposals,1,'track probe decoder must close after rejection');
   const ios=native({platform:'ios'});
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
     project:project(),media,M:mockM({firstCodec:'vp8'}),host:ios,
-    expectAudio:false,experimentalAccelerated:true
+    expectAudio:false,experimentalAccelerated:true,...supportedCodecProbes
   }),/iPhone requiere MP4/);
   assert.deepEqual(host.ops,[]);
   assert.deepEqual(ios.ops,[]);
@@ -111,7 +115,7 @@ test('experimental cut-only renderer drives bounded v2 random writes and verifie
   try {
     const result=await recordExperimentalNativeAcceleratedCuts({
       project:project(),media,M,host,expectAudio:false,
-      experimentalAccelerated:true,
+      experimentalAccelerated:true,...supportedCodecProbes,
       onProgress(){throw Error('stale UI observer');}
     });
     assert.equal(M.disposals,2,'preflight and render decoder must both close');
@@ -132,7 +136,7 @@ test('failed cut preflight disposes decoder and never opens native media file',a
  };
  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
   project:project(),media,M,host,expectAudio:false,
-  experimentalAccelerated:true
+  experimentalAccelerated:true,...supportedCodecProbes
  }),/decoder track probe interrupted/);
  assert.equal(M.disposals,1);
  assert.deepEqual(host.ops,[]);
@@ -147,10 +151,61 @@ test('failed cut rendering cancels encoder, releases both sources and aborts onl
  try{
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
    project:project(),media,M,host,expectAudio:false,
-   experimentalAccelerated:true
+   experimentalAccelerated:true,...supportedCodecProbes
   }),/video decode failed/);
   assert.equal(M.disposals,2);
   assert.equal(M.cancelled,1);
   assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
  }finally{globalThis.document=prior;}
+});
+
+test('mobile cut export rejects missing or downgraded video codec before opening v2 file',async()=>{
+ for(const videoEncoder of [
+  null,
+  {isConfigSupported:async()=>({supported:false})},
+  {isConfigSupported:async c=>({supported:true,config:{...c,framerate:24}})}
+ ]) {
+  const host=native(),M=mockM();
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,...supportedCodecProbes,videoEncoder
+  }),/Preflight WebCodecs móvil/);
+  assert.equal(M.disposals,1);
+  assert.deepEqual(host.ops,[]);
+ }
+});
+
+test('mobile cut preflight confirms 96kbps AAC stereo and rejects incompatible audio configuration',async()=>{
+ const host=native(),M=mockM({audio:true});
+ const captured=[];
+ const audioEncoder={isConfigSupported:async c=>{
+  captured.push(c);
+  return {supported:true,config:{...c,numberOfChannels:1}};
+ }};
+ await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+  project:project(),media,M,host,expectAudio:true,
+  experimentalAccelerated:true,...supportedCodecProbes,audioEncoder
+ }),/Preflight WebCodecs móvil/);
+ assert.equal(captured.length,1);
+ assert.equal(captured[0].bitrate,96000);
+ assert.equal(captured[0].numberOfChannels,2);
+ assert.equal(M.disposals,1);
+ assert.deepEqual(host.ops,[]);
+});
+
+test('changing codec between probe and render aborts temporary output instead of publishing a wrong format',async()=>{
+ const host=native(),M=mockM(),prev=globalThis.document;
+ let probes=0;
+ M.getFirstEncodableVideoCodec=async()=>++probes===1?'avc':'vp9';
+ globalThis.document={createElement(){return {
+  getContext(){return {drawImage(){}};}
+ };}};
+ try{
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,...supportedCodecProbes
+  }),/difieren del preflight nativo/);
+  assert.equal(M.disposals,2);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+ }finally{globalThis.document=prev;}
 });
