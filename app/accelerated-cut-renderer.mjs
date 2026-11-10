@@ -93,7 +93,7 @@ export async function renderAcceleratedCuts({
   if (isCancelled()) throw new Error('Accelerated export cancelled.');
   const writer = checkedRandomWrite(writeAt);
   const input = new M.Input({ source: new M.UrlSource(sourceUrl), formats: M.ALL_FORMATS });
-  let output;
+  let output, finalized=false;
   try {
     const video = await input.getPrimaryVideoTrack();
     const audio = await input.getPrimaryAudioTrack();
@@ -179,12 +179,17 @@ export async function renderAcceleratedCuts({
     if (hasAudio && !audioBuffers) throw new Error('Audio decoding yielded no samples.');
     if (isCancelled()) throw new Error('Accelerated export cancelled.');
     await output.finalize();
+    finalized=true;
     return { engine: 'webcodecs-mediabunny', container, videoCodec: chosenCodec,
       audioCodec, durationSeconds: position, frames, audioBuffers,
       writes: writer.writes, outputBytes: writer.highWaterBytes };
-  } catch (error) {
-    // Caller MUST abort its new random-access temporary file on any failure.
-    // Never auto-publish partial MP4 or fall back after native writer opened.
-    throw error;
+  } finally {
+    // The cut path must release its decoder, just like the multitrack path.
+    // On encoder failure, release the writable before the native caller
+    // aborts the temporary file. Never delete any user original.
+    if (!finalized && typeof output?.cancel === 'function') {
+      try { await output.cancel(); } catch { /* native abort still follows */ }
+    }
+    try { await input.dispose?.(); } catch { /* cleanup is best-effort */ }
   }
 }
