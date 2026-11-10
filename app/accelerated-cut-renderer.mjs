@@ -12,6 +12,10 @@
 import {mobileCodecConfig} from './accelerated-native-codec-probe.mjs';
 
 export const ACCELERATED_CUT_RENDERER_VERSION = 1;
+// Encoded cuts must cover their authored source intervals. Tolerate a few
+// milliseconds of frame timestamp rounding/keyframe seeking, not long black
+// or frozen gaps silently emitted by a partially decoded video track.
+export const ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS = 0.1;
 
 export function acceleratedCutEligibility(project, media, { maxSeconds = 120, maxCuts = 80,
   loudnessGainDb = 0 } = {}) {
@@ -168,21 +172,29 @@ export async function renderAcceleratedCuts({
     let position = 0, frames = 0, audioBuffers = 0;
     for (const cut of cuts) {
       if (isCancelled()) throw new Error('Accelerated export cancelled.');
-      let cutFrames = 0;
+      let cutFrames = 0, coveredThrough = cut.in;
       for await (const wc of videoSink.canvases(cut.in, cut.out)) {
         if (isCancelled()) throw new Error('Accelerated export cancelled.');
+        if (!Number.isFinite(wc?.timestamp) || !Number.isFinite(wc.duration) ||
+            wc.duration<=0)
+          throw new Error('Invalid decoded cut video timestamp or duration.');
         const s = Math.max(wc.timestamp, cut.in);
         const e = Math.min(wc.timestamp + wc.duration, cut.out);
         if (!(e > s)) continue;
+        if (s-coveredThrough > ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+          throw new Error('Decoded cut video contains an uncovered frame gap.');
         g.drawImage(wc.canvas, 0, 0, width, height);
         if (label) {
           g.fillStyle = '#fff'; g.font = '700 28px sans-serif';
           g.textAlign = 'center'; g.fillText(label, width / 2, height - 30);
         }
         await videoSource.add(position + s - cut.in, e - s);
+        coveredThrough=Math.max(coveredThrough,e);
         frames++; cutFrames++;
       }
       if (!cutFrames) throw new Error('Source cut produced no video frames.');
+      if (cut.out-coveredThrough > ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+        throw new Error('Decoded cut video ends before its authored out point.');
       if (audioSink) {
         for await (const wb of audioSink.buffers(cut.in, cut.out)) {
           if (isCancelled()) throw new Error('Accelerated export cancelled.');
