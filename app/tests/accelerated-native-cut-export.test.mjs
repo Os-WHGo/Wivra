@@ -11,9 +11,11 @@ const project=()=>({
 const media={v:{kind:'video',url:'blob:sample',w:320,h:240}};
 
 function mockM({audio=false,firstCodec='avc',aac=true}={}) {
+  let disposals=0,cancelled=0;
   class Input {
     async getPrimaryVideoTrack(){return {};}
     async getPrimaryAudioTrack(){return audio?{}:null;}
+    async dispose(){disposals++;}
   }
   class CanvasSink {
     async *canvases(from,to){yield {timestamp:from,duration:to-from,canvas:{}};}
@@ -24,6 +26,7 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
     constructor({target}){this.target=target;}
     addVideoTrack(){}
     async start(){}
+    async cancel(){cancelled++;}
     async finalize(){
       const w=this.target.writable.getWriter();
       await w.write({position:0,data:Uint8Array.from([0,0,0,16,102,116,121,112])});
@@ -32,6 +35,7 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
     }
   }
   return {
+    get disposals(){return disposals;},get cancelled(){return cancelled;},
     Input,UrlSource:class {},ALL_FORMATS:[],CanvasSink,CanvasSource,
     StreamTarget,Output,Mp4OutputFormat:class{},WebMOutputFormat:class{},
     getFirstEncodableVideoCodec:async list=>list.includes(firstCodec)?firstCodec:null,
@@ -83,11 +87,12 @@ test('experimental native writer requires explicit consent and cuts-only parity 
 });
 
 test('codec audio preflight fails closed before a native file exists',async()=>{
-  const host=native();
+  const host=native(),M=mockM({audio:true});
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
-    project:project(),media,M:mockM({audio:true}),host,expectAudio:false,
+    project:project(),media,M,host,expectAudio:false,
     experimentalAccelerated:true
   }),/pista de audio/);
+  assert.equal(M.disposals,1,'track probe decoder must close after rejection');
   const ios=native({platform:'ios'});
   await assert.rejects(recordExperimentalNativeAcceleratedCuts({
     project:project(),media,M:mockM({firstCodec:'vp8'}),host:ios,
@@ -98,20 +103,54 @@ test('codec audio preflight fails closed before a native file exists',async()=>{
 });
 
 test('experimental cut-only renderer drives bounded v2 random writes and verified finish',async()=>{
-  const host=native();
+  const host=native(),M=mockM();
   const prev=globalThis.document;
   globalThis.document={createElement(){
     return {width:0,height:0,getContext(){return {drawImage(){}};}};
   }};
   try {
     const result=await recordExperimentalNativeAcceleratedCuts({
-      project:project(),media,M:mockM(),host,expectAudio:false,
-      experimentalAccelerated:true
+      project:project(),media,M,host,expectAudio:false,
+      experimentalAccelerated:true,
+      onProgress(){throw Error('stale UI observer');}
     });
+    assert.equal(M.disposals,2,'preflight and render decoder must both close');
+    assert.equal(M.cancelled,0,'completed encoder must not be canceled');
     assert.equal(result.mime,'video/mp4');
     assert.equal(result.verifiedNative,true);
     assert.equal(result.verifiedOnDevice,false);
     assert.equal(result.render.writes,2);
     assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
   }finally{globalThis.document=prev;}
+});
+
+test('failed cut preflight disposes decoder and never opens native media file',async()=>{
+ const M=mockM(),host=native();
+ const Base=M.Input;
+ M.Input=class extends Base {
+  async getPrimaryVideoTrack(){throw Error('decoder track probe interrupted');}
+ };
+ await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+  project:project(),media,M,host,expectAudio:false,
+  experimentalAccelerated:true
+ }),/decoder track probe interrupted/);
+ assert.equal(M.disposals,1);
+ assert.deepEqual(host.ops,[]);
+});
+
+test('failed cut rendering cancels encoder, releases both sources and aborts only new partial',async()=>{
+ const M=mockM(),host=native(),prior=globalThis.document;
+ M.CanvasSink=class {async *canvases(){throw Error('video decode failed');}};
+ globalThis.document={createElement(){return {
+  getContext(){return {drawImage(){}};}
+ };}};
+ try{
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true
+  }),/video decode failed/);
+  assert.equal(M.disposals,2);
+  assert.equal(M.cancelled,1);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+ }finally{globalThis.document=prior;}
 });
