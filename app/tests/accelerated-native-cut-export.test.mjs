@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {recordExperimentalNativeAcceleratedCuts}
   from '../accelerated-native-cut-export.mjs';
+import {planAcceleratedStorageReservation} from '../accelerated-storage-budget.mjs';
 
 const project=()=>({
   clips:[{id:'c',asset_id:'v',start:0,in:0,out:0.5,volume:1}],
@@ -15,8 +16,9 @@ const supportedCodecProbes={
 };
 
 function mockM({audio=false,firstCodec='avc',aac=true}={}) {
-  let disposals=0,cancelled=0;
+  let disposals=0,cancelled=0,allocations=0;
   class Input {
+    constructor(){allocations++;}
     async getPrimaryVideoTrack(){return {};}
     async getPrimaryAudioTrack(){return audio?{}:null;}
     async dispose(){disposals++;}
@@ -40,6 +42,7 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
   }
   return {
     get disposals(){return disposals;},get cancelled(){return cancelled;},
+    get allocations(){return allocations;},
     Input,UrlSource:class {},ALL_FORMATS:[],CanvasSink,CanvasSource,
     StreamTarget,Output,Mp4OutputFormat:class{},WebMOutputFormat:class{},
     getFirstEncodableVideoCodec:async list=>list.includes(firstCodec)?firstCodec:null,
@@ -49,13 +52,18 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
 
 function native({platform='android'}={}) {
   let bytes=new Uint8Array(0),maxEnd=0,writes=0;
-  const ops=[];
+  const ops=[],reservations=[];
   const host={
-    platform,ops,
+    platform,ops,reservations,
     async request({op,...params}){
       ops.push(op);
       if(op==='helloRandom')return {protocol:2,randomWrite:true};
-      if(op==='beginRandom')return {token:56};
+      if(op==='beginRandom'){
+        reservations.push(params.estimatedBytes);
+        if(!Number.isSafeInteger(params.estimatedBytes) || params.estimatedBytes<=0)
+          throw Error('Native protocol v2 refuses an empty storage reservation');
+        return {token:56};
+      }
       if(op==='abortRandom')return {ok:true};
       if(op==='finishRandom')return {
         verified:true,bytes:maxEnd,
@@ -124,6 +132,11 @@ test('experimental cut-only renderer drives bounded v2 random writes and verifie
     assert.equal(result.verifiedNative,true);
     assert.equal(result.verifiedOnDevice,false);
     assert.equal(result.render.writes,2);
+    const budget=planAcceleratedStorageReservation({
+      seconds:.5,width:320,height:240,fps:30
+    });
+    assert.deepEqual(host.reservations,[budget.estimatedBytes]);
+    assert.ok(budget.estimatedBytes>0);
     assert.deepEqual(host.ops,['helloRandom','beginRandom','finishRandom']);
   }finally{globalThis.document=prev;}
 });
@@ -236,4 +249,50 @@ test('real cut encoder configuration mismatch aborts partial instead of publishi
   assert.equal(M.cancelled,1,'created Output is cancelled when encoder setup rejects');
   assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
  }finally{globalThis.document=prior;}
+});
+
+
+test('manual zero or insufficient storage estimate is rejected before decoding or native begin',async()=>{
+ const minimum=planAcceleratedStorageReservation({
+  seconds:.5,width:320,height:240,fps:30
+ }).estimatedBytes;
+ for(const estimatedBytes of [0,1,minimum-1,-1,Infinity,16*1024**3+1]){
+  const host=native(),M=mockM();
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   estimatedBytes,experimentalAccelerated:true,...supportedCodecProbes
+  }),/Reserva manual/);
+  assert.equal(M.allocations,0);
+  assert.deepEqual(host.ops,[]);
+ }
+});
+
+test('explicit sufficient reserve is passed unchanged to native v2',async()=>{
+ const host=native(),M=mockM(),old=globalThis.document;
+ const min=planAcceleratedStorageReservation({
+  seconds:.5,width:320,height:240,fps:30
+ }).estimatedBytes;
+ globalThis.document={createElement(){return {
+  getContext(){return {drawImage(){}};}
+ };}};
+ try {
+  const result=await recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   estimatedBytes:min+4096,experimentalAccelerated:true,...supportedCodecProbes
+  });
+  assert.equal(result.saved.verified,true);
+  assert.deepEqual(host.reservations,[min+4096]);
+  assert.equal(M.disposals,2);
+ }finally{globalThis.document=old;}
+});
+
+test('unsafe dimensions fail before opening codec probe or allocating native session',async()=>{
+ const huge=project(),oversized={...media,v:{...media.v,w:8192,h:8192}};
+ const host=native(),M=mockM();
+ await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+  project:huge,media:oversized,M,host,expectAudio:false,
+  experimentalAccelerated:true,...supportedCodecProbes
+ }),/Parámetros de reserva acelerada/);
+ assert.equal(M.allocations,0);
+ assert.deepEqual(host.ops,[]);
 });
