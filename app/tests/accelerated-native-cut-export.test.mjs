@@ -233,7 +233,7 @@ test('real cut encoder configuration mismatch aborts partial instead of publishi
    experimentalAccelerated:true,...supportedCodecProbes
   }),/configuración del codificador de corte no coincide/);
   assert.equal(M.disposals,2);
-  assert.equal(M.cancelled,0,'encoder was rejected before Output was created');
+  assert.equal(M.cancelled,1,'created Output is cancelled when encoder setup rejects');
   assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
  }finally{globalThis.document=prior;}
 });
