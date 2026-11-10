@@ -293,13 +293,37 @@ export async function prepareAcceleratedMultitrack({
       width,height,hasAudio:audible.length>0,platform
     });
     return {ledger,project,media,M,used,audible,width,height,codec,
-      totalSeconds:ledger.totalSeconds,platform,longSoakQA};
+      totalSeconds:ledger.totalSeconds,platform,longSoakQA,longForm};
   } catch(error) {
     for(const item of used.values()) {
       try{await item.input?.dispose?.();}catch{}
     }
     throw error;
   }
+}
+
+/** Frame budget shared by short exports and explicitly enabled 60-minute modes.
+ * Never permit a long native render from a QA-only or absent longForm flag.
+ * The limit scales with the chosen FPS, not a fixed 60fps multiplier.
+ */
+export function acceleratedRenderFrameBudget({
+  totalSeconds,fps,platform,longForm=false,longSoakQA=false
+}={}) {
+  if(!Number.isFinite(totalSeconds)||totalSeconds<=0||
+     !Number.isSafeInteger(fps)||fps<12||fps>60 ||
+     !['android','ios','qa'].includes(platform) ||
+     typeof longForm!=='boolean'||typeof longSoakQA!=='boolean' ||
+     (longForm && (!['android','ios'].includes(platform)||longSoakQA)) ||
+     (longSoakQA && platform!=='qa'))
+    deny('invalid native render frame budget');
+  const horizonSeconds=longForm?ACCELERATED_NATIVE_LONG_MAX_SECONDS:
+    longSoakQA?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS:
+    ACCELERATED_MULTITRACK_MAX_SECONDS;
+  const framesTotal=Math.ceil(totalSeconds*fps);
+  const maxFrames=horizonSeconds*fps;
+  if(totalSeconds>horizonSeconds || framesTotal>maxFrames)
+    deny('frame limit');
+  return {framesTotal,maxFrames,horizonSeconds};
 }
 
 const renderedPreparations=new WeakSet();
@@ -349,11 +373,13 @@ async function renderPreparedMultitrack({
        (expected.avc && config.avc?.format!==expected.avc.format))
       deny('actual '+kind+' encoder differs from native codec preflight');
   };
-  const framesTotal=Math.ceil(totalSeconds*fps);
-  const maxFrames=(prepared.longSoakQA&&prepared.platform==='qa'
-    ?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS
-    :ACCELERATED_MULTITRACK_MAX_SECONDS)*60+1;
-  if(framesTotal>maxFrames)deny('frame limit');
+  // Validate the *prepared* mode, not only the interactive preflight UI.
+  // Long-form 10/30/60 min was previously accepted in prepare(), but render()
+  // used the short 180-second frame cap and rejected real phone exports.
+  const {framesTotal}=acceleratedRenderFrameBudget({
+    totalSeconds,fps,platform:prepared.platform,
+    longForm:prepared.longForm,longSoakQA:prepared.longSoakQA
+  });
   const writer=checkedRandomWrite(writeAt,{maxChunkBytes:1024*1024});
   let output,finalized=false;
   try {
