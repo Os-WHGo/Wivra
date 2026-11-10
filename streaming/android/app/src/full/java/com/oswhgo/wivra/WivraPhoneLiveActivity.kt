@@ -26,6 +26,7 @@ import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.CameraCallbacks
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.rtmp.RtmpStream
@@ -77,6 +78,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private var pendingFile: File? = null
     private var saveLocalCopy = false
     private var localCopyFinalized = false
+    private var hostStarted = false
+    @Volatile private var cameraFrameReady = false
     private var prepared = false
     private var stopping = false
     private var liveRequested = false
@@ -268,6 +271,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         startButton = Button(this).apply {
             text = getString(R.string.plive_prepare)
+            isEnabled = false
             setOnClickListener { requestLive() }
         }
         stopButton = Button(this).apply {
@@ -304,18 +308,32 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         screen.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
             (resources.displayMetrics.heightPixels * 0.38f).toInt()))
-        screen.addView(android.widget.ScrollView(this).apply { addView(root) },
+        screen.addView(android.widget.ScrollView(this).apply {
+            id = R.id.live_controls_scroll
+            isFillViewport = true
+            addView(root)
+        },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(screen)
         // W83 (Claude): Wivra button look; texts and states unchanged.
         WivraUi.styleAll(screen)
         WivraUi.primary(startButton)
+        // The shared style uses 44dp. LIVE controls need a 48dp touch target even at large font sizes.
+        fun accessibleTargets(view: android.view.View) {
+            if (view is Button) view.minimumHeight = (48 * resources.displayMetrics.density).toInt()
+            if (view is ViewGroup) for (i in 0 until view.childCount) accessibleTargets(view.getChildAt(i))
+        }
+        accessibleTargets(screen)
         updateStorageHint()
         preview.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 // Surface creation can occur AFTER preparePreview(): refresh the user-visible state.
-                val opened = if (prepared && !stopping && stream?.isOnPreview != true) {
-                    runCatching { stream?.startPreview(preview); scenes.reattach() }.isSuccess
+                val opened = if (hostStarted && prepared && !stopping && stream?.isOnPreview != true) {
+                    runCatching {
+                        stream?.startPreview(preview)
+                        // While recording/publishing, stopPreview only detaches the display; GL filters survive.
+                        if (!initiatedByUser) scenes.reattach()
+                    }.isSuccess
                 } else true
                 if (opened) {
                     refreshPreviewReadiness()
@@ -324,6 +342,8 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                     preview.postDelayed({ refreshPreviewReadiness() }, 400L)
                     preview.postDelayed({ refreshPreviewReadiness() }, 1_500L)
                 } else {
+                    cameraFrameReady = false
+                    runCatching { stream?.stopPreview() }
                     startButton.isEnabled = false
                     setStatus(getString(R.string.plive_camera_open_failed))
                 }
@@ -338,7 +358,10 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 }
             }
             override fun surfaceDestroyed(holder: SurfaceHolder) {
-                if (!initiatedByUser) startButton.isEnabled = false
+                if (!initiatedByUser) {
+                    cameraFrameReady = false
+                    startButton.isEnabled = false
+                }
                 runCatching { if (stream?.isOnPreview == true) stream?.stopPreview() }
                 if (prepared && !initiatedByUser && !stopping && !mediaBusy) {
                     setStatus(getString(R.string.plive_preview_waiting))
@@ -384,6 +407,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             stopAndReview()
             return
         }
+        pendingFile?.let { WivraPhoneMediaStore.doneWriting(it) }
         saveLocalCopy = false
         if (publisher.isStreaming) {
             setStatus(if (closed)
@@ -400,6 +424,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         if (!prepared || stopping || mediaBusy || isFinishing || isDestroyed) return
         val source = cameraVideoSource ?: return
         try {
+            cameraFrameReady = false
             source.switchCamera()
             val side = getString(if (source.getCameraFacing() == CameraHelper.Facing.FRONT)
                 R.string.plive_side_front else R.string.plive_side_back)
@@ -420,7 +445,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         val publisher = stream ?: return false
         return prepared && !stopping && !isFinishing &&
             checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
-            preview.holder.surface.isValid && publisher.isOnPreview
+            preview.holder.surface.isValid && publisher.isOnPreview && hostStarted && cameraFrameReady
     }
 
     // A valid surface and a running preview are mandatory. An initialized encoder alone
@@ -428,6 +453,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     private fun refreshPreviewReadiness() {
         if (!prepared || stopping || initiatedByUser || mediaBusy || isFinishing ||
             isDestroyed || !::startButton.isInitialized) return
+        if (!hostStarted) return
         val ready = cameraReadyForLive()
         startButton.isEnabled = ready
         setStatus(getString(if (ready) R.string.plive_preview_ready else R.string.plive_preview_waiting))
@@ -440,6 +466,21 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             // or selects video-only LIVE. NoAudioSource is an actual no-op
             // source; RootEncoder starts its audioSource during encoding.
             val source = Camera2Source(applicationContext)
+            // isOnPreview is set before Camera2 opens. Wait for a capture completion too.
+            source.setCustomOnCaptureCompletedCallback { _, _, _ ->
+                if (!cameraFrameReady) runOnUiThread {
+                    if (cameraVideoSource === source && hostStarted && !cameraFrameReady) {
+                        cameraFrameReady = true
+                        refreshPreviewReadiness()
+                    }
+                }
+            }
+            source.setCameraCallback(object : CameraCallbacks {
+                override fun onCameraChanged(facing: CameraHelper.Facing) { }
+                override fun onCameraOpened() { }
+                override fun onCameraError(error: String) = cameraLost(source)
+                override fun onCameraDisconnected() = cameraLost(source)
+            })
             val publisher = RtmpStream(
                 applicationContext, this,
                 source, NoAudioSource()
@@ -458,7 +499,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             prepared = true
             flipCameraButton.isEnabled = true
             scenes.bind(publisher)
-            if (preview.holder.surface.isValid) {
+            if (hostStarted && preview.holder.surface.isValid) {
                 publisher.startPreview(preview)
                 scenes.reattach()
             }
@@ -473,6 +514,16 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
             flipCameraButton.isEnabled = false
             runCatching { stream?.release() }
             stream = null
+            setStatus(getString(R.string.plive_camera_open_failed))
+        }
+    }
+
+    private fun cameraLost(source: Camera2Source) {
+        runOnUiThread {
+            if (cameraVideoSource !== source || !hostStarted || isDestroyed) return@runOnUiThread
+            cameraFrameReady = false
+            if (initiatedByUser) stopAndReview()
+            startButton.isEnabled = false
             setStatus(getString(R.string.plive_camera_open_failed))
         }
     }
@@ -613,13 +664,16 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         }
         try {
             if (saveCopy && pending != null) {
+                WivraPhoneMediaStore.markWriting(pending)
                 publisher.startRecord(
                     pending.absolutePath,
                     if (withAudio) RecordController.RecordTracks.ALL
                         else RecordController.RecordTracks.VIDEO
                 ) { newStatus ->
-                    if (newStatus == RecordController.Status.RECORDING) {
-                        setStatus(getString(R.string.plive_copy_active_connecting))
+                    if (newStatus == RecordController.Status.RECORDING) runOnUiThread {
+                        if (initiatedByUser && liveRequested && !connected && !stopping) {
+                            setStatus(getString(R.string.plive_copy_active_connecting))
+                        }
                     }
                 }
             }
@@ -661,6 +715,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 stopAndReview()
             } else {
                 // Only delete a zero-byte private file from a failed start.
+                pending?.let { WivraPhoneMediaStore.doneWriting(it) }
                 if (pending?.length() == 0L) pending.delete()
                 pendingFile = null
                 saveLocalCopy = false
@@ -705,6 +760,14 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
                 true
             }.getOrDefault(false)
         } else alreadyFinalized
+        if (publisher?.isRecording == true) {
+            // A failed close must not expose an active MP4 to recovery/save/delete.
+            pendingFile = file
+            stopping = false
+            setStatus(getString(R.string.plive_copy_stop_failed))
+            return
+        }
+        file?.let { WivraPhoneMediaStore.doneWriting(it) }
         saveLocalCopy = false
         initiatedByUser = false
         stopping = false
@@ -722,7 +785,7 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     private fun verifiedMp4(file: File): Boolean {
         // The private phone folder is checked by the existing storage authority.
-        if (!WivraPhoneMediaStore.isWivraPrivate(this, file)) return false
+        if (!WivraPhoneMediaStore.isWivraPrivate(this, file) || WivraPhoneMediaStore.isWriting(file)) return false
         return WivraCaptureMediaVerifier.verifyFile(file, file.parentFile!!).valid
     }
 
@@ -798,62 +861,79 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
     }
 
     override fun onConnectionStarted(url: String) {
-        // url includes the stream key. Do not log, display, persist or forward.
-        setStatus(getString(R.string.plive_connecting))
-    }
-    override fun onConnectionSuccess() {
-        if (!liveRequested || !initiatedByUser || stopping) return
-        connected = true
-        reconnect.connected()
-        setStatus(if (saveLocalCopy)
-            getString(R.string.plive_on_air_with_copy)
-            else getString(R.string.plive_on_air_without_copy)
-        )
-    }
-    override fun onConnectionFailed(reason: String) {
-        // Some servers embed the full key in error messages.
-        if (stopping || !liveRequested) return
-        // W75: retry with the address RootEncoder already holds; the local
-        // MP4 copy keeps recording meanwhile. `reason` is never shown/logged.
-        val delay = reconnect.nextDelayMs()
-        if (delay != null && runCatching { stream?.getStreamClient()?.reTry(delay, reason) == true }.getOrDefault(false)) {
-            connected = false
-            setStatus(getString(if (saveLocalCopy) R.string.plive_reconnect_with_copy else R.string.plive_reconnect,
-                reconnect.attempt, WivraLiveReconnect.DELAYS_S.size, (delay / 1000).toInt()))
-            return
+        runOnUiThread {
+            if (!liveRequested || !initiatedByUser || stopping) return@runOnUiThread
+            // url includes the stream key. Do not log, display, persist or forward.
+            setStatus(getString(R.string.plive_connecting))
         }
-        liveRequested = false
-        connected = false
-        runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus(when {
-            saveLocalCopy -> getString(R.string.plive_failed_copy_continues)
-            pendingFile != null -> getString(R.string.plive_failed_copy_pending)
-            else -> getString(R.string.plive_failed_no_copy)
-        })
     }
-    override fun onDisconnect() {
-        if (!stopping && initiatedByUser) {
-            liveRequested = false
-            connected = false
+
+    override fun onConnectionSuccess() {
+        runOnUiThread {
+            if (!liveRequested || !initiatedByUser || stopping) return@runOnUiThread
+            connected = true
+            reconnect.connected()
             setStatus(if (saveLocalCopy)
-                getString(R.string.plive_disconnected_with_copy)
-                else getString(R.string.plive_disconnected_without_copy)
+                getString(R.string.plive_on_air_with_copy)
+                else getString(R.string.plive_on_air_without_copy)
             )
         }
     }
+
+    override fun onConnectionFailed(reason: String) {
+        runOnUiThread {
+            // Some servers embed the full key in error messages.
+            if (stopping || !liveRequested) return@runOnUiThread
+            // W75: retry with the address RootEncoder already holds; the local
+            // MP4 copy keeps recording meanwhile. `reason` is never shown/logged.
+            val delay = reconnect.nextDelayMs()
+            if (delay != null && runCatching { stream?.getStreamClient()?.reTry(delay, reason) == true }.getOrDefault(false)) {
+                connected = false
+                setStatus(getString(if (saveLocalCopy) R.string.plive_reconnect_with_copy else R.string.plive_reconnect,
+                    reconnect.attempt, WivraLiveReconnect.DELAYS_S.size, (delay / 1000).toInt()))
+                return@runOnUiThread
+            }
+            liveRequested = false
+            connected = false
+            runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
+            setStatus(when {
+                saveLocalCopy -> getString(R.string.plive_failed_copy_continues)
+                pendingFile != null -> getString(R.string.plive_failed_copy_pending)
+                else -> getString(R.string.plive_failed_no_copy)
+            })
+        }
+    }
+
+    override fun onDisconnect() {
+        runOnUiThread {
+            if (!stopping && initiatedByUser && liveRequested && stream?.isStreaming != true) {
+                liveRequested = false
+                connected = false
+                setStatus(if (saveLocalCopy)
+                    getString(R.string.plive_disconnected_with_copy)
+                    else getString(R.string.plive_disconnected_without_copy)
+                )
+            }
+        }
+    }
+
     override fun onAuthError() {
-        if (stopping) return
-        liveRequested = false
-        connected = false
-        runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
-        setStatus(if (saveLocalCopy)
-            getString(R.string.plive_auth_with_copy)
-            else getString(R.string.plive_auth_without_copy)
-        )
+        runOnUiThread {
+            if (stopping || !liveRequested || !initiatedByUser) return@runOnUiThread
+            liveRequested = false
+            connected = false
+            runCatching { if (stream?.isStreaming == true) stream?.stopStream() }
+            setStatus(if (saveLocalCopy)
+                getString(R.string.plive_auth_with_copy)
+                else getString(R.string.plive_auth_without_copy)
+            )
+        }
     }
     override fun onAuthSuccess() { /* Never expose credentials. */ }
 
     override fun onStop() {
+        hostStarted = false
+        cameraFrameReady = false
         if (audioCallbackRegistered) {
             audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
             audioCallbackRegistered = false
@@ -873,13 +953,24 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
 
     override fun onStart() {
         super.onStart()
+        hostStarted = true
         if (!audioCallbackRegistered) {
             audioManager.registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))
             audioCallbackRegistered = true
         }
         if (prepared && !isFinishing && preview.holder.surface.isValid &&
             stream?.isOnPreview != true) {
-            runCatching { stream?.startPreview(preview); scenes.reattach() }
+            runCatching {
+                stream?.startPreview(preview)
+                if (!initiatedByUser) scenes.reattach()
+            }
+                .onFailure {
+                    cameraFrameReady = false
+                    runCatching { stream?.stopPreview() }
+                    startButton.isEnabled = false
+                    setStatus(getString(R.string.plive_camera_open_failed))
+                    return
+                }
         }
         refreshPreviewReadiness()
     }
@@ -893,7 +984,9 @@ class WivraPhoneLiveActivity : ComponentActivity(), ConnectChecker {
         if (initiatedByUser || stream?.isStreaming == true ||
             stream?.isRecording == true) stopAndReview()
         if (::scenes.isInitialized) scenes.release()
-        runCatching { stream?.release() }
+        val activeFile = pendingFile
+        val released = runCatching { stream?.release() }.isSuccess
+        if (released) activeFile?.let { WivraPhoneMediaStore.doneWriting(it) }
         stream = null
         cameraVideoSource = null
         prepared = false

@@ -1,6 +1,7 @@
 package com.oswhgo.wivra
 
 import android.app.AlertDialog
+import android.view.ViewGroup
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ImageDecoder
@@ -94,6 +95,14 @@ class WivraLiveSceneController(
         val row = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         for (p in WivraLiveScenes.PRESETS) {
             val b = Button(activity).apply {
+                id = when (p.id) {
+                    "camera" -> R.id.live_scene_camera
+                    "camera-video" -> R.id.live_scene_camera_video
+                    "split" -> R.id.live_scene_split
+                    "video" -> R.id.live_scene_video
+                    "camera-image" -> R.id.live_scene_camera_image
+                    else -> R.id.live_scene_image
+                }
                 text = sceneLabel(p.id)
                 minHeight = (48 * resources.displayMetrics.density).toInt()
                 setOnClickListener { select(p.id) }
@@ -101,8 +110,13 @@ class WivraLiveSceneController(
             buttons[p.id] = b
             row.addView(b)
         }
-        addView(HorizontalScrollView(activity).apply { addView(row) })
+        addView(HorizontalScrollView(activity).apply {
+            id = R.id.live_scene_scroll
+            isFillViewport = true
+            addView(row)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         addView(Button(activity).apply {
+            id = R.id.live_scene_sources
             text = activity.getString(R.string.scene_sources_button)
             minHeight = (48 * resources.displayMetrics.density).toInt()
             setOnClickListener { showSources() }
@@ -233,28 +247,31 @@ class WivraLiveSceneController(
     }
 
     private fun showSources() {
-        if (isLive()) {
-            note.text = activity.getString(R.string.scene_only_switch_during_live)
-            return
-        }
-        val options = arrayOf(
-            activity.getString(R.string.scene_pick_video),
-            activity.getString(R.string.scene_pick_image),
-            activity.getString(R.string.scene_standby),
-            activity.getString(R.string.scene_move_inset),
-            activity.getString(if (videoSoundToLive) R.string.scene_video_sound_on else R.string.scene_video_sound_off),
-            activity.getString(R.string.scene_remove_sources)
-        )
+        val actions = WivraLiveScenes.sourceActions(isLive())
+        val options = actions.map { action -> activity.getString(when (action) {
+            WivraLiveScenes.SourceAction.PICK_VIDEO -> R.string.scene_pick_video
+            WivraLiveScenes.SourceAction.PICK_IMAGE -> R.string.scene_pick_image
+            WivraLiveScenes.SourceAction.STANDBY -> R.string.scene_standby
+            WivraLiveScenes.SourceAction.MOVE_INSET -> R.string.scene_move_inset
+            WivraLiveScenes.SourceAction.VIDEO_SOUND -> if (videoSoundToLive) R.string.scene_video_sound_on else R.string.scene_video_sound_off
+            WivraLiveScenes.SourceAction.REMOVE -> R.string.scene_remove_sources
+        }) }.toTypedArray()
         AlertDialog.Builder(activity)
             .setTitle(R.string.scene_sources_title)
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> pickVideo.launch(arrayOf("video/*"))
-                    1 -> pickImage.launch(arrayOf("image/*"))
-                    2 -> showStandby()
-                    3 -> { corner = corner.next(); apply(current) }
-                    4 -> { videoSoundToLive = !videoSoundToLive; effect.active = videoSoundToLive && feed != null }
-                    5 -> removeSources()
+                val action = actions[which]
+                // Recheck when the item is pressed: the LIVE state may have changed with the dialog open.
+                if (action !in WivraLiveScenes.sourceActions(isLive())) return@setItems
+                when (action) {
+                    WivraLiveScenes.SourceAction.PICK_VIDEO -> pickVideo.launch(arrayOf("video/*"))
+                    WivraLiveScenes.SourceAction.PICK_IMAGE -> pickImage.launch(arrayOf("image/*"))
+                    WivraLiveScenes.SourceAction.STANDBY -> showStandby()
+                    WivraLiveScenes.SourceAction.MOVE_INSET -> { corner = corner.next(); apply(current) }
+                    WivraLiveScenes.SourceAction.VIDEO_SOUND -> {
+                        videoSoundToLive = !videoSoundToLive
+                        effect.active = videoSoundToLive && feed != null
+                    }
+                    WivraLiveScenes.SourceAction.REMOVE -> removeSources()
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)

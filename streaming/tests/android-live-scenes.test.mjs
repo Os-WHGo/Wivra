@@ -19,12 +19,13 @@ test('Android offers the shared presets except camera-as-layer', () => {
   assert.match(ktTest, new RegExp(`Rect\\(0\\.0, ${r.y}, 1\\.0, ${r.h}\\)`));
 });
 
-test('layers are RootEncoder object filters recreated after every preview start', () => {
+test('layers are RootEncoder filters recreated for idle preview and preserved during LIVE', () => {
   assert.match(ctl, /SurfaceFilterRender \{/);
   assert.match(ctl, /ImageObjectFilterRender\(\)/);
   assert.match(ctl, /gl\.clearFilters\(\)/);
   assert.equal([...live.matchAll(/startPreview\(preview\)/g)].length,
-    [...live.matchAll(/scenes\.reattach\(\)/g)].length, 'every startPreview re-adds the layers');
+    [...live.matchAll(/scenes\.reattach\(\)/g)].length, 'every preview start handles filter attachment');
+  assert.match(live, /if \(!initiatedByUser\) scenes\.reattach\(\)/, 'reattaching the LIVE display must preserve GL filters');
   // Sprite units are percent of the frame, origin top-left.
   assert.match(ctl, /setScale\(\(spec\.rect\.w \* 100\)\.toFloat\(\), \(spec\.rect\.h \* 100\)\.toFloat\(\)\)/);
 });
@@ -36,8 +37,10 @@ test('no empty scene on air; ended or failed video returns to the camera', () =>
   assert.match(model, /fun fallbackFor\(current: String, lostSlot: Slot\): String\? =\s*if \(preset\(current\)\?\.show\?\.containsKey\(lostSlot\) == true\) "camera" else null/);
 });
 
-test('sources only before going live; nothing persisted or uploaded', () => {
-  assert.match(ctl, /if \(isLive\(\)\) \{\s*note\.text = activity\.getString\(R\.string\.scene_only_switch_during_live\)/);
+test('external sources only before LIVE, internal standby still available; nothing persisted or uploaded', () => {
+  assert.match(ctl, /val actions = WivraLiveScenes.sourceActions\(isLive\(\)\)/);
+  assert.match(model, /!live \|\| it in setOf\(SourceAction.STANDBY, SourceAction.MOVE_INSET, SourceAction.VIDEO_SOUND\)/);
+  assert.match(ctl, /if \(action !in WivraLiveScenes.sourceActions\(isLive\(\)\)\) return@setItems/);
   assert.match(live, /WivraLiveSceneController\(this\) \{ initiatedByUser \}/);
   assert.doesNotMatch(ctl, /takePersistableUriPermission|SharedPreferences|http:|https:|putExtra/);
   assert.doesNotMatch(ctl, /\.recycle\(\)/, 'no bitmap recycle while GL may upload it');
