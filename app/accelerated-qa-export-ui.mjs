@@ -21,6 +21,23 @@ export function acceleratedBetaPerformance({mediaSeconds,elapsedMs}={}) {
     elapsedSeconds:Math.round(elapsedMs/100)/10,
     mediaSeconds:Math.round(mediaSeconds*10)/10};
 }
+/**
+ * Never silently ignore export settings from the shared editor. Until the
+ * accelerated renderer supports identical loudness/incomplete-media semantics,
+ * offer the classic engine instead of producing a different mix. The optional
+ * memory-only save mode also belongs to the classic MediaRecorder route.
+ */
+export function acceleratedBetaSettingsGate({
+  saveMode='auto', loudness='off', allowAudioGaps=false, allowOverlayGaps=false
+}={}) {
+  if (saveMode !== 'auto')
+    return {ok:false, reason:'El guardado en memoria elegido para el motor clásico no tiene paridad en el acelerado. Selecciona guardado automático o usa MediaRecorder.'};
+  if (loudness !== 'off')
+    return {ok:false, reason:'El nivelado de volumen seleccionado todavía no tiene paridad en el motor acelerado. Usa MediaRecorder o desactiva el nivelado.'};
+  if (allowAudioGaps || allowOverlayGaps)
+    return {ok:false, reason:'La autorización para exportar con pistas incompletas no se puede trasladar al motor acelerado. Usa MediaRecorder o recupera los archivos.'};
+  return {ok:true,reason:''};
+}
 if(typeof document!=='undefined' && typeof window!=='undefined')
 document.addEventListener('DOMContentLoaded',()=>{
   const host=nativeHost();
@@ -130,6 +147,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       return void(status.textContent='Abre primero un proyecto y termina cualquier exportación actual.');
     if(typeof pzMissing!=='undefined'&&pzMissing.length)
       return void(status.textContent='Faltan archivos originales: reimpórtalos antes de probar.');
+    const editorSettings=acceleratedBetaSettingsGate({
+      saveMode:document.getElementById('expSave')?.value??'auto',
+      loudness:document.getElementById('expLoud')?.value??'off',
+      allowAudioGaps:document.getElementById('expAllowAudioGaps')?.checked??false,
+      allowOverlayGaps:document.getElementById('expAllowOverlayGaps')?.checked??false
+    });
+    if(!editorSettings.ok)return void(status.textContent=editorSettings.reason);
     const originalSession=session,revision=session.project.revision;
     running=true;cancelled=false;start.disabled=true;startStable.disabled=true;cancel.hidden=false;
     actions.replaceChildren();status.textContent='Preparando la exportación acelerada…';
