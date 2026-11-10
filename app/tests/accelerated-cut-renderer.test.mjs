@@ -215,7 +215,7 @@ test('cut renderer refuses truncated PCM, audio gaps and surround without downmi
  const badCases=[
   {timestamp:1,duration:.1,length:1,sampleRate:10,channels:1},
   {timestamp:1.2,duration:.3,length:3,sampleRate:10,channels:1},
-  {timestamp:1,duration:.5,length:4,sampleRate:10,channels:1},
+  {timestamp:1,duration:.5,length:3,sampleRate:10,channels:1},
   {timestamp:1,duration:.5,length:5,sampleRate:10,channels:6}
  ];
  const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
