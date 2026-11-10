@@ -125,3 +125,20 @@ test('ambiguous audio presence cannot silently skip AAC preflight',()=>{
  assert.throws(()=>mobileCodecConfig({codec:{...mp4,hasAudio:undefined},
   width:320,height:180,fps:30,sampleRate:48000}),/configuración inválida/);
 });
+
+
+test('native codec probe checks authored AAC bitrate instead of assuming 128 kbps',async()=>{
+ let seen;
+ const result=await verify(input(mp4,{audioBitrate:96000,
+  audioEncoder:{isConfigSupported:async config=>{
+   seen=config;return {supported:true,config};
+  }}
+ }));
+ assert.equal(result.audioChecked,true);
+ assert.equal(seen.bitrate,96000);
+ await assert.rejects(verify(input(mp4,{audioBitrate:96000,
+  audioEncoder:{isConfigSupported:async config=>({
+   supported:true,config:{...config,bitrate:128000}
+  })}
+ })),/no confirmó audio estéreo y frecuencia exactos/);
+});
