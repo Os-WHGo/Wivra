@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validAcceleratedRecoveryEntry,acceleratedBetaPerformance} from '../accelerated-qa-export-ui.mjs';
+import {validAcceleratedRecoveryEntry,acceleratedBetaPerformance,acceleratedBetaSettingsGate} from '../accelerated-qa-export-ui.mjs';
 
 const code=(path)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const build=code('../build.mjs');
@@ -112,4 +112,19 @@ test('accelerated beta measures full elapsed throughput against video duration, 
  assert.match(qa,/elapsedMs:performance\.now\(\)-startedAt/);
  assert.match(qa,/× respecto al tiempo real/);
  assert.match(qa,/Falta validar rendimiento en teléfonos físicos/);
+});
+
+test('beta quick exporter rejects incompatible classic settings before native writer',()=>{
+ assert.equal(acceleratedBetaSettingsGate().ok,true);
+ assert.equal(acceleratedBetaSettingsGate({saveMode:'auto',loudness:'off'}).ok,true);
+ assert.match(acceleratedBetaSettingsGate({saveMode:'memory'}).reason,/MediaRecorder/);
+ assert.match(acceleratedBetaSettingsGate({loudness:'broadcast'}).reason,/nivelado/);
+ assert.match(acceleratedBetaSettingsGate({allowAudioGaps:true}).reason,/incompletas/);
+ assert.match(acceleratedBetaSettingsGate({allowOverlayGaps:true}).reason,/incompletas/);
+ const guard=qa.indexOf('const editorSettings=acceleratedBetaSettingsGate(');
+ const begin=qa.indexOf('const originalSession=session,revision=session.project.revision;');
+ const start=qa.indexOf('running=true;cancelled=false;');
+ assert.ok(guard>0 && begin>guard && start>begin,'preflight before export starts');
+ assert.match(qa,/loudness:document.getElementById\('expLoud'\)\?\.value/);
+ assert.match(qa,/saveMode:document.getElementById\('expSave'\)\?\.value/);
 });
