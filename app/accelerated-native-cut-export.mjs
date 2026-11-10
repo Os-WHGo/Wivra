@@ -28,9 +28,15 @@ export async function recordExperimentalNativeAcceleratedCuts({
     throw new Error('Se requiere un puente nativo de protocolo 2.');
   if (isCancelled()) throw new Error('Exportación acelerada cancelada antes de empezar.');
   const input=new M.Input({source:new M.UrlSource(selected.sourceUrl),formats:M.ALL_FORMATS});
-  const [video,audio]=await Promise.all([
-    input.getPrimaryVideoTrack(),input.getPrimaryAudioTrack()
-  ]);
+  let video,audio;
+  try {
+    // This is a codec probe, not a media owner. Release the probe decoder
+    // before the renderer opens its own source, even on an async track error.
+    video=await input.getPrimaryVideoTrack();
+    audio=await input.getPrimaryAudioTrack();
+  } finally {
+    try { await input.dispose?.(); } catch { /* cleanup is best-effort */ }
+  }
   if (!video) throw new Error('No existe una pista de video decodificable.');
   if (!!audio !== expectAudio)
     throw new Error('La pista de audio original no coincide con el montaje.');
@@ -74,7 +80,10 @@ export async function recordExperimentalNativeAcceleratedCuts({
     const saved=await sink.finish();
     if (saved.verified!==true || saved.bytes!==stats.outputBytes)
       throw new Error('El archivo nativo no está verificado.');
-    onProgress({pct:1,t:selected.totalSeconds,total:selected.totalSeconds});
+    // A UI callback cannot turn an already committed video into a failed
+    // export: native finishRandom is complete and the private copy is saved.
+    try { onProgress({pct:1,t:selected.totalSeconds,total:selected.totalSeconds}); }
+    catch { /* advisory observer */ }
     return {experimental:true,verifiedNative:true,verifiedOnDevice:false,
       mime,container,saved,render:stats};
   } catch (error) {
