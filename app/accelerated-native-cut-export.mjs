@@ -2,6 +2,7 @@ import {acceleratedCutEligibility,renderAcceleratedCuts}
   from './accelerated-cut-renderer.mjs';
 import {createAcceleratedNativeSink} from './accelerated-native-sink.mjs';
 import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-probe.mjs';
+import {planAcceleratedStorageReservation} from './accelerated-storage-budget.mjs';
 
 // Explicit, experimental native-file path for the already supported cut-only
 // subset. This is NOT connected to recordProject or Wivra's default export UI.
@@ -9,7 +10,7 @@ import {verifyAcceleratedMobileCodecSupport} from './accelerated-native-codec-pr
 // A failed stream is aborted; no silent rerun or partial-file publication.
 export async function recordExperimentalNativeAcceleratedCuts({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
-  isCancelled=()=>false,estimatedBytes=0,onProgress=()=>{},
+  isCancelled=()=>false,estimatedBytes,onProgress=()=>{},
   videoEncoder=globalThis.VideoEncoder,audioEncoder=globalThis.AudioEncoder
 }={}) {
   if (experimentalAccelerated !== true)
@@ -29,6 +30,14 @@ export async function recordExperimentalNativeAcceleratedCuts({
       !['android','ios'].includes(host.platform))
     throw new Error('Se requiere un puente nativo de protocolo 2.');
   if (isCancelled()) throw new Error('Exportación acelerada cancelada antes de empezar.');
+  // Android/iOS v2 both REQUIRE estimatedBytes > 0 and a safety margin.
+  // The former default of zero made every cut-only native export fail at
+  // beginRandom. Plan before allocating any decoder or opening any native file.
+  // An explicit override of zero or an undersized estimate must fail closed.
+  const storage=planAcceleratedStorageReservation({
+    seconds:selected.totalSeconds,width:selected.width,
+    height:selected.height,fps:30,estimatedBytes
+  });
   const input=new M.Input({source:new M.UrlSource(selected.sourceUrl),formats:M.ALL_FORMATS});
   let video,audio;
   try {
@@ -75,7 +84,7 @@ export async function recordExperimentalNativeAcceleratedCuts({
   const mime=container==='mp4'?'video/mp4':'video/webm';
   const sink=createAcceleratedNativeSink(host,{
     mime,expectedDurationMs:Math.round(selected.totalSeconds*1000),
-    expectAudio,estimatedBytes
+    expectAudio,estimatedBytes:storage.estimatedBytes
   });
   try {
     await sink.begin();
