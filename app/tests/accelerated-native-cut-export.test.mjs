@@ -209,3 +209,31 @@ test('changing codec between probe and render aborts temporary output instead of
   assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
  }finally{globalThis.document=prev;}
 });
+
+
+test('real cut encoder configuration mismatch aborts partial instead of publishing media',async()=>{
+ const host=native(),M=mockM(),prior=globalThis.document;
+ M.CanvasSource=class {
+  constructor(_canvas,config){
+   assert.equal(config.fullCodecString,'avc1.42E01F');
+   assert.equal(typeof config.onEncoderConfig,'function');
+   config.onEncoderConfig({
+    codec:config.fullCodecString,width:320,height:240,framerate:24,
+    bitrate:2000000,avc:{format:'avc'}
+   });
+  }
+  async add(){}
+ };
+ globalThis.document={createElement(){return {
+  getContext(){return {drawImage(){}};}
+ };}};
+ try{
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,...supportedCodecProbes
+  }),/configuración del codificador de corte no coincide/);
+  assert.equal(M.disposals,2);
+  assert.equal(M.cancelled,0,'encoder was rejected before Output was created');
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+ }finally{globalThis.document=prior;}
+});
