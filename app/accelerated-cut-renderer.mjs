@@ -9,6 +9,8 @@
 // writeAt(position, Uint8Array) must write atomically at arbitrary offsets.
 // In particular MP4 moov/header fixes can OVERWRITE previously written bytes.
 // The legacy append-only CRC sink must never be used for this transport.
+import {mobileCodecConfig} from './accelerated-native-codec-probe.mjs';
+
 export const ACCELERATED_CUT_RENDERER_VERSION = 1;
 
 export function acceleratedCutEligibility(project, media, { maxSeconds = 120, maxCuts = 80,
@@ -81,7 +83,8 @@ export function checkedRandomWrite(writeAt, { maxChunkBytes = 4 * 1024 * 1024 } 
 export async function renderAcceleratedCuts({
   M, sourceUrl, cuts, width, height, writeAt,
   expectedAudio = null, label = '', isCancelled = () => false,
-  videoBitrate = 2_000_000, audioBitrate = 96_000
+  videoBitrate = 2_000_000, audioBitrate = 96_000,
+  nativeCodecPlan = null
 }) {
   if (!M || typeof M.Input !== 'function' || typeof M.StreamTarget !== 'function')
     throw new Error('Mediabunny unavailable in this offline build.');
@@ -114,6 +117,26 @@ export async function renderAcceleratedCuts({
       throw new Error('No compatible audio codec.');
     const container = avc ? 'mp4' : 'webm', audioCodec = !hasAudio ? null :
       (avc ? 'aac' : 'opus');
+    // A mobile preflight is only valid for the same codec and bitrate
+    // selected by the real renderer. Never silently downgrade to WebM
+    // after approval of an H.264/AAC MP4 output.
+    if (nativeCodecPlan && (nativeCodecPlan.videoCodec!==chosenCodec ||
+        nativeCodecPlan.audioCodec!==audioCodec ||
+        nativeCodecPlan.container!==container ||
+        nativeCodecPlan.hasAudio!==hasAudio))
+      throw new Error('Los códecs reales de corte difieren del preflight nativo.');
+    const nativeConfig=nativeCodecPlan?mobileCodecConfig({
+      codec:nativeCodecPlan,width,height,fps:30,sampleRate:48000,
+      videoBitrate,audioBitrate
+    }):null;
+    const checkActualEncoder=(kind,actual)=>{
+      const expected=nativeConfig[kind];
+      const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
+        ['codec','sampleRate','numberOfChannels','bitrate'];
+      if(!actual || keys.some(key=>actual[key]!==expected[key]) ||
+         (expected.avc && actual.avc?.format!==expected.avc.format))
+        throw new Error('La configuración del codificador de corte no coincide con el preflight.');
+    };
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const g = canvas.getContext('2d');
@@ -129,10 +152,14 @@ export async function renderAcceleratedCuts({
       target: new M.StreamTarget(writable, { chunked: true, chunkSize: 1 << 20 })
     });
     const videoSource = new M.CanvasSource(canvas,
-      { codec: chosenCodec, bitrate: videoBitrate, keyFrameInterval: 1 });
+      { codec: chosenCodec, bitrate: videoBitrate, keyFrameInterval: 1,
+        ...(nativeConfig?{fullCodecString:nativeConfig.video.codec,
+          onEncoderConfig:config=>checkActualEncoder('video',config)}:{}) });
     output.addVideoTrack(videoSource, { frameRate: 30 });
     const audioSource = hasAudio ?
-      new M.AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate }) : null;
+      new M.AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate,
+        ...(nativeConfig?{fullCodecString:nativeConfig.audio.codec,
+          onEncoderConfig:config=>checkActualEncoder('audio',config)}:{}) }) : null;
     if (audioSource) output.addAudioTrack(audioSource);
     await output.start();
     const videoSink = new M.CanvasSink(video,
