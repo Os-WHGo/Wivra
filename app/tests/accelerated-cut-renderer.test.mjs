@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { acceleratedCutEligibility, checkedRandomWrite,
-  renderAcceleratedCuts } from '../accelerated-cut-renderer.mjs';
+  renderAcceleratedCuts, ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS } from '../accelerated-cut-renderer.mjs';
 
 function project() {
   return { clips: [
@@ -130,4 +130,56 @@ test('never silently drop source audio, output parts, or missing native random a
     cuts:[{in:0,out:1}],writeAt:null}),/Random-access native writer required/);
   await assert.rejects(renderAcceleratedCuts({M,sourceUrl:'blob:a',width:640,height:360,
     cuts:[{in:0,out:1}],writeAt:async()=>1,isCancelled:()=>true}),/cancelled/);
+});
+
+test('cut renderer rejects missing first, interior or final video frames before publishing',async()=>{
+ assert.equal(ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS,.1);
+ const invalidSequences=[
+  [{timestamp:1.3,duration:.2,canvas:{}}],
+  [{timestamp:1,duration:.15,canvas:{}},{timestamp:1.35,duration:.15,canvas:{}}],
+  [{timestamp:1,duration:.2,canvas:{}}],
+  [{timestamp:NaN,duration:.5,canvas:{}}],
+  [{timestamp:1,duration:Infinity,canvas:{}}]
+ ];
+ const old=globalThis.document;
+ globalThis.document={createElement(){return {width:0,height:0,getContext(){
+  return {drawImage(){}};
+ }};}};
+ try{
+  for(const frames of invalidSequences){
+   const {M,events}=fakeM({withAudio:false});
+   M.CanvasSink=class {async *canvases(){for(const frame of frames)yield frame;}};
+   let chunks=0;
+   await assert.rejects(renderAcceleratedCuts({
+    M,sourceUrl:'blob:synthetic',width:640,height:360,
+    cuts:[{in:1,out:1.5}],expectedAudio:false,
+    writeAt:async(_pos,data)=>{chunks++;return data.byteLength;}
+   }),/frame gap|ends before|timestamp or duration/);
+   assert.equal(chunks,0,'failed decode must not finalize a native file');
+   assert.ok(!events.some(x=>x.type==='finish'));
+  }
+ }finally{globalThis.document=old;}
+});
+
+test('cut renderer accepts contiguous variable frame durations without requiring fixed FPS source',async()=>{
+ const {M}=fakeM({withAudio:false});
+ M.CanvasSink=class {async *canvases(){
+  yield {timestamp:1,duration:.08,canvas:{}};
+  yield {timestamp:1.08,duration:.24,canvas:{}};
+  yield {timestamp:1.32,duration:.18,canvas:{}};
+ }};
+ const old=globalThis.document;
+ globalThis.document={createElement(){return {width:0,height:0,getContext(){
+  return {drawImage(){}};
+ }};}};
+ try{
+  const res=await renderAcceleratedCuts({
+   M,sourceUrl:'blob:synthetic',width:640,height:360,
+   cuts:[{in:1,out:1.5}],expectedAudio:false,
+   writeAt:async(_pos,data)=>data.byteLength
+  });
+  assert.equal(res.frames,3);
+  assert.equal(res.durationSeconds,.5);
+  assert.ok(res.writes>0);
+ }finally{globalThis.document=old;}
 });
