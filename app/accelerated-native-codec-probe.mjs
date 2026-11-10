@@ -64,15 +64,15 @@ function supportsExactFields(result,requested,keys){
   keys.every(key=>result.config[key]===requested[key]);
 }
 export async function verifyAcceleratedMobileCodecSupport({
- codec,width,height,fps,sampleRate,videoBitrate,videoEncoder=globalThis.VideoEncoder,
- audioEncoder=globalThis.AudioEncoder,platform
+ codec,width,height,fps,sampleRate,videoBitrate,audioBitrate=128000,
+ videoEncoder=globalThis.VideoEncoder,audioEncoder=globalThis.AudioEncoder,platform
 }={}) {
  if(!['android','ios'].includes(platform))rejectMobileCodec('plataforma desconocida');
  if(platform==='ios' && (codec?.container!=='mp4'||
     codec?.videoCodec!=='avc'||(codec?.hasAudio&&codec.audioCodec!=='aac')))
   rejectMobileCodec('iOS exige MP4 H264/AAC real');
  const requested=mobileCodecConfig({codec,width,height,fps,sampleRate,
-  ...(videoBitrate===undefined?{}:{videoBitrate})});
+  audioBitrate,...(videoBitrate===undefined?{}:{videoBitrate})});
  if(typeof videoEncoder?.isConfigSupported!=='function')
   rejectMobileCodec('VideoEncoder no disponible en este teléfono');
  let video;
