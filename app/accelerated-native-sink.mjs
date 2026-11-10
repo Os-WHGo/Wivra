@@ -28,6 +28,10 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
   let pending = Promise.resolve(), failure = null, committing = false;
   let pendingBytes = 0;
+  // Once finishRandom is sent, a missing native acknowledgement is ambiguous:
+  // the private file may already be atomically committed. Never delete it via
+  // abortRandom on that path; native recovery/cleanup owns reconciliation.
+  let finalizeAckUncertain = false;
   // A large random write can leave an unwritten hole before the patched MP4
   // footer. Native MUST independently check this same invariant before rename.
   let covered = [];
@@ -124,8 +128,13 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       committing = true;
       let saved;
       try {
-        saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
-          expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
+        try {
+          saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
+            expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
+        } catch {
+          finalizeAckUncertain = true;
+          throw new Error('El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.');
+        }
         // SHA-256 is computed by native from the ACTUAL final file after all
         // arbitrary header patches. A mere positive byte count is insufficient.
         // Native Android and iOS also enforce this duration window. Re-check
@@ -146,7 +155,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       } catch (e) { committing = false; state = 'failed'; failure ||= e; throw e; }
     },
     async abort() {
-      if (state === 'done' || state === 'aborted' || committing) return;
+      if (state === 'done' || state === 'aborted' || committing || finalizeAckUncertain) return;
       state = 'aborted';
       await pending;
       const id = token; token = null;

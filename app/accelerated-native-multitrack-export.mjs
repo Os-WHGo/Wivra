@@ -31,6 +31,19 @@ export async function saveVerifiedAcceleratedVideoToPhotos({
   return {saved:true,privateCopyPreserved:true};
 }
 
+/**
+ * Native v2 must verify an audio track whenever the authored timeline has one.
+ * The optional QA checkbox raises the minimum requirement; unchecking it never
+ * means "drop authored audio". This mirrors the renderer's codec.hasAudio.
+ */
+export function acceleratedOutputNeedsAudio(codec, requestedAudio) {
+  if (typeof codec?.hasAudio !== 'boolean' || typeof requestedAudio !== 'boolean')
+    throw new Error('La política de audio acelerado no está definida.');
+  if (requestedAudio && !codec.hasAudio)
+    throw new Error('La exportación exigía audio pero el motor preparó vídeo sin audio.');
+  return codec.hasAudio;
+}
+
 // The experimental v2 transport is NEVER selected by the production export
 // engine. The caller must explicitly request this QA path, and the stable
 // MediaRecorder path is untouched. Native file is not opened until ALL assets,
@@ -101,10 +114,13 @@ export async function recordExperimentalNativeMultitrack({
       videoBitrate
     });
     if(isCancelled())throw new Error('Exportación multipista cancelada tras validar códecs.');
+    // Require the actual audio track if the timeline's prepared codec includes
+    // authored sound, even when the extra QA "must contain audio" checkbox is off.
+    const outputNeedsAudio=acceleratedOutputNeedsAudio(prepared.codec,expectAudio);
     sink=createAcceleratedNativeSink(host,{
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
       expectedDurationMs:Math.round(prepared.totalSeconds*1000),
-      expectAudio,estimatedBytes:expectedBytes
+      expectAudio:outputNeedsAudio,estimatedBytes:expectedBytes
     });
     await sink.begin();
     renderOwnsInputs=true;

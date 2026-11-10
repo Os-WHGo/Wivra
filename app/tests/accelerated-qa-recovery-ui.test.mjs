@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validAcceleratedRecoveryEntry} from '../accelerated-qa-export-ui.mjs';
+import {validAcceleratedRecoveryEntry,acceleratedBetaPerformance,acceleratedBetaSettingsGate} from '../accelerated-qa-export-ui.mjs';
 
 const code=(path)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const build=code('../build.mjs');
 const qa=code('../accelerated-qa-export-ui.mjs');
+const editor=code('../template.html');
 const swift=code('../../streaming/ios/B0/Sources/WivraAcceleratedExportNativeBridge.swift');
 const kotlin=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraAcceleratedExportBridge.kt');
 const store=code('../../streaming/android/app/src/main/java/com/oswhgo/wivra/WivraRandomExportStore.kt');
@@ -71,4 +72,59 @@ test('Android recovered copy is verified before reuse and UI distinguishes idemp
  assert.match(store,/alreadyPublished = true/);
  assert.match(qa,/response\.alreadyPublished===true/);
  assert.match(qa,/No se creó ninguna copia duplicada/);
+});
+
+test('owner beta prioritizes accelerated UI but keeps classic MediaRecorder one tap away',()=>{
+ assert.match(qa,/enable\.checked=true/);
+ assert.match(qa,/Exportar rápido \(beta\) · WebCodecs \+ Mediabunny','btn'/);
+ assert.match(qa,/startStable\.textContent='Exportar con motor clásico \(MediaRecorder\)'/);
+ assert.match(qa,/startStable\.classList\.add\('sec'\)/);
+ assert.match(qa,/if\(running\|\|!enable\.checked\)/);
+ assert.match(qa,/experimentalAccelerated:true/);
+ assert.match(qa,/No se ha cambiado automáticamente de motor/);
+ // There must never be an unconditional export call on page load.
+ assert.match(qa,/start\.onclick=async\(\)=>/);
+ assert.doesNotMatch(qa,/start\.click\(\)/);
+ // The guard in export-engine-policy.mjs is intentionally unchanged.
+ assert.match(build,/export-engine-policy\.mjs/);
+});
+
+test('native beta export sheet discloses real-time classic versus codec-gated fast export',()=>{
+ assert.match(editor,/const fastBeta = Boolean\(globalThis\.WivraAcceleratedQA\?\.nativeHost\?\.\(\)\)/);
+ assert.match(editor,/WebCodecs \+ Mediabunny/);
+ assert.match(editor,/MediaRecorder, que exporta en tiempo real/);
+ assert.match(editor,/const classicRiskText = exportRisk\.level/);
+ assert.match(editor,/Si eliges MediaRecorder:.*classicRiskText/);
+ assert.match(qa,/enable\.checked=true;\}\s*\};/);
+ assert.doesNotMatch(qa,/enable\.checked=false;\}\s*\};/);
+});
+
+test('accelerated beta measures full elapsed throughput against video duration, not false competitor timings',()=>{
+ assert.deepEqual(acceleratedBetaPerformance({mediaSeconds:60,elapsedMs:12000}),
+   {speedX:5,elapsedSeconds:12,mediaSeconds:60});
+ assert.deepEqual(acceleratedBetaPerformance({mediaSeconds:60,elapsedMs:120000}),
+   {speedX:0.5,elapsedSeconds:120,mediaSeconds:60});
+ for(const input of [{mediaSeconds:0,elapsedMs:100},{mediaSeconds:60,elapsedMs:0},
+  {mediaSeconds:Infinity,elapsedMs:100},{mediaSeconds:60,elapsedMs:NaN},
+  {mediaSeconds:3601,elapsedMs:1000},{mediaSeconds:60,elapsedMs:14400001}])
+  assert.equal(acceleratedBetaPerformance(input),null);
+ assert.match(qa,/const startedAt=performance\.now\(\)/);
+ assert.match(qa,/elapsedMs:performance\.now\(\)-startedAt/);
+ assert.match(qa,/× respecto al tiempo real/);
+ assert.match(qa,/Falta validar rendimiento en teléfonos físicos/);
+});
+
+test('beta quick exporter rejects incompatible classic settings before native writer',()=>{
+ assert.equal(acceleratedBetaSettingsGate().ok,true);
+ assert.equal(acceleratedBetaSettingsGate({saveMode:'auto',loudness:'off'}).ok,true);
+ assert.match(acceleratedBetaSettingsGate({saveMode:'memory'}).reason,/MediaRecorder/);
+ assert.match(acceleratedBetaSettingsGate({loudness:'broadcast'}).reason,/nivelado/);
+ assert.match(acceleratedBetaSettingsGate({allowAudioGaps:true}).reason,/incompletas/);
+ assert.match(acceleratedBetaSettingsGate({allowOverlayGaps:true}).reason,/incompletas/);
+ const guard=qa.indexOf('const editorSettings=acceleratedBetaSettingsGate(');
+ const begin=qa.indexOf('const originalSession=session,revision=session.project.revision;');
+ const start=qa.indexOf('running=true;cancelled=false;');
+ assert.ok(guard>0 && begin>guard && start>begin,'preflight before export starts');
+ assert.match(qa,/loudness:document.getElementById\('expLoud'\)\?\.value/);
+ assert.match(qa,/saveMode:document.getElementById\('expSave'\)\?\.value/);
 });

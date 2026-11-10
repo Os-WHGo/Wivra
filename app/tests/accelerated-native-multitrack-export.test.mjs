@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {recordExperimentalNativeMultitrack as run,
-  saveVerifiedAcceleratedVideoToPhotos}
+  saveVerifiedAcceleratedVideoToPhotos, acceleratedOutputNeedsAudio}
   from '../accelerated-native-multitrack-export.mjs';
 
 // Test-only codec implementations. The real native workflow MUST use
@@ -377,4 +377,13 @@ test('UI progress callback failure cannot discard or mislabel a sealed native ex
   assert.equal(log.includes('finalize'),true);
   assert.equal(log.includes('cancel'),false);
  }finally{globalThis.document=prior;}
+});
+
+test('native v2 requires authored audio even if optional QA checkbox is off',()=>{
+  assert.equal(acceleratedOutputNeedsAudio({hasAudio:true},false),true);
+  assert.equal(acceleratedOutputNeedsAudio({hasAudio:true},true),true);
+  assert.equal(acceleratedOutputNeedsAudio({hasAudio:false},false),false);
+  assert.throws(()=>acceleratedOutputNeedsAudio({hasAudio:false},true),/exigía audio/);
+  assert.throws(()=>acceleratedOutputNeedsAudio({},false),/no está definida/);
+  assert.throws(()=>acceleratedOutputNeedsAudio({hasAudio:true},'false'),/no está definida/);
 });

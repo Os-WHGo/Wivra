@@ -68,11 +68,19 @@ assert.doesNotMatch(html,/<script[^>]+src=["']https?:/i);
     return {box:!!box,start:!!start,consent:document.getElementById('wivraQaEnable')?.checked,
       native:globalThis.WivraAcceleratedQA?.nativeHost()?.platform};
   });
-  assert.deepEqual(gated,{box:true,start:true,consent:false,native:'android'});
-  // The export sheet is intentionally closed until a project is selected.
-  // Trigger the handler in DOM to check the consent gate without pretending
-  // the hidden button is visible/clickable to a user.
+  // The owner-authorized beta prefers acceleration, but a checked box by itself
+  // must not start an export or native writer without an explicit user click.
+  assert.deepEqual(gated,{box:true,start:true,consent:true,native:'android'});
+  assert.equal(await simulated.locator('#wivraAcceleratedQA [role="status"]').first().textContent(),'');
+  // Clicking without a loaded project must still fail closed (no disk token).
   await simulated.evaluate(()=>document.getElementById('wivraQaStart').click());
+  const noProject=await simulated.locator('#wivraAcceleratedQA [role="status"]').first().textContent();
+  assert.match(noProject,/Abre primero un proyecto/);
+  // A user can opt OUT of the beta engine for this export: this gate remains enforced.
+  await simulated.evaluate(()=>{
+    document.getElementById('wivraQaEnable').checked=false;
+    document.getElementById('wivraQaStart').click();
+  });
   const denied=await simulated.locator('#wivraAcceleratedQA [role="status"]').first().textContent();
   assert.match(denied,/Marca primero la autorización experimental/);
   await simulated.close();

@@ -172,6 +172,42 @@ test('abort during native atomic finalize does not delete a possibly published f
 });
 
 
+
+test('lost finishRandom ACK preserves a possibly committed private recording',async()=>{
+ const host=memoryNative();
+ const nativeRequest=host.request;
+ host.request=async message=>{
+  if(message.op==='finishRandom'){
+   await nativeRequest(message); // native may already have committed
+   throw Error('transport ACK lost after native commit');
+  }
+  return nativeRequest(message);
+ };
+ const sink=createAcceleratedNativeSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000,estimatedBytes:100
+ });
+ await sink.begin();
+ await sink.writeAt(0,new Uint8Array([1,2,3]));
+ await assert.rejects(sink.finish(),/resultado del guardado nativo es incierto/);
+ assert.equal(sink.state,'failed');
+ await sink.abort(); // must not delete a possibly committed recovery copy
+ assert.equal(host.removed,false);
+ assert.equal(host.requests.filter(r=>r.op==='finishRandom').length,1);
+ assert.equal(host.requests.filter(r=>r.op==='abortRandom').length,0);
+});
+
+test('definite malformed native final receipt still permits safe cleanup',async()=>{
+ const host=memoryNative({badSha:true});
+ const sink=createAcceleratedNativeSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000
+ });
+ await sink.begin();
+ await sink.writeAt(0,new Uint8Array([1,2,3]));
+ await assert.rejects(sink.finish(),/no superó integridad/);
+ await sink.abort();
+ assert.equal(host.removed,true);
+});
+
 test('native capacity is enforced before begin or random IO without exposing unsafe offsets', async () => {
   const host = memoryNative();
   assert.equal(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES, 16 * 1024 * 1024 * 1024);
