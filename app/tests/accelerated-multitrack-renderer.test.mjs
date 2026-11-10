@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack}
+import {prepareAcceleratedMultitrack,renderAcceleratedMultitrack,acceleratedRenderFrameBudget}
  from '../accelerated-multitrack-renderer.mjs';
 
 class PCM {
@@ -656,6 +656,8 @@ test('long-form: 10-minute timeline is prepared on Android/iPhone only with long
   const prepared=await prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform,
    longForm:true,maxSeconds:3600,expectedAudio:true});
   assert.equal(prepared.totalSeconds,600);
+  assert.equal(prepared.longForm,true);
+  assert.equal(prepared.longSoakQA,false);
   for(const item of prepared.used.values())await item.input?.dispose?.();
  }
  await assert.rejects(prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform:'android',
@@ -664,4 +666,40 @@ test('long-form: 10-minute timeline is prepared on Android/iPhone only with long
   longForm:true,maxSeconds:3600,expectedAudio:true}),/only for the native phone writer/);
  await assert.rejects(prepareAcceleratedMultitrack({project:p,media:longMedia,M,imageFactory,platform:'android',
   longForm:true,maxSeconds:3601,expectedAudio:true}),/excessive render horizon/);
+});
+
+// W110: long native export preflight must survive into the actual frame cap.
+test('native long-form frame budget accepts 10, 30 and 60 minutes without rendering 108000 frames',()=>{
+ for(const platform of ['android','ios']) {
+  for(const [minutes,fps] of [[10,30],[30,60],[60,60]]) {
+   const budget=acceleratedRenderFrameBudget({
+    platform,longForm:true,totalSeconds:minutes*60,fps
+   });
+   assert.equal(budget.framesTotal,minutes*60*fps);
+   assert.equal(budget.horizonSeconds,3600);
+   assert.equal(budget.maxFrames,3600*fps);
+  }
+ }
+ const short=acceleratedRenderFrameBudget({
+  platform:'android',totalSeconds:180,fps:30
+ });
+ assert.equal(short.framesTotal,5400);
+ assert.equal(short.maxFrames,5400);
+});
+
+test('frame budget rejects long native render without flag, more than 60 minutes and incompatible QA flags',()=>{
+ for(const options of [
+  {platform:'android',totalSeconds:600,fps:30},
+  {platform:'ios',totalSeconds:180.01,fps:30},
+  {platform:'ios',longForm:true,totalSeconds:3600.01,fps:30},
+  {platform:'qa',longForm:true,totalSeconds:600,fps:30},
+  {platform:'android',longForm:true,longSoakQA:true,totalSeconds:600,fps:30},
+  {platform:'android',totalSeconds:60,fps:61},
+  {platform:'android',totalSeconds:0,fps:30}
+ ]) assert.throws(()=>acceleratedRenderFrameBudget(options),
+  /frame limit|invalid native render frame budget/);
+ const qa=acceleratedRenderFrameBudget({
+  platform:'qa',longSoakQA:true,totalSeconds:3600,fps:60
+ });
+ assert.equal(qa.framesTotal,216000);
 });
