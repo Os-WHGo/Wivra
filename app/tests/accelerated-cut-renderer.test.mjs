@@ -68,7 +68,7 @@ function fakeM({withAudio=true}={}) {
       const n=Math.round((to-from)*10);
       const channels=[new Float32Array(n).fill(0.2)];
       yield {timestamp:from,duration:to-from,buffer:{
-        sampleRate:10, numberOfChannels:1,
+        length:n,sampleRate:10, numberOfChannels:1,
         getChannelData(ch){return channels[ch];}
       }};
     }
@@ -182,4 +182,60 @@ test('cut renderer accepts contiguous variable frame durations without requiring
   assert.equal(res.durationSeconds,.5);
   assert.ok(res.writes>0);
  }finally{globalThis.document=old;}
+});
+
+test('each video cut requires its own decoded audio; first cut audio cannot conceal later silence',async()=>{
+ const {M,events}=fakeM({withAudio:true});
+ M.AudioBufferSink=class {
+  async *buffers(from,to){
+   if(from>=3)return; // first source segment decodes; the second vanished
+   const length=Math.round((to-from)*10);
+   yield {timestamp:from,duration:to-from,buffer:{
+    length,sampleRate:10,numberOfChannels:1,
+    getChannelData(){return new Float32Array(length).fill(.2);}
+   }};
+  }
+ };
+ const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ globalThis.AudioBuffer=class{constructor(o){this.length=o.length;}copyToChannel(){}};
+ try{
+  let written=0;
+  await assert.rejects(renderAcceleratedCuts({
+   M,sourceUrl:'blob:synthetic',width:640,height:360,
+   cuts:[{in:1,out:1.5},{in:3,out:3.5}],expectedAudio:true,
+   writeAt:async(_pos,data)=>{written++;return data.byteLength;}
+  }),/cut audio missing before/);
+  assert.equal(written,0);
+  assert.ok(!events.some(e=>e.type==='finish'));
+ }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldAudio;}
+});
+
+test('cut renderer refuses truncated PCM, audio gaps and surround without downmix',async()=>{
+ const badCases=[
+  {timestamp:1,duration:.1,length:1,sampleRate:10,channels:1},
+  {timestamp:1.2,duration:.3,length:3,sampleRate:10,channels:1},
+  {timestamp:1,duration:.5,length:4,sampleRate:10,channels:1},
+  {timestamp:1,duration:.5,length:5,sampleRate:10,channels:6}
+ ];
+ const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ globalThis.AudioBuffer=class{constructor(o){this.length=o.length;}copyToChannel(){}};
+ try{
+  for(const row of badCases){
+   const {M}=fakeM({withAudio:true});
+   M.AudioBufferSink=class{
+    async *buffers(){yield {timestamp:row.timestamp,duration:row.duration,
+     buffer:{length:row.length,sampleRate:row.sampleRate,
+      numberOfChannels:row.channels,getChannelData(){
+       return new Float32Array(row.length).fill(.2);
+      }}};}
+   };
+   await assert.rejects(renderAcceleratedCuts({
+    M,sourceUrl:'blob:synthetic',width:640,height:360,
+    cuts:[{in:1,out:1.5}],expectedAudio:true,
+    writeAt:async(_p,b)=>b.byteLength
+   }),/cut audio missing before|cut audio contains|cut audio is shorter|audio samples or channels/);
+  }
+ }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldAudio;}
 });
