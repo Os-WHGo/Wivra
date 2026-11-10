@@ -196,22 +196,42 @@ export async function renderAcceleratedCuts({
       if (cut.out-coveredThrough > ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
         throw new Error('Decoded cut video ends before its authored out point.');
       if (audioSink) {
+        // A global audioBuffers>0 used to permit the first cut to contain
+        // sound while a later cut silently lost its audio entirely.
+        let cutAudioBuffers=0, audioCoveredThrough=cut.in;
         for await (const wb of audioSink.buffers(cut.in, cut.out)) {
           if (isCancelled()) throw new Error('Accelerated export cancelled.');
-          const b = wb.buffer;
-          const s = Math.max(wb.timestamp, cut.in);
-          const e = Math.min(wb.timestamp + wb.duration, cut.out);
-          if (!(e > s)) continue;
-          const from = Math.round((s - wb.timestamp) * b.sampleRate);
-          const length = Math.round((e - s) * b.sampleRate);
-          if (!length) continue;
-          const part = new AudioBuffer({ length, sampleRate: b.sampleRate,
-            numberOfChannels: b.numberOfChannels });
-          for (let ch = 0; ch < b.numberOfChannels; ch++) {
-            part.copyToChannel(b.getChannelData(ch).subarray(from, from + length), ch);
+          const b=wb?.buffer;
+          if (!Number.isFinite(wb?.timestamp) || !Number.isFinite(wb.duration) ||
+              wb.duration<=0 || !Number.isSafeInteger(b?.length) || b.length<=0 ||
+              !Number.isFinite(b.sampleRate) || b.sampleRate<=0 ||
+              ![1,2].includes(b.numberOfChannels) ||
+              typeof b.getChannelData!=='function')
+            throw new Error('Invalid decoded cut audio samples or channels.');
+          const s=Math.max(wb.timestamp,cut.in);
+          const e=Math.min(wb.timestamp+wb.duration,cut.out);
+          if (!(e>s)) continue;
+          if (s-audioCoveredThrough>ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+            throw new Error('Decoded cut audio contains an uncovered gap.');
+          const from=Math.round((s-wb.timestamp)*b.sampleRate);
+          const length=Math.round((e-s)*b.sampleRate);
+          if (!length)continue;
+          if (from<0 || from>=b.length || from+length>b.length+1)
+            throw new Error('Decoded cut audio is shorter than its requested segment.');
+          const part=new AudioBuffer({length,sampleRate:b.sampleRate,
+            numberOfChannels:b.numberOfChannels});
+          for(let ch=0;ch<b.numberOfChannels;ch++){
+            const pcm=b.getChannelData(ch);
+            if(!(pcm instanceof Float32Array)||pcm.length<from+length-1)
+              throw new Error('Decoded cut audio channel is incomplete.');
+            part.copyToChannel(pcm.subarray(from,from+length),ch);
           }
-          await audioSource.add(part); audioBuffers++;
+          await audioSource.add(part);
+          audioBuffers++;cutAudioBuffers++;
+          audioCoveredThrough=Math.max(audioCoveredThrough,e);
         }
+        if(!cutAudioBuffers || cut.out-audioCoveredThrough>ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+          throw new Error('Decoded cut audio missing before its authored out point.');
       }
       position += cut.out - cut.in;
     }
