@@ -54,9 +54,13 @@ test('network callbacks serialize with lifecycle and do not close or replace the
 });
 
 test('active MP4 stays locked until its writer stops, including a failed close', () => {
-  assert.ok(live.indexOf('WivraPhoneMediaStore.markWriting(pending)') < live.indexOf('publisher.startRecord('));
+  const lock = live.indexOf('WivraPhoneMediaStore.markWriting(pending)');
+  const record = live.indexOf('publisher.startRecord(');
+  assert.ok(lock >= 0 && record > lock);
   const stop = between(live, 'private fun stopAndReview()', 'private fun verifiedMp4');
-  assert.ok(stop.indexOf('publisher?.isRecording == true) {\n            // A failed close') < stop.indexOf('WivraPhoneMediaStore.doneWriting'));
+  const failedClose = stop.indexOf('publisher?.isRecording == true) {\n            // A failed close');
+  const unlock = stop.indexOf('WivraPhoneMediaStore.doneWriting');
+  assert.ok(failedClose >= 0 && unlock > failedClose);
   assert.match(stop, /pendingFile = file[\s\S]*plive_copy_stop_failed[\s\S]*return/);
   assert.match(live, /isWivraPrivate\(this, file\) \|\| WivraPhoneMediaStore.isWriting\(file\)/);
 });
