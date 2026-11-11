@@ -133,6 +133,10 @@ export async function renderAcceleratedCuts({
       codec:nativeCodecPlan,width,height,fps:30,sampleRate:48000,
       videoBitrate,audioBitrate
     }):null;
+    // Merely registering onEncoderConfig is insufficient. If a bundled
+    // Mediabunny/WebCodecs build ignores the callback, no actual output
+    // configuration was proven and the temporary must never be committed.
+    const confirmedEncoders=new Set();
     const checkActualEncoder=(kind,actual)=>{
       const expected=nativeConfig[kind];
       const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
@@ -140,6 +144,7 @@ export async function renderAcceleratedCuts({
       if(!actual || keys.some(key=>actual[key]!==expected[key]) ||
          (expected.avc && actual.avc?.format!==expected.avc.format))
         throw new Error('La configuración del codificador de corte no coincide con el preflight.');
+      confirmedEncoders.add(kind);
     };
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
@@ -238,6 +243,9 @@ export async function renderAcceleratedCuts({
     if (hasAudio && !audioBuffers) throw new Error('Audio decoding yielded no samples.');
     if (isCancelled()) throw new Error('Accelerated export cancelled.');
     await output.finalize();
+    if(nativeConfig && (!confirmedEncoders.has('video') ||
+       (hasAudio && !confirmedEncoders.has('audio'))))
+      throw new Error('El codificador nativo no confirmó el perfil de video/audio acelerado.');
     finalized=true;
     return { engine: 'webcodecs-mediabunny', container, videoCodec: chosenCodec,
       audioCodec, durationSeconds: position, frames, audioBuffers,
