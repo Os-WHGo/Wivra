@@ -38,14 +38,34 @@ function fakeM() {
    yield {timestamp:begin/rate,duration:(end-begin)/rate,buffer};
   }
  }
- class CanvasSource {async add(t,d){events.push(['video',+t.toFixed(4),+d.toFixed(4)]);}}
- class AudioBufferSource {async add(b){
-  events.push(['audio',b.length,b.getChannelData(0)[0],b.getChannelData(0)[1000]]);
- }}
+ class CanvasSource {
+  constructor(canvas,options={}){this.canvas=canvas;this.options=options;this.fps=30;}
+  async add(t,d){
+   if(this.options.onEncoderConfig)
+    this.options.onEncoderConfig({
+     codec:this.options.fullCodecString,
+     width:this.canvas.width,height:this.canvas.height,
+     framerate:this.fps,bitrate:this.options.bitrate,
+     avc:{format:'avc'}
+    });
+   events.push(['video',+t.toFixed(4),+d.toFixed(4)]);
+  }
+ }
+ class AudioBufferSource {
+  constructor(options={}){this.options=options;}
+  async add(b){
+   if(this.options.onEncoderConfig)
+    this.options.onEncoderConfig({
+     codec:this.options.fullCodecString,
+     sampleRate:b.sampleRate,numberOfChannels:2,bitrate:this.options.bitrate
+    });
+   events.push(['audio',b.length,b.getChannelData(0)[0],b.getChannelData(0)[1000]]);
+  }
+ }
  class StreamTarget {constructor(writable){this.writable=writable;}}
  class Output {
   constructor({target}){this.target=target;}
-  addVideoTrack(){events.push(['video-track']);}
+  addVideoTrack(source,{frameRate}={}){source.fps=frameRate??30;events.push(['video-track']);}
   addAudioTrack(){events.push(['audio-track']);}
   async start(){events.push(['start']);}
   async finalize(){
@@ -135,10 +155,10 @@ test('native encoders use the preflight AVC profile and FPS-aware level, includi
    globalThis.document=document;
    const Video=M.CanvasSource,Audio=M.AudioBufferSource;
    M.CanvasSource=class extends Video {
-    constructor(canvas,options){super();selected.video=options;}
+    constructor(canvas,options){super(canvas,options);selected.video=options;}
    };
    M.AudioBufferSource=class extends Audio {
-    constructor(options){super();selected.audio=options;}
+    constructor(options){super(options);selected.audio=options;}
    };
    const prepared=await prepareAcceleratedMultitrack({project:p,
     media:{...media,main:{...media.main,w,h}},M,imageFactory,platform:'ios'});
@@ -201,8 +221,8 @@ test('desktop long-form QA retains its original codec negotiation',async()=>{
   priorAudio=globalThis.AudioBuffer,selected={};
  globalThis.document=document;globalThis.AudioBuffer=PCM;
  const Video=M.CanvasSource,Audio=M.AudioBufferSource;
- M.CanvasSource=class extends Video {constructor(canvas,options){super();selected.video=options;}};
- M.AudioBufferSource=class extends Audio {constructor(options){super();selected.audio=options;}};
+ M.CanvasSource=class extends Video {constructor(canvas,options){super(canvas,options);selected.video=options;}};
+ M.AudioBufferSource=class extends Audio {constructor(options){super(options);selected.audio=options;}};
  try{
   const prepared=await prepareAcceleratedMultitrack({project:proj(),media,M,
    imageFactory,platform:'qa',longSoakQA:true,maxSeconds:3600});
@@ -702,4 +722,31 @@ test('frame budget rejects long native render without flag, more than 60 minutes
   platform:'qa',longSoakQA:true,totalSeconds:3600,fps:60
  });
  assert.equal(qa.framesTotal,216000);
+});
+
+test('native multitrack encoder must acknowledge every real output track',async()=>{
+ const previous=globalThis.document,previousAudio=globalThis.AudioBuffer;
+ globalThis.AudioBuffer=PCM;
+ try{
+  for(const ignored of ['video','audio']){
+   const M=fakeM(),{document}=context();
+   globalThis.document=document;
+   const Video=M.CanvasSource,Audio=M.AudioBufferSource,Output=M.Output;
+   M.CanvasSource=class extends Video {
+    constructor(canvas,config){super(canvas,config);if(ignored==='video')this.options={...config,onEncoderConfig:null};}
+   };
+   M.AudioBufferSource=class extends Audio {
+    constructor(config){super(config);if(ignored==='audio')this.options={...config,onEncoderConfig:null};}
+   };
+   M.Output=class extends Output {async cancel(){M.events.push(['cancel']);}};
+   const prepared=await prepareAcceleratedMultitrack({
+    project:proj(),media,M,imageFactory,platform:'android'
+   });
+   await assert.rejects(renderAcceleratedMultitrack({
+    prepared,sampleRate:8000,writeAt:async(_position,bytes)=>bytes.length
+   }),/native encoder did not confirm active video\/audio configuration/);
+   assert.equal(M.events.filter(e=>e[0]==='cancel').length,1);
+   assert.equal(M.events.filter(e=>e[0]==='dispose').length,3);
+  }
+ }finally{globalThis.document=previous;globalThis.AudioBuffer=previousAudio;}
 });
