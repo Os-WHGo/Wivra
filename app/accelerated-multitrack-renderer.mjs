@@ -365,6 +365,10 @@ async function renderPreparedMultitrack({
   const nativeConfig=['android','ios'].includes(prepared.platform)
     ?mobileCodecConfig({codec,width,height,fps,sampleRate,
       videoBitrate:resolvedVideoBitrate,audioBitrate}):null;
+  // A registered callback is not evidence that the active browser encoder
+  // used the requested codec. Require callbacks for every native output
+  // track before the still-private file may be published.
+  const confirmedEncoders=new Set();
   const checkNativeEncoder=(kind,config)=>{
     const expected=nativeConfig[kind];
     const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
@@ -372,6 +376,7 @@ async function renderPreparedMultitrack({
     if(!config || keys.some(key=>config[key]!==expected[key]) ||
        (expected.avc && config.avc?.format!==expected.avc.format))
       deny('actual '+kind+' encoder differs from native codec preflight');
+    confirmedEncoders.add(kind);
   };
   // Validate the *prepared* mode, not only the interactive preflight UI.
   // Long-form 10/30/60 min was previously accepted in prepare(), but render()
@@ -529,6 +534,9 @@ async function renderPreparedMultitrack({
       throw new Error('Audio mix duration exceeds rendered video.');
     if(isCancelled())throw new Error('Accelerated multi-lane render cancelled.');
     await output.finalize();
+    if(nativeConfig && (!confirmedEncoders.has('video') ||
+       (codec.hasAudio && !confirmedEncoders.has('audio'))))
+      deny('native encoder did not confirm active video/audio configuration');
     finalized=true;
     return {engine:'webcodecs-mediabunny-multitrack-experimental',
       rendererVersion:ACCELERATED_MULTITRACK_RENDERER_VERSION,
