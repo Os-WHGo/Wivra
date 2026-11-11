@@ -26,6 +26,24 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
   class CanvasSink {
     async *canvases(from,to){yield {timestamp:from,duration:to-from,canvas:{}};}
   }
+  class AudioBufferSink {
+    async *buffers(from,to){
+      const length=Math.round((to-from)*48000);
+      yield {timestamp:from,duration:to-from,buffer:{
+        length,sampleRate:48000,numberOfChannels:1,
+        getChannelData(){return new Float32Array(length);}
+      }};
+    }
+  }
+  class AudioBufferSource {
+    constructor(config){
+      config.onEncoderConfig?.({
+        codec:config.fullCodecString,
+        sampleRate:48000,numberOfChannels:2,bitrate:config.bitrate
+      });
+    }
+    async add(){}
+  }
   class CanvasSource{
     constructor(_canvas, config){
       config.onEncoderConfig?.({
@@ -39,6 +57,7 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
   class Output {
     constructor({target}){this.target=target;}
     addVideoTrack(){}
+    addAudioTrack(){}
     async start(){}
     async cancel(){cancelled++;}
     async finalize(){
@@ -52,6 +71,7 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
     get disposals(){return disposals;},get cancelled(){return cancelled;},
     get allocations(){return allocations;},
     Input,UrlSource:class {},ALL_FORMATS:[],CanvasSink,CanvasSource,
+    AudioBufferSink,AudioBufferSource,
     StreamTarget,Output,Mp4OutputFormat:class{},WebMOutputFormat:class{},
     getFirstEncodableVideoCodec:async list=>list.includes(firstCodec)?firstCodec:null,
     canEncodeAudio:async codec=>codec==='aac'?aac:codec==='opus'
@@ -320,4 +340,26 @@ test('native cut export rejects finalization when real video encoder never ackno
   assert.equal(M.cancelled,1);
   assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
  }finally{globalThis.document=prior;}
+});
+
+test('native cut MP4 refuses missing AAC encoder confirmation even when video config was verified',async()=>{
+ const host=native(),M=mockM({audio:true}),priorDoc=globalThis.document,
+  priorAudio=globalThis.AudioBuffer;
+ let attempted=0;
+ M.AudioBufferSource=class {async add(){attempted++;}};
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ globalThis.AudioBuffer=class{
+  constructor(options){this.length=options.length;}
+  copyToChannel(){}
+ };
+ try{
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:true,
+   experimentalAccelerated:true,...supportedCodecProbes
+  }),/codificador nativo no confirmó/);
+  assert.equal(attempted,1);
+  assert.equal(M.disposals,2);
+  assert.equal(M.cancelled,1);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+ }finally{globalThis.document=priorDoc;globalThis.AudioBuffer=priorAudio;}
 });
