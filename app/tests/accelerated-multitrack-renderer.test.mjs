@@ -188,7 +188,7 @@ test('a native encoder profile, FPS, bitrate or audio-channel deviation aborts b
    globalThis.document=document;
    const Video=M.CanvasSource,Audio=M.AudioBufferSource,Output=M.Output;
    M.CanvasSource=class extends Video {
-    constructor(canvas,options){super();this.options=options;}
+    constructor(canvas,options){super(canvas,options);this.options=options;}
     async add(t,d){
      if(kind==='video')this.options.onEncoderConfig({
       codec:this.options.fullCodecString,width:640,height:360,framerate:30,
@@ -197,7 +197,7 @@ test('a native encoder profile, FPS, bitrate or audio-channel deviation aborts b
     }
    };
    M.AudioBufferSource=class extends Audio {
-    constructor(options){super();this.options=options;}
+    constructor(options){super(options);this.options=options;}
     async add(buffer){
      if(kind==='audio')this.options.onEncoderConfig({codec:'mp4a.40.2',
       sampleRate:8000,numberOfChannels:2,bitrate:128000,...patch});
