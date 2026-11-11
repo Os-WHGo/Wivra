@@ -26,7 +26,15 @@ function mockM({audio=false,firstCodec='avc',aac=true}={}) {
   class CanvasSink {
     async *canvases(from,to){yield {timestamp:from,duration:to-from,canvas:{}};}
   }
-  class CanvasSource{async add(){}}
+  class CanvasSource{
+    constructor(_canvas, config){
+      config.onEncoderConfig?.({
+        codec:config.fullCodecString,width:320,height:240,
+        framerate:30,bitrate:config.bitrate,avc:{format:'avc'}
+      });
+    }
+    async add(){}
+  }
   class StreamTarget{constructor(writable){this.writable=writable;}}
   class Output {
     constructor({target}){this.target=target;}
@@ -295,4 +303,21 @@ test('unsafe dimensions fail before opening codec probe or allocating native ses
  }),/Parámetros de reserva acelerada/);
  assert.equal(M.allocations,0);
  assert.deepEqual(host.ops,[]);
+});
+
+test('native cut export rejects finalization when real video encoder never acknowledges config',async()=>{
+ const host=native(),M=mockM(),prior=globalThis.document;
+ let started=0;
+ M.CanvasSource=class{async add(){started++;}};
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ try{
+  await assert.rejects(recordExperimentalNativeAcceleratedCuts({
+   project:project(),media,M,host,expectAudio:false,
+   experimentalAccelerated:true,...supportedCodecProbes
+  }),/codificador nativo no confirmó/);
+  assert.ok(started>0);
+  assert.equal(M.disposals,2);
+  assert.equal(M.cancelled,1);
+  assert.deepEqual(host.ops,['helloRandom','beginRandom','abortRandom']);
+ }finally{globalThis.document=prior;}
 });
