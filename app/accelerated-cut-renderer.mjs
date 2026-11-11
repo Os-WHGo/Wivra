@@ -16,6 +16,10 @@ export const ACCELERATED_CUT_RENDERER_VERSION = 1;
 // milliseconds of frame timestamp rounding/keyframe seeking, not long black
 // or frozen gaps silently emitted by a partially decoded video track.
 export const ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS = 0.1;
+// AudioBufferSource.add() appends PCM samples with NO timestamps. Even tiny
+// holes or overlaps across many cuts accumulate A/V drift, so require
+// sample-accurate coverage instead of reusing the video-frame tolerance.
+export const ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES = 1;
 
 export function acceleratedCutEligibility(project, media, { maxSeconds = 120, maxCuts = 80,
   loudnessGainDb = 0 } = {}) {
@@ -203,21 +207,28 @@ export async function renderAcceleratedCuts({
       if (audioSink) {
         // A global audioBuffers>0 used to permit the first cut to contain
         // sound while a later cut silently lost its audio entirely.
-        let cutAudioBuffers=0, audioCoveredThrough=cut.in;
+        let cutAudioBuffers=0, audioCoveredThrough=cut.in, audioRate=null;
         for await (const wb of audioSink.buffers(cut.in, cut.out)) {
           if (isCancelled()) throw new Error('Accelerated export cancelled.');
           const b=wb?.buffer;
           if (!Number.isFinite(wb?.timestamp) || !Number.isFinite(wb.duration) ||
               wb.duration<=0 || !Number.isSafeInteger(b?.length) || b.length<=0 ||
-              !Number.isFinite(b.sampleRate) || b.sampleRate<=0 ||
+              !Number.isSafeInteger(b.sampleRate) ||
+              b.sampleRate<8000 || b.sampleRate>192000 ||
               ![1,2].includes(b.numberOfChannels) ||
               typeof b.getChannelData!=='function')
             throw new Error('Invalid decoded cut audio samples or channels.');
           const s=Math.max(wb.timestamp,cut.in);
           const e=Math.min(wb.timestamp+wb.duration,cut.out);
           if (!(e>s)) continue;
-          if (s-audioCoveredThrough>ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+          if(audioRate!==null && b.sampleRate!==audioRate)
+            throw new Error('Decoded cut audio sample rate changes mid-cut.');
+          audioRate=b.sampleRate;
+          const missingSamples=(s-audioCoveredThrough)*audioRate;
+          if(missingSamples>ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES+0.01)
             throw new Error('Decoded cut audio contains an uncovered gap.');
+          if(missingSamples < -ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES-0.01)
+            throw new Error('Decoded cut audio overlaps previous PCM samples.');
           const from=Math.round((s-wb.timestamp)*b.sampleRate);
           const length=Math.round((e-s)*b.sampleRate);
           if (!length)continue;
@@ -235,7 +246,9 @@ export async function renderAcceleratedCuts({
           audioBuffers++;cutAudioBuffers++;
           audioCoveredThrough=Math.max(audioCoveredThrough,e);
         }
-        if(!cutAudioBuffers || cut.out-audioCoveredThrough>ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+        if(!cutAudioBuffers || audioRate===null ||
+           (cut.out-audioCoveredThrough)*audioRate >
+             ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES+0.01)
           throw new Error('Decoded cut audio missing before its authored out point.');
       }
       position += cut.out - cut.in;
