@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { acceleratedCutEligibility, checkedRandomWrite,
-  renderAcceleratedCuts, ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS } from '../accelerated-cut-renderer.mjs';
+  renderAcceleratedCuts, ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS,
+  ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES } from '../accelerated-cut-renderer.mjs';
 
 function project() {
   return { clips: [
@@ -65,10 +66,10 @@ function fakeM({withAudio=true}={}) {
   }
   class AudioBufferSink {
     async *buffers(from,to) {
-      const n=Math.round((to-from)*10);
+      const n=Math.round((to-from)*8000);
       const channels=[new Float32Array(n).fill(0.2)];
       yield {timestamp:from,duration:to-from,buffer:{
-        length:n,sampleRate:10, numberOfChannels:1,
+        length:n,sampleRate:8000, numberOfChannels:1,
         getChannelData(ch){return channels[ch];}
       }};
     }
@@ -189,9 +190,9 @@ test('each video cut requires its own decoded audio; first cut audio cannot conc
  M.AudioBufferSink=class {
   async *buffers(from,to){
    if(from>=3)return; // first source segment decodes; the second vanished
-   const length=Math.round((to-from)*10);
+   const length=Math.round((to-from)*8000);
    yield {timestamp:from,duration:to-from,buffer:{
-    length,sampleRate:10,numberOfChannels:1,
+    length,sampleRate:8000,numberOfChannels:1,
     getChannelData(){return new Float32Array(length).fill(.2);}
    }};
   }
@@ -213,10 +214,10 @@ test('each video cut requires its own decoded audio; first cut audio cannot conc
 
 test('cut renderer refuses truncated PCM, audio gaps and surround without downmix',async()=>{
  const badCases=[
-  {timestamp:1,duration:.1,length:1,sampleRate:10,channels:1},
-  {timestamp:1.2,duration:.3,length:3,sampleRate:10,channels:1},
-  {timestamp:1,duration:.5,length:3,sampleRate:10,channels:1},
-  {timestamp:1,duration:.5,length:5,sampleRate:10,channels:6}
+  {timestamp:1,duration:.1,length:1,sampleRate:8000,channels:1},
+  {timestamp:1.2,duration:.3,length:3,sampleRate:8000,channels:1},
+  {timestamp:1,duration:.5,length:3,sampleRate:8000,channels:1},
+  {timestamp:1,duration:.5,length:5,sampleRate:8000,channels:6}
  ];
  const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
  globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
@@ -237,5 +238,63 @@ test('cut renderer refuses truncated PCM, audio gaps and surround without downmi
     writeAt:async(_p,b)=>b.byteLength
    }),/cut audio missing before|cut audio contains|cut audio is shorter|audio samples or channels/);
   }
+ }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldAudio;}
+});
+
+test('cut audio timestamp drift is rejected at sample granularity, not video-frame granularity',async()=>{
+ assert.equal(ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES,1);
+ const cases=[
+  // Each 20ms gap was previously accepted under the video 100ms tolerance,
+  // silently shaving multiple cuts' appended audio and desynchronizing voice.
+  [[1.02, .48,8000]],                         // leading gap
+  [[1,.48,8000]],                            // missing final 20ms
+  [[1,.2,8000],[1.22,.28,8000]],             // inner 20ms gap
+  [[1,.3,8000],[1.2,.3,8000]],               // overlapping 100ms
+  [[1,.2,8000],[1.2,.3,16000]]              // mid-cut sample-rate switch
+ ];
+ const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ globalThis.AudioBuffer=class{constructor(o){this.length=o.length;}copyToChannel(){}};
+ try{
+  for(const spans of cases){
+   const {M,events}=fakeM({withAudio:true});
+   M.AudioBufferSink=class {async *buffers(){
+    for(const [timestamp,duration,rate] of spans){
+     const length=Math.round(duration*rate);
+     yield {timestamp,duration,buffer:{length,sampleRate:rate,
+      numberOfChannels:1,getChannelData(){return new Float32Array(length);}}};
+    }
+   }};
+   await assert.rejects(renderAcceleratedCuts({
+    M,sourceUrl:'blob:synthetic',width:640,height:360,
+    cuts:[{in:1,out:1.5}],expectedAudio:true,
+    writeAt:async(_pos,b)=>b.byteLength
+   }),/cut audio contains|cut audio missing|sample rate changes|overlaps/);
+   assert.ok(!events.some(e=>e.type==='finish'));
+  }
+ }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldAudio;}
+});
+
+test('two contiguous cut-audio buffers keep authored duration',async()=>{
+ const {M,events}=fakeM({withAudio:true});
+ M.AudioBufferSink=class {async *buffers(){
+  for(const [start,duration] of [[1,.2],[1.2,.3]]){
+   const length=Math.round(duration*8000);
+   yield {timestamp:start,duration,buffer:{length,sampleRate:8000,
+    numberOfChannels:1,getChannelData(){return new Float32Array(length).fill(.3);}}};
+  }
+ }};
+ const oldDoc=globalThis.document,oldAudio=globalThis.AudioBuffer;
+ globalThis.document={createElement(){return {getContext(){return {drawImage(){}};}};}};
+ globalThis.AudioBuffer=class{constructor(o){this.length=o.length;}copyToChannel(){}};
+ try{
+  const result=await renderAcceleratedCuts({
+   M,sourceUrl:'blob:synthetic',width:640,height:360,
+   cuts:[{in:1,out:1.5}],expectedAudio:true,
+   writeAt:async(_pos,b)=>b.byteLength
+  });
+  assert.equal(result.audioBuffers,2);
+  assert.equal(events.filter(e=>e.type==='audio').reduce((n,e)=>n+e.length,0),4000);
+  assert.equal(result.durationSeconds,.5);
  }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldAudio;}
 });
