@@ -97,6 +97,27 @@ class WivraRandomAccessExportSessionTest {
         } finally { dir.deleteRecursively() }
     }
 
+    @Test fun silentExportRejectsUnexpectedAudioBeforeSealing() {
+        val dir = folder()
+        try {
+            val session = WivraRandomAccessExportSession.create(dir, "video/mp4")
+            session.writeAt(0, 0, mp4())
+            var inspected = false
+            try {
+                session.finish(16, 1, 1000, false) {
+                    inspected = true
+                    WivraRandomAccessExportSession.Media(
+                        video = true, audio = true, durationMs = 1000
+                    )
+                }
+                fail("A silent export unexpectedly sealed a file with audio")
+            } catch (_: WivraRandomAccessExportSession.IntegrityException) { }
+            assertTrue(inspected)
+            assertEquals(WivraRandomAccessExportSession.State.FAILED, session.state)
+            assertEquals(0, dir.listFiles()?.size)
+        } finally { dir.deleteRecursively() }
+    }
+
     @Test fun abortAndInvalidWritesCannotOverwriteExistingUserFiles() {
         val dir = folder()
         try {
