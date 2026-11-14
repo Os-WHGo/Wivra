@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
   acceleratedBetaFailureDisposition, acceleratedBetaRepeatGate,
-  acceleratedBetaSettingsGate
+  acceleratedBetaSettingsGate, acceleratedBetaRecoverySnapshot
 } from '../accelerated-qa-export-ui.mjs';
 import {createAcceleratedNativeSink} from '../accelerated-native-sink.mjs';
 
@@ -77,8 +77,8 @@ test('QA UI gates BOTH export buttons and requires native recovery check',()=>{
   const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
   assert.match(ui,/startStable\.addEventListener\('click',event=>/);
   assert.match(ui,/if\(!approveAnotherExport\(\)\)return;/);
-  assert.match(ui,/if\(await listRecovered\(recovered\)\)recoveryChecked=true/);
-  assert.match(ui,/if\(await listRecovered\(settingsResult\)\)recoveryChecked=true/);
+  assert.match(ui,/await listRecovered\(recovered,generation\) && generation===recoveryGeneration/);
+  assert.match(ui,/await listRecovered\(settingsResult,generation\) && generation===recoveryGeneration/);
   assert.match(ui,/if\(failure\.recoveryReviewRequired\)/);
   assert.match(ui,/event\.stopImmediatePropagation\(\)/);
 });
@@ -127,4 +127,40 @@ test('invalid post-finish receipt triggers same recovery gate as a lost response
   assert.deepEqual(ops,['helloRandom','beginRandom','finishRandom'],
    'a possibly sealed native file must never be deleted or automatically retried');
  }
+});
+
+test('recovery catalogue belongs to the current uncertain finish, not an older async reply',()=>{
+  const valid={name:'Wivra_Fast_11111111-1111-1111-1111-111111111111.mp4',
+    bytes:4000000,durationMs:2400};
+  const current=acceleratedBetaRecoverySnapshot({
+    files:[valid],requestedGeneration:4,currentGeneration:4
+  });
+  assert.equal(current.ok,true);
+  assert.deepEqual(current.files,[valid]);
+  const stale=acceleratedBetaRecoverySnapshot({
+    files:[valid],requestedGeneration:3,currentGeneration:4
+  });
+  assert.equal(stale.ok,false);
+  assert.match(stale.reason,/último intento/);
+  for(const files of [null,undefined,{},[{...valid,name:'../outside.mp4'}],
+    [{...valid,bytes:-1}], [valid,{name:'unknown.mp4',bytes:1,durationMs:1}]]) {
+    const decision=acceleratedBetaRecoverySnapshot({
+      files,requestedGeneration:4,currentGeneration:4
+    });
+    assert.equal(decision.ok,false,'invalid catalogue must never clear retry gate');
+    assert.match(decision.reason,/Catálogo/);
+  }
+  assert.equal(acceleratedBetaRecoverySnapshot({
+    files:[],requestedGeneration:4,currentGeneration:4
+  }).ok,true,'a valid EMPTY native catalogue still requires separate gallery review');
+});
+
+test('UI invalidates in-flight recovery requests on uncertain finalize and next export',()=>{
+  const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
+  assert.match(ui,/const snapshot=acceleratedBetaRecoverySnapshot\(/);
+  assert.match(ui,/if\(!snapshot.ok\)throw Error\(snapshot.reason\)/);
+  assert.match(ui,/requestedGeneration!==recoveryGeneration/);
+  assert.match(ui,/pendingRecovery=true;\s*recoveryChecked=false;\s*recoveryGeneration\+\+;/);
+  assert.match(ui,/pendingRecovery=false;\s*recoveryChecked=false;\s*recoveryGeneration\+\+;/);
+  assert.equal((ui.match(/if\(await listRecovered\(/g)||[]).length,2);
 });
