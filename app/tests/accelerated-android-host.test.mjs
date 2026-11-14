@@ -22,7 +22,7 @@ function fakeWebMessage() {
           Object.assign(answer,{seq:msg.seq,writtenBytes:msg.size,maxEnd});
         }
         if(msg.op==='finishRandom') Object.assign(answer,{
-          verified:true,bytes:4,sha256:createHash('sha256')
+          verified:true,token:45,bytes:4,sha256:createHash('sha256')
             .update(Uint8Array.from([1,8,9,4])).digest('hex'),
           media:{video:true,audio:true,durationMs:1000}
         });
