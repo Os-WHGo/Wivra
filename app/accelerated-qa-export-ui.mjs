@@ -9,6 +9,23 @@ export function validAcceleratedRecoveryEntry(item) {
     Number.isSafeInteger(item.bytes) && item.bytes>0 &&
     Number.isSafeInteger(item.durationMs) && item.durationMs>0;
 }
+/**
+ * A recovery listing is evidence for ONE uncertainty generation only.
+ * Reject stale replies and malformed entries; silently filtering them could
+ * falsely tell the user that no private video exists.
+ */
+export function acceleratedBetaRecoverySnapshot({
+  files, requestedGeneration, currentGeneration
+}={}) {
+  if (!Number.isSafeInteger(requestedGeneration) || requestedGeneration<0 ||
+      !Number.isSafeInteger(currentGeneration) || currentGeneration<0 ||
+      requestedGeneration!==currentGeneration)
+    return {ok:false,reason:'La búsqueda anterior ya no corresponde al último intento. Revisa los vídeos recuperables nuevamente.'};
+  if (!Array.isArray(files) || files.some(item=>!validAcceleratedRecoveryEntry(item)))
+    return {ok:false,reason:'Catálogo nativo incompleto o incompatible. No se puede confirmar la recuperación; revisa Fotos o la galería.'};
+  return {ok:true,files};
+}
+
 /** QA-only throughput, including the native writer's verification time.
  * This compares elapsed processing to the video's duration, NOT with a second
  * MediaRecorder export. No media data or identifiers leave the device. */
@@ -119,13 +136,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.append(title,note,consent,sound,start,cancel,status,actions,recoveryButton,recovered);
   startStable.insertAdjacentElement('beforebegin',qaBox);
   let running=false,cancelled=false;
-  let pendingRecovery=false,recoveryChecked=false;
-  const listRecovered=async target=>{
+  let pendingRecovery=false,recoveryChecked=false,recoveryGeneration=0;
+  const listRecovered=async(target,requestedGeneration=recoveryGeneration)=>{
     target.textContent='Verificando videos privados…';
     try{
       const response=await host.request({op:'listRecovered'});
-      if(!Array.isArray(response?.files))throw Error('Catálogo nativo inválido');
-      const items=response.files.filter(validAcceleratedRecoveryEntry).slice(0,100);
+      const snapshot=acceleratedBetaRecoverySnapshot({
+        files:response?.files,requestedGeneration,currentGeneration:recoveryGeneration
+      });
+      if(!snapshot.ok)throw Error(snapshot.reason);
+      const items=snapshot.files.slice(0,100);
       target.replaceChildren();
       if(!items.length){
         target.textContent='No hay videos recuperables verificados. Revisa también Fotos o la galería.';
@@ -167,19 +187,25 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       return true;
     }catch(error){
-      target.textContent='Recuperación no disponible: '+error.message;
+      target.textContent=requestedGeneration!==recoveryGeneration
+        ?'La búsqueda caducó por un nuevo resultado incierto. Busca nuevamente.'
+        :'Recuperación no disponible: '+error.message;
       return false;
     }
   };
   recoveryButton.onclick=async()=>{
-    if(await listRecovered(recovered))recoveryChecked=true;
+    const generation=recoveryGeneration;
+    if(await listRecovered(recovered,generation) && generation===recoveryGeneration)
+      recoveryChecked=true;
   };
   const settingsRecovery=make('button','Recuperar exportaciones aceleradas (QA)','btn sec');
   settingsRecovery.type='button';
   const settingsResult=make('div','','m');
   settingsResult.setAttribute('role','status');
   settingsRecovery.onclick=async()=>{
-    if(await listRecovered(settingsResult))recoveryChecked=true;
+    const generation=recoveryGeneration;
+    if(await listRecovered(settingsResult,generation) && generation===recoveryGeneration)
+      recoveryChecked=true;
   };
   settings.append(settingsRecovery,settingsResult);
   cancel.onclick=()=>{cancelled=true;status.textContent='Cancelando sin publicar un archivo parcial…';};
@@ -202,6 +228,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(!confirmed.ok){status.textContent=confirmed.reason;return false;}
     pendingRecovery=false;
     recoveryChecked=false;
+    recoveryGeneration++;
     return true;
   };
   // Capture the stable button too: a failed fast save must not immediately
@@ -293,6 +320,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(failure.recoveryReviewRequired){
         pendingRecovery=true;
         recoveryChecked=false;
+        recoveryGeneration++;
+        recovered.replaceChildren();
+        settingsResult.replaceChildren();
       }
       status.textContent='No se completó la exportación acelerada: '+error.message+
         '. '+failure.message;
