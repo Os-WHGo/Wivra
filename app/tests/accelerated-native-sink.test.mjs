@@ -441,3 +441,26 @@ test('post-finalize receipt denial is uncertain even if native verified=false',a
  assert.equal(host.removed,false);
  assert.equal(host.requests.filter(x=>x.op==='abortRandom').length,0);
 });
+
+test('v2 JS bridge rejects writes beyond the reserved native capacity before disk I/O',async()=>{
+ const host=memoryNative(),originalSend=host.sendWriteAt;
+ let nativeWrites=0;
+ host.sendWriteAt=async request=>{nativeWrites++;return originalSend(request);};
+ const sink=createReservedSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000,estimatedBytes:4
+ });
+ await sink.begin();
+ await assert.rejects(sink.writeAt(0,Uint8Array.from([1,2,3,4,5])),/inválido/);
+ await assert.rejects(sink.writeAt(3,Uint8Array.from([1,2])),/inválido/);
+ assert.equal(nativeWrites,0);
+ assert.equal(sink.maxEnd,0);
+ assert.equal(sink.writeBytes,0);
+ assert.equal(sink.pendingBytes,0);
+ await sink.writeAt(0,Uint8Array.from([1,2,3,4]));
+ assert.equal(nativeWrites,1);
+ assert.equal(sink.maxEnd,4);
+ await assert.rejects(sink.writeAt(4,Uint8Array.from([5])),/inválido/);
+ assert.equal(nativeWrites,1);
+ await sink.abort();
+ assert.equal(host.removed,true,'uncommitted temporary is still safe to delete');
+});
