@@ -84,6 +84,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
       if (!Number.isSafeInteger(position) || position < 0 ||
           !(bytes instanceof Uint8Array) || bytes.length === 0 ||
           bytes.length > ACCELERATED_NATIVE_MAX_WRITE_BYTES ||
+          position + bytes.length > estimatedBytes ||
           position + bytes.length > ACCELERATED_NATIVE_MAX_OUTPUT_BYTES)
         throw new Error('Desplazamiento o bloque acelerado inválido.');
       if (pendingBytes + bytes.byteLength > ACCELERATED_NATIVE_MAX_PENDING_BYTES)
