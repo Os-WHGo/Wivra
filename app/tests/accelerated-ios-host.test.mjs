@@ -22,7 +22,7 @@ function mockWK() {
         return {ok:true,seq:msg.seq,writtenBytes:msg.size,maxEnd};
       }
       if(msg.op==='finishRandom') return {
-        ok:true,verified:true,bytes:4,
+        ok:true,verified:true,token:39,bytes:4,
         sha256:createHash('sha256').update(Uint8Array.from([1,8,9,4])).digest('hex'),
         media:{video:true,audio:true,durationMs:1000}
       };
