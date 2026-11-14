@@ -86,14 +86,18 @@ test('v2 refuses unknown formats, missing audio, bad hashes, illegal offsets and
     [0,new Uint8Array(ACCELERATED_NATIVE_MAX_WRITE_BYTES+1)]
   ]) await assert.rejects(sink.writeAt(pos,data),/inválido/);
   await sink.writeAt(0,new Uint8Array([1,2]));
-  await assert.rejects(sink.finish(),/no superó/);
+  let invalidReceipt;
+  try{await sink.finish();}catch(error){invalidReceipt=error;}
+  assert.match(invalidReceipt?.message??'',/no superó/);
+  assert.equal(invalidReceipt?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
   await sink.abort();
-  assert.equal(h.removed,true);
+  assert.equal(h.removed,false,'native may have sealed a file despite a bad digest receipt');
   const h2=memoryNative({hasAudio:false});
   const sink2=createReservedSink(h2,{mime:'video/webm',expectedDurationMs:1000,expectAudio:true});
   await sink2.begin();await sink2.writeAt(0,new Uint8Array([1]));
   await assert.rejects(sink2.finish(),/no superó/);
   await sink2.abort();
+  assert.equal(h2.removed,false,'missing audio receipt may follow a native commit');
 });
 
 test('one failed or canceled v2 session cannot claim a verified published video',async()=>{
