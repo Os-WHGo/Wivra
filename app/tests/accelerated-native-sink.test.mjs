@@ -297,7 +297,7 @@ test('v2 bounds queued unacknowledged chunks and drains memory on cancel',async(
   return original(message);
  };
  const sink=createReservedSink(host,{mime:'video/mp4',
-  expectedDurationMs:1000,estimatedBytes:ACCELERATED_NATIVE_MAX_PENDING_BYTES});
+  expectedDurationMs:1000,estimatedBytes:ACCELERATED_NATIVE_MAX_PENDING_BYTES+1024});
  await sink.begin();
  assert.equal(ACCELERATED_NATIVE_MAX_PENDING_BYTES,8*1024*1024);
  const writes=[];
