@@ -54,7 +54,7 @@ test('v2 Android transport identifies exact protocol, offsets and bounded base64
 test('transport can drive the native-v2 sink without touching v1',async()=>{
   const obj=fakeWebMessage(), host=acceleratedAndroidHost(obj);
   const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',
-    expectedDurationMs:1000,expectAudio:true});
+    expectedDurationMs:1000,expectAudio:true,estimatedBytes:1024});
   await sink.begin();
   await sink.writeAt(0,Uint8Array.from([1,2,3,4]));
   // Fake bridge returns the real highest offset after overlapping patches.
