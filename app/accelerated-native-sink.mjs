@@ -135,7 +135,11 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
             expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
         } catch {
           finalizeAckUncertain = true;
-          throw new Error('El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.');
+          const error = new Error('El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.');
+          // Stable machine-readable code: UI must require recovery review and
+          // user consent before another accelerated or classic export.
+          error.code = 'WIVRA_ACCELERATED_FINISH_UNCERTAIN';
+          throw error;
         }
         // SHA-256 is computed by native from the ACTUAL final file after all
         // arbitrary header patches. A mere positive byte count is insufficient.
