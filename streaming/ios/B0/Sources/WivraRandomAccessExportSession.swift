@@ -215,7 +215,7 @@ actor WivraRandomAccessExportSession {
             let originalSHA = try Self.hash(partial)
             guard let media = try await inspect(partial),
                   media.video, media.durationMs > 0,
-                  !expectAudio || media.audio else {
+                  media.audio == expectAudio else {
                 throw Failure.invalid("Pistas o duración multimedia no válidas.")
             }
             let tolerance = max(Int64(1500), min(Int64(5000), expectedDurationMs / 100))
