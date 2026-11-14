@@ -21,6 +21,8 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
     throw new Error('No existe un puente nativo de escritura aleatoria v2.');
   }
   if (!['video/mp4', 'video/webm'].includes(mime)) throw new Error('Contenedor acelerado inválido.');
+  if(typeof expectAudio !== 'boolean')
+    throw new Error('La política de audio de la exportación nativa debe ser booleana.');
   if (!(expectedDurationMs > 0 && Number.isFinite(expectedDurationMs)) ||
       !(Number.isSafeInteger(estimatedBytes) && estimatedBytes > 0 &&
         estimatedBytes <= ACCELERATED_NATIVE_MAX_OUTPUT_BYTES))
@@ -147,7 +149,7 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
             saved?.media?.video !== true ||
             !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
             Math.abs(saved.media.durationMs - expectedDurationMs) > durationToleranceMs ||
-            (expectAudio && saved.media.audio !== true)) {
+            saved.media?.audio !== expectAudio) {
           throw new Error('El archivo acelerado no superó integridad y decodificación.');
         }
         state = 'done'; token = null;
