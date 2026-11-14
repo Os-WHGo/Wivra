@@ -155,7 +155,17 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
             !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
             Math.abs(saved.media.durationMs - expectedDurationMs) > durationToleranceMs ||
             saved.media?.audio !== expectAudio) {
-          throw new Error('El archivo acelerado no superó integridad y decodificación.');
+          // The writer may already have sealed/published the file, even if
+          // its reply is malformed, stale or incomplete. Reject the receipt
+          // but NEVER issue abortRandom against a possibly committed session.
+          // Recovery must reconcile the real file before another export.
+          finalizeAckUncertain = true;
+          const error = new Error(
+            'El archivo acelerado no superó integridad y decodificación. '+
+            'El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.'
+          );
+          error.code = 'WIVRA_ACCELERATED_FINISH_UNCERTAIN';
+          throw error;
         }
         state = 'done'; token = null;
         return saved;
