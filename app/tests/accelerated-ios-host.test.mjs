@@ -36,7 +36,7 @@ test('separate iOS v2 handler supports random patched offsets and retains v1 iso
   const handler=mockWK();
   const host=acceleratedIOSHost(handler);
   const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',
-    expectedDurationMs:1000,expectAudio:true});
+    expectedDurationMs:1000,expectAudio:true,estimatedBytes:1024});
   await sink.begin();
   await sink.writeAt(0,Uint8Array.from([1,2,3,4]));
   await sink.writeAt(1,Uint8Array.from([8,9]));
