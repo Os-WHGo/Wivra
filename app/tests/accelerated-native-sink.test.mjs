@@ -206,16 +206,19 @@ test('lost finishRandom ACK preserves a possibly committed private recording',as
  assert.equal(host.requests.filter(r=>r.op==='abortRandom').length,0);
 });
 
-test('definite malformed native final receipt still permits safe cleanup',async()=>{
+test('malformed post-finalize receipt preserves native recovery and requires manual review',async()=>{
  const host=memoryNative({badSha:true});
  const sink=createReservedSink(host,{
   mime:'video/mp4',expectedDurationMs:1000
  });
  await sink.begin();
  await sink.writeAt(0,new Uint8Array([1,2,3]));
- await assert.rejects(sink.finish(),/no superó integridad/);
+ let integrityError;
+ try{await sink.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
  await sink.abort();
- assert.equal(host.removed,true);
+ assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
 });
 
 test('native capacity is enforced before begin or random IO without exposing unsafe offsets', async () => {
@@ -247,10 +250,13 @@ test('v2 rejects a valid-looking hash if the native duration differs from the au
  });
  await writer.begin();
  await writer.writeAt(0,new Uint8Array([1,2,3]));
- await assert.rejects(writer.finish(),/no superó integridad/);
+ let integrityError;
+ try{await writer.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
  assert.equal(writer.state,'failed');
  await writer.abort();
- assert.equal(host.removed,true);
+ assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
  const almost=memoryNative({durationMs:1999});
  const ok=createReservedSink(almost,{
    mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
@@ -267,9 +273,12 @@ test('v2 long-form duration window is capped at five seconds and never trusts no
   });
   await writer.begin();
   await writer.writeAt(0,new Uint8Array([1,2,3]));
-  await assert.rejects(writer.finish(),/no superó integridad/);
+  let integrityError;
+ try{await writer.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
   await writer.abort();
-  assert.equal(host.removed,true);
+  assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
  }
 });
 
@@ -345,9 +354,12 @@ test('silent export never accepts a surprise audio track in native verified rece
  });
  await sink.begin();
  await sink.writeAt(0,Uint8Array.of(1,2,3));
- await assert.rejects(sink.finish(),/no superó integridad/);
+ let integrityError;
+ try{await sink.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
  await sink.abort();
- assert.equal(host.removed,true);
+ assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
  assert.equal(host.requests.filter(r=>r.op==='finishRandom').length,1);
 });
 
@@ -363,9 +375,12 @@ test('missing native audio metadata never claims verified silent media',async()=
   mime:'video/mp4',expectedDurationMs:1000,expectAudio:false
  });
  await sink.begin(); await sink.writeAt(0,Uint8Array.of(1));
- await assert.rejects(sink.finish(),/no superó integridad/);
+ let integrityError;
+ try{await sink.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
  await sink.abort();
- assert.equal(host.removed,true);
+ assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
 });
 
 test('v2 native audio policy is boolean, not a truthy string',()=>{
@@ -395,9 +410,30 @@ test('native v2 rejects verified receipts for another token or without a token',
   });
   await sink.begin();
   await sink.writeAt(0,Uint8Array.from([1,2,3]));
-  await assert.rejects(sink.finish(),/no superó integridad/);
+  let integrityError;
+ try{await sink.finish();}catch(error){integrityError=error;}
+ assert.match(integrityError?.message??'',/no superó integridad/);
+ assert.equal(integrityError?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
   assert.equal(sink.state,'failed');
   await sink.abort();
-  assert.equal(host.removed,true);
+  assert.equal(host.removed,false, 'post-finalize receipt is uncertain: native copy may be sealed');
  }
+});
+
+test('post-finalize receipt denial is uncertain even if native verified=false',async()=>{
+ const host=memoryNative(),nativeRequest=host.request.bind(host);
+ host.request=async message=>{
+  const result=await nativeRequest(message);
+  if(message.op==='finishRandom')return {...result,verified:false};
+  return result;
+ };
+ const sink=createReservedSink(host,{mime:'video/mp4',expectedDurationMs:1000});
+ await sink.begin();
+ await sink.writeAt(0,Uint8Array.from([1,2,3]));
+ let error;
+ try{await sink.finish()}catch(e){error=e}
+ assert.equal(error?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
+ await sink.abort();
+ assert.equal(host.removed,false);
+ assert.equal(host.requests.filter(x=>x.op==='abortRandom').length,0);
 });
