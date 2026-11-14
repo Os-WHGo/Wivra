@@ -375,3 +375,26 @@ test('v2 native audio policy is boolean, not a truthy string',()=>{
  }
  assert.equal(host.requests.length,0);
 });
+
+test('native v2 rejects verified receipts for another token or without a token',async()=>{
+ for(const receiptToken of [undefined,0,14,16]){
+  const host=memoryNative(),base=host.request;
+  host.request=async request=>{
+   const receipt=await base(request);
+   if(request.op==='finishRandom'){
+    if(receiptToken===undefined){delete receipt.token;return receipt;}
+    return {...receipt,token:receiptToken};
+   }
+   return receipt;
+  };
+  const sink=createReservedSink(host,{
+   mime:'video/mp4',expectedDurationMs:1000,expectAudio:false
+  });
+  await sink.begin();
+  await sink.writeAt(0,Uint8Array.from([1,2,3]));
+  await assert.rejects(sink.finish(),/no superó integridad/);
+  assert.equal(sink.state,'failed');
+  await sink.abort();
+  assert.equal(host.removed,true);
+ }
+});
