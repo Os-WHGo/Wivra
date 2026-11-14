@@ -70,7 +70,7 @@ export function acceleratedBetaFailureDisposition(error){
     automaticRetry:false,
     message:uncertain
       ?'El teléfono podría haber guardado el vídeo aunque faltó la confirmación. Revisa primero los vídeos recuperables y la galería. Después podrás elegir el motor con tu confirmación.'
-      :'La exportación acelerada no terminó. Puedes elegir MediaRecorder manualmente; no se iniciará otra exportación de forma automática.'
+      :'La exportación acelerada no terminó. No se ha cambiado automáticamente de motor. Puedes elegir MediaRecorder manualmente; no se iniciará otra exportación de forma automática.'
   };
 }
 
@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   };
   recoveryButton.onclick=async()=>{
     const generation=recoveryGeneration;
+    if(pendingRecovery)recoveryChecked=false;
     if(await listRecovered(recovered,generation) && generation===recoveryGeneration)
       recoveryChecked=true;
   };
@@ -204,6 +205,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   settingsResult.setAttribute('role','status');
   settingsRecovery.onclick=async()=>{
     const generation=recoveryGeneration;
+    if(pendingRecovery)recoveryChecked=false;
     if(await listRecovered(settingsResult,generation) && generation===recoveryGeneration)
       recoveryChecked=true;
   };
