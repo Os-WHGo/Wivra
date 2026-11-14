@@ -35,12 +35,22 @@ function fakeM(log,{audio=false}={}) {
  class CanvasSink {
   async getCanvas(t){return {timestamp:t,canvas:{width:320,height:180}};}
  }
- class CanvasSource {async add(){log.push('frame');}}
+ class CanvasSource {
+  constructor(canvas,options={}){this.canvas=canvas;this.options=options;this.fps=30;}
+  async add(){
+   const c=this.options;
+   c.onEncoderConfig?.({
+    codec:c.fullCodecString,width:this.canvas.width,height:this.canvas.height,
+    framerate:this.fps,bitrate:c.bitrate,avc:{format:'avc'}
+   });
+   log.push('frame');
+  }
+ }
  class AudioBufferSink {}
  class StreamTarget {constructor(writable){this.writable=writable;}}
  class Output {
   constructor({target}){this.target=target;}
-  addVideoTrack(){}
+  addVideoTrack(source,{frameRate}={}){source.fps=frameRate??30;}
   async start(){log.push('start');}
   async cancel(){log.push('cancel');}
   async finalize(){
@@ -148,7 +158,7 @@ test('native AVC render pins the exact profile probed at 720p60 and rejects a ch
     probed=structuredClone(config);return {supported:true,config};
    }};
    M.CanvasSource=class extends Video {
-    constructor(canvas,options){super();this.options=options;}
+    constructor(canvas,options){super(canvas,options);this.options=options;}
     async add(){
      assert.equal(this.options.fullCodecString,'avc1.42E020');
      assert.equal(this.options.bitrate,probed.bitrate);
