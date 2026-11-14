@@ -26,7 +26,7 @@ function memoryNative({v2=true,badSha=false,hasAudio=null,durationMs=1000}={}) {
       if(message.op==='finishRandom'){
         if(!active)throw Error('session ended');
         const digest=createHash('sha256').update(bytes).digest('hex');
-        return {verified:true,bytes:maxEnd,sha256:badSha?'x':digest,
+        return {verified:true,token:15,bytes:maxEnd,sha256:badSha?'x':digest,
           media:{video:true,audio:hasAudio===null?message.expectAudio:hasAudio,durationMs}};
       }
       throw Error('unknown op');
