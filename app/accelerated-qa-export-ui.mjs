@@ -38,6 +38,37 @@ export function acceleratedBetaSettingsGate({
     return {ok:false, reason:'La autorización para exportar con pistas incompletas no se puede trasladar al motor acelerado. Usa MediaRecorder o recupera los archivos.'};
   return {ok:true,reason:''};
 }
+/** Fail-closed export retry policy. A finishRandom timeout may occur AFTER
+ * native atomically sealed/published a video. Re-exporting with either engine
+ * without examining recovery/gallery can create a duplicate copy. The user
+ * remains free to choose either engine after review and explicit confirmation.
+ */
+export function acceleratedBetaFailureDisposition(error){
+  const code=error?.code;
+  const uncertain=code==='WIVRA_ACCELERATED_FINISH_UNCERTAIN' ||
+    /resultado del guardado nativo es incierto/i.test(String(error?.message??''));
+  return {
+    recoveryReviewRequired:uncertain,
+    automaticFallback:false,
+    automaticRetry:false,
+    message:uncertain
+      ?'El teléfono podría haber guardado el vídeo aunque faltó la confirmación. Revisa primero los vídeos recuperables y la galería. Después podrás elegir el motor con tu confirmación.'
+      :'La exportación acelerada no terminó. Puedes elegir MediaRecorder manualmente; no se iniciará otra exportación de forma automática.'
+  };
+}
+
+/** No repeat for either engine until recovery inspection AND user consent. */
+export function acceleratedBetaRepeatGate({
+  pendingRecovery=false,recoveryChecked=false,userConfirmed=false
+}={}){
+  if(!pendingRecovery)return {ok:true,reason:''};
+  if(!recoveryChecked)return {ok:false,
+    reason:'Revisa primero los vídeos acelerados recuperables y la galería antes de repetir o usar MediaRecorder.'};
+  if(!userConfirmed)return {ok:false,
+    reason:'Confirma que revisaste los archivos guardados antes de iniciar una nueva exportación.'};
+  return {ok:true,reason:''};
+}
+
 if(typeof document!=='undefined' && typeof window!=='undefined')
 document.addEventListener('DOMContentLoaded',()=>{
   const host=nativeHost();
@@ -88,6 +119,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.append(title,note,consent,sound,start,cancel,status,actions,recoveryButton,recovered);
   startStable.insertAdjacentElement('beforebegin',qaBox);
   let running=false,cancelled=false;
+  let pendingRecovery=false,recoveryChecked=false;
   const listRecovered=async target=>{
     target.textContent='Verificando videos privados…';
     try{
@@ -95,7 +127,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(!Array.isArray(response?.files))throw Error('Catálogo nativo inválido');
       const items=response.files.filter(validAcceleratedRecoveryEntry).slice(0,100);
       target.replaceChildren();
-      if(!items.length){target.textContent='No hay videos recuperables verificados.';return;}
+      if(!items.length){
+        target.textContent='No hay videos recuperables verificados. Revisa también Fotos o la galería.';
+        return true;
+      }
       for(const item of items){
         const row=make('div','');
         const label=make('span',item.name+' ('+(item.bytes/1e6).toFixed(1)+' MB) ');
@@ -130,16 +165,53 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         row.append(label,button);target.append(row);
       }
-    }catch(error){target.textContent='Recuperación no disponible: '+error.message;}
+      return true;
+    }catch(error){
+      target.textContent='Recuperación no disponible: '+error.message;
+      return false;
+    }
   };
-  recoveryButton.onclick=()=>listRecovered(recovered);
+  recoveryButton.onclick=async()=>{
+    if(await listRecovered(recovered))recoveryChecked=true;
+  };
   const settingsRecovery=make('button','Recuperar exportaciones aceleradas (QA)','btn sec');
   settingsRecovery.type='button';
   const settingsResult=make('div','','m');
   settingsResult.setAttribute('role','status');
-  settingsRecovery.onclick=()=>listRecovered(settingsResult);
+  settingsRecovery.onclick=async()=>{
+    if(await listRecovered(settingsResult))recoveryChecked=true;
+  };
   settings.append(settingsRecovery,settingsResult);
   cancel.onclick=()=>{cancelled=true;status.textContent='Cancelando sin publicar un archivo parcial…';};
+  const approveAnotherExport=()=>{
+    const gate=acceleratedBetaRepeatGate({
+      pendingRecovery,recoveryChecked,userConfirmed:false
+    });
+    if(!gate.ok && !recoveryChecked){
+      status.textContent=gate.reason;
+      return false;
+    }
+    if(!pendingRecovery)return true;
+    if(!window.confirm('¿Ya revisaste los vídeos recuperables y Fotos o la galería? Una exportación anterior podría haberse guardado. ¿Quieres iniciar otra exportación igualmente?')){
+      status.textContent='No se repetirá la exportación sin tu confirmación.';
+      return false;
+    }
+    const confirmed=acceleratedBetaRepeatGate({
+      pendingRecovery,recoveryChecked,userConfirmed:true
+    });
+    if(!confirmed.ok){status.textContent=confirmed.reason;return false;}
+    pendingRecovery=false;
+    recoveryChecked=false;
+    return true;
+  };
+  // Capture the stable button too: a failed fast save must not immediately
+  // create a classic duplicate before the person checks recovery.
+  startStable.addEventListener('click',event=>{
+    if(!approveAnotherExport()){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  },true);
   start.onclick=async()=>{
     if(running||!enable.checked)return void(status.textContent=
       'Marca primero la autorización experimental. La exportación habitual sigue disponible.');
@@ -154,6 +226,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       allowOverlayGaps:document.getElementById('expAllowOverlayGaps')?.checked??false
     });
     if(!editorSettings.ok)return void(status.textContent=editorSettings.reason);
+    if(!approveAnotherExport())return;
     const originalSession=session,revision=session.project.revision;
     running=true;cancelled=false;start.disabled=true;startStable.disabled=true;cancel.hidden=false;
     actions.replaceChildren();status.textContent='Preparando la exportación acelerada…';
@@ -215,8 +288,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         actions.append(photos);
       }
-    }catch(error){status.textContent='No se completó la exportación acelerada: '+error.message+
-      '. El motor clásico (MediaRecorder) está disponible en el botón inferior. No se ha cambiado automáticamente de motor para evitar archivos duplicados o resultados inciertos.';}
+    }catch(error){
+      const failure=acceleratedBetaFailureDisposition(error);
+      if(failure.recoveryReviewRequired){
+        pendingRecovery=true;
+        recoveryChecked=false;
+      }
+      status.textContent='No se completó la exportación acelerada: '+error.message+
+        '. '+failure.message;
+    }
     finally{running=false;cancel.hidden=true;start.disabled=false;startStable.disabled=false;
       // Each subsequent export again prefers the owner-approved fast beta path.
       // No action starts until the person presses the accelerated button.
