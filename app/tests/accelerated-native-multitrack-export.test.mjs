@@ -66,7 +66,7 @@ function fakeHost() {
    if(request.op==='beginRandom')return {token:101};
    if(request.op==='abortRandom')return {};
    if(request.op==='finishRandom'){
-    return {verified:true,bytes:high,
+    return {verified:true,token:101,bytes:high,
      sha256:createHash('sha256').update(buffer.subarray(0,high)).digest('hex'),
      media:{video:true,audio:false,durationMs:400}};
    }
