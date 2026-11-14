@@ -82,3 +82,49 @@ test('QA UI gates BOTH export buttons and requires native recovery check',()=>{
   assert.match(ui,/if\(failure\.recoveryReviewRequired\)/);
   assert.match(ui,/event\.stopImmediatePropagation\(\)/);
 });
+
+test('invalid post-finish receipt triggers same recovery gate as a lost response',async()=>{
+ const variants=[
+  receipt=>({...receipt,token:888}),
+  receipt=>({...receipt,bytes:999}),
+  receipt=>({...receipt,verified:false}),
+  receipt=>({...receipt,media:{...receipt.media,audio:true}})
+ ];
+ for(const mutate of variants){
+  const ops=[];
+  const host={
+   async request(request){
+    ops.push(request.op);
+    if(request.op==='helloRandom')return {protocol:2,randomWrite:true};
+    if(request.op==='beginRandom')return {token:77};
+    if(request.op==='abortRandom')return {};
+    if(request.op==='finishRandom'){
+      const receipt={verified:true,token:77,bytes:3,sha256:'a'.repeat(64),
+       media:{video:true,audio:false,durationMs:1000}};
+      return mutate(receipt);
+    }
+    throw Error('unexpected native op');
+   },
+   async sendWriteAt({seq,position,bytes}){
+    return {seq,writtenBytes:bytes.length,maxEnd:position+bytes.length};
+   }
+  };
+  const sink=createAcceleratedNativeSink(host,{
+   mime:'video/mp4',expectedDurationMs:1000,estimatedBytes:1024,expectAudio:false
+  });
+  await sink.begin();
+  await sink.writeAt(0,Uint8Array.from([1,2,3]));
+  let error;
+  try{await sink.finish()}catch(e){error=e}
+  assert.equal(error?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
+  const verdict=acceleratedBetaFailureDisposition(error);
+  assert.equal(verdict.recoveryReviewRequired,true);
+  assert.equal(acceleratedBetaRepeatGate({
+   pendingRecovery:verdict.recoveryReviewRequired,recoveryChecked:false,
+   userConfirmed:true
+  }).ok,false);
+  await sink.abort();
+  assert.deepEqual(ops,['helloRandom','beginRandom','finishRandom'],
+   'a possibly sealed native file must never be deleted or automatically retried');
+ }
+});
