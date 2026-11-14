@@ -12,7 +12,7 @@ function createReservedSink(host, options={}){
   return createRawNativeSink(host,{estimatedBytes:1024,...options});
 }
 
-function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
+function memoryNative({v2=true,badSha=false,hasAudio=null,durationMs=1000}={}) {
   let active=false, removed=false, maxEnd=0;
   let bytes=new Uint8Array(0);
   const requests=[];
@@ -27,7 +27,7 @@ function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
         if(!active)throw Error('session ended');
         const digest=createHash('sha256').update(bytes).digest('hex');
         return {verified:true,bytes:maxEnd,sha256:badSha?'x':digest,
-          media:{video:true,audio:hasAudio,durationMs}};
+          media:{video:true,audio:hasAudio===null?message.expectAudio:hasAudio,durationMs}};
       }
       throw Error('unknown op');
     },
@@ -333,4 +333,45 @@ test('raw native sink refuses missing, zero or malformed storage budget before n
  assert.equal(host.requests.find(r=>r.op==='beginRandom')?.estimatedBytes,1024);
  await good.abort();
  assert.equal(host.removed,true);
+});
+
+test('silent export never accepts a surprise audio track in native verified receipt',async()=>{
+ const host=memoryNative({hasAudio:true});
+ const sink=createReservedSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000,expectAudio:false
+ });
+ await sink.begin();
+ await sink.writeAt(0,Uint8Array.of(1,2,3));
+ await assert.rejects(sink.finish(),/no superó integridad/);
+ await sink.abort();
+ assert.equal(host.removed,true);
+ assert.equal(host.requests.filter(r=>r.op==='finishRandom').length,1);
+});
+
+test('missing native audio metadata never claims verified silent media',async()=>{
+ const host=memoryNative();
+ const original=host.request;
+ host.request=async message=>{
+  const response=await original(message);
+  if(message.op==='finishRandom')delete response.media.audio;
+  return response;
+ };
+ const sink=createReservedSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000,expectAudio:false
+ });
+ await sink.begin(); await sink.writeAt(0,Uint8Array.of(1));
+ await assert.rejects(sink.finish(),/no superó integridad/);
+ await sink.abort();
+ assert.equal(host.removed,true);
+});
+
+test('v2 native audio policy is boolean, not a truthy string',()=>{
+ const host=memoryNative();
+ for(const value of ['false',1,null,{},[]]){
+  assert.throws(()=>createRawNativeSink(host,{
+   mime:'video/mp4',expectedDurationMs:1000,
+   estimatedBytes:1024,expectAudio:value
+  }),/política de audio/);
+ }
+ assert.equal(host.requests.length,0);
 });
