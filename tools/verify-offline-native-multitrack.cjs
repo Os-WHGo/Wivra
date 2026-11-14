@@ -51,7 +51,7 @@ const htmlPath=path.resolve(__dirname,'../app/dist/agentcut.html');
       const sha256=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
       const media=inspectExport(data);
       return {verified:!!(media.video&&media.seekIndex&&media.declaresDuration),
-       bytes:end,sha256,media};
+       token:81,bytes:end,sha256,media};
      }
      throw Error('Unexpected native v2 operation');
     },
