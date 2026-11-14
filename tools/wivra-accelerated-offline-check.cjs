@@ -17,6 +17,7 @@ const basics=[
  'accelerated-native-codec-probe.test.mjs',
  'accelerated-storage-budget.test.mjs',
  'accelerated-qa-recovery-ui.test.mjs',
+ 'accelerated-qa-export-ui.test.mjs',
  'accelerated-editor-native-gate.test.mjs',
  'accelerated-multitrack-parity.test.mjs',
  'accelerated-multitrack-renderer.test.mjs',
