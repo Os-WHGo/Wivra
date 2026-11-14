@@ -94,7 +94,7 @@ function native({platform='android'}={}) {
       }
       if(op==='abortRandom')return {ok:true};
       if(op==='finishRandom')return {
-        verified:true,bytes:maxEnd,
+        verified:true,token:56,bytes:maxEnd,
         sha256:createHash('sha256').update(bytes).digest('hex'),
         media:{video:true,audio:false,durationMs:500}
       };
