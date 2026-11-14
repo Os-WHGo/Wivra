@@ -195,7 +195,10 @@ test('lost finishRandom ACK preserves a possibly committed private recording',as
  });
  await sink.begin();
  await sink.writeAt(0,new Uint8Array([1,2,3]));
- await assert.rejects(sink.finish(),/resultado del guardado nativo es incierto/);
+ let uncertain;
+ try{await sink.finish();}catch(error){uncertain=error;}
+ assert.match(uncertain?.message??'',/resultado del guardado nativo es incierto/);
+ assert.equal(uncertain?.code,'WIVRA_ACCELERATED_FINISH_UNCERTAIN');
  assert.equal(sink.state,'failed');
  await sink.abort(); // must not delete a possibly committed recovery copy
  assert.equal(host.removed,false);
