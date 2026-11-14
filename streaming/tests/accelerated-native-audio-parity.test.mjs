@@ -39,3 +39,19 @@ test('JS v2 receipt requires the exact audio flag and matching native session', 
   assert.match(sink, /saved\.media\?\.audio\s*!==\s*expectAudio/);
   assert.match(sink, /saved\?\.token\s*!==\s*token/);
 });
+
+test('JS, Android and iOS all reject writes beyond the reserved native capacity',()=>{
+  const js=native('../../app/accelerated-native-sink.mjs');
+  const android=native('../android/app/src/main/java/com/oswhgo/wivra/WivraRandomAccessExportSession.kt');
+  const ios=native('../ios/B0/Sources/WivraRandomAccessExportSession.swift');
+  assert.match(js,/position\s*\+\s*bytes\.length\s*>\s*estimatedBytes/);
+  assert.match(android,/position\s*>\s*reservedBytes\s*-\s*data\.size\.toLong\(\)/);
+  assert.match(ios,/position\s*<=\s*reservedBytes\s*-\s*Int64\(data\.count\)/);
+});
+
+test('both lost and malformed native completion receipts forbid automatic abort',()=>{
+  const js=native('../../app/accelerated-native-sink.mjs');
+  assert.equal((js.match(/error\.code = 'WIVRA_ACCELERATED_FINISH_UNCERTAIN'/g)||[]).length,2);
+  assert.ok((js.match(/finalizeAckUncertain\s*=\s*true;/g)||[]).length>=2);
+  assert.match(js,/committing\s*\|\|\s*finalizeAckUncertain\)\s*return;/);
+});
