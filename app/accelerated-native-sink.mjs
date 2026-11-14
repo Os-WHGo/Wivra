@@ -144,7 +144,8 @@ export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0
         // shortened or desynchronized recording as fully verified.
         const durationToleranceMs = Math.max(1500,Math.min(5000,
           Math.floor(expectedDurationMs / 100)));
-        if (saved?.verified !== true || saved?.bytes !== maxEnd ||
+        if (saved?.verified !== true || saved?.token !== token ||
+            saved?.bytes !== maxEnd ||
             !/^[0-9a-f]{64}$/i.test(saved?.sha256 || '') ||
             saved?.media?.video !== true ||
             !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
