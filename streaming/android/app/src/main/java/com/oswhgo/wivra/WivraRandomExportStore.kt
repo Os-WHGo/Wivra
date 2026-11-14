@@ -221,7 +221,7 @@ object WivraRandomExportStore {
                 throw IOException("La copia releída no coincide con SHA-256.")
             val gallery = WivraExportFinalizer.inspect(context, uri, mime)
             if (!gallery.video || gallery.durationMs <= 0 ||
-                (verified.media.audio && !gallery.audio) ||
+                (verified.media.audio != gallery.audio) ||
                 kotlin.math.abs(gallery.durationMs - verified.media.durationMs) > 1500L ||
                 (mime == "video/webm" && (!gallery.declaresDuration || !gallery.seekIndex)))
                 throw IOException("El archivo de galería no supera inspección multimedia.")
