@@ -1,6 +1,6 @@
 // Wivra P0-W - protocol v2 random access storage adapter for Mediabunny.
 // This is NOT the existing v1 sequential MediaRecorder protocol.
-// No production native host advertises v2 yet: attempting to use it must fail.
+// Native v2 must refuse unbudgeted exports before obtaining an output token.
 // The caller owns the temporary v2 file, never any existing user's media.
 //
 // Only a native host that explicitly confirms protocol 2 + randomWrite may
@@ -16,13 +16,13 @@ export const ACCELERATED_NATIVE_MAX_PENDING_BYTES = 8 * 1024 * 1024;
 export const ACCELERATED_NATIVE_MAX_OUTPUT_BYTES = 16 * 1024 * 1024 * 1024;
 
 export function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
-  expectAudio = false, estimatedBytes = 0 } = {}) {
+  expectAudio = false, estimatedBytes } = {}) {
   if (!host || typeof host.request !== 'function' || typeof host.sendWriteAt !== 'function') {
     throw new Error('No existe un puente nativo de escritura aleatoria v2.');
   }
   if (!['video/mp4', 'video/webm'].includes(mime)) throw new Error('Contenedor acelerado inválido.');
   if (!(expectedDurationMs > 0 && Number.isFinite(expectedDurationMs)) ||
-      !(estimatedBytes >= 0 && Number.isSafeInteger(estimatedBytes) &&
+      !(Number.isSafeInteger(estimatedBytes) && estimatedBytes > 0 &&
         estimatedBytes <= ACCELERATED_NATIVE_MAX_OUTPUT_BYTES))
     throw new Error('Duración/tamaño estimado inválido.');
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
