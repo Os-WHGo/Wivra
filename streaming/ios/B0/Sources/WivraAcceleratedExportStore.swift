@@ -58,7 +58,7 @@ actor WivraAcceleratedExportStore {
             else { return false }
         }
         guard let audios = try? await asset.loadTracks(withMediaType: .audio),
-              !expectAudio || !audios.isEmpty else { return false }
+              audios.isEmpty == !expectAudio else { return false }
         for track in audios {
             guard let formats = try? await track.load(.formatDescriptions),
                   !formats.isEmpty,
