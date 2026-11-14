@@ -1,9 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {createAcceleratedNativeSink, ACCELERATED_NATIVE_PROTOCOL,
+import {createAcceleratedNativeSink as createRawNativeSink, ACCELERATED_NATIVE_PROTOCOL,
   ACCELERATED_NATIVE_MAX_WRITE_BYTES, ACCELERATED_NATIVE_MAX_OUTPUT_BYTES,
   ACCELERATED_NATIVE_MAX_PENDING_BYTES} from '../accelerated-native-sink.mjs';
+
+// The natively supported v2 contract requires positive, bounded free-space
+// reservation. Individual sink tests declare a realistic reservation by default;
+// separate tests below assert that the raw API rejects missing/zero reserves.
+function createReservedSink(host, options={}){
+  return createRawNativeSink(host,{estimatedBytes:1024,...options});
+}
 
 function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
   let active=false, removed=false, maxEnd=0;
@@ -39,7 +46,7 @@ function memoryNative({v2=true,badSha=false,hasAudio=true,durationMs=1000}={}) {
 
 test('v2 writer patches earlier MP4 headers and verifies final file hash, not chunk CRC',async()=>{
   const host=memoryNative();
-  const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',expectedDurationMs:1000,
+  const sink=createReservedSink(host,{mime:'video/mp4',expectedDurationMs:1000,
     expectAudio:true,estimatedBytes:50});
   await sink.begin();
   const first=sink.writeAt(0,new Uint8Array([1,2,3,4]));
@@ -58,9 +65,9 @@ test('v2 writer patches earlier MP4 headers and verifies final file hash, not ch
 });
 
 test('legacy append-only bridge or absent random writer must never receive accelerated chunks',async()=>{
-  assert.throws(()=>createAcceleratedNativeSink({request(){}},{mime:'video/mp4',expectedDurationMs:1000}),/puente nativo/);
+  assert.throws(()=>createReservedSink({request(){}},{mime:'video/mp4',expectedDurationMs:1000}),/puente nativo/);
   const old=memoryNative({v2:false});
-  const sink=createAcceleratedNativeSink(old,{mime:'video/webm',expectedDurationMs:1000});
+  const sink=createReservedSink(old,{mime:'video/webm',expectedDurationMs:1000});
   await assert.rejects(sink.begin(),/escritura aleatoria/);
   assert.equal(old.requests.filter(x=>x.op==='beginRandom').length,0);
   assert.equal(sink.state,'failed');
@@ -69,10 +76,10 @@ test('legacy append-only bridge or absent random writer must never receive accel
 });
 
 test('v2 refuses unknown formats, missing audio, bad hashes, illegal offsets and short acknowledgements',async()=>{
-  assert.throws(()=>createAcceleratedNativeSink(memoryNative(),{mime:'video/mp4',expectedDurationMs:0}),/Duración/);
-  assert.throws(()=>createAcceleratedNativeSink(memoryNative(),{mime:'video/avi',expectedDurationMs:1}),/Contenedor/);
+  assert.throws(()=>createReservedSink(memoryNative(),{mime:'video/mp4',expectedDurationMs:0}),/Duración/);
+  assert.throws(()=>createReservedSink(memoryNative(),{mime:'video/avi',expectedDurationMs:1}),/Contenedor/);
   const h=memoryNative({badSha:true});
-  const sink=createAcceleratedNativeSink(h,{mime:'video/mp4',expectedDurationMs:1000,expectAudio:true});
+  const sink=createReservedSink(h,{mime:'video/mp4',expectedDurationMs:1000,expectAudio:true});
   await sink.begin();
   for (const [pos,data] of [
     [-2,new Uint8Array([1])], [0,new Uint8Array(0)],
@@ -83,7 +90,7 @@ test('v2 refuses unknown formats, missing audio, bad hashes, illegal offsets and
   await sink.abort();
   assert.equal(h.removed,true);
   const h2=memoryNative({hasAudio:false});
-  const sink2=createAcceleratedNativeSink(h2,{mime:'video/webm',expectedDurationMs:1000,expectAudio:true});
+  const sink2=createReservedSink(h2,{mime:'video/webm',expectedDurationMs:1000,expectAudio:true});
   await sink2.begin();await sink2.writeAt(0,new Uint8Array([1]));
   await assert.rejects(sink2.finish(),/no superó/);
   await sink2.abort();
@@ -92,7 +99,7 @@ test('v2 refuses unknown formats, missing audio, bad hashes, illegal offsets and
 test('one failed or canceled v2 session cannot claim a verified published video',async()=>{
   const host=memoryNative();
   host.sendWriteAt=async ()=>({seq:0,writtenBytes:0,maxEnd:1});
-  const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',expectedDurationMs:1000});
+  const sink=createReservedSink(host,{mime:'video/mp4',expectedDurationMs:1000});
   await sink.begin();
   await assert.rejects(sink.writeAt(0,new Uint8Array([1])),/diferente/);
   await assert.rejects(sink.finish(),/diferente/);
@@ -104,7 +111,7 @@ test('one failed or canceled v2 session cannot claim a verified published video'
 
 test('native v2 rejects unwritten sparse ranges before committing; fully patched offsets pass', async () => {
   const missing = memoryNative();
-  const sparse = createAcceleratedNativeSink(missing, {mime:'video/mp4',expectedDurationMs:1000});
+  const sparse = createReservedSink(missing, {mime:'video/mp4',expectedDurationMs:1000});
   await sparse.begin();
   await sparse.writeAt(4,new Uint8Array([9,8]));
   await assert.rejects(sparse.finish(),/rangos sin escribir/);
@@ -113,7 +120,7 @@ test('native v2 rejects unwritten sparse ranges before committing; fully patched
   assert.equal(missing.removed,true);
 
   const filledHost = memoryNative();
-  const filled = createAcceleratedNativeSink(filledHost, {mime:'video/mp4',expectedDurationMs:1000});
+  const filled = createReservedSink(filledHost, {mime:'video/mp4',expectedDurationMs:1000});
   await filled.begin();
   await filled.writeAt(2,new Uint8Array([3,4]));
   await filled.writeAt(0,new Uint8Array([1,2]));
@@ -134,7 +141,7 @@ test('cancellation while random writes drain cannot race a late native finish', 
     await gate;
     return send(message);
   };
-  const sink = createAcceleratedNativeSink(host,{mime:'video/webm',expectedDurationMs:1000});
+  const sink = createReservedSink(host,{mime:'video/webm',expectedDurationMs:1000});
   await sink.begin();
   const write = sink.writeAt(0,new Uint8Array([1,2,3]));
   await inFlight;
@@ -159,7 +166,7 @@ test('abort during native atomic finalize does not delete a possibly published f
     if (message.op === 'finishRandom') { entered(); await gate; }
     return request(message);
   };
-  const sink = createAcceleratedNativeSink(host,{mime:'video/mp4',expectedDurationMs:1000});
+  const sink = createReservedSink(host,{mime:'video/mp4',expectedDurationMs:1000});
   await sink.begin();
   await sink.writeAt(0,new Uint8Array([1,2]));
   const finishing = sink.finish();
@@ -183,7 +190,7 @@ test('lost finishRandom ACK preserves a possibly committed private recording',as
   }
   return nativeRequest(message);
  };
- const sink=createAcceleratedNativeSink(host,{
+ const sink=createReservedSink(host,{
   mime:'video/mp4',expectedDurationMs:1000,estimatedBytes:100
  });
  await sink.begin();
@@ -198,7 +205,7 @@ test('lost finishRandom ACK preserves a possibly committed private recording',as
 
 test('definite malformed native final receipt still permits safe cleanup',async()=>{
  const host=memoryNative({badSha:true});
- const sink=createAcceleratedNativeSink(host,{
+ const sink=createReservedSink(host,{
   mime:'video/mp4',expectedDurationMs:1000
  });
  await sink.begin();
@@ -211,12 +218,12 @@ test('definite malformed native final receipt still permits safe cleanup',async(
 test('native capacity is enforced before begin or random IO without exposing unsafe offsets', async () => {
   const host = memoryNative();
   assert.equal(ACCELERATED_NATIVE_MAX_OUTPUT_BYTES, 16 * 1024 * 1024 * 1024);
-  assert.throws(() => createAcceleratedNativeSink(host, {
+  assert.throws(() => createReservedSink(host, {
     mime: 'video/mp4', expectedDurationMs: 1000,
     estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES + 1
   }), /estimado inválido/);
   assert.equal(host.requests.length, 0);
-  const sink = createAcceleratedNativeSink(host, {
+  const sink = createReservedSink(host, {
     mime: 'video/mp4', expectedDurationMs: 1000,
     estimatedBytes: ACCELERATED_NATIVE_MAX_OUTPUT_BYTES
   });
@@ -232,7 +239,7 @@ test('native capacity is enforced before begin or random IO without exposing uns
 
 test('v2 rejects a valid-looking hash if the native duration differs from the authored timeline',async()=>{
  const host=memoryNative({durationMs:3000});
- const writer=createAcceleratedNativeSink(host,{
+ const writer=createReservedSink(host,{
    mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
  });
  await writer.begin();
@@ -242,7 +249,7 @@ test('v2 rejects a valid-looking hash if the native duration differs from the au
  await writer.abort();
  assert.equal(host.removed,true);
  const almost=memoryNative({durationMs:1999});
- const ok=createAcceleratedNativeSink(almost,{
+ const ok=createReservedSink(almost,{
    mime:'video/mp4',expectedDurationMs:1000,expectAudio:true
  });
  await ok.begin();await ok.writeAt(0,new Uint8Array([9,8,7]));
@@ -252,7 +259,7 @@ test('v2 rejects a valid-looking hash if the native duration differs from the au
 test('v2 long-form duration window is capped at five seconds and never trusts non-integer duration',async()=>{
  for(const durationMs of [3594500,3605100,NaN,Infinity,0]){
   const host=memoryNative({durationMs});
-  const writer=createAcceleratedNativeSink(host,{
+  const writer=createReservedSink(host,{
     mime:'video/mp4',expectedDurationMs:3600000,expectAudio:false
   });
   await writer.begin();
@@ -273,7 +280,7 @@ test('v2 bounds queued unacknowledged chunks and drains memory on cancel',async(
   if(message.seq===0){entered();await gate;}
   return original(message);
  };
- const sink=createAcceleratedNativeSink(host,{mime:'video/mp4',
+ const sink=createReservedSink(host,{mime:'video/mp4',
   expectedDurationMs:1000,estimatedBytes:ACCELERATED_NATIVE_MAX_PENDING_BYTES});
  await sink.begin();
  assert.equal(ACCELERATED_NATIVE_MAX_PENDING_BYTES,8*1024*1024);
@@ -297,7 +304,7 @@ test('v2 bounds queued unacknowledged chunks and drains memory on cancel',async(
 test('a failed v2 acknowledgment returns pending memory budget to zero',async()=>{
  const host=memoryNative();
  host.sendWriteAt=async ()=>{throw Error('Native disk I/O failure');};
- const sink=createAcceleratedNativeSink(host,{
+ const sink=createReservedSink(host,{
   mime:'video/mp4',expectedDurationMs:1000
  });
  await sink.begin();
@@ -307,5 +314,23 @@ test('a failed v2 acknowledgment returns pending memory budget to zero',async()=
  await assert.rejects(sink.finish(),/Native disk I\/O failure/);
  await sink.abort();
  assert.equal(sink.pendingBytes,0);
+ assert.equal(host.removed,true);
+});
+
+test('raw native sink refuses missing, zero or malformed storage budget before native handshake',async()=>{
+ const host=memoryNative();
+ for(const estimatedBytes of [undefined,null,0,-1,1.25,'2048',NaN,Infinity,
+   ACCELERATED_NATIVE_MAX_OUTPUT_BYTES+1]){
+  const options={mime:'video/mp4',expectedDurationMs:1000};
+  if(estimatedBytes!==undefined)options.estimatedBytes=estimatedBytes;
+  assert.throws(()=>createRawNativeSink(host,options),/Duración\/tamaño estimado inválido/);
+ }
+ assert.equal(host.requests.length,0,'invalid reserve must never contact native host');
+ const good=createRawNativeSink(host,{
+  mime:'video/mp4',expectedDurationMs:1000,estimatedBytes:1024
+ });
+ await good.begin();
+ assert.equal(host.requests.find(r=>r.op==='beginRandom')?.estimatedBytes,1024);
+ await good.abort();
  assert.equal(host.removed,true);
 });
