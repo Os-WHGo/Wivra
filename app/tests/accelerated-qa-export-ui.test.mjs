@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
   acceleratedBetaFailureDisposition, acceleratedBetaRepeatGate,
-  acceleratedBetaSettingsGate, acceleratedBetaRecoverySnapshot
+  acceleratedBetaSettingsGate, acceleratedBetaRecoverySnapshot,
+  createAcceleratedRecoveryMarker, ACCELERATED_RECOVERY_MARKER_KEY
 } from '../accelerated-qa-export-ui.mjs';
 import {createAcceleratedNativeSink} from '../accelerated-native-sink.mjs';
 
@@ -76,7 +77,8 @@ test('uncertain native reply without code is recognized for older adapters',()=>
 test('QA UI gates BOTH export buttons and requires native recovery check',()=>{
   const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
   assert.match(ui,/startStable\.addEventListener\('click',event=>/);
-  assert.match(ui,/if\(!approveAnotherExport\(\)\)return;/);
+  assert.match(ui,/if\(!approveAnotherExport\('fast'\)\)return;/);
+  assert.match(ui,/if\(running\|\|!approveAnotherExport\('classic'\)\)/);
   assert.match(ui,/await listRecovered\(recovered,generation\) && generation===recoveryGeneration/);
   assert.match(ui,/await listRecovered\(settingsResult,generation\) && generation===recoveryGeneration/);
   assert.match(ui,/if\(failure\.recoveryReviewRequired\)/);
@@ -163,4 +165,66 @@ test('UI invalidates in-flight recovery requests on uncertain finalize and next 
   assert.match(ui,/pendingRecovery=true;\s*recoveryChecked=false;\s*recoveryGeneration\+\+;/);
   assert.match(ui,/pendingRecovery=false;\s*recoveryChecked=false;\s*recoveryGeneration\+\+;/);
   assert.equal((ui.match(/if\(await listRecovered\(/g)||[]).length,2);
+});
+
+function recoveryStorageFixture(){
+  const values=new Map();
+  return {
+    getItem(key){return values.get(key)??null;},
+    setItem(key,value){values.set(key,value);},
+    removeItem(key){values.delete(key);}
+  };
+}
+
+test('write-ahead marker survives editor recreation until a confirmed close',()=>{
+  const storage=recoveryStorageFixture();
+  const first=createAcceleratedRecoveryMarker(storage);
+  assert.equal(first.pending(),false);
+  assert.equal(first.arm(),true);
+  assert.equal(storage.getItem(ACCELERATED_RECOVERY_MARKER_KEY),'1');
+  const restarted=createAcceleratedRecoveryMarker(storage);
+  assert.equal(restarted.pending(),true);
+  assert.equal(acceleratedBetaRepeatGate({
+    pendingRecovery:restarted.pending(),recoveryChecked:false,userConfirmed:true
+  }).ok,false);
+  assert.equal(restarted.clear(),true);
+  assert.equal(createAcceleratedRecoveryMarker(storage).pending(),false);
+});
+
+test('unavailable, corrupt and silently failing storage never proves a clean exit',()=>{
+  const unavailable=createAcceleratedRecoveryMarker(undefined);
+  assert.equal(unavailable.pending(),true);
+  assert.equal(unavailable.arm(),false);
+  assert.equal(unavailable.clear(),false);
+  const storage=recoveryStorageFixture();
+  storage.setItem(ACCELERATED_RECOVERY_MARKER_KEY,'unexpected version');
+  assert.equal(createAcceleratedRecoveryMarker(storage).pending(),true);
+  const initialRead=storage.getItem;
+  storage.setItem=()=>{};
+  const silent=createAcceleratedRecoveryMarker(storage);
+  assert.equal(silent.arm(),false);
+  storage.getItem=()=>{throw Error('storage denied');};
+  assert.equal(silent.pending(),true);
+  assert.equal(silent.clear(),false);
+  storage.getItem=initialRead;
+});
+
+test('failed marker removal retains conservative protection after restart',()=>{
+  const storage=recoveryStorageFixture();
+  const marker=createAcceleratedRecoveryMarker(storage);
+  assert.equal(marker.arm(),true);
+  storage.removeItem=()=>{};
+  assert.equal(marker.clear(),false);
+  assert.equal(createAcceleratedRecoveryMarker(storage).pending(),true);
+});
+
+test('UI arms recovery before invoking native and preserves the marker for uncertain replies',()=>{
+  const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
+  assert.match(ui,/pendingRecovery=recoveryMarker\.pending\(\)/);
+  assert.ok(ui.indexOf('if(!recoveryMarker.arm())')<ui.indexOf('const result=await recordOnNative('));
+  assert.match(ui,/if\(failure\.recoveryReviewRequired\)\{\s*markRecoveryRequired\(\);\s*\}else if\(!recoveryMarker.clear\(\)\)/);
+  assert.match(ui,/returnedFromNative\s*=\s*true/);
+  assert.match(ui,/returnedFromNative\s*\?\{code:'WIVRA_ACCELERATED_FINISH_UNCERTAIN'\}/);
+  assert.equal((ui.match(/const generation=\+\+recoveryGeneration;/g)||[]).length,2);
+  assert.match(ui,/if\(requestedGeneration!==recoveryGeneration\)return false;/);
 });
