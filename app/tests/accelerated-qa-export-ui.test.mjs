@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 import {
   acceleratedBetaFailureDisposition, acceleratedBetaRepeatGate,
   acceleratedBetaSettingsGate, acceleratedBetaRecoverySnapshot,
@@ -227,4 +228,124 @@ test('UI arms recovery before invoking native and preserves the marker for uncer
   assert.match(ui,/returnedFromNative\s*\?\{code:'WIVRA_ACCELERATED_FINISH_UNCERTAIN'\}/);
   assert.equal((ui.match(/const generation=\+\+recoveryGeneration;/g)||[]).length,2);
   assert.match(ui,/if\(requestedGeneration!==recoveryGeneration\)return false;/);
+});
+
+function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true}){
+  class Element {
+    constructor(tag){this.tag=tag;this.children=[];this.events={};this.textContent='';
+      this.style={};this.classList={add(){}};}
+    append(...items){this.children.push(...items);}
+    replaceChildren(...items){this.children=[...items];this.textContent='';}
+    insertAdjacentElement(_,element){this.children.push(element);}
+    setAttribute(){}
+    addEventListener(name,fn){this.events[name]=fn;}
+  }
+  const ids=Object.fromEntries(['sExp','expGo','sSettings'].map(id=>[id,new Element('div')]));
+  const document={
+    getElementById:id=>ids[id]??null,
+    createElement:tag=>new Element(tag),
+    createTextNode:text=>text,
+    addEventListener:(name,fn)=>{if(name==='DOMContentLoaded')fn();}
+  };
+  const source=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8')
+    .replace(/^export /gm,'');
+  runInNewContext(source,{
+    document,window:{confirm},localStorage:storage,performance:{now:()=>1000},
+    nativeHost:()=>({platform:'android',request:message=>{
+      if(message.op==='listRecovered')return listRecovered();
+      throw Error('unexpected op '+message.op);
+    }}),
+    recordOnNative,session:{project:{revision:1}},media:{},expBusy:false,pzMissing:[],
+    totalDuration:()=>1
+  });
+  const find=(node,predicate)=>{
+    if(predicate(node))return node;
+    for(const child of node.children??[]){
+      if(typeof child==='object'&&child!==null){
+        const found=find(child,predicate);if(found)return found;
+      }
+    }
+  };
+  const fast=find(ids.expGo,node=>node.id==='wivraQaStart');
+  const recovery=find(ids.expGo,node=>node.textContent==='Buscar videos acelerados recuperables');
+  const settings=find(ids.sSettings,node=>node.textContent==='Recuperar exportaciones aceleradas (QA)');
+  return {
+    fast:()=>fast.onclick(),search:()=>recovery.onclick(),searchSettings:()=>settings.onclick(),
+    classicBlocked(){
+      let blocked=false;
+      ids.expGo.events.click({preventDefault(){blocked=true;},stopImmediatePropagation(){blocked=true;}});
+      return blocked;
+    }
+  };
+}
+const emptyRecovery=async()=>({files:[]});
+const successfulNative=async()=>({
+  verifiedNative:true,verifiedOnDevice:false,mime:'video/mp4',
+  saved:{verified:true,token:5,bytes:300,displayName:'video.mp4'}
+});
+
+test('editor boot after an interrupted attempt blocks classic and fast until fresh review',async()=>{
+  const storage=recoveryStorageFixture();
+  let started=0;
+  const first=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    recordOnNative:()=>{started++;return new Promise(()=>{});}});
+  void first.fast();
+  assert.equal(started,1);
+  assert.equal(storage.getItem(ACCELERATED_RECOVERY_MARKER_KEY),'1');
+  let restartedCalls=0;
+  const restarted=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    recordOnNative:async()=>{restartedCalls++;return successfulNative();}});
+  assert.equal(restarted.classicBlocked(),true);
+  await restarted.fast();
+  assert.equal(restartedCalls,0);
+  await restarted.search();
+  await restarted.fast();
+  assert.equal(restartedCalls,1);
+  assert.equal(storage.getItem(ACCELERATED_RECOVERY_MARKER_KEY),null);
+});
+
+test('latest recovery request wins across both UI surfaces and stale success cannot clear failure',async()=>{
+  const storage=recoveryStorageFixture();
+  createAcceleratedRecoveryMarker(storage).arm();
+  const requests=[];
+  const ui=bootRecoveryUi({storage,recordOnNative:successfulNative,listRecovered:()=>
+    new Promise((resolve,reject)=>requests.push({resolve,reject}))});
+  const first=ui.search(),second=ui.searchSettings();
+  requests[1].reject(Error('latest catalogue unavailable'));
+  await second;
+  requests[0].resolve({files:[]});
+  await first;
+  assert.equal(ui.classicBlocked(),true);
+  const third=ui.search();
+  requests[2].resolve({files:[]});
+  await third;
+  assert.equal(ui.classicBlocked(),false);
+});
+
+test('post-return malformed export stays pending and ordinary preflight refusal clears intent',async()=>{
+  const storage=recoveryStorageFixture();
+  const broken=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    recordOnNative:async()=>({verifiedNative:false})});
+  await broken.fast();
+  assert.equal(createAcceleratedRecoveryMarker(storage).pending(),true);
+  assert.equal(broken.classicBlocked(),true);
+  const otherStorage=recoveryStorageFixture();
+  const ordinary=bootRecoveryUi({storage:otherStorage,listRecovered:emptyRecovery,
+    recordOnNative:async()=>{throw Error('codec preflight refused');}});
+  await ordinary.fast();
+  assert.equal(createAcceleratedRecoveryMarker(otherStorage).pending(),false);
+  assert.equal(ordinary.classicBlocked(),false);
+});
+
+test('if storage cannot record intent the fast exporter never calls the native writer',async()=>{
+  const storage=recoveryStorageFixture();
+  storage.setItem=()=>{};
+  let started=0;
+  const ui=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    recordOnNative:async()=>{started++;return successfulNative();}});
+  await ui.fast();
+  assert.equal(started,0);
+  assert.equal(ui.classicBlocked(),true);
+  await ui.search();
+  assert.equal(ui.classicBlocked(),false);
 });
