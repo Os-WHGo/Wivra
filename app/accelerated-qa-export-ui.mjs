@@ -26,6 +26,27 @@ export function acceleratedBetaRecoverySnapshot({
   return {ok:true,files};
 }
 
+// Only a constant marker is stored, never media, tokens, filenames or project data.
+export const ACCELERATED_RECOVERY_MARKER_KEY='wivra.qa.accelerated.pending.v1';
+export function createAcceleratedRecoveryMarker(storage) {
+  const key=ACCELERATED_RECOVERY_MARKER_KEY;
+  return {
+    // Unreadable or unrecognized storage is NOT evidence of a clean exit.
+    pending(){
+      try{return storage.getItem(key)!==null;}catch{return true;}
+    },
+    // Write-ahead intent must be observable before starting native export.
+    arm(){
+      try{storage.setItem(key,'1');return storage.getItem(key)==='1';}
+      catch{return false;}
+    },
+    clear(){
+      try{storage.removeItem(key);return storage.getItem(key)===null;}
+      catch{return false;}
+    }
+  };
+}
+
 /** QA-only throughput, including the native writer's verification time.
  * This compares elapsed processing to the video's duration, NOT with a second
  * MediaRecorder export. No media data or identifiers leave the device. */
@@ -136,11 +157,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.append(title,note,consent,sound,start,cancel,status,actions,recoveryButton,recovered);
   startStable.insertAdjacentElement('beforebegin',qaBox);
   let running=false,cancelled=false;
-  let pendingRecovery=false,recoveryChecked=false,recoveryGeneration=0;
+  let recoveryStorage;
+  try{recoveryStorage=globalThis.localStorage;}catch{}
+  const recoveryMarker=createAcceleratedRecoveryMarker(recoveryStorage);
+  let pendingRecovery=recoveryMarker.pending(),recoveryChecked=false,recoveryGeneration=0;
+  if(pendingRecovery)status.textContent='Hay una exportación anterior sin cierre confirmado, o no se pudo leer su estado. Revisa los vídeos recuperables y la galería antes de exportar.';
+  const markRecoveryRequired=()=>{
+    pendingRecovery=true;
+    recoveryChecked=false;
+    recoveryGeneration++;
+    recovered.replaceChildren();
+    settingsResult.replaceChildren();
+  };
   const listRecovered=async(target,requestedGeneration=recoveryGeneration)=>{
     target.textContent='Verificando videos privados…';
     try{
       const response=await host.request({op:'listRecovered'});
+      if(requestedGeneration!==recoveryGeneration)return false;
       const snapshot=acceleratedBetaRecoverySnapshot({
         files:response?.files,requestedGeneration,currentGeneration:recoveryGeneration
       });
@@ -187,14 +220,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
       return true;
     }catch(error){
-      target.textContent=requestedGeneration!==recoveryGeneration
-        ?'La búsqueda caducó por un nuevo resultado incierto. Busca nuevamente.'
-        :'Recuperación no disponible: '+error.message;
+      if(requestedGeneration!==recoveryGeneration)return false;
+      target.textContent='Recuperación no disponible: '+error.message;
       return false;
     }
   };
   recoveryButton.onclick=async()=>{
-    const generation=recoveryGeneration;
+    const generation=++recoveryGeneration;
     if(pendingRecovery)recoveryChecked=false;
     if(await listRecovered(recovered,generation) && generation===recoveryGeneration)
       recoveryChecked=true;
@@ -204,14 +236,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   const settingsResult=make('div','','m');
   settingsResult.setAttribute('role','status');
   settingsRecovery.onclick=async()=>{
-    const generation=recoveryGeneration;
+    const generation=++recoveryGeneration;
     if(pendingRecovery)recoveryChecked=false;
     if(await listRecovered(settingsResult,generation) && generation===recoveryGeneration)
       recoveryChecked=true;
   };
   settings.append(settingsRecovery,settingsResult);
   cancel.onclick=()=>{cancelled=true;status.textContent='Cancelando sin publicar un archivo parcial…';};
-  const approveAnotherExport=()=>{
+  const approveAnotherExport=(engine)=>{
     const gate=acceleratedBetaRepeatGate({
       pendingRecovery,recoveryChecked,userConfirmed:false
     });
@@ -228,6 +260,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       pendingRecovery,recoveryChecked,userConfirmed:true
     });
     if(!confirmed.ok){status.textContent=confirmed.reason;return false;}
+    // Keep the marker until fast export replaces it with a new intent.
+    // If storage cannot clear, classic can still proceed after explicit review;
+    // a reload will conservatively require another review.
+    if(engine==='classic')recoveryMarker.clear();
     pendingRecovery=false;
     recoveryChecked=false;
     recoveryGeneration++;
@@ -236,7 +272,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Capture the stable button too: a failed fast save must not immediately
   // create a classic duplicate before the person checks recovery.
   startStable.addEventListener('click',event=>{
-    if(!approveAnotherExport()){
+    if(running||!approveAnotherExport('classic')){
       event.preventDefault();
       event.stopImmediatePropagation();
     }
@@ -255,10 +291,18 @@ document.addEventListener('DOMContentLoaded',()=>{
       allowOverlayGaps:document.getElementById('expAllowOverlayGaps')?.checked??false
     });
     if(!editorSettings.ok)return void(status.textContent=editorSettings.reason);
-    if(!approveAnotherExport())return;
+    if(!approveAnotherExport('fast'))return;
+    // Do not start a potentially committing operation if its interruption
+    // cannot be reconciled on the next editor launch.
+    if(!recoveryMarker.arm()){
+      markRecoveryRequired();
+      status.textContent='No se pudo proteger el estado de la exportación rápida. Revisa recuperación o usa MediaRecorder después de confirmar.';
+      return;
+    }
     const originalSession=session,revision=session.project.revision;
     running=true;cancelled=false;start.disabled=true;startStable.disabled=true;cancel.hidden=false;
     actions.replaceChildren();status.textContent='Preparando la exportación acelerada…';
+    let returnedFromNative=false;
     try{
       // MU V4: projects longer than 3 min use the long-form mode (≤ 60 min, written in pieces).
       const projectSeconds=typeof totalDuration==='function'?totalDuration(originalSession.project):0;
@@ -273,6 +317,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             '% ('+Number(t||0).toFixed(1)+' / '+Number(total||0).toFixed(1)+' s)';
         }
       });
+      returnedFromNative=true;
       if(result?.verifiedNative!==true || result?.saved?.verified!==true ||
          result?.verifiedOnDevice!==false)
         throw Error('El puente no confirmó la integridad del archivo experimental.');
@@ -317,14 +362,19 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         actions.append(photos);
       }
+      if(!recoveryMarker.clear()){
+        markRecoveryRequired();
+        status.textContent+=' No se pudo cerrar el registro de recuperación; revisa la galería antes de repetir.';
+      }
     }catch(error){
-      const failure=acceleratedBetaFailureDisposition(error);
+      // A malformed result or UI exception AFTER native returned can follow
+      // a committed file, even without a bridge-specific error code.
+      const failure=acceleratedBetaFailureDisposition(returnedFromNative
+        ?{code:'WIVRA_ACCELERATED_FINISH_UNCERTAIN'}:error);
       if(failure.recoveryReviewRequired){
-        pendingRecovery=true;
-        recoveryChecked=false;
-        recoveryGeneration++;
-        recovered.replaceChildren();
-        settingsResult.replaceChildren();
+        markRecoveryRequired();
+      }else if(!recoveryMarker.clear()){
+        markRecoveryRequired();
       }
       status.textContent='No se completó la exportación acelerada: '+error.message+
         '. '+failure.message;
