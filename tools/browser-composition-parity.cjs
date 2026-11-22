@@ -3,12 +3,12 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http'),assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
-const {chromium}=require('/tmp/wivra-media-lab/node_modules/playwright');
+const {chromium}=require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const spatial=process.argv.includes('--spatial');
 const root=path.resolve(__dirname,'..');
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'wivra-composition-'));
-const mbDir='/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles';
-assert.equal(require('/tmp/wivra-media-lab/node_modules/mediabunny/package.json').version,'1.61.6');
+const mbDir=require('./media-lab.cjs').LAB+'/node_modules/mediabunny/dist/bundles';
+assert.equal(require(require('./media-lab.cjs').LAB+'/node_modules/mediabunny/package.json').version,'1.61.6');
 const files={};
 function ffmpeg(args){return execFileSync('ffmpeg',['-nostdin','-v','error','-y',...args],
  {timeout:60000,maxBuffer:16*1024*1024});}

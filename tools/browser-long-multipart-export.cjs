@@ -2,7 +2,7 @@
    through app/export.mjs, then validated with ffprobe. Source bytes are one
    synthetic WebM reused under 81 logical asset IDs, NOT Ray-Ban MP4/HEVC.
    This is a Linux Chromium smoke test, never proof of mobile export. */
-const {chromium}=require('/tmp/wivra-media-lab/node_modules/playwright');
+const {chromium}=require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const {readFileSync,writeFileSync}=require('node:fs');
 const {execFileSync}=require('node:child_process');
 const http=require('node:http'),path=require('node:path');

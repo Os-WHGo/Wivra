@@ -3,7 +3,7 @@
 // Does NOT claim hardware, MediaStore, Photos or real phone permissions.
 const assert=require('node:assert/strict');
 const path=require('node:path');
-const {chromium}=require('/tmp/wivra-media-lab/node_modules/playwright');
+const {chromium}=require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const htmlPath=path.resolve(__dirname,'../app/dist/agentcut.html');
 (async()=>{
  const browser=await chromium.launch({headless:true});

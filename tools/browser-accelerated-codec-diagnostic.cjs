@@ -57,9 +57,9 @@ function validateDiagnosticReport(report,{cancelled=false,privateMarker=''}={}){
 async function runBrowserDiagnostics(){
  const root=path.resolve(__dirname,'..');
  let playwright;
- try{playwright=require('/tmp/wivra-media-lab/node_modules/playwright');}
+ try{playwright=require(require('./media-lab.cjs').LAB+'/node_modules/playwright');}
  catch{playwright=require('playwright');}
- const candidates=['/tmp/wivra-media-lab/node_modules/mediabunny',path.join(root,'node_modules/mediabunny')];
+ const candidates=[require('./media-lab.cjs').LAB+'/node_modules/mediabunny',path.join(root,'node_modules/mediabunny')];
  const vendorRoot=candidates.find(dir=>fs.existsSync(path.join(dir,'dist/bundles/mediabunny.cjs')));
  assert.ok(vendorRoot,'Pinned Mediabunny 1.61.6 browser bundle is required');
  const pkg=JSON.parse(fs.readFileSync(path.join(vendorRoot,'package.json'),'utf8'));

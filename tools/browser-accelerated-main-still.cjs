@@ -5,9 +5,9 @@ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http'),{execFileSync}=require('node:child_process');
 let chromium;
 try {chromium=require('playwright').chromium;}
-catch {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium;}
+catch {chromium=require(require('./media-lab.cjs').LAB+'/node_modules/playwright').chromium;}
 const root=path.resolve(__dirname,'..');
-const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
+const mbDir=[require('./media-lab.cjs').LAB+'/node_modules/mediabunny/dist/bundles',
  path.join(root,'node_modules/mediabunny/dist/bundles')]
  .find(x=>fs.existsSync(path.join(x,'mediabunny.mjs')));
 if(!mbDir)throw Error('Pinned Mediabunny 1.61.6 is required.');

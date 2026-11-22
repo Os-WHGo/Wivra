@@ -3,7 +3,7 @@
 // voice delayed by 120ms, random-access MP4/WebM and ffprobe PCM inspection.
 // NOT Android/iPhone WebView, Ray-Ban or a long-form hardware guarantee.
 let chromium;
-try {chromium=require('/tmp/wivra-media-lab/node_modules/playwright').chromium;}
+try {chromium=require(require('./media-lab.cjs').LAB+'/node_modules/playwright').chromium;}
 catch {chromium=require('playwright').chromium;}
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http');
@@ -34,7 +34,7 @@ if(sharedSource&&(longSoak||gap||duck||extended||telemetrySmoke))
  throw Error('Shared-source regression requires the isolated short profile.');
 const root=path.resolve(__dirname,'..'),tmp=fs.mkdtempSync(
   path.join(os.tmpdir(),'wivra-multitrack-'));
-const mbDir=['/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
+const mbDir=[require('./media-lab.cjs').LAB+'/node_modules/mediabunny/dist/bundles',
   path.join(root,'node_modules/mediabunny/dist/bundles')]
   .find(dir=>fs.existsSync(path.join(dir,'mediabunny.mjs')));
 if(!mbDir)throw Error('Pinned Mediabunny browser build missing.');

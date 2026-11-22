@@ -7,7 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 let chromium;
-try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require('/tmp/wivra-media-lab/node_modules/playwright')); }
+try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); }
 
 const [, , wav, model, lang, words = '', seconds = '8'] = process.argv;
 const html = 'file://' + path.join(path.resolve(__dirname, '..'), 'app/dist/agentcut.html');

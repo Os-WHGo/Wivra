@@ -5,7 +5,7 @@
    cancelación y fallo de disco sin dejar archivos a medias, memoria de cola acotada.
    Chromium Linux NO es un WebView de Android/iOS: no certifica teléfonos. — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require('/tmp/wivra-media-lab/node_modules/playwright'); }
+try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
 const { chromium } = playwright;
 const fs = require('node:fs'), http = require('node:http'), path = require('node:path'), os = require('node:os');
 const { execFileSync } = require('node:child_process');

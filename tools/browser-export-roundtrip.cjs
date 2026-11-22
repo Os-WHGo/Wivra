@@ -1,7 +1,7 @@
 /* Browser EXPORT integration smoke: actual app/export.mjs, synthetic video +
    independent WAV, no app code changed. Plays rendered Blob to verify decode.
    Chromium Linux CI is not Android/iOS hardware, no shipping claim. */
-const {chromium} = require('/tmp/wivra-media-lab/node_modules/playwright');
+const {chromium} = require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const {readFileSync,writeFileSync} = require('node:fs');
 const http=require('node:http'), path=require('node:path');
 const {execFileSync}=require('node:child_process');
@@ -235,7 +235,7 @@ const server=http.createServer((req,res)=>{
   // Mediabunny is temporary CI-only and is never bundled in Wivra.
   if(result.syntheticBinaryBase64){
     try{
-      const mb=require('/tmp/wivra-media-lab/node_modules/mediabunny');
+      const mb=require(require('./media-lab.cjs').LAB+'/node_modules/mediabunny');
       const binary=Buffer.from(result.syntheticBinaryBase64,'base64');
       const input=new mb.Input({source:new mb.BlobSource(new Blob([binary],{type:'video/webm'})),formats:mb.ALL_FORMATS});
       const [duration,video,audio]=await Promise.all([

@@ -4,7 +4,7 @@
    240x180) y sintéticas: no contienen datos de nadie. Uso: node tools/make-mediarecorder-fixtures.cjs
    — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require('/tmp/wivra-media-lab/node_modules/playwright'); }
+try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
 const fs = require('node:fs'), path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const out = path.resolve(__dirname, '../app/tests/fixtures/mediarecorder');

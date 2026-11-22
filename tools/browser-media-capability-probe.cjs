@@ -1,7 +1,7 @@
 // Standalone media capability probe for Mediabunny/WebCodecs risk evaluation.
 // Runs ONLY in isolated CI; neither Wivra's editor nor native app imports it.
 // Chromium/Linux and Playwright/WebKit are proxies, NOT iOS/Android hardware.
-const { chromium, webkit } = require('/tmp/wivra-media-lab/node_modules/playwright');
+const { chromium, webkit } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const http = require('node:http');
 const { writeFileSync } = require('node:fs');
 const MIMES = [

@@ -8,13 +8,13 @@
    Uso: node tools/export-engine-benchmark.cjs [segundos=30] [cortes=12]
    Chromium Linux con códecs por software: NO representa un teléfono. — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require('/tmp/wivra-media-lab/node_modules/playwright'); }
+try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), os = require('node:os');
 const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const total = Number(process.argv[2] || 30), cutsN = Number(process.argv[3] || 12);
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'wivra-engines-'));
-const mbDir = [path.join(root, 'node_modules/mediabunny/dist/bundles'), '/tmp/wivra-media-lab/node_modules/mediabunny/dist/bundles',
+const mbDir = [path.join(root, 'node_modules/mediabunny/dist/bundles'), require('./media-lab.cjs').LAB+'/node_modules/mediabunny/dist/bundles',
   ...(process.env.MEDIABUNNY_DIR ? [process.env.MEDIABUNNY_DIR] : [])].find((d) => fs.existsSync(path.join(d, 'mediabunny.mjs')));
 if (!mbDir) { console.error('mediabunny no instalado (npm install --prefix /tmp/wivra-media-lab mediabunny@1.61.6)'); process.exit(2); }
 

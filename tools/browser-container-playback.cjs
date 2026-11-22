@@ -3,7 +3,7 @@
    app/media-container.mjs, en cada motor de Playwright instalado (Chromium, WebKit, Firefox).
    WebKit de Linux no es Safari de iPhone: es una referencia, no una certificación. — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require('/tmp/wivra-media-lab/node_modules/playwright'); }
+try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), os = require('node:os');
 const root = path.resolve(__dirname, '..'), fixtures = path.join(root, 'app/tests/fixtures/mediarecorder');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'wivra-playback-'));

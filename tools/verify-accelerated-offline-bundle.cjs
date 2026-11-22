@@ -2,7 +2,7 @@
  * No RTMP, credentials, real user media or app package changes. */
 const fs=require('node:fs'), path=require('node:path');
 const assert=require('node:assert/strict');
-let {chromium}=require('/tmp/wivra-media-lab/node_modules/playwright');
+let {chromium}=require(require('./media-lab.cjs').LAB+'/node_modules/playwright');
 const htmlPath=path.resolve(__dirname,'../app/dist/agentcut.html');
 const html=fs.readFileSync(htmlPath,'utf8');
 assert.match(html,/Wivra optional QA vendor: Mediabunny 1\.61\.6, MPL-2\.0/);

@@ -1,0 +1,3 @@
+# Local browser/media QA reports written by tools/*.cjs and the optional local lab. — Claude
+/wivra-*.json
+/node_modules/
