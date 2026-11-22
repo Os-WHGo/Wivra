@@ -511,3 +511,27 @@ test('recordProject forwards a finite measured loudness gain to the accelerated 
     assert.equal(got,4);
   }finally{globalThis.WivraAcceleratedQA=old;}
 });
+
+// Every preflight denial the renderer can raise reaches the person in Spanish,
+// keeping the English detail for QA. Spanish bridge messages pass through. — Claude
+test('every accelerated preflight denial is explained in Spanish with its technical detail',async()=>{
+  const {acceleratedFailureReason}=await import('../accelerated-qa-export-ui.mjs');
+  const renderer=readFileSync(new URL('../accelerated-multitrack-renderer.mjs',import.meta.url),'utf8');
+  const reasons=[...renderer.matchAll(/deny\('([^']+)'\)/g)].map(m=>m[1]);
+  assert.ok(reasons.length>40,'found the renderer denials');
+  const generic='El motor rápido no pudo completar este montaje.';
+  const specific=[];
+  for(const reason of new Set(reasons)){
+    const text=acceleratedFailureReason(new Error('Multitrack accelerated preflight: '+reason));
+    assert.ok(text.includes('(detalle técnico: '+reason+')'),reason);
+    assert.doesNotMatch(text,/^Multitrack/,reason);
+    if(!text.startsWith(generic))specific.push(reason);
+  }
+  assert.ok(specific.length/new Set(reasons).size>0.75,'most denials get a specific explanation');
+  for(const spanish of ['El puente acelerado no respondió a tiempo.',
+    'Exportación multipista cancelada antes de comenzar.'])
+    assert.equal(acceleratedFailureReason(new Error(spanish)),spanish);
+  assert.equal(acceleratedFailureReason(new Error('')),'Error desconocido.');
+  const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
+  assert.match(ui,/'No se completó la exportación acelerada: '\+acceleratedFailureReason\(error\)/);
+});

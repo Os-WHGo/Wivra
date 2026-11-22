@@ -93,6 +93,40 @@ export function acceleratedBetaSettingsGate({
     return {ok:false, reason:'La autorización para exportar con pistas incompletas no se puede trasladar al motor acelerado. Usa MediaRecorder o recupera los archivos.'};
   return {ok:true,reason:''};
 }
+/** Plain-Spanish reason for a failed fast export. Internal preflight and
+ * renderer messages are English; the person sees what happened and keeps the
+ * technical detail for QA reports. Unknown errors keep their own text. — Claude */
+const ACCELERATED_REASON_RULES=[
+  [/cancel/i,'Se canceló la exportación.'],
+  [/unsupported (project property|main clip edit|overlay clip edit|audio clip edit)|project transitions\/effects|unsupported clip transition|unsupported caption edit|invalid caption style|unsupported overlay shape|visual effects on independent audio/i,
+    'El proyecto usa una edición que el motor rápido todavía no reproduce igual.'],
+  [/animated GIF/i,'Un GIF del proyecto no se pudo leer fotograma a fotograma.'],
+  [/color filter|GPU filter|GPU color/i,'Los filtros de color no se pudieron aplicar con el motor rápido en este teléfono.'],
+  [/codec|H264|AAC|Opus|WebCodecs/i,'Este teléfono no ofrece los códecs que necesita el motor rápido.'],
+  [/memory|surfaces exceed|safe dimensions|safe bounds/i,'El montaje necesita más memoria de la que es segura para el motor rápido.'],
+  [/frame limit|render horizon|frame budget/i,'El video es más largo de lo que admite el motor rápido.'],
+  [/voice extends beyond|captions continue beyond/i,'Hay voz o textos que continúan después del final de la imagen.'],
+  [/too many simultaneous audio/i,'Hay demasiados audios sonando a la vez para el motor rápido.'],
+  [/shorter than selected|disappeared|not decodable|before first decodable|dimensions unavailable|Missing decoded|could not be painted/i,
+    'Un archivo original no se pudo leer completo.'],
+  [/invalid audio track row|invalid overlay transform|invalid clip transition duration|invalid loudness gain|voice ducking|unsupported aspect|caption must contain/i,
+    'Un ajuste del proyecto tiene un valor no válido.'],
+  [/main lane requires|requires a main video clip/i,'La línea principal necesita al menos un video o una foto.'],
+  [/microphone track missing|audio presence differs/i,
+    'Falta un audio que el montaje necesita, o no se pudo leer.'],
+  [/Mediabunny|compositor unavailable|random file writer|encoder did not confirm/i,
+    'Este teléfono no ofrece todo lo que necesita el motor rápido.']
+];
+export function acceleratedFailureReason(error){
+  const raw=String(error?.message??error??'').slice(0,240);
+  // Spanish bridge/UI messages are already readable; English ones are internal.
+  const technical=/Multitrack accelerated preflight/.test(raw)||/\b(the|not|is|are|was|too|unsupported|supported|encoder|decoder|failed|use|requires?|required|unavailable|invalid|missing|exceeds?|before|after|ended|cancelled)\b/i.test(raw);
+  if(!technical)return raw||'Error desconocido.';
+  const rule=ACCELERATED_REASON_RULES.find(([re])=>re.test(raw));
+  const detail=raw.replace(/^Multitrack accelerated preflight:\s*/,'');
+  return (rule?rule[1]:'El motor rápido no pudo completar este montaje.')+' (detalle técnico: '+detail+')';
+}
+
 /** Fail-closed export retry policy. A finishRandom timeout may occur AFTER
  * native atomically sealed/published a video. Re-exporting with either engine
  * without examining recovery/gallery can create a duplicate copy. The user
@@ -439,7 +473,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }else if(!recoveryMarker.clear()){
         markRecoveryRequired();
       }
-      status.textContent='No se completó la exportación acelerada: '+error.message+
+      status.textContent='No se completó la exportación acelerada: '+acceleratedFailureReason(error)+
         '. '+failure.message;
     }
     finally{running=false;cancel.hidden=true;start.disabled=false;startStable.disabled=false;
