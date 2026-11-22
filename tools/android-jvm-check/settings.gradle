@@ -1,0 +1,3 @@
+// Local, Android-SDK-free compile + JUnit run of Wivra's Android policy code. — Claude
+pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
+rootProject.name = 'wivra-android-jvm-check'

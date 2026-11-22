@@ -1,0 +1,61 @@
+// Wivra · Android JVM check (local only; never dispatches GitHub Actions). — Claude
+//
+// Compiles the real Kotlin/Java sources from streaming/android/app/src with the
+// same Kotlin version as the app (2.2.20) against the Android 16 framework API
+// published by Robolectric on Maven Central (org.robolectric:android-all), then
+// runs the plain-JUnit tests from src/test and src/testFull.
+//
+// It does NOT need the Android SDK, an emulator or a device, and it is NOT a
+// substitute for androidTest/androidTestFull, a Gradle APK build or hardware QA.
+//
+// Usage (from the repository root):
+//   gradle -p tools/android-jvm-check test
+plugins { id 'org.jetbrains.kotlin.jvm' version '2.2.20' }
+repositories { mavenCentral() }
+
+def app = rootProject.file('../../streaming/android/app/src')
+def pkg = 'com/oswhgo/wivra'
+// Sources without CameraX, WebView, Meta DAT or Activity dependencies. Add a
+// name here when a new policy class gains a JVM test.
+def mainNames = [
+  'WivraAudioSegments','WivraCameraProPolicy','WivraDatProfiles','WivraDirectorProjectGuard',
+  'WivraDirectorTakeReceipt','WivraExportFinalizer','WivraExportStore','WivraI420Argb',
+  'WivraLatestFrameSlot','WivraLiveArchivePreference','WivraLiveNetwork','WivraMulticamPolicy',
+  'WivraProgressiveExportSession','WivraRandomAccessExportSession','WivraRandomExportStore',
+  'WivraRayBanLive','WivraRayBanLook','WivraRayBanPreviewBudget','WivraRayBanSync',
+  'WivraScreenRecordPlan','WivraStrictJsonNumber','WivraVerifiedCopy','WivraVideoPtsNormalizer',
+  'WivraWebmSeekable']
+def fullNames = ['WivraLiveEndpoint','WivraLiveReconnect','WivraLiveScenes','WivraPcmMix','WivraScreenScene']
+def mainPatterns = mainNames.collectMany { ["$pkg/${it}.kt", "$pkg/${it}.java"] }
+def fullPatterns = fullNames.collect { "$pkg/${it}.kt" }
+
+kotlin {
+  jvmToolchain(21)
+  compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+
+sourceSets {
+  main {
+    kotlin { srcDirs = [new File(app, 'main/java'), new File(app, 'full/java')]; include(mainPatterns + fullPatterns) }
+    java { srcDirs = [new File(app, 'main/java')]; include(mainPatterns) }
+  }
+  test {
+    kotlin { srcDirs = [new File(app, 'test/java'), new File(app, 'testFull/java')] }
+    java { srcDirs = [new File(app, 'test/java')] }
+  }
+}
+
+dependencies {
+  // compileSdk 36 (Android 16). Framework classes are compile-time API only;
+  // tests that would need a real Android runtime belong in androidTest.
+  compileOnly 'org.robolectric:android-all:16-robolectric-13921718'
+  testImplementation 'org.robolectric:android-all:16-robolectric-13921718'
+  testImplementation 'junit:junit:4.13.2'
+}
+
+test {
+  // Tests locate shared contract vectors and fixtures relative to the app module.
+  workingDir = rootProject.file('../../streaming/android/app')
+  testLogging { events 'failed'; exceptionFormat 'full' }
+}
