@@ -1,3 +1,7 @@
 # Local browser/media QA reports written by tools/*.cjs and the optional local lab. — Claude
 /wivra-*.json
 /node_modules/
+# Local Android Gradle outputs (compile-only checks, never committed). — Claude
+streaming/android/.gradle/
+streaming/android/build/
+streaming/android/app/build/
