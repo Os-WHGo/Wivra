@@ -5,7 +5,8 @@ import {runInNewContext} from 'node:vm';
 import {
   acceleratedBetaFailureDisposition, acceleratedBetaRepeatGate,
   acceleratedBetaSettingsGate, acceleratedBetaRecoverySnapshot,
-  createAcceleratedRecoveryMarker, ACCELERATED_RECOVERY_MARKER_KEY
+  createAcceleratedRecoveryMarker, ACCELERATED_RECOVERY_MARKER_KEY,
+  acceleratedNativeIntentState, acceleratedNativeIntentRequiresReview
 } from '../accelerated-qa-export-ui.mjs';
 import {createAcceleratedNativeSink} from '../accelerated-native-sink.mjs';
 
@@ -230,7 +231,7 @@ test('UI arms recovery before invoking native and preserves the marker for uncer
   assert.match(ui,/if\(requestedGeneration!==recoveryGeneration\)return false;/);
 });
 
-function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true}){
+function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,nativeOp=null}){
   class Element {
     constructor(tag){this.tag=tag;this.children=[];this.events={};this.textContent='';
       this.style={};this.classList={add(){}};}
@@ -253,6 +254,7 @@ function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true})
     document,window:{confirm},localStorage:storage,performance:{now:()=>1000},
     nativeHost:()=>({platform:'android',request:message=>{
       if(message.op==='listRecovered')return listRecovered();
+      if(nativeOp)return nativeOp(message);
       throw Error('unexpected op '+message.op);
     }}),
     recordOnNative,session:{project:{revision:1}},media:{},expBusy:false,pzMissing:[],
@@ -348,4 +350,109 @@ test('if storage cannot record intent the fast exporter never calls the native w
   assert.equal(ui.classicBlocked(),true);
   await ui.search();
   assert.equal(ui.classicBlocked(),false);
+});
+
+// Native write-ahead intent journal (Android v2 helloRandom). — Claude
+test('native intent state is fail-closed only for bridges that advertise the journal',()=>{
+  assert.equal(acceleratedNativeIntentState(undefined),'unsupported');
+  assert.equal(acceleratedNativeIntentState({protocol:2,randomWrite:true}),'unsupported');
+  assert.equal(acceleratedNativeIntentState({exportIntentJournal:'yes',interruptedExport:true}),'unsupported');
+  assert.equal(acceleratedNativeIntentState({exportIntentJournal:true,interruptedExport:true}),'interrupted');
+  assert.equal(acceleratedNativeIntentState({exportIntentJournal:true,interruptedExport:false}),'clean');
+  for(const interruptedExport of [undefined,null,0,1,'false'])
+    assert.equal(acceleratedNativeIntentState({exportIntentJournal:true,interruptedExport}),'unknown');
+  assert.deepEqual(['unsupported','clean','unavailable','interrupted','unknown']
+    .map(acceleratedNativeIntentRequiresReview),[false,false,false,true,true]);
+});
+
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+const journalBridge=({interrupted,cleared=true,log=[]})=>message=>{
+  log.push(message.op);
+  if(message.op==='helloRandom')
+    return Promise.resolve({protocol:2,randomWrite:true,exportIntentJournal:true,
+      interruptedExport:interrupted});
+  if(message.op==='ackInterruptedExport')return Promise.resolve({cleared});
+  throw Error('unexpected op '+message.op);
+};
+
+test('lost WebView storage still blocks both engines when native kept the intent',async()=>{
+  const storage=recoveryStorageFixture(); // empty: localStorage was wiped
+  const log=[];
+  let started=0;
+  const ui=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    nativeOp:journalBridge({interrupted:true,log}),
+    recordOnNative:async()=>{started++;return successfulNative();}});
+  await tick();
+  assert.equal(ui.classicBlocked(),true);
+  await ui.fast();
+  assert.equal(started,0);
+  assert.equal(log.includes('ackInterruptedExport'),false);
+  await ui.search();
+  await ui.fast();
+  assert.equal(started,1);
+  await tick();
+  assert.deepEqual(log,['helloRandom','ackInterruptedExport']);
+});
+
+test('fast export waits for the native intent answer before arming a new export',async()=>{
+  const storage=recoveryStorageFixture();
+  let answer,started=0;
+  const ui=bootRecoveryUi({storage,listRecovered:emptyRecovery,
+    nativeOp:message=>{
+      if(message.op==='helloRandom')return new Promise(resolve=>{answer=resolve;});
+      if(message.op==='ackInterruptedExport')return Promise.resolve({cleared:true});
+      throw Error('unexpected op '+message.op);
+    },
+    recordOnNative:async()=>{started++;return successfulNative();}});
+  const pending=ui.fast();
+  await tick();
+  assert.equal(started,0);
+  assert.equal(storage.getItem(ACCELERATED_RECOVERY_MARKER_KEY),null);
+  answer({protocol:2,randomWrite:true,exportIntentJournal:true,interruptedExport:true});
+  await pending;
+  assert.equal(started,0,'interrupted intent requires review first');
+  assert.equal(ui.classicBlocked(),true);
+});
+
+test('clean native journal and unanswered bridge never block the classic engine',async()=>{
+  for(const nativeOp of [journalBridge({interrupted:false}),
+    message=>message.op==='helloRandom'?Promise.reject(Error('bridge down')):null,
+    message=>message.op==='helloRandom'?Promise.resolve({protocol:2,randomWrite:true}):null]){
+    const ui=bootRecoveryUi({storage:recoveryStorageFixture(),listRecovered:emptyRecovery,
+      nativeOp,recordOnNative:successfulNative});
+    await tick();
+    assert.equal(ui.classicBlocked(),false);
+  }
+});
+
+test('malformed journal reply and failed acknowledgement stay conservative',async()=>{
+  const log=[];
+  const ui=bootRecoveryUi({storage:recoveryStorageFixture(),listRecovered:emptyRecovery,
+    nativeOp:message=>{
+      log.push(message.op);
+      if(message.op==='helloRandom')
+        return Promise.resolve({protocol:2,randomWrite:true,exportIntentJournal:true});
+      if(message.op==='ackInterruptedExport')return Promise.reject(Error('io'));
+      throw Error('unexpected op '+message.op);
+    },recordOnNative:successfulNative});
+  await tick();
+  assert.equal(ui.classicBlocked(),true);
+  await ui.search();
+  assert.equal(ui.classicBlocked(),false);
+  await tick();
+  assert.deepEqual(log,['helloRandom','ackInterruptedExport']);
+});
+
+test('Android bridge advertises the journal and the store arms before creating output',()=>{
+  const root='../../streaming/android/app/src/main/java/com/oswhgo/wivra/';
+  const bridge=readFileSync(new URL(root+'WivraAcceleratedExportBridge.kt',import.meta.url),'utf8');
+  const store=readFileSync(new URL(root+'WivraRandomExportStore.kt',import.meta.url),'utf8');
+  assert.match(bridge,/"exportIntentJournal", true/);
+  assert.match(bridge,/"interruptedExport", WivraRandomExportStore\.interruptedExport\(context\)/);
+  assert.match(bridge,/"ackInterruptedExport" -> enqueue/);
+  assert.ok(store.indexOf('journal.arm(token)')<store.indexOf('WivraRandomAccessExportSession.create('));
+  const finish=store.slice(store.indexOf('fun finish('),store.indexOf('private fun publish('));
+  assert.ok(finish.indexOf('publish(context')<finish.indexOf('item.intents.clear(token)'),
+    'intent closes only after a verified gallery publication');
+  assert.match(store,/item\.session\.abort\(\)\s*\/\/[^\n]*\n\s*item\.intents\.clear\(token\)/);
 });

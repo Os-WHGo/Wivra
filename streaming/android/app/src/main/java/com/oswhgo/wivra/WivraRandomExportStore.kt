@@ -39,7 +39,8 @@ object WivraRandomExportStore {
     private data class Active(
         val owner: String,
         val session: WivraRandomAccessExportSession,
-        val mime: String
+        val mime: String,
+        val intents: WivraExportIntentJournal
     )
     data class Published(
         val uri: Uri,
@@ -54,6 +55,9 @@ object WivraRandomExportStore {
     private val finished = ConcurrentHashMap<Int, Pair<String, Published>>()
 
     private fun directory(context: Context) = File(context.filesDir, DIR)
+    // Separate directory: partial cleanup and the recovery catalog never see it.
+    private fun intents(context: Context) =
+        WivraExportIntentJournal(File(context.filesDir, "accelerated-v2-intents"))
     private fun digest() = MessageDigest.getInstance("SHA-256")
     private fun shaString(hash: ByteArray) =
         hash.joinToString("") { "%02x".format(it.toInt() and 0xff) }
@@ -88,7 +92,17 @@ object WivraRandomExportStore {
         var token: Int
         do { token = random.nextInt(Int.MAX_VALUE - 1) + 1 }
         while (active.containsKey(token) || finished.containsKey(token))
-        active[token] = Active(owner, WivraRandomAccessExportSession.create(directory(context), mime, estimatedBytes), mime)
+        // Write-ahead: no output may exist for a token whose intent is not durable.
+        val journal = intents(context)
+        if (!journal.arm(token))
+            throw IOException("No se pudo registrar la exportación para su recuperación; no se inició.")
+        try {
+            active[token] = Active(owner,
+                WivraRandomAccessExportSession.create(directory(context), mime, estimatedBytes), mime, journal)
+        } catch (error: Exception) {
+            journal.clear(token)
+            throw error
+        }
         return token
     }
 
@@ -169,7 +183,11 @@ object WivraRandomExportStore {
         val tolerance = maxOf(1500L, minOf(5000L, expectedDurationMs / 100L))
         if (kotlin.math.abs(verified.media.durationMs - expectedDurationMs) > tolerance)
             throw IOException("La duración del archivo difiere de la exportación solicitada; copia privada conservada.")
-        return publish(context, token, owner, item.mime, verified)
+        val published = publish(context, token, owner, item.mime, verified)
+        // Only a verified gallery publication closes the intent. Every failure
+        // above may have left a sealed private copy that needs review.
+        item.intents.clear(token)
+        return published
     }
 
     private fun publish(context: Context, token: Int, owner: String, mime: String,
@@ -244,8 +262,20 @@ object WivraRandomExportStore {
     fun abort(token: Int, owner: String) {
         val item = active[token] ?: return
         if (item.owner != owner) return
-        if (active.remove(token, item)) item.session.abort()
+        if (active.remove(token, item)) {
+            item.session.abort()
+            // Aborted before finalization: nothing was sealed or published.
+            item.intents.clear(token)
+        }
     }
+
+    /** An export intent survived without a live session in this process. */
+    fun interruptedExport(context: Context): Boolean =
+        intents(context).interrupted(active.keys.toSet())
+
+    /** The person reviewed recovery and the gallery; keep live sessions only. */
+    fun acknowledgeInterruptedExport(context: Context): Boolean =
+        intents(context).acknowledge(active.keys.toSet())
 
     fun abortOwned(owner: String) {
         for ((token, item) in active.entries.toList()) if (item.owner == owner) abort(token, owner)

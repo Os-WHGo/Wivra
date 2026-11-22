@@ -9246,6 +9246,20 @@ function createAcceleratedRecoveryMarker(storage) {
   };
 }
 
+/** Native write-ahead export intent advertised by helloRandom (Android v2).
+ * 'unsupported': older bridge or iOS, the editor marker alone applies.
+ * 'interrupted': an intent survived without a live native session.
+ * 'unknown': the bridge advertises the journal but the reply is malformed,
+ * which is never evidence of a clean exit. — Claude */
+function acceleratedNativeIntentState(caps){
+  if(caps?.exportIntentJournal!==true)return 'unsupported';
+  if(caps.interruptedExport===true)return 'interrupted';
+  if(caps.interruptedExport===false)return 'clean';
+  return 'unknown';
+}
+const acceleratedNativeIntentRequiresReview=
+  state=>state==='interrupted'||state==='unknown';
+
 /** QA-only throughput, including the native writer's verification time.
  * This compares elapsed processing to the video's duration, NOT with a second
  * MediaRecorder export. No media data or identifiers leave the device. */
@@ -9368,6 +9382,29 @@ document.addEventListener('DOMContentLoaded',()=>{
     recovered.replaceChildren();
     settingsResult.replaceChildren();
   };
+  // The WebView marker can be lost (cleared site data, storage eviction). The
+  // Android bridge also keeps a native intent journal; either one requires a
+  // review. A bridge that cannot answer is not blocked here: its recovery
+  // catalogue would be unreachable too and classic export must stay usable.
+  let nativeIntent='unsupported',nativeIntentReady=null;
+  const applyNativeIntent=state=>{
+    nativeIntent=state;
+    if(!acceleratedNativeIntentRequiresReview(state))return;
+    markRecoveryRequired();
+    status.textContent='Wivra encontró una exportación rápida anterior sin cierre confirmado en el teléfono. Revisa los vídeos recuperables y la galería antes de exportar.';
+  };
+  try{
+    const reply=host.request({op:'helloRandom'});
+    nativeIntentReady=Promise.resolve(reply)
+      .then(acceleratedNativeIntentState,()=>'unavailable')
+      .then(state=>{nativeIntentReady=null;applyNativeIntent(state);});
+  }catch{nativeIntent='unavailable';}
+  const acknowledgeNativeIntent=()=>{
+    if(!acceleratedNativeIntentRequiresReview(nativeIntent))return;
+    // Best effort: if native cannot forget it, the next launch asks again.
+    Promise.resolve().then(()=>host.request({op:'ackInterruptedExport'}))
+      .then(reply=>{if(reply?.cleared===true)nativeIntent='clean';},()=>{});
+  };
   const listRecovered=async(target,requestedGeneration=recoveryGeneration)=>{
     target.textContent='Verificando videos privados…';
     try{
@@ -9459,6 +9496,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       pendingRecovery,recoveryChecked,userConfirmed:true
     });
     if(!confirmed.ok){status.textContent=confirmed.reason;return false;}
+    acknowledgeNativeIntent();
     // Keep the marker until fast export replaces it with a new intent.
     // If storage cannot clear, classic can still proceed after explicit review;
     // a reload will conservatively require another review.
@@ -9490,6 +9528,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       allowOverlayGaps:document.getElementById('expAllowOverlayGaps')?.checked??false
     });
     if(!editorSettings.ok)return void(status.textContent=editorSettings.reason);
+    if(nativeIntentReady){
+      status.textContent='Comprobando exportaciones anteriores en el teléfono…';
+      await nativeIntentReady;
+    }
     if(!approveAnotherExport('fast'))return;
     // Do not start a potentially committing operation if its interruption
     // cannot be reconciled on the next editor launch.

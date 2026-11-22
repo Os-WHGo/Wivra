@@ -72,6 +72,12 @@ class WivraAcceleratedExportBridge(
                 JSONObject().put("protocol", 2).put("randomWrite", true)
                     .put("platform", "android").put("maxWriteBytes",
                         WivraRandomAccessExportSession.MAX_WRITE_BYTES)
+                    // Native write-ahead intent (survives WebView storage loss).
+                    .put("exportIntentJournal", true)
+                    .put("interruptedExport", WivraRandomExportStore.interruptedExport(context))
+            }
+            "ackInterruptedExport" -> enqueue(reply, rid) {
+                JSONObject().put("cleared", WivraRandomExportStore.acknowledgeInterruptedExport(context))
             }
             "beginRandom" -> enqueue(reply, rid) {
                 val mime = request.opt("mime") as? String
