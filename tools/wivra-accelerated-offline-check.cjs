@@ -21,7 +21,9 @@ const basics=[
  'accelerated-editor-native-gate.test.mjs',
  'accelerated-multitrack-parity.test.mjs',
  'accelerated-multitrack-renderer.test.mjs',
- 'export-engine-policy.test.mjs'
+ 'export-engine-policy.test.mjs',
+ // Native packaging copies app/dist/agentcut.html as committed. — Claude
+ 'dist-bundle-matches-source.test.mjs'
 ];
 const options=new Set(process.argv.slice(2));
 const valid=new Set(['--list','--full','--build','--live']);
@@ -30,7 +32,7 @@ if([...options].some(x=>!valid.has(x))){
  process.exit(2);
 }
 const names=options.has('--full') && existsSync(suiteDir)
- ? [...new Set([...readdirSync(suiteDir).filter(x=>/^accelerated-.*\.test\.mjs$/.test(x)), 'export-engine-policy.test.mjs'])].sort()
+ ? [...new Set([...readdirSync(suiteDir).filter(x=>/^accelerated-.*\.test\.mjs$/.test(x)), 'export-engine-policy.test.mjs', 'dist-bundle-matches-source.test.mjs'])].sort()
  : basics;
 // The --live option includes all checked-in streaming contracts, including
 // Android LIVE scene/reconnection/MP4 regression tests. Resolve file names

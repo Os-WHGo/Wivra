@@ -104,7 +104,11 @@ const qaSidecar = qaPipeline ?
   '\nconst api = {loadMediabunny, recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos, diagnoseCodecs, diagnoseCodecMatrix};' +
   '\nglobalThis.WivraAcceleratedQA = Object.freeze(api);\n' + qaUI + '\n})();\n' : '';
 
-mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
+// WIVRA_BUILD_OUT lets tests build into a temporary file and compare it with the
+// committed bundle that Android/iOS package as-is. Default output is unchanged.
+const outFile = process.env.WIVRA_BUILD_OUT ? resolve(process.env.WIVRA_BUILD_OUT) : null;
+const outURL = outFile ? new URL('file://' + outFile) : new URL('./dist/agentcut.html', import.meta.url);
+mkdirSync(new URL('./', outURL), { recursive: true });
 // Append Director helpers without replacing the Editor's core module list.
 // This keeps additions such as capture and project persistence merge-friendly.
 const directorIntake = strip(readFileSync(new URL('../core/director-intake.mjs', import.meta.url), 'utf8'));
@@ -114,5 +118,5 @@ const captureNative = ['./capture-locked-session.mjs', './capture-journal-store.
 const wvEngine = readFileSync(new URL('./vendor/whisper/wivra-whisper.js', import.meta.url));
 if (createHash('sha256').update(wvEngine).digest('hex') !== WV_ENGINE_SHA256) throw new Error('Motor de voz: el SHA-256 de vendor/whisper/wivra-whisper.js no coincide.');
 const wvEngineTag = '<script type="text/plain" id="wvEngine" data-notr>' + gzipSync(wvEngine, { level: 9 }).toString('base64') + '</script>';
-writeFileSync(new URL('./dist/agentcut.html', import.meta.url), readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('<!--__WV_ENGINE__-->', () => wvEngineTag + mbEngineTag).replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + qaSidecar + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
-console.log('listo: app/dist/agentcut.html');
+writeFileSync(outURL, readFileSync(new URL('./template.html', import.meta.url), 'utf8').replace('<!--__WV_ENGINE__-->', () => wvEngineTag + mbEngineTag).replace('/*__CORE__*/', () => acceleratedVendor + core + '\n' + directorIntake + '\n' + captureNative + qaSidecar + '\nconst I18N_DATA = ' + JSON.stringify(loadI18n()) + ';'));
+console.log('listo: ' + (outFile ?? 'app/dist/agentcut.html'));
