@@ -6,6 +6,7 @@
 // This still runs only in explicit QA, bounded to 180 s / 160 items / <=60 fps.
 // A 3-minute synthetic test is not a 30/60-minute or iPhone hardware proof.
 import {clipLength,srcTime} from '../core/project.mjs';
+import {MAX_TRACKS} from '../core/operations.mjs';
 import {TEXT_STYLE_KEYS,textStyleProblem} from '../core/text-style.mjs';
 import {FILTER_KEYS,filterProblem,LOOK_IDS} from '../core/filters.mjs';
 import {drawFrame,formatSize,exportBitrate,clipGain,SHAPE_NAMES} from './export.mjs';
@@ -29,7 +30,9 @@ const MAIN = new Set(['id','asset_id','start','in','out','speed','volume','muted
   'fxIn','fxOut','fxDur','filter']);
 const OVERLAY = new Set([...MAIN,'track','x','y','scale','opacity','zoom','px',
   'py','shape','frame','frameColor']);
-const AUDIO = new Set([...MAIN,'role','ducking']);
+// `track` on audio is only the editor row (1..MAX_TRACKS); the stable exporter
+// mixes every row identically, so it is accepted and never changes the PCM. — Claude
+const AUDIO = new Set([...MAIN,'role','ducking','track']);
 const PROJECT = new Set(['clips','overlayClips','audioClips','texts','format',
   'revision','nextId','assets','effects','transitions']);
 const deny = (message) => {throw new Error('Multitrack accelerated preflight: '+message);};
@@ -56,6 +59,9 @@ function validateAuthoring(project, ledger, media) {
     if(lane.lane==='audio' && (c.filter ||
        [c.fxIn,c.fxOut].some(v=>v!=null && v!=='none')))
       deny('visual effects on independent audio require parity');
+    if(lane.lane==='audio' && c.track!=null &&
+       (!Number.isInteger(c.track) || c.track<1 || c.track>MAX_TRACKS))
+      deny('invalid audio track row');
     if(lane.lane==='overlay' && c.shape!=null &&
        !Object.hasOwn(SHAPE_NAMES,c.shape))
       deny('unsupported overlay shape');
