@@ -25,16 +25,22 @@ actor WivraAcceleratedExportStore {
     }
     private let directory: URL
     private let freeSpace: @Sendable (URL) -> Int64
+    // Sibling directory: partial cleanup and the recovery catalogue never see it. — Claude
+    private let intents: WivraExportIntentJournal
 
     init(directory: URL? = nil, freeSpace: (@Sendable (URL) -> Int64)? = nil) {
-        self.directory = directory ?? FileManager.default
+        let resolved = directory ?? FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WivraAcceleratedExports", isDirectory: true)
+        self.directory = resolved
         self.freeSpace = freeSpace ?? { url in
             let values = try? url.resourceValues(
                 forKeys: [.volumeAvailableCapacityForImportantUsageKey])
             return values?.volumeAvailableCapacityForImportantUsage ?? 0
         }
+        self.intents = WivraExportIntentJournal(directory: resolved
+            .deletingLastPathComponent()
+            .appendingPathComponent(resolved.lastPathComponent + "-Intents", isDirectory: true))
     }
 
     private var sessions: [Int: Session] = [:]
@@ -121,9 +127,18 @@ actor WivraAcceleratedExportStore {
         var token: Int
         repeat { token = Int.random(in: 1..<Int(Int32.max)) }
         while sessions[token] != nil || finished[token] != nil
-        sessions[token] = Session(owner: owner,
-            writer: try WivraRandomAccessExportSession(directory: directory, mime: mime,
-                reservedBytes: estimatedBytes))
+        // Write-ahead: no output may exist for a token whose intent is not durable.
+        guard intents.arm(token) else {
+            throw WivraExportError.io("No se pudo registrar la exportación para su recuperación; no se inició.")
+        }
+        do {
+            sessions[token] = Session(owner: owner,
+                writer: try WivraRandomAccessExportSession(directory: directory, mime: mime,
+                    reservedBytes: estimatedBytes))
+        } catch {
+            _ = intents.clear(token)
+            throw error
+        }
         return token
     }
 
@@ -175,6 +190,9 @@ actor WivraAcceleratedExportStore {
         let completion = Completed(url: saved.url, bytes: saved.bytes,
                                    sha256: saved.sha256, media: saved.media)
         finished[token] = (owner, completion)
+        // Only a sealed, verified MP4 closes the intent. Every failure above
+        // may have left a private copy that needs review.
+        _ = intents.clear(token)
         return completion
     }
 
@@ -182,6 +200,18 @@ actor WivraAcceleratedExportStore {
         guard let item = sessions[token], item.owner == owner else { return }
         sessions.removeValue(forKey: token)
         await item.writer.abort()
+        // Aborted before finalization: nothing was sealed.
+        _ = intents.clear(token)
+    }
+
+    /// An export intent survived without a live session in this process.
+    func interruptedExport() -> Bool {
+        intents.interrupted(activeTokens: Set(sessions.keys))
+    }
+
+    /// The person reviewed recovery and Photos; keep live sessions only.
+    func acknowledgeInterruptedExport() -> Bool {
+        intents.acknowledge(activeTokens: Set(sessions.keys))
     }
 
     func abortOwned(owner: String) async {
@@ -189,6 +219,7 @@ actor WivraAcceleratedExportStore {
         for (token, session) in owned {
             sessions.removeValue(forKey: token)
             await session.writer.abort()
+            _ = intents.clear(token)
         }
     }
 

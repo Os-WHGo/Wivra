@@ -112,9 +112,16 @@ final class WivraAcceleratedExportNativeBridge: NSObject, WKScriptMessageHandler
                 let store = WivraAcceleratedExportStore.shared
                 switch request.op {
                 case "helloRandom":
+                    // Native write-ahead intent (survives wiped WKWebView storage). — Claude
+                    let interrupted = await store.interruptedExport()
                     replyHandler(["ok": true, "protocol": 2, "randomWrite": true,
                                   "platform": "ios", "maxWriteBytes":
-                                      WivraRandomAccessExportSession.maxWriteBytes], nil)
+                                      WivraRandomAccessExportSession.maxWriteBytes,
+                                  "exportIntentJournal": true,
+                                  "interruptedExport": interrupted], nil)
+                case "ackInterruptedExport":
+                    let cleared = await store.acknowledgeInterruptedExport()
+                    replyHandler(["ok": true, "cleared": cleared], nil)
                 case "beginRandom":
                     let value = try await store.begin(mime: request.mime,
                         estimatedBytes: request.estimatedBytes, owner: owner)

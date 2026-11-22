@@ -10,6 +10,7 @@ on:
       - 'streaming/tests/WivraScreenRecordWriterSmoke.swift'
       - 'streaming/tests/WivraDatProfilesSmoke.swift'
       - 'streaming/tests/WivraRayBanSyncSmoke.swift'
+      - 'streaming/tests/WivraExportIntentJournalSmoke.swift'
       - 'streaming/contracts/rayban-audio-sync.json'
       - 'streaming/contracts/rayban-live.json'
       - 'streaming/contracts/rayban-looks.json'
@@ -72,6 +73,14 @@ jobs:
             streaming/tests/WivraDatProfilesSmoke.swift \
             -o /tmp/wivra-dat-profiles-smoke
           /tmp/wivra-dat-profiles-smoke streaming/contracts/dat-profiles.json
+      - name: Accelerated export write-ahead intent journal on iPhone code (macOS, Swift 6) — Claude
+        run: |
+          set -eu
+          xcrun swiftc -swift-version 6 -parse-as-library \
+            streaming/ios/B0/Sources/WivraExportIntentJournal.swift \
+            streaming/tests/WivraExportIntentJournalSmoke.swift \
+            -o /tmp/wivra-intent-journal-smoke
+          /tmp/wivra-intent-journal-smoke
       - name: Ray-Ban · video anchoring for the independent microphone on iPhone code (macOS, Swift 6) — Claude
         run: |
           set -eu

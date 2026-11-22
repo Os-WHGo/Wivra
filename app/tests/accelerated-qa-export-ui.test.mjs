@@ -535,3 +535,22 @@ test('every accelerated preflight denial is explained in Spanish with its techni
   const ui=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8');
   assert.match(ui,/'No se completó la exportación acelerada: '\+acceleratedFailureReason\(error\)/);
 });
+
+test('iOS bridge advertises the same journal and the store arms before creating output',()=>{
+  const root='../../streaming/ios/B0/Sources/';
+  const bridge=readFileSync(new URL(root+'WivraAcceleratedExportNativeBridge.swift',import.meta.url),'utf8');
+  const store=readFileSync(new URL(root+'WivraAcceleratedExportStore.swift',import.meta.url),'utf8');
+  const journal=readFileSync(new URL(root+'WivraExportIntentJournal.swift',import.meta.url),'utf8');
+  assert.match(bridge,/"exportIntentJournal": true/);
+  assert.match(bridge,/"interruptedExport": interrupted/);
+  assert.match(bridge,/case "ackInterruptedExport":/);
+  const begin=store.slice(store.indexOf('func begin('),store.indexOf('func writeAt('));
+  assert.ok(begin.indexOf('intents.arm(token)')>0 &&
+    begin.indexOf('intents.arm(token)')<begin.indexOf('WivraRandomAccessExportSession('));
+  const finish=store.slice(store.indexOf('func finish('),store.indexOf('func abort('));
+  assert.ok(finish.indexOf('finished[token] = (owner, completion)')<finish.indexOf('intents.clear(token)'),
+    'intent closes only after the verified seal');
+  assert.match(store,/await item\.writer\.abort\(\)\s*\/\/[^\n]*\n\s*_ = intents\.clear\(token\)/);
+  assert.match(store,/-Intents/);
+  assert.doesNotMatch(journal,/^import (UIKit|AVFoundation|CryptoKit)/m,'journal stays Foundation-only for Linux smoke');
+});
