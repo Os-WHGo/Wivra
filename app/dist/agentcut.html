@@ -2496,7 +2496,17 @@ function selectExportEngine({ requested = 'auto', webCodecs = false, mediabunny 
 // writeAt(position, Uint8Array) must write atomically at arbitrary offsets.
 // In particular MP4 moov/header fixes can OVERWRITE previously written bytes.
 // The legacy append-only CRC sink must never be used for this transport.
+
+
 const ACCELERATED_CUT_RENDERER_VERSION = 1;
+// Encoded cuts must cover their authored source intervals. Tolerate a few
+// milliseconds of frame timestamp rounding/keyframe seeking, not long black
+// or frozen gaps silently emitted by a partially decoded video track.
+const ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS = 0.1;
+// AudioBufferSource.add() appends PCM samples with NO timestamps. Even tiny
+// holes or overlaps across many cuts accumulate A/V drift, so require
+// sample-accurate coverage instead of reusing the video-frame tolerance.
+const ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES = 1;
 
 function acceleratedCutEligibility(project, media, { maxSeconds = 120, maxCuts = 80,
   loudnessGainDb = 0 } = {}) {
@@ -2568,7 +2578,8 @@ function checkedRandomWrite(writeAt, { maxChunkBytes = 4 * 1024 * 1024 } = {}) {
 async function renderAcceleratedCuts({
   M, sourceUrl, cuts, width, height, writeAt,
   expectedAudio = null, label = '', isCancelled = () => false,
-  videoBitrate = 2_000_000, audioBitrate = 96_000
+  videoBitrate = 2_000_000, audioBitrate = 96_000,
+  nativeCodecPlan = null
 }) {
   if (!M || typeof M.Input !== 'function' || typeof M.StreamTarget !== 'function')
     throw new Error('Mediabunny unavailable in this offline build.');
@@ -2580,7 +2591,7 @@ async function renderAcceleratedCuts({
   if (isCancelled()) throw new Error('Accelerated export cancelled.');
   const writer = checkedRandomWrite(writeAt);
   const input = new M.Input({ source: new M.UrlSource(sourceUrl), formats: M.ALL_FORMATS });
-  let output;
+  let output, finalized=false;
   try {
     const video = await input.getPrimaryVideoTrack();
     const audio = await input.getPrimaryAudioTrack();
@@ -2601,6 +2612,31 @@ async function renderAcceleratedCuts({
       throw new Error('No compatible audio codec.');
     const container = avc ? 'mp4' : 'webm', audioCodec = !hasAudio ? null :
       (avc ? 'aac' : 'opus');
+    // A mobile preflight is only valid for the same codec and bitrate
+    // selected by the real renderer. Never silently downgrade to WebM
+    // after approval of an H.264/AAC MP4 output.
+    if (nativeCodecPlan && (nativeCodecPlan.videoCodec!==chosenCodec ||
+        nativeCodecPlan.audioCodec!==audioCodec ||
+        nativeCodecPlan.container!==container ||
+        nativeCodecPlan.hasAudio!==hasAudio))
+      throw new Error('Los códecs reales de corte difieren del preflight nativo.');
+    const nativeConfig=nativeCodecPlan?mobileCodecConfig({
+      codec:nativeCodecPlan,width,height,fps:30,sampleRate:48000,
+      videoBitrate,audioBitrate
+    }):null;
+    // Merely registering onEncoderConfig is insufficient. If a bundled
+    // Mediabunny/WebCodecs build ignores the callback, no actual output
+    // configuration was proven and the temporary must never be committed.
+    const confirmedEncoders=new Set();
+    const checkActualEncoder=(kind,actual)=>{
+      const expected=nativeConfig[kind];
+      const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
+        ['codec','sampleRate','numberOfChannels','bitrate'];
+      if(!actual || keys.some(key=>actual[key]!==expected[key]) ||
+         (expected.avc && actual.avc?.format!==expected.avc.format))
+        throw new Error('La configuración del codificador de corte no coincide con el preflight.');
+      confirmedEncoders.add(kind);
+    };
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const g = canvas.getContext('2d');
@@ -2616,10 +2652,14 @@ async function renderAcceleratedCuts({
       target: new M.StreamTarget(writable, { chunked: true, chunkSize: 1 << 20 })
     });
     const videoSource = new M.CanvasSource(canvas,
-      { codec: chosenCodec, bitrate: videoBitrate, keyFrameInterval: 1 });
+      { codec: chosenCodec, bitrate: videoBitrate, keyFrameInterval: 1,
+        ...(nativeConfig?{fullCodecString:nativeConfig.video.codec,
+          onEncoderConfig:config=>checkActualEncoder('video',config)}:{}) });
     output.addVideoTrack(videoSource, { frameRate: 30 });
     const audioSource = hasAudio ?
-      new M.AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate }) : null;
+      new M.AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate,
+        ...(nativeConfig?{fullCodecString:nativeConfig.audio.codec,
+          onEncoderConfig:config=>checkActualEncoder('audio',config)}:{}) }) : null;
     if (audioSource) output.addAudioTrack(audioSource);
     await output.start();
     const videoSink = new M.CanvasSink(video,
@@ -2628,57 +2668,102 @@ async function renderAcceleratedCuts({
     let position = 0, frames = 0, audioBuffers = 0;
     for (const cut of cuts) {
       if (isCancelled()) throw new Error('Accelerated export cancelled.');
-      let cutFrames = 0;
+      let cutFrames = 0, coveredThrough = cut.in;
       for await (const wc of videoSink.canvases(cut.in, cut.out)) {
         if (isCancelled()) throw new Error('Accelerated export cancelled.');
+        if (!Number.isFinite(wc?.timestamp) || !Number.isFinite(wc.duration) ||
+            wc.duration<=0)
+          throw new Error('Invalid decoded cut video timestamp or duration.');
         const s = Math.max(wc.timestamp, cut.in);
         const e = Math.min(wc.timestamp + wc.duration, cut.out);
         if (!(e > s)) continue;
+        if (s-coveredThrough > ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+          throw new Error('Decoded cut video contains an uncovered frame gap.');
         g.drawImage(wc.canvas, 0, 0, width, height);
         if (label) {
           g.fillStyle = '#fff'; g.font = '700 28px sans-serif';
           g.textAlign = 'center'; g.fillText(label, width / 2, height - 30);
         }
         await videoSource.add(position + s - cut.in, e - s);
+        coveredThrough=Math.max(coveredThrough,e);
         frames++; cutFrames++;
       }
       if (!cutFrames) throw new Error('Source cut produced no video frames.');
+      if (cut.out-coveredThrough > ACCELERATED_CUT_MAX_VIDEO_GAP_SECONDS)
+        throw new Error('Decoded cut video ends before its authored out point.');
       if (audioSink) {
+        // A global audioBuffers>0 used to permit the first cut to contain
+        // sound while a later cut silently lost its audio entirely.
+        let cutAudioBuffers=0, audioCoveredThrough=cut.in, audioRate=null;
         for await (const wb of audioSink.buffers(cut.in, cut.out)) {
           if (isCancelled()) throw new Error('Accelerated export cancelled.');
-          const b = wb.buffer;
-          const s = Math.max(wb.timestamp, cut.in);
-          const e = Math.min(wb.timestamp + wb.duration, cut.out);
-          if (!(e > s)) continue;
-          const from = Math.round((s - wb.timestamp) * b.sampleRate);
-          const length = Math.round((e - s) * b.sampleRate);
-          if (!length) continue;
-          const part = new AudioBuffer({ length, sampleRate: b.sampleRate,
-            numberOfChannels: b.numberOfChannels });
-          for (let ch = 0; ch < b.numberOfChannels; ch++) {
-            part.copyToChannel(b.getChannelData(ch).subarray(from, from + length), ch);
+          const b=wb?.buffer;
+          if (!Number.isFinite(wb?.timestamp) || !Number.isFinite(wb.duration) ||
+              wb.duration<=0 || !Number.isSafeInteger(b?.length) || b.length<=0 ||
+              !Number.isSafeInteger(b.sampleRate) ||
+              b.sampleRate<8000 || b.sampleRate>192000 ||
+              ![1,2].includes(b.numberOfChannels) ||
+              typeof b.getChannelData!=='function')
+            throw new Error('Invalid decoded cut audio samples or channels.');
+          const s=Math.max(wb.timestamp,cut.in);
+          const e=Math.min(wb.timestamp+wb.duration,cut.out);
+          if (!(e>s)) continue;
+          if(audioRate!==null && b.sampleRate!==audioRate)
+            throw new Error('Decoded cut audio sample rate changes mid-cut.');
+          audioRate=b.sampleRate;
+          const missingSamples=(s-audioCoveredThrough)*audioRate;
+          if(missingSamples>ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES+0.01)
+            throw new Error('Decoded cut audio contains an uncovered gap.');
+          if(missingSamples < -ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES-0.01)
+            throw new Error('Decoded cut audio overlaps previous PCM samples.');
+          const from=Math.round((s-wb.timestamp)*b.sampleRate);
+          const length=Math.round((e-s)*b.sampleRate);
+          if (!length)continue;
+          if (from<0 || from>=b.length || from+length>b.length+1)
+            throw new Error('Decoded cut audio is shorter than its requested segment.');
+          const part=new AudioBuffer({length,sampleRate:b.sampleRate,
+            numberOfChannels:b.numberOfChannels});
+          for(let ch=0;ch<b.numberOfChannels;ch++){
+            const pcm=b.getChannelData(ch);
+            if(!(pcm instanceof Float32Array)||pcm.length<from+length-1)
+              throw new Error('Decoded cut audio channel is incomplete.');
+            part.copyToChannel(pcm.subarray(from,from+length),ch);
           }
-          await audioSource.add(part); audioBuffers++;
+          await audioSource.add(part);
+          audioBuffers++;cutAudioBuffers++;
+          audioCoveredThrough=Math.max(audioCoveredThrough,e);
         }
+        if(!cutAudioBuffers || audioRate===null ||
+           (cut.out-audioCoveredThrough)*audioRate >
+             ACCELERATED_CUT_MAX_AUDIO_GAP_SAMPLES+0.01)
+          throw new Error('Decoded cut audio missing before its authored out point.');
       }
       position += cut.out - cut.in;
     }
     if (hasAudio && !audioBuffers) throw new Error('Audio decoding yielded no samples.');
     if (isCancelled()) throw new Error('Accelerated export cancelled.');
     await output.finalize();
+    if(nativeConfig && (!confirmedEncoders.has('video') ||
+       (hasAudio && !confirmedEncoders.has('audio'))))
+      throw new Error('El codificador nativo no confirmó el perfil de video/audio acelerado.');
+    finalized=true;
     return { engine: 'webcodecs-mediabunny', container, videoCodec: chosenCodec,
       audioCodec, durationSeconds: position, frames, audioBuffers,
       writes: writer.writes, outputBytes: writer.highWaterBytes };
-  } catch (error) {
-    // Caller MUST abort its new random-access temporary file on any failure.
-    // Never auto-publish partial MP4 or fall back after native writer opened.
-    throw error;
+  } finally {
+    // The cut path must release its decoder, just like the multitrack path.
+    // On encoder failure, release the writable before the native caller
+    // aborts the temporary file. Never delete any user original.
+    if (!finalized && typeof output?.cancel === 'function') {
+      try { await output.cancel(); } catch { /* native abort still follows */ }
+    }
+    try { await input.dispose?.(); } catch { /* cleanup is best-effort */ }
   }
 }
 
 // Wivra P0-W - protocol v2 random access storage adapter for Mediabunny.
 // This is NOT the existing v1 sequential MediaRecorder protocol.
-// No production native host advertises v2 yet: attempting to use it must fail.
+// Native v2 must refuse unbudgeted exports before obtaining an output token.
 // The caller owns the temporary v2 file, never any existing user's media.
 //
 // Only a native host that explicitly confirms protocol 2 + randomWrite may
@@ -2694,18 +2779,24 @@ const ACCELERATED_NATIVE_MAX_PENDING_BYTES = 8 * 1024 * 1024;
 const ACCELERATED_NATIVE_MAX_OUTPUT_BYTES = 16 * 1024 * 1024 * 1024;
 
 function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
-  expectAudio = false, estimatedBytes = 0 } = {}) {
+  expectAudio = false, estimatedBytes } = {}) {
   if (!host || typeof host.request !== 'function' || typeof host.sendWriteAt !== 'function') {
     throw new Error('No existe un puente nativo de escritura aleatoria v2.');
   }
   if (!['video/mp4', 'video/webm'].includes(mime)) throw new Error('Contenedor acelerado inválido.');
+  if(typeof expectAudio !== 'boolean')
+    throw new Error('La política de audio de la exportación nativa debe ser booleana.');
   if (!(expectedDurationMs > 0 && Number.isFinite(expectedDurationMs)) ||
-      !(estimatedBytes >= 0 && Number.isSafeInteger(estimatedBytes) &&
+      !(Number.isSafeInteger(estimatedBytes) && estimatedBytes > 0 &&
         estimatedBytes <= ACCELERATED_NATIVE_MAX_OUTPUT_BYTES))
     throw new Error('Duración/tamaño estimado inválido.');
   let state = 'idle', token = null, seq = 0, maxEnd = 0, writeBytes = 0;
   let pending = Promise.resolve(), failure = null, committing = false;
   let pendingBytes = 0;
+  // Once finishRandom is sent, a missing native acknowledgement is ambiguous:
+  // the private file may already be atomically committed. Never delete it via
+  // abortRandom on that path; native recovery/cleanup owns reconciliation.
+  let finalizeAckUncertain = false;
   // A large random write can leave an unwritten hole before the patched MP4
   // footer. Native MUST independently check this same invariant before rename.
   let covered = [];
@@ -2756,6 +2847,7 @@ function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
       if (!Number.isSafeInteger(position) || position < 0 ||
           !(bytes instanceof Uint8Array) || bytes.length === 0 ||
           bytes.length > ACCELERATED_NATIVE_MAX_WRITE_BYTES ||
+          position + bytes.length > estimatedBytes ||
           position + bytes.length > ACCELERATED_NATIVE_MAX_OUTPUT_BYTES)
         throw new Error('Desplazamiento o bloque acelerado inválido.');
       if (pendingBytes + bytes.byteLength > ACCELERATED_NATIVE_MAX_PENDING_BYTES)
@@ -2802,8 +2894,17 @@ function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
       committing = true;
       let saved;
       try {
-        saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
-          expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
+        try {
+          saved = await request('finishRandom', { token, bytes: maxEnd, writes: seq,
+            expectedDurationMs: Math.round(expectedDurationMs), expectAudio });
+        } catch {
+          finalizeAckUncertain = true;
+          const error = new Error('El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.');
+          // Stable machine-readable code: UI must require recovery review and
+          // user consent before another accelerated or classic export.
+          error.code = 'WIVRA_ACCELERATED_FINISH_UNCERTAIN';
+          throw error;
+        }
         // SHA-256 is computed by native from the ACTUAL final file after all
         // arbitrary header patches. A mere positive byte count is insufficient.
         // Native Android and iOS also enforce this duration window. Re-check
@@ -2811,20 +2912,31 @@ function createAcceleratedNativeSink(host, { mime, expectedDurationMs = 0,
         // shortened or desynchronized recording as fully verified.
         const durationToleranceMs = Math.max(1500,Math.min(5000,
           Math.floor(expectedDurationMs / 100)));
-        if (saved?.verified !== true || saved?.bytes !== maxEnd ||
+        if (saved?.verified !== true || saved?.token !== token ||
+            saved?.bytes !== maxEnd ||
             !/^[0-9a-f]{64}$/i.test(saved?.sha256 || '') ||
             saved?.media?.video !== true ||
             !(Number.isSafeInteger(saved?.media?.durationMs) && saved.media.durationMs > 0) ||
             Math.abs(saved.media.durationMs - expectedDurationMs) > durationToleranceMs ||
-            (expectAudio && saved.media.audio !== true)) {
-          throw new Error('El archivo acelerado no superó integridad y decodificación.');
+            saved.media?.audio !== expectAudio) {
+          // The writer may already have sealed/published the file, even if
+          // its reply is malformed, stale or incomplete. Reject the receipt
+          // but NEVER issue abortRandom against a possibly committed session.
+          // Recovery must reconcile the real file before another export.
+          finalizeAckUncertain = true;
+          const error = new Error(
+            'El archivo acelerado no superó integridad y decodificación. '+
+            'El resultado del guardado nativo es incierto. Revisa videos recuperables antes de repetir la exportación.'
+          );
+          error.code = 'WIVRA_ACCELERATED_FINISH_UNCERTAIN';
+          throw error;
         }
         state = 'done'; token = null;
         return saved;
       } catch (e) { committing = false; state = 'failed'; failure ||= e; throw e; }
     },
     async abort() {
-      if (state === 'done' || state === 'aborted' || committing) return;
+      if (state === 'done' || state === 'aborted' || committing || finalizeAckUncertain) return;
       state = 'aborted';
       await pending;
       const id = token; token = null;
@@ -7749,13 +7861,37 @@ async function prepareAcceleratedMultitrack({
       width,height,hasAudio:audible.length>0,platform
     });
     return {ledger,project,media,M,used,audible,width,height,codec,
-      totalSeconds:ledger.totalSeconds,platform,longSoakQA};
+      totalSeconds:ledger.totalSeconds,platform,longSoakQA,longForm};
   } catch(error) {
     for(const item of used.values()) {
       try{await item.input?.dispose?.();}catch{}
     }
     throw error;
   }
+}
+
+/** Frame budget shared by short exports and explicitly enabled 60-minute modes.
+ * Never permit a long native render from a QA-only or absent longForm flag.
+ * The limit scales with the chosen FPS, not a fixed 60fps multiplier.
+ */
+function acceleratedRenderFrameBudget({
+  totalSeconds,fps,platform,longForm=false,longSoakQA=false
+}={}) {
+  if(!Number.isFinite(totalSeconds)||totalSeconds<=0||
+     !Number.isSafeInteger(fps)||fps<12||fps>60 ||
+     !['android','ios','qa'].includes(platform) ||
+     typeof longForm!=='boolean'||typeof longSoakQA!=='boolean' ||
+     (longForm && (!['android','ios'].includes(platform)||longSoakQA)) ||
+     (longSoakQA && platform!=='qa'))
+    deny('invalid native render frame budget');
+  const horizonSeconds=longForm?ACCELERATED_NATIVE_LONG_MAX_SECONDS:
+    longSoakQA?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS:
+    ACCELERATED_MULTITRACK_MAX_SECONDS;
+  const framesTotal=Math.ceil(totalSeconds*fps);
+  const maxFrames=horizonSeconds*fps;
+  if(totalSeconds>horizonSeconds || framesTotal>maxFrames)
+    deny('frame limit');
+  return {framesTotal,maxFrames,horizonSeconds};
 }
 
 const renderedPreparations=new WeakSet();
@@ -7797,6 +7933,10 @@ async function renderPreparedMultitrack({
   const nativeConfig=['android','ios'].includes(prepared.platform)
     ?mobileCodecConfig({codec,width,height,fps,sampleRate,
       videoBitrate:resolvedVideoBitrate,audioBitrate}):null;
+  // A registered callback is not evidence that the active browser encoder
+  // used the requested codec. Require callbacks for every native output
+  // track before the still-private file may be published.
+  const confirmedEncoders=new Set();
   const checkNativeEncoder=(kind,config)=>{
     const expected=nativeConfig[kind];
     const keys=kind==='video'?['codec','width','height','framerate','bitrate']:
@@ -7804,12 +7944,15 @@ async function renderPreparedMultitrack({
     if(!config || keys.some(key=>config[key]!==expected[key]) ||
        (expected.avc && config.avc?.format!==expected.avc.format))
       deny('actual '+kind+' encoder differs from native codec preflight');
+    confirmedEncoders.add(kind);
   };
-  const framesTotal=Math.ceil(totalSeconds*fps);
-  const maxFrames=(prepared.longSoakQA&&prepared.platform==='qa'
-    ?ACCELERATED_MULTITRACK_LONG_QA_MAX_SECONDS
-    :ACCELERATED_MULTITRACK_MAX_SECONDS)*60+1;
-  if(framesTotal>maxFrames)deny('frame limit');
+  // Validate the *prepared* mode, not only the interactive preflight UI.
+  // Long-form 10/30/60 min was previously accepted in prepare(), but render()
+  // used the short 180-second frame cap and rejected real phone exports.
+  const {framesTotal}=acceleratedRenderFrameBudget({
+    totalSeconds,fps,platform:prepared.platform,
+    longForm:prepared.longForm,longSoakQA:prepared.longSoakQA
+  });
   const writer=checkedRandomWrite(writeAt,{maxChunkBytes:1024*1024});
   let output,finalized=false;
   try {
@@ -7959,6 +8102,9 @@ async function renderPreparedMultitrack({
       throw new Error('Audio mix duration exceeds rendered video.');
     if(isCancelled())throw new Error('Accelerated multi-lane render cancelled.');
     await output.finalize();
+    if(nativeConfig && (!confirmedEncoders.has('video') ||
+       (codec.hasAudio && !confirmedEncoders.has('audio'))))
+      deny('native encoder did not confirm active video/audio configuration');
     finalized=true;
     return {engine:'webcodecs-mediabunny-multitrack-experimental',
       rendererVersion:ACCELERATED_MULTITRACK_RENDERER_VERSION,
@@ -8084,15 +8230,15 @@ function supportsExactFields(result,requested,keys){
   keys.every(key=>result.config[key]===requested[key]);
 }
 async function verifyAcceleratedMobileCodecSupport({
- codec,width,height,fps,sampleRate,videoBitrate,videoEncoder=globalThis.VideoEncoder,
- audioEncoder=globalThis.AudioEncoder,platform
+ codec,width,height,fps,sampleRate,videoBitrate,audioBitrate=128000,
+ videoEncoder=globalThis.VideoEncoder,audioEncoder=globalThis.AudioEncoder,platform
 }={}) {
  if(!['android','ios'].includes(platform))rejectMobileCodec('plataforma desconocida');
  if(platform==='ios' && (codec?.container!=='mp4'||
     codec?.videoCodec!=='avc'||(codec?.hasAudio&&codec.audioCodec!=='aac')))
   rejectMobileCodec('iOS exige MP4 H264/AAC real');
  const requested=mobileCodecConfig({codec,width,height,fps,sampleRate,
-  ...(videoBitrate===undefined?{}:{videoBitrate})});
+  audioBitrate,...(videoBitrate===undefined?{}:{videoBitrate})});
  if(typeof videoEncoder?.isConfigSupported!=='function')
   rejectMobileCodec('VideoEncoder no disponible en este teléfono');
  let video;
@@ -8743,6 +8889,19 @@ async function saveVerifiedAcceleratedVideoToPhotos({
   return {saved:true,privateCopyPreserved:true};
 }
 
+/**
+ * Native v2 must verify an audio track whenever the authored timeline has one.
+ * The optional QA checkbox raises the minimum requirement; unchecking it never
+ * means "drop authored audio". This mirrors the renderer's codec.hasAudio.
+ */
+function acceleratedOutputNeedsAudio(codec, requestedAudio) {
+  if (typeof codec?.hasAudio !== 'boolean' || typeof requestedAudio !== 'boolean')
+    throw new Error('La política de audio acelerado no está definida.');
+  if (requestedAudio && !codec.hasAudio)
+    throw new Error('La exportación exigía audio pero el motor preparó vídeo sin audio.');
+  return codec.hasAudio;
+}
+
 // The experimental v2 transport is NEVER selected by the production export
 // engine. The caller must explicitly request this QA path, and the stable
 // MediaRecorder path is untouched. Native file is not opened until ALL assets,
@@ -8813,10 +8972,13 @@ async function recordExperimentalNativeMultitrack({
       videoBitrate
     });
     if(isCancelled())throw new Error('Exportación multipista cancelada tras validar códecs.');
+    // Require the actual audio track if the timeline's prepared codec includes
+    // authored sound, even when the extra QA "must contain audio" checkbox is off.
+    const outputNeedsAudio=acceleratedOutputNeedsAudio(prepared.codec,expectAudio);
     sink=createAcceleratedNativeSink(host,{
       mime:prepared.codec.container==='mp4'?'video/mp4':'video/webm',
       expectedDurationMs:Math.round(prepared.totalSeconds*1000),
-      expectAudio,estimatedBytes:expectedBytes
+      expectAudio:outputNeedsAudio,estimatedBytes:expectedBytes
     });
     await sink.begin();
     renderOwnsInputs=true;
@@ -9035,15 +9197,115 @@ const diagnoseCodecs = async options => runAcceleratedCodecDiagnostic({...option
 const diagnoseCodecMatrix = async options => { const M = await loadMediabunny(); return runAcceleratedCodecMatrix({...options, diagnose: args => runAcceleratedCodecDiagnostic({...args, M})}); };
 const api = {loadMediabunny, recordExperimentalNativeMultitrack, recordOnNative, prepareAcceleratedMultitrack, renderAcceleratedMultitrack, nativeHost, saveToPhotos, diagnoseCodecs, diagnoseCodecMatrix};
 globalThis.WivraAcceleratedQA = Object.freeze(api);
-// Wivra W23: controls only embedded by app/build.mjs in the PINNED Mediabunny
-// QA variant. The ordinary beta build never includes or executes this file.
-// All native actions are opt-in. No camera/RTMP or physical-device claim.
+// Owner beta preference (2026-11-07): accelerated is the primary export button on
+// compatible native QA surfaces, classical MediaRecorder remains one tap away.
+// This is NOT an automatic production engine activation: native codecs, writer,
+// verified output and physical acceptance keep their independent safety gates.
+// All exports are started by an explicit user click. No camera/RTMP access.
 function validAcceleratedRecoveryEntry(item) {
   return typeof item?.name==='string' &&
     /^Wivra_Fast_[A-Za-z0-9_-]{6,80}\.(mp4|webm)$/.test(item.name) &&
     Number.isSafeInteger(item.bytes) && item.bytes>0 &&
     Number.isSafeInteger(item.durationMs) && item.durationMs>0;
 }
+/**
+ * A recovery listing is evidence for ONE uncertainty generation only.
+ * Reject stale replies and malformed entries; silently filtering them could
+ * falsely tell the user that no private video exists.
+ */
+function acceleratedBetaRecoverySnapshot({
+  files, requestedGeneration, currentGeneration
+}={}) {
+  if (!Number.isSafeInteger(requestedGeneration) || requestedGeneration<0 ||
+      !Number.isSafeInteger(currentGeneration) || currentGeneration<0 ||
+      requestedGeneration!==currentGeneration)
+    return {ok:false,reason:'La búsqueda anterior ya no corresponde al último intento. Revisa los vídeos recuperables nuevamente.'};
+  if (!Array.isArray(files) || files.some(item=>!validAcceleratedRecoveryEntry(item)))
+    return {ok:false,reason:'Catálogo nativo incompleto o incompatible. No se puede confirmar la recuperación; revisa Fotos o la galería.'};
+  return {ok:true,files};
+}
+
+// Only a constant marker is stored, never media, tokens, filenames or project data.
+const ACCELERATED_RECOVERY_MARKER_KEY='wivra.qa.accelerated.pending.v1';
+function createAcceleratedRecoveryMarker(storage) {
+  const key=ACCELERATED_RECOVERY_MARKER_KEY;
+  return {
+    // Unreadable or unrecognized storage is NOT evidence of a clean exit.
+    pending(){
+      try{return storage.getItem(key)!==null;}catch{return true;}
+    },
+    // Write-ahead intent must be observable before starting native export.
+    arm(){
+      try{storage.setItem(key,'1');return storage.getItem(key)==='1';}
+      catch{return false;}
+    },
+    clear(){
+      try{storage.removeItem(key);return storage.getItem(key)===null;}
+      catch{return false;}
+    }
+  };
+}
+
+/** QA-only throughput, including the native writer's verification time.
+ * This compares elapsed processing to the video's duration, NOT with a second
+ * MediaRecorder export. No media data or identifiers leave the device. */
+function acceleratedBetaPerformance({mediaSeconds,elapsedMs}={}) {
+  if(!Number.isFinite(mediaSeconds)||mediaSeconds<=0||mediaSeconds>3600 ||
+     !Number.isFinite(elapsedMs)||elapsedMs<=0||elapsedMs>4*3600*1000)return null;
+  const speedX=mediaSeconds*1000/elapsedMs;
+  if(!Number.isFinite(speedX)||speedX<=0)return null;
+  return {speedX:Math.round(speedX*100)/100,
+    elapsedSeconds:Math.round(elapsedMs/100)/10,
+    mediaSeconds:Math.round(mediaSeconds*10)/10};
+}
+/**
+ * Never silently ignore export settings from the shared editor. Until the
+ * accelerated renderer supports identical loudness/incomplete-media semantics,
+ * offer the classic engine instead of producing a different mix. The optional
+ * memory-only save mode also belongs to the classic MediaRecorder route.
+ */
+function acceleratedBetaSettingsGate({
+  saveMode='auto', loudness='off', allowAudioGaps=false, allowOverlayGaps=false
+}={}) {
+  if (saveMode !== 'auto')
+    return {ok:false, reason:'El guardado en memoria elegido para el motor clásico no tiene paridad en el acelerado. Selecciona guardado automático o usa MediaRecorder.'};
+  if (loudness !== 'off')
+    return {ok:false, reason:'El nivelado de volumen seleccionado todavía no tiene paridad en el motor acelerado. Usa MediaRecorder o desactiva el nivelado.'};
+  if (allowAudioGaps || allowOverlayGaps)
+    return {ok:false, reason:'La autorización para exportar con pistas incompletas no se puede trasladar al motor acelerado. Usa MediaRecorder o recupera los archivos.'};
+  return {ok:true,reason:''};
+}
+/** Fail-closed export retry policy. A finishRandom timeout may occur AFTER
+ * native atomically sealed/published a video. Re-exporting with either engine
+ * without examining recovery/gallery can create a duplicate copy. The user
+ * remains free to choose either engine after review and explicit confirmation.
+ */
+function acceleratedBetaFailureDisposition(error){
+  const code=error?.code;
+  const uncertain=code==='WIVRA_ACCELERATED_FINISH_UNCERTAIN' ||
+    /resultado del guardado nativo es incierto/i.test(String(error?.message??''));
+  return {
+    recoveryReviewRequired:uncertain,
+    automaticFallback:false,
+    automaticRetry:false,
+    message:uncertain
+      ?'El teléfono podría haber guardado el vídeo aunque faltó la confirmación. Revisa primero los vídeos recuperables y la galería. Después podrás elegir el motor con tu confirmación.'
+      :'La exportación acelerada no terminó. No se ha cambiado automáticamente de motor. Puedes elegir MediaRecorder manualmente; no se iniciará otra exportación de forma automática.'
+  };
+}
+
+/** No repeat for either engine until recovery inspection AND user consent. */
+function acceleratedBetaRepeatGate({
+  pendingRecovery=false,recoveryChecked=false,userConfirmed=false
+}={}){
+  if(!pendingRecovery)return {ok:true,reason:''};
+  if(!recoveryChecked)return {ok:false,
+    reason:'Revisa primero los vídeos acelerados recuperables y la galería antes de repetir o usar MediaRecorder.'};
+  if(!userConfirmed)return {ok:false,
+    reason:'Confirma que revisaste los archivos guardados antes de iniciar una nueva exportación.'};
+  return {ok:true,reason:''};
+}
+
 if(typeof document!=='undefined' && typeof window!=='undefined')
 document.addEventListener('DOMContentLoaded',()=>{
   const host=nativeHost();
@@ -9061,20 +9323,27 @@ document.addEventListener('DOMContentLoaded',()=>{
   const qaBox=make('section','','');
   qaBox.id='wivraAcceleratedQA';
   qaBox.style.cssText='border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0';
-  const title=make('strong','Laboratorio acelerado (solo QA)');
-  const note=make('p','WebCodecs + Mediabunny se ejecuta solo si lo eliges. Hasta 60 min (más de 3 min usa el modo largo, escrito por partes en el teléfono) y 160 elementos. El audio que exista en las pistas se conserva; la casilla solo exige que haya audio. No equivale a exportación validada en un teléfono físico. El motor habitual sigue intacto.','m');
+  const title=make('strong','Exportación rápida · beta de pruebas');
+  const note=make('p','Preferido: WebCodecs + Mediabunny. Verifica los códecs y el archivo nativo antes de confirmar el resultado. Hasta 60 min con escritura progresiva cuando sea compatible. Aún falta validación física H.264/AAC. El motor clásico MediaRecorder sigue disponible y nunca se borran tus originales.','m');
   const consent=make('label','');
   consent.style.cssText='display:flex;align-items:center;gap:8px';
   const enable=document.createElement('input');enable.type='checkbox';
-  enable.id='wivraQaEnable';consent.append(enable,
-    document.createTextNode('Acepto probar el motor experimental en esta exportación'));
+  enable.id='wivraQaEnable';
+  // Owner-authorized beta: accelerated is preselected ONLY in the native QA UI.
+  // No export begins until the user explicitly presses its button.
+  enable.checked=true;
+  consent.append(enable,
+    document.createTextNode('Preferir motor acelerado para esta exportación (beta experimental)'));
   const sound=make('label','');
   sound.style.cssText='display:flex;align-items:center;gap:8px';
   const requireAudio=document.createElement('input');requireAudio.type='checkbox';
   requireAudio.id='wivraQaAudio';sound.append(requireAudio,
     document.createTextNode('El montaje debe contener audio; detener si falta'));
-  const start=make('button','Exportar con WebCodecs (QA)','btn sec');
+  const start=make('button','Exportar rápido (beta) · WebCodecs + Mediabunny','btn');
   start.type='button';start.id='wivraQaStart';
+  // The stable button is secondary, but always remains selectable.
+  startStable.textContent='Exportar con motor clásico (MediaRecorder)';
+  startStable.classList.add('sec');
   const cancel=make('button','Cancelar exportación acelerada','btn sec');
   cancel.type='button';cancel.hidden=true;
   const status=make('p','','m');status.setAttribute('role','status');
@@ -9087,14 +9356,33 @@ document.addEventListener('DOMContentLoaded',()=>{
   qaBox.append(title,note,consent,sound,start,cancel,status,actions,recoveryButton,recovered);
   startStable.insertAdjacentElement('beforebegin',qaBox);
   let running=false,cancelled=false;
-  const listRecovered=async target=>{
+  let recoveryStorage;
+  try{recoveryStorage=globalThis.localStorage;}catch{}
+  const recoveryMarker=createAcceleratedRecoveryMarker(recoveryStorage);
+  let pendingRecovery=recoveryMarker.pending(),recoveryChecked=false,recoveryGeneration=0;
+  if(pendingRecovery)status.textContent='Hay una exportación anterior sin cierre confirmado, o no se pudo leer su estado. Revisa los vídeos recuperables y la galería antes de exportar.';
+  const markRecoveryRequired=()=>{
+    pendingRecovery=true;
+    recoveryChecked=false;
+    recoveryGeneration++;
+    recovered.replaceChildren();
+    settingsResult.replaceChildren();
+  };
+  const listRecovered=async(target,requestedGeneration=recoveryGeneration)=>{
     target.textContent='Verificando videos privados…';
     try{
       const response=await host.request({op:'listRecovered'});
-      if(!Array.isArray(response?.files))throw Error('Catálogo nativo inválido');
-      const items=response.files.filter(validAcceleratedRecoveryEntry).slice(0,100);
+      if(requestedGeneration!==recoveryGeneration)return false;
+      const snapshot=acceleratedBetaRecoverySnapshot({
+        files:response?.files,requestedGeneration,currentGeneration:recoveryGeneration
+      });
+      if(!snapshot.ok)throw Error(snapshot.reason);
+      const items=snapshot.files.slice(0,100);
       target.replaceChildren();
-      if(!items.length){target.textContent='No hay videos recuperables verificados.';return;}
+      if(!items.length){
+        target.textContent='No hay videos recuperables verificados. Revisa también Fotos o la galería.';
+        return true;
+      }
       for(const item of items){
         const row=make('div','');
         const label=make('span',item.name+' ('+(item.bytes/1e6).toFixed(1)+' MB) ');
@@ -9129,16 +9417,65 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         row.append(label,button);target.append(row);
       }
-    }catch(error){target.textContent='Recuperación no disponible: '+error.message;}
+      return true;
+    }catch(error){
+      if(requestedGeneration!==recoveryGeneration)return false;
+      target.textContent='Recuperación no disponible: '+error.message;
+      return false;
+    }
   };
-  recoveryButton.onclick=()=>listRecovered(recovered);
+  recoveryButton.onclick=async()=>{
+    const generation=++recoveryGeneration;
+    if(pendingRecovery)recoveryChecked=false;
+    if(await listRecovered(recovered,generation) && generation===recoveryGeneration)
+      recoveryChecked=true;
+  };
   const settingsRecovery=make('button','Recuperar exportaciones aceleradas (QA)','btn sec');
   settingsRecovery.type='button';
   const settingsResult=make('div','','m');
   settingsResult.setAttribute('role','status');
-  settingsRecovery.onclick=()=>listRecovered(settingsResult);
+  settingsRecovery.onclick=async()=>{
+    const generation=++recoveryGeneration;
+    if(pendingRecovery)recoveryChecked=false;
+    if(await listRecovered(settingsResult,generation) && generation===recoveryGeneration)
+      recoveryChecked=true;
+  };
   settings.append(settingsRecovery,settingsResult);
   cancel.onclick=()=>{cancelled=true;status.textContent='Cancelando sin publicar un archivo parcial…';};
+  const approveAnotherExport=(engine)=>{
+    const gate=acceleratedBetaRepeatGate({
+      pendingRecovery,recoveryChecked,userConfirmed:false
+    });
+    if(!gate.ok && !recoveryChecked){
+      status.textContent=gate.reason;
+      return false;
+    }
+    if(!pendingRecovery)return true;
+    if(!window.confirm('¿Ya revisaste los vídeos recuperables y Fotos o la galería? Una exportación anterior podría haberse guardado. ¿Quieres iniciar otra exportación igualmente?')){
+      status.textContent='No se repetirá la exportación sin tu confirmación.';
+      return false;
+    }
+    const confirmed=acceleratedBetaRepeatGate({
+      pendingRecovery,recoveryChecked,userConfirmed:true
+    });
+    if(!confirmed.ok){status.textContent=confirmed.reason;return false;}
+    // Keep the marker until fast export replaces it with a new intent.
+    // If storage cannot clear, classic can still proceed after explicit review;
+    // a reload will conservatively require another review.
+    if(engine==='classic')recoveryMarker.clear();
+    pendingRecovery=false;
+    recoveryChecked=false;
+    recoveryGeneration++;
+    return true;
+  };
+  // Capture the stable button too: a failed fast save must not immediately
+  // create a classic duplicate before the person checks recovery.
+  startStable.addEventListener('click',event=>{
+    if(running||!approveAnotherExport('classic')){
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  },true);
   start.onclick=async()=>{
     if(running||!enable.checked)return void(status.textContent=
       'Marca primero la autorización experimental. La exportación habitual sigue disponible.');
@@ -9146,12 +9483,29 @@ document.addEventListener('DOMContentLoaded',()=>{
       return void(status.textContent='Abre primero un proyecto y termina cualquier exportación actual.');
     if(typeof pzMissing!=='undefined'&&pzMissing.length)
       return void(status.textContent='Faltan archivos originales: reimpórtalos antes de probar.');
+    const editorSettings=acceleratedBetaSettingsGate({
+      saveMode:document.getElementById('expSave')?.value??'auto',
+      loudness:document.getElementById('expLoud')?.value??'off',
+      allowAudioGaps:document.getElementById('expAllowAudioGaps')?.checked??false,
+      allowOverlayGaps:document.getElementById('expAllowOverlayGaps')?.checked??false
+    });
+    if(!editorSettings.ok)return void(status.textContent=editorSettings.reason);
+    if(!approveAnotherExport('fast'))return;
+    // Do not start a potentially committing operation if its interruption
+    // cannot be reconciled on the next editor launch.
+    if(!recoveryMarker.arm()){
+      markRecoveryRequired();
+      status.textContent='No se pudo proteger el estado de la exportación rápida. Revisa recuperación o usa MediaRecorder después de confirmar.';
+      return;
+    }
     const originalSession=session,revision=session.project.revision;
     running=true;cancelled=false;start.disabled=true;startStable.disabled=true;cancel.hidden=false;
     actions.replaceChildren();status.textContent='Preparando la exportación acelerada…';
+    let returnedFromNative=false;
     try{
       // MU V4: projects longer than 3 min use the long-form mode (≤ 60 min, written in pieces).
       const projectSeconds=typeof totalDuration==='function'?totalDuration(originalSession.project):0;
+      const startedAt=performance.now(); // excludes only the preflight UI click and project lookup
       const result=await recordOnNative({
         project:originalSession.project,media,longForm:projectSeconds>180,
         expectAudio:requireAudio.checked,experimentalAccelerated:true,
@@ -9162,12 +9516,22 @@ document.addEventListener('DOMContentLoaded',()=>{
             '% ('+Number(t||0).toFixed(1)+' / '+Number(total||0).toFixed(1)+' s)';
         }
       });
+      returnedFromNative=true;
       if(result?.verifiedNative!==true || result?.saved?.verified!==true ||
          result?.verifiedOnDevice!==false)
         throw Error('El puente no confirmó la integridad del archivo experimental.');
+      const measured=acceleratedBetaPerformance({
+        mediaSeconds:projectSeconds,elapsedMs:performance.now()-startedAt
+      });
+      const timing=measured
+        ? ' Tiempo total: '+measured.elapsedSeconds.toFixed(1)+' s para '+
+          measured.mediaSeconds.toFixed(1)+' s de vídeo ('+
+          measured.speedX.toFixed(2)+'× respecto al tiempo real).'
+        : '';
       status.textContent='Archivo experimental verificado y guardado: '+
         (result.saved.displayName||'video')+' ('+
-        (result.saved.bytes/1e6).toFixed(1)+' MB). No validado en hardware físico.';
+        (result.saved.bytes/1e6).toFixed(1)+' MB).'+timing+
+        ' Falta validar rendimiento en teléfonos físicos.';
       const share=make('button','Compartir archivo verificado','btn sec');
       share.type='button';
       share.onclick=async()=>{
@@ -9197,10 +9561,27 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
         actions.append(photos);
       }
-    }catch(error){status.textContent='Ensayo detenido: '+error.message+
-      '. Puedes exportar mediante el motor habitual. No se ha cambiado automáticamente de motor.';}
+      if(!recoveryMarker.clear()){
+        markRecoveryRequired();
+        status.textContent+=' No se pudo cerrar el registro de recuperación; revisa la galería antes de repetir.';
+      }
+    }catch(error){
+      // A malformed result or UI exception AFTER native returned can follow
+      // a committed file, even without a bridge-specific error code.
+      const failure=acceleratedBetaFailureDisposition(returnedFromNative
+        ?{code:'WIVRA_ACCELERATED_FINISH_UNCERTAIN'}:error);
+      if(failure.recoveryReviewRequired){
+        markRecoveryRequired();
+      }else if(!recoveryMarker.clear()){
+        markRecoveryRequired();
+      }
+      status.textContent='No se completó la exportación acelerada: '+error.message+
+        '. '+failure.message;
+    }
     finally{running=false;cancel.hidden=true;start.disabled=false;startStable.disabled=false;
-      enable.checked=false;}
+      // Each subsequent export again prefers the owner-approved fast beta path.
+      // No action starts until the person presses the accelerated button.
+      enable.checked=true;}
   };
 });
 
@@ -11383,16 +11764,24 @@ $('bExp').onclick = () => {
   if (!session || expBusy) return;
   if (pzMissing.length) { say('Faltan archivos del proyecto. Vuelve a elegirlos para exportar.', 'bad'); pzShowMissing(); return; }
   const plan = exportPlan(session.project);
-  $('expInfo').textContent = `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
+  // The native beta prefers WebCodecs + Mediabunny when its v2 bridge exists.
+  // Never claim its speed or output format before checking exact device codecs.
+  const fastBeta = Boolean(globalThis.WivraAcceleratedQA?.nativeHost?.());
+  $('expInfo').textContent = fastBeta
+    ? `Dura ${fmt(plan.total)} s. Primero puedes probar exportación rápida (WebCodecs + Mediabunny): el tiempo y formato reales dependen de los códecs de este teléfono. Abajo también tienes MediaRecorder, que exporta en tiempo real. Mantén Wivra abierto; tus originales no se tocan.`
+    : `Dura ${fmt(plan.total)} s y se graba en tiempo real: tarda lo mismo que el video. Pesará unos ${exportSizeMB(plan.total)} MB. Mantén la pantalla encendida y no cambies de app ni de pestaña. Tus originales no se tocan.`;
   const nativeSave = nativeExportAvailable();
   $('expSaveRow').style.display = nativeSave ? 'block' : 'none';
   const exportRisk = exportMemoryRisk(plan.total, { progressive: nativeSave && $('expSave').value !== 'memory' });
-  $('expLong').textContent = exportRisk.level === 'critical'
+  const classicRiskText = exportRisk.level === 'critical'
     ? `Atención: exportación de riesgo muy alto (unos ${exportRisk.estimatedMB} MB de video estimado). Este motor acumula datos en memoria hasta terminar y el teléfono podría cerrar Wivra. Considera exportar por secciones. Los originales no se borran.`
     : exportRisk.level === 'elevated'
       ? `Exportación larga (unos ${exportRisk.estimatedMB} MB estimados): los datos se acumulan en memoria y podrían superar la capacidad del teléfono. Considera dividir el montaje; el resultado no está garantizado.`
       : exportRisk.bufferedUntilComplete ? 'Es un video largo: se reduce la tasa de bits para moderar el tamaño del archivo. Mantén la app abierta.'
         : `Es un video largo: se guarda por partes directamente en el teléfono (necesita unos ${exportRisk.storageMB} MB libres). Mantén Wivra abierto y la pantalla encendida.`;
+  $('expLong').textContent = fastBeta
+    ? 'Motor rápido (beta): la duración y el tamaño requieren espacio libre, códecs compatibles y validación de archivo. Si eliges MediaRecorder: ' + classicRiskText
+    : classicRiskText;
   $('expLong').style.display = plan.total > EXPORT_FULL_SECONDS ? 'block' : 'none';
   $('expAllowAudioGaps').checked = false;   // Each export starts fail-closed, even after a previous override.
   $('expAllowOverlayGaps').checked = false; // Explicit consent applies to one export only.
