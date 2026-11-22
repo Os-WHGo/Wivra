@@ -50,6 +50,7 @@ Todos los commits de la rama activa llevan `[skip ci]`; ningún workflow tiene t
 | Android JVM (Kotlin 2.2.20, API 36) | `gradle -p tools/android-jvm-check test` | 107/107 en 29 clases |
 | Navegador (Chromium, Playwright 1.63.0, Mediabunny 1.61.6, ffmpeg 6.1.1) | `WIVRA_MEDIA_LAB=<lab> node tools/browser-*.cjs` | PASS: probe, roundtrip, real editor, progressive, container playback, multitrack (default/shared-source/gap/duck/stress/long/hd-canary), main still, composition parity, codec diagnostic, crossfade, long multipart (1 reintento permitido por CI). **FALLO**: `composition-parity --spatial`, un punto del inset 2 niveles fuera de tolerancia (azul 72 vs 86 ±12); la CI fija Playwright 1.56.1 — sin confirmar si es dependiente de versión. |
 | Editor en Chromium | carga de `app/dist/agentcut.html` | 0 errores de página |
+| Soak acelerado 10 min (Linux QA) | `WIVRA_LONG_QA_MINUTES=10 node tools/browser-multitrack-accelerated.cjs` | PASS · 600,02 s VP9/Opus WebM, 18 000 fotogramas, 120 cortes + 30 voces + música, render 132,6 s (≈4,5× tiempo real), RSS pico 885 MiB (presupuesto 4096), voz y escena final presentes, Cues + duración. No es H.264/AAC ni teléfono. |
 
 Laboratorio local: tarball `mediabunny-1.61.6.tgz` verificado con el mismo SRI SHA-512 que la CI; Playwright/Chromium preinstalados del contenedor.
 
@@ -62,7 +63,7 @@ Laboratorio local: tarball `mediabunny-1.61.6.tgz` verificado con el mismo SRI S
 
 ## 7. Siguiente macrobloque exacto
 
-1. **iOS paridad del diario de intención**: `WivraAcceleratedExportNativeBridge.swift` + store iOS — archivo por token (escritura atómica) armado en `beginRandom`, cerrado tras publicación verificada o `abortRandom`; `helloRandom` con `exportIntentJournal`/`interruptedExport`; op `ackInterruptedExport`. Requiere macOS/Xcode o un toolchain Swift para el smoke (`streaming/tests/*Smoke.swift`).
+1. **iOS paridad del diario de intención** (espejo de `WivraExportIntentJournal.kt`): nuevo `streaming/ios/B0/Sources/WivraExportIntentJournal.swift`; en `WivraAcceleratedExportStore.swift` armar en `begin` (antes de crear la sesión), cerrar tras publicación verificada en `finish` y en `abort`, y exponer `interruptedExport`/`acknowledgeInterruptedExport`; en `WivraAcceleratedExportNativeBridge.swift` añadir `exportIntentJournal`/`interruptedExport` a `helloRandom` y el caso `ackInterruptedExport`. Smoke nuevo `streaming/tests/WivraExportIntentJournalSmoke.swift` y entrada en `meta-b0-native-build.yml`. Requiere macOS/Xcode o un toolchain Swift (6.x en Linux sirve para el smoke). La UI del editor ya lo consume sin cambios.
 2. Ejecutar `composition-parity --spatial` con Playwright 1.56.1 (versión de CI) para decidir si el punto del inset es dependiente de versión o regresión; no relajar la tolerancia sin esa evidencia.
 3. Con acceso a `dl.google.com` o máquina con SDK: `gradle -p streaming/android :app:assembleFullDebug :app:assembleCaptureDebug :app:assembleFullDebugAndroidTest` (compile-only, sin publicar APK) y androidTest de recuperación.
 4. Hito físico autorizado: matar la app durante `finishRandom`, borrar datos del WebView y comprobar que el diario nativo obliga a revisar; H.264/AAC 10/30/60 min; LIVE RTMP/RTMPS + MP4 simultáneo; Ray-Ban; micrófonos.
