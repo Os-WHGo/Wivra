@@ -66,17 +66,23 @@ Sondeo de paridad: todas las operaciones del editor, las 10 plantillas, montaje 
 
 Laboratorio local: tarball `mediabunny-1.61.6.tgz` verificado con el mismo SRI SHA-512 que la CI; Playwright/Chromium preinstalados del contenedor.
 
-## 6. Bloqueos reales de este entorno
+## 6. Herramientas nativas (desde 2026-11-22, sesión 3)
 
-- **Android APK / AGP / androidx / instrumentados**: `dl.google.com` bloqueado (Maven de Google redirige allí). Por eso existe `tools/android-jvm-check`. `WivraAcceleratedExportBridge.kt` (usa `androidx.webkit`) **no se compiló**; su cambio es mínimo y revisado a mano.
-- **iOS/Swift**: sin toolchain (download.swift.org bloqueado, sin macOS/Xcode). El diario de intención **no existe aún en iOS** (el editor lo trata como `unsupported` y sigue usando el marcador local).
-- **H.264 + AAC MP4**: Chromium Linux codifica `avc1.42001E` pero no `mp4a.40.2`. La exportación acelerada H.264/AAC solo se puede validar en dispositivo.
-- **Hardware**: Ray-Ban Meta, RTMP/RTMPS real, micrófonos externos, 10/30/60 min en teléfono, almacenamiento/temperatura: pendiente de hito físico autorizado.
+Con red a `dl.google.com` y `download.swift.org`, `tools/setup-native-toolchain.sh` instala fuera del repo (en `$HOME/wivra-toolchain`) el SDK Android 36 + build-tools 35, JDK 17, Swift 6.2.1 (firma PGP verificada) y Playwright 1.56.1 + Mediabunny 1.61.6 (SRI). Después: `source $HOME/wivra-toolchain/env.sh`.
+
+| Comprobación | Resultado |
+| --- | --- |
+| Android `compile{Full,Capture}Debug{Kotlin,JavaWithJavac}` (como CI, JDK 17) | BUILD SUCCESSFUL, 0 APK |
+| Android `test{Full,Capture}DebugUnitTest` | 107/107 y 85/85 |
+| Android `compile*DebugAndroidTest*` | BUILD SUCCESSFUL |
+| Swift Linux: diario de intención iOS (nuevo), DAT profiles, Ray-Ban sync, multicam | PASS (20/20 en el diario) |
+| Navegador fijado de CI (Chromium 141): `composition-parity --spatial` y 14 herramientas más | PASS; el fallo espacial anterior era solo de Chromium 157 |
+
+Sigue sin poder hacerse aquí: compilar el código Swift que usa AVFoundation/WebKit (store y puente iOS completos) — requiere macOS; el smoke nuevo está en `meta-b0-native-build.yml`. Sin APK/IPA, emulador ni hardware por política. Hallazgo pendiente (no en CI): `browser-i18n-audit` señala 10 textos sin traducir del panel QA de diagnóstico de códecs (W66).
 
 ## 7. Siguiente macrobloque exacto
 
-1. **iOS paridad del diario de intención** (espejo de `WivraExportIntentJournal.kt`): nuevo `streaming/ios/B0/Sources/WivraExportIntentJournal.swift`; en `WivraAcceleratedExportStore.swift` armar en `begin` (antes de crear la sesión), cerrar tras publicación verificada en `finish` y en `abort`, y exponer `interruptedExport`/`acknowledgeInterruptedExport`; en `WivraAcceleratedExportNativeBridge.swift` añadir `exportIntentJournal`/`interruptedExport` a `helloRandom` y el caso `ackInterruptedExport`. Smoke nuevo `streaming/tests/WivraExportIntentJournalSmoke.swift` y entrada en `meta-b0-native-build.yml`. Requiere macOS/Xcode o un toolchain Swift (6.x en Linux sirve para el smoke). La UI del editor ya lo consume sin cambios.
-2. Ejecutar `composition-parity --spatial` con Playwright 1.56.1 (versión de CI) para decidir si el punto del inset es dependiente de versión o regresión; no relajar la tolerancia sin esa evidencia.
-3. Con acceso a `dl.google.com` o máquina con SDK: `gradle -p streaming/android :app:assembleFullDebug :app:assembleCaptureDebug :app:assembleFullDebugAndroidTest` (compile-only, sin publicar APK) y androidTest de recuperación.
-4. Hito físico autorizado: matar la app durante `finishRandom`, borrar datos del WebView y comprobar que el diario nativo obliga a revisar; H.264/AAC 10/30/60 min; LIVE RTMP/RTMPS + MP4 simultáneo; Ray-Ban; micrófonos.
-5. Mantener: `main` sin fusionar, `ACCELERATED_EXPORT_IMPLEMENTED=false`, MediaRecorder como alternativa, Wivra Capture separable, sin Actions de pago ni instalables.
+1. Ejecutar en macOS (CI `meta-b0-native-build.yml` o un Mac) la compilación iOS completa con el diario nativo (`db90623`) y sus smokes; corregir si Xcode marca algo en `WivraAcceleratedExportStore.swift`/puente.
+2. Traducir los 10 textos del panel QA de diagnóstico de códecs (coordinar con ChatGPT/Codex, área W66).
+3. Hito físico autorizado: matar la app durante `finishRandom` y borrar datos del WebView (Android e iPhone) y comprobar que el diario nativo obliga a revisar; GIF como clip principal y sticker y "Volumen parejo" en ambos motores; H.264/AAC 10/30/60 min; LIVE RTMP/RTMPS + MP4; Ray-Ban; micrófonos.
+4. Mantener: `main` sin fusionar, `ACCELERATED_EXPORT_IMPLEMENTED=false`, MediaRecorder como alternativa, Wivra Capture separable, sin Actions de pago ni instalables.
