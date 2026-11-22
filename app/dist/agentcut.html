@@ -3730,7 +3730,11 @@ async function recordProject({ project, media, onProgress = () => {}, isCancelle
         const s = performance.now();
         while (!stopNow()) {
           const dt = (performance.now() - s) / 1000; if (dt >= seg.dur) break;
-          const tp = c.start + dt; audioTick(tp); drawFrame(g, W, H, el, project, tp, overlayTick(tp)); report(tp); await frame();
+          const tp = c.start + dt;
+          // An animated GIF on the main line must advance like the preview (srcTime = in + elapsed);
+          // drawFrame never moves it, so without this it was exported frozen on its first frame. — Claude
+          if (m.gif) { try { el.currentTime = c.in + dt; } catch { /* aún no */ } }
+          audioTick(tp); drawFrame(g, W, H, el, project, tp, overlayTick(tp)); report(tp); await frame();
         }
         continue;
       }
