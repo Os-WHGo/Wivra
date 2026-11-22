@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // W90 (Claude): lists visible editor texts the live translator left in Spanish (Chromium, every sheet in the DOM).
 // Usage: node tools/browser-i18n-audit.cjs <lang> — reliable for en/de/ja/zh; Romance languages give false positives.
-let chromium; try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); }
+let chromium; try { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); } catch { ({ chromium } = require('playwright')); }
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage();
   await p.goto('file://' + require('node:path').resolve(__dirname, '..', 'app/dist/agentcut.html'));

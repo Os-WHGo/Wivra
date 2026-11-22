@@ -8,7 +8,7 @@
    Uso: node tools/export-engine-benchmark.cjs [segundos=30] [cortes=12]
    Chromium Linux con códecs por software: NO representa un teléfono. — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
+try { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); } catch { playwright = require('playwright'); }
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), os = require('node:os');
 const { execFileSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');

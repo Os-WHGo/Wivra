@@ -5,8 +5,9 @@
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const http=require('node:http'),{execFileSync}=require('node:child_process');
 let chromium;
-try {chromium=require('playwright').chromium;}
-catch {chromium=require(require('./media-lab.cjs').LAB+'/node_modules/playwright').chromium;}
+// Prefer the pinned media lab (CI layout); fall back to a global install.
+try {chromium=require(require('./media-lab.cjs').LAB+'/node_modules/playwright').chromium;}
+catch {chromium=require('playwright').chromium;}
 const root=path.resolve(__dirname,'..');
 const mbDir=[require('./media-lab.cjs').LAB+'/node_modules/mediabunny/dist/bundles',
  path.join(root,'node_modules/mediabunny/dist/bundles')]

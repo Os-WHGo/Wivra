@@ -9,7 +9,8 @@
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 let chromium;
-try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); }
+// Prefer the pinned media lab (CI layout); fall back to a global install.
+try { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); } catch { ({ chromium } = require('playwright')); }
 
 const root = path.resolve(__dirname, '..');
 const html = path.join(root, 'app/dist/agentcut.html');

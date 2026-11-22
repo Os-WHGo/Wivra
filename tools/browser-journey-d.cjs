@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 let chromium;
-try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); }
+try { ({ chromium } = require(require('./media-lab.cjs').LAB+'/node_modules/playwright')); } catch { ({ chromium } = require('playwright')); }
 
 const [, , video, type, wav, model, lang, expect = ''] = process.argv;
 const html = 'file://' + path.join(path.resolve(__dirname, '..'), 'app/dist/agentcut.html') + '#new';

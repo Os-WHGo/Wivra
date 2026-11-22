@@ -6,7 +6,7 @@
    memoria (heap JS, cola del puente y RSS de Chromium) y reparación del contenedor.
    Uso: node tools/long-export-soak.cjs <minutos>   (Chromium Linux; NO es un teléfono) — Claude */
 let playwright;
-try { playwright = require('playwright'); } catch { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); }
+try { playwright = require(require('./media-lab.cjs').LAB+'/node_modules/playwright'); } catch { playwright = require('playwright'); }
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), os = require('node:os');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { crc32 } = require('node:zlib');
