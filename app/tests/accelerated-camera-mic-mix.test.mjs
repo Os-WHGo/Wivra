@@ -35,7 +35,7 @@ test('camera original audio and delayed microphone are both mixed into exported 
  }
  class Output{
   constructor({target}){this.target=target;}
-  addVideoTrack(){}addAudioTrack(){}
+  addVideoTrack(source,{frameRate}={}){source.fps=frameRate??30;}addAudioTrack(){}
   async start(){}
   async finalize(){
    const writer=this.target.stream.getWriter();
@@ -44,8 +44,23 @@ test('camera original audio and delayed microphone are both mixed into exported 
   }
  }
  const M={Input,UrlSource:Source,CanvasSink,AudioBufferSink,Output,
-  CanvasSource:class{async add(){}},
-  AudioBufferSource:class{async add(b){audio.push(b);}},
+  // Both mocks emit the encoder receipt that the native gate requires.
+  CanvasSource:class{
+   constructor(canvas,options={}){this.canvas=canvas;this.options=options;this.fps=30;}
+   async add(){
+    this.options.onEncoderConfig?.({codec:this.options.fullCodecString,
+     width:this.canvas.width,height:this.canvas.height,
+     framerate:this.fps,bitrate:this.options.bitrate,avc:{format:'avc'}});
+   }
+  },
+  AudioBufferSource:class{
+   constructor(options={}){this.options=options;}
+   async add(b){
+    this.options.onEncoderConfig?.({codec:this.options.fullCodecString,
+     sampleRate:b.sampleRate,numberOfChannels:2,bitrate:this.options.bitrate});
+    audio.push(b);
+   }
+  },
   StreamTarget:class{constructor(stream){this.stream=stream;}},
   Mp4OutputFormat:class{},WebMOutputFormat:class{},ALL_FORMATS:[],
   getFirstEncodableVideoCodec:async()=> 'avc',canEncodeAudio:async()=>true};

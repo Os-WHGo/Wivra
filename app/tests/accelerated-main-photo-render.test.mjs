@@ -16,10 +16,20 @@ test('main photo is drawn on every output frame without video decoding', async (
     Input:class{},UrlSource:class{},CanvasSink:class{},AudioBufferSink:class{},
     Mp4OutputFormat:class{},WebMOutputFormat:class{},
     StreamTarget:class{constructor(stream){this.stream=stream;}},
-    CanvasSource:class{async add(t,d){stamps.push([t,d]);}},
+    // Emulates Mediabunny's encoder receipt: the native gate requires the
+    // active encoder configuration, not merely a registered callback.
+    CanvasSource:class{
+      constructor(canvas,options={}){this.canvas=canvas;this.options=options;this.fps=30;}
+      async add(t,d){
+        this.options.onEncoderConfig?.({codec:this.options.fullCodecString,
+          width:this.canvas.width,height:this.canvas.height,
+          framerate:this.fps,bitrate:this.options.bitrate,avc:{format:'avc'}});
+        stamps.push([t,d]);
+      }
+    },
     Output:class{
       constructor({target}){this.target=target;}
-      addVideoTrack(){}
+      addVideoTrack(source,{frameRate}={}){source.fps=frameRate??30;}
       async start(){}
       async finalize(){
         const writer=this.target.stream.getWriter();
