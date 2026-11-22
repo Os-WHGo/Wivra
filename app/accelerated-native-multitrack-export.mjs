@@ -51,7 +51,8 @@ export function acceleratedOutputNeedsAudio(codec, requestedAudio) {
 export async function recordExperimentalNativeMultitrack({
   project,media,M,host,expectAudio,experimentalAccelerated=false,
   isCancelled=()=>false,onProgress=()=>{},imageFactory,
-  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false,longForm=false
+  fps=30,sampleRate=48000,estimatedBytes,saveToPhotos=false,longForm=false,
+  loudnessGainDb=0
 }={}) {
   if(experimentalAccelerated!==true)
     throw new Error('La exportación multipista nativa requiere modo experimental explícito.');
@@ -125,7 +126,7 @@ export async function recordExperimentalNativeMultitrack({
     await sink.begin();
     renderOwnsInputs=true;
     const stats=await renderAcceleratedMultitrack({prepared,
-      fps,sampleRate,videoBitrate,isCancelled,onProgress:safeProgress,
+      fps,sampleRate,videoBitrate,isCancelled,onProgress:safeProgress,loudnessGainDb,
       writeAt:(position,bytes)=>sink.writeAt(position,bytes)});
     if(stats.container!==prepared.codec.container ||
        stats.audioCodec!==prepared.codec.audioCodec ||

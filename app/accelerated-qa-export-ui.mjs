@@ -3,6 +3,7 @@
 // This is NOT an automatic production engine activation: native codecs, writer,
 // verified output and physical acceptance keep their independent safety gates.
 // All exports are started by an explicit user click. No camera/RTMP access.
+import {LOUD_LEVELS} from './loudness.mjs';
 export function validAcceleratedRecoveryEntry(item) {
   return typeof item?.name==='string' &&
     /^Wivra_Fast_[A-Za-z0-9_-]{6,80}\.(mp4|webm)$/.test(item.name) &&
@@ -84,7 +85,9 @@ export function acceleratedBetaSettingsGate({
 }={}) {
   if (saveMode !== 'auto')
     return {ok:false, reason:'El guardado en memoria elegido para el motor clásico no tiene paridad en el acelerado. Selecciona guardado automático o usa MediaRecorder.'};
-  if (loudness !== 'off')
+  // The editor's own levels are measured with the same loudnessPlan() and
+  // applied as the same single master gain; any other value has no parity.
+  if (loudness !== 'off' && !(Object.hasOwn(LOUD_LEVELS, loudness) && LOUD_LEVELS[loudness].target != null))
     return {ok:false, reason:'El nivelado de volumen seleccionado todavía no tiene paridad en el motor acelerado. Usa MediaRecorder o desactiva el nivelado.'};
   if (allowAudioGaps || allowOverlayGaps)
     return {ok:false, reason:'La autorización para exportar con pistas incompletas no se puede trasladar al motor acelerado. Usa MediaRecorder o recupera los archivos.'};
@@ -334,6 +337,21 @@ document.addEventListener('DOMContentLoaded',()=>{
       await nativeIntentReady;
     }
     if(!approveAnotherExport('fast'))return;
+    // "Volumen del video": measure exactly as the classic export does, before
+    // anything is armed. A failed measurement exports the original volume. — Claude
+    const loudLevel=document.getElementById('expLoud')?.value??'off';
+    let loud=null;
+    if(loudLevel!=='off'){
+      if(typeof loudnessPlan!=='function')
+        return void(status.textContent='El nivelado de volumen no está disponible aquí. Usa MediaRecorder o desactiva el nivelado.');
+      const measuredRevision=session.project.revision;
+      status.textContent='Midiendo el volumen…';
+      try{loud=await loudnessPlan(session.project,loudLevel);}
+      catch{loud={why:'No se pudo medir el volumen: se exporta con el volumen original.'};}
+      if(session.project.revision!==measuredRevision)
+        return void(status.textContent='El proyecto cambió mientras se medía el volumen. Vuelve a exportar.');
+    }
+    const loudnessGainDb=loud&&loud.ok?loud.gainDb:0;
     // Do not start a potentially committing operation if its interruption
     // cannot be reconciled on the next editor launch.
     if(!recoveryMarker.arm()){
@@ -351,7 +369,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const startedAt=performance.now(); // excludes only the preflight UI click and project lookup
       const result=await recordOnNative({
         project:originalSession.project,media,longForm:projectSeconds>180,
-        expectAudio:requireAudio.checked,experimentalAccelerated:true,
+        expectAudio:requireAudio.checked,experimentalAccelerated:true,loudnessGainDb,
         isCancelled:()=>cancelled||session!==originalSession||
           session.project.revision!==revision,
         onProgress:({pct,t,total})=>{
@@ -374,7 +392,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       status.textContent='Archivo experimental verificado y guardado: '+
         (result.saved.displayName||'video')+' ('+
         (result.saved.bytes/1e6).toFixed(1)+' MB).'+timing+
-        ' Falta validar rendimiento en teléfonos físicos.';
+        ' Falta validar rendimiento en teléfonos físicos.'+
+        (!loud?'':loud.ok?(Math.abs(loud.gainDb)<0.05?' Volumen: ya estaba cerca del objetivo, no se cambió.':
+          ' Volumen ajustado '+(loud.gainDb>0?'+':'')+loud.gainDb+' dB (de '+loud.before+' a '+loud.after+' LUFS).')+
+          (loud.limitedByPeak&&loud.note?' '+loud.note:''):' '+loud.why);
       const share=make('button','Compartir archivo verificado','btn sec');
       share.type='button';
       share.onclick=async()=>{

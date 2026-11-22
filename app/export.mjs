@@ -466,8 +466,9 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
     // Explicit QA native path: the standard editor contains no sidecar, so
     // production never changes engines due to runtime flags or WebView APIs.
     // Never silently disregard the stable editor's loudness/incomplete flags.
+    // Loudness is one measured master gain in both engines and is forwarded. — Claude
     if (saveMode !== 'auto' || allowIncompleteAudio || allowIncompleteOverlay ||
-        !Number.isFinite(loudnessGainDb) || Math.abs(loudnessGainDb) > 0.001)
+        !Number.isFinite(loudnessGainDb))
       throw new Error('Acelerador experimental: mezcla de volumen, guardado o medios incompletos sin paridad.');
     const qa = globalThis.WivraAcceleratedQA;
     if (typeof qa?.recordOnNative !== 'function')
@@ -476,7 +477,7 @@ export async function recordProject({ project, media, onProgress = () => {}, isC
       throw new Error('Acelerador experimental: declarar explícitamente presencia de audio.');
     return qa.recordOnNative({
       project, media, expectAudio: acceleratedExpectAudio,
-      experimentalAccelerated: true, fps, isCancelled, onProgress
+      experimentalAccelerated: true, fps, isCancelled, onProgress, loudnessGainDb
     });
   }
   // The accelerated prototype has not yet been ported to the full timeline renderer.

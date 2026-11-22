@@ -73,7 +73,7 @@ const authored=(rows)=>({clips:[{id:'camera',asset_id:'camera',start:0,in:0,out:
  audioClips:[{id:'mic',asset_id:'mic',start:.2,in:0,out:.5,role:'voice_primary',...(rows?{track:3}:{})},
   {id:'music',asset_id:'music',start:0,in:0,out:1,role:'music',volume:.5,...(rows?{track:2}:{})}]});
 
-async function renderPcm(project){
+async function renderPcm(project,options={}){
  const audio=[];
  const oldDoc=globalThis.document,oldBuffer=globalThis.AudioBuffer;
  globalThis.AudioBuffer=PCM;
@@ -83,7 +83,7 @@ async function renderPcm(project){
   const prepared=await prepareAcceleratedMultitrack({project,media,M:sdk(audio),
    platform:'android',expectedAudio:true});
   const result=await renderAcceleratedMultitrack({prepared,
-   writeAt:async(_p,bytes)=>bytes.length,sampleRate:8000,fps:30});
+   writeAt:async(_p,bytes)=>bytes.length,sampleRate:8000,fps:30,...options});
   return {result,audio};
  }finally{globalThis.document=oldDoc;globalThis.AudioBuffer=oldBuffer;}
 }
@@ -118,4 +118,24 @@ test('projects whose editor moved audio to rows 2..4 pass preflight; invalid row
   await assert.rejects(prepareAcceleratedMultitrack({project:bad,media,M:probe,platform:'qa'}),
    /invalid audio track row/,String(track));
  }
+});
+
+// "Volumen del video": the editor measures one gain (loudnessPlan) and both
+// engines apply it as a single master gain, clamped to +/-12 dB, ignored
+// below 0.05 dB, without compressor or limiter. — Claude
+test('accelerated loudness applies the same single master gain as the stable exporter',async()=>{
+ const flat=await renderPcm(authored(false));
+ const scaled=(db)=>flat.audio.map(ch=>ch.map(v=>Math.fround(v*10**(db/20))));
+ const plus=await renderPcm(authored(false),{loudnessGainDb:6});
+ assert.equal(plus.result.loudnessGainDb,6);
+ assert.deepEqual(plus.audio,scaled(6));
+ const minus=await renderPcm(authored(false),{loudnessGainDb:-3.5});
+ assert.deepEqual(minus.audio,scaled(-3.5));
+ const tiny=await renderPcm(authored(false),{loudnessGainDb:.04});
+ assert.equal(tiny.result.loudnessGainDb,0);
+ assert.deepEqual(tiny.audio,flat.audio);
+ const clamped=await renderPcm(authored(false),{loudnessGainDb:30});
+ assert.equal(clamped.result.loudnessGainDb,12);
+ assert.deepEqual(clamped.audio,scaled(12));
+ await assert.rejects(renderPcm(authored(false),{loudnessGainDb:NaN}),/invalid loudness gain/);
 });

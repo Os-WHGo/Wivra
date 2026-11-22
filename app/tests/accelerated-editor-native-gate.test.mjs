@@ -47,7 +47,7 @@ test('QA native route refuses loudness override and incomplete media acknowledgm
   globalThis.WivraAcceleratedQA={recordOnNative:async()=>{used++;}};
   try{
     for(const opt of [
-      {loudnessGainDb:4},{loudnessGainDb:NaN},
+      {loudnessGainDb:NaN},{loudnessGainDb:Infinity},
       {allowIncompleteAudio:true},{allowIncompleteOverlay:true},
       {saveMode:'broken'}
     ])await assert.rejects(recordProject({...common(),...opt}),/sin paridad/);

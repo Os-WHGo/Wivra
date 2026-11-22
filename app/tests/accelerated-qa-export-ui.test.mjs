@@ -9,6 +9,7 @@ import {
   acceleratedNativeIntentState, acceleratedNativeIntentRequiresReview
 } from '../accelerated-qa-export-ui.mjs';
 import {createAcceleratedNativeSink} from '../accelerated-native-sink.mjs';
+import {LOUD_LEVELS} from '../loudness.mjs';
 
 test('native finish timeout is marked uncertain and never auto-retries or auto-falls back',async()=>{
   const ops=[];
@@ -231,7 +232,8 @@ test('UI arms recovery before invoking native and preserves the marker for uncer
   assert.match(ui,/if\(requestedGeneration!==recoveryGeneration\)return false;/);
 });
 
-function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,nativeOp=null}){
+function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,nativeOp=null,
+  loudLevel=null,loudnessPlan=undefined,session={project:{revision:1}}}){
   class Element {
     constructor(tag){this.tag=tag;this.children=[];this.events={};this.textContent='';
       this.style={};this.classList={add(){}};}
@@ -242,6 +244,7 @@ function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,n
     addEventListener(name,fn){this.events[name]=fn;}
   }
   const ids=Object.fromEntries(['sExp','expGo','sSettings'].map(id=>[id,new Element('div')]));
+  if(loudLevel!=null)ids.expLoud=Object.assign(new Element('select'),{value:loudLevel});
   const document={
     getElementById:id=>ids[id]??null,
     createElement:tag=>new Element(tag),
@@ -249,15 +252,16 @@ function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,n
     addEventListener:(name,fn)=>{if(name==='DOMContentLoaded')fn();}
   };
   const source=readFileSync(new URL('../accelerated-qa-export-ui.mjs',import.meta.url),'utf8')
-    .replace(/^export /gm,'');
+    .replace(/^import .*$/gm,'').replace(/^export /gm,'');
   runInNewContext(source,{
-    document,window:{confirm},localStorage:storage,performance:{now:()=>1000},
+    document,window:{confirm},localStorage:storage,performance:{now:()=>1000},LOUD_LEVELS,
     nativeHost:()=>({platform:'android',request:message=>{
       if(message.op==='listRecovered')return listRecovered();
       if(nativeOp)return nativeOp(message);
       throw Error('unexpected op '+message.op);
     }}),
-    recordOnNative,session:{project:{revision:1}},media:{},expBusy:false,pzMissing:[],
+    recordOnNative,session,media:{},expBusy:false,pzMissing:[],
+    ...(loudnessPlan?{loudnessPlan}:{}),
     totalDuration:()=>1
   });
   const find=(node,predicate)=>{
@@ -273,6 +277,9 @@ function bootRecoveryUi({storage,listRecovered,recordOnNative,confirm=()=>true,n
   const settings=find(ids.sSettings,node=>node.textContent==='Recuperar exportaciones aceleradas (QA)');
   return {
     fast:()=>fast.onclick(),search:()=>recovery.onclick(),searchSettings:()=>settings.onclick(),
+    statusText:()=>{const queue=[ids.expGo];while(queue.length){const n=queue.shift();
+      if(n?.tag==='p'&&/Volumen|volumen|Midiendo|proyecto cambió/.test(n.textContent))return n.textContent;
+      for(const c of n?.children??[])if(typeof c==='object'&&c)queue.push(c);}return '';},
     classicBlocked(){
       let blocked=false;
       ids.expGo.events.click({preventDefault(){blocked=true;},stopImmediatePropagation(){blocked=true;}});
@@ -455,4 +462,52 @@ test('Android bridge advertises the journal and the store arms before creating o
   assert.ok(finish.indexOf('publish(context')<finish.indexOf('item.intents.clear(token)'),
     'intent closes only after a verified gallery publication');
   assert.match(store,/item\.session\.abort\(\)\s*\/\/[^\n]*\n\s*item\.intents\.clear\(token\)/);
+});
+
+// Measured loudness reaches the accelerated engine like the classic one. — Claude
+test('editor loudness levels are measured and forwarded; unknown levels still fail',async()=>{
+  assert.equal(acceleratedBetaSettingsGate({loudness:'balanced'}).ok,true);
+  assert.equal(acceleratedBetaSettingsGate({loudness:'quiet'}).ok,true);
+  assert.equal(acceleratedBetaSettingsGate({loudness:'ebu-r128'}).ok,false);
+  assert.equal(acceleratedBetaSettingsGate({loudness:'constructor'}).ok,false);
+  const received=[];
+  const ui=bootRecoveryUi({storage:recoveryStorageFixture(),listRecovered:emptyRecovery,
+    loudLevel:'balanced',
+    loudnessPlan:async(_project,level)=>({ok:true,gainDb:level==='balanced'?3.2:0,before:-17.2,after:-14}),
+    recordOnNative:async options=>{received.push(options.loudnessGainDb);return successfulNative();}});
+  await ui.fast();
+  assert.deepEqual(received,[3.2]);
+  assert.match(ui.statusText(),/Volumen ajustado \+3\.2 dB \(de -17\.2 a -14 LUFS\)/);
+});
+
+test('failed loudness measurement exports the original volume; edits during measuring stop',async()=>{
+  const received=[];
+  const failing=bootRecoveryUi({storage:recoveryStorageFixture(),listRecovered:emptyRecovery,
+    loudLevel:'quiet',loudnessPlan:async()=>{throw Error('decoder');},
+    recordOnNative:async options=>{received.push(options.loudnessGainDb);return successfulNative();}});
+  await failing.fast();
+  assert.deepEqual(received,[0]);
+  assert.match(failing.statusText(),/volumen original/);
+  const session={project:{revision:1}};
+  let started=0;
+  const editing=bootRecoveryUi({storage:recoveryStorageFixture(),listRecovered:emptyRecovery,
+    loudLevel:'balanced',session,
+    loudnessPlan:async()=>{session.project={revision:2};return {ok:true,gainDb:2,before:-16,after:-14};},
+    recordOnNative:async()=>{started++;return successfulNative();}});
+  await editing.fast();
+  assert.equal(started,0);
+  assert.match(editing.statusText(),/proyecto cambió/);
+});
+
+test('recordProject forwards a finite measured loudness gain to the accelerated route',async()=>{
+  const {recordProject}=await import('../export.mjs');
+  const old=globalThis.WivraAcceleratedQA;
+  let got;
+  globalThis.WivraAcceleratedQA={recordOnNative:async args=>{got=args.loudnessGainDb;
+    return {experimental:true,verifiedNative:true,verifiedOnDevice:false};}};
+  try{
+    await recordProject({project:{clips:[],overlayClips:[],audioClips:[],texts:[],format:{}},
+      media:{},experimentalAccelerated:true,acceleratedExpectAudio:false,loudnessGainDb:4});
+    assert.equal(got,4);
+  }finally{globalThis.WivraAcceleratedQA=old;}
 });

@@ -383,8 +383,14 @@ export async function renderAcceleratedMultitrack(options={}) {
 async function renderPreparedMultitrack({
   prepared,writeAt,isCancelled=()=>false,fps=30,
   videoBitrate=null,audioBitrate=128000,
-  sampleRate=48000,onProgress=()=>{}
+  sampleRate=48000,onProgress=()=>{},loudnessGainDb=0
 }={}) {
+  // Editor "Volumen del video": ONE fixed gain over the whole mix, measured
+  // before export (app/loudness.mjs). Same rule as the stable exporter:
+  // clamp to +/-12 dB, ignore below 0.05 dB, no compressor or limiter. — Claude
+  if(!Number.isFinite(loudnessGainDb))deny('invalid loudness gain');
+  const masterGain=Math.abs(loudnessGainDb)>=0.05
+    ?10**(Math.max(-12,Math.min(12,loudnessGainDb))/20):1;
   if(!prepared || !prepared.ledger?.valid || prepared.ledger.rendererReady!==false)
     deny('valid experimental preflight required');
   if(typeof writeAt!=='function')deny('native random file writer required');
@@ -583,6 +589,13 @@ async function renderPreparedMultitrack({
       if(mixer&&((k+1)%fps===0||k===framesTotal-1)) {
         const next=await mixer.next();
         if(next.done)throw new Error('Native audio mix ended before video.');
+        if(masterGain!==1){
+          const block=next.value.buffer;
+          for(let ch=0;ch<block.numberOfChannels;ch++){
+            const data=block.getChannelData(ch);
+            for(let i=0;i<data.length;i++)data[i]*=masterGain;
+          }
+        }
         await audioSource.add(next.value.buffer);
         audioBlocks++;
       }
@@ -602,6 +615,7 @@ async function renderPreparedMultitrack({
       container:codec.container,width,height,
       durationSeconds:totalSeconds,videoFrames,audioBlocks,overlaysRendered,
       writes:writer.writes,outputBytes:writer.highWaterBytes,
+      loudnessGainDb:masterGain===1?0:Math.max(-12,Math.min(12,loudnessGainDb)),
       verifiedOnDevice:false,rendererReadyForProduction:false};
   } finally {
     // Aborting the native partial is not enough: free active encoders and
