@@ -12,6 +12,7 @@ on:
       - tools/browser-progressive-export.cjs
       - tools/browser-container-playback.cjs
       - tools/browser-gif-main-export.cjs
+      - tools/browser-accelerated-gif.cjs
       - app/gif.mjs
       - tools/export-engine-benchmark.cjs
       - tools/verify-accelerated-offline-bundle.cjs
@@ -127,6 +128,8 @@ jobs:
         run: node tools/browser-container-playback.cjs
       - name: Classic export advances an animated GIF on the main line (red/blue frames via ffmpeg)
         run: node tools/browser-gif-main-export.cjs
+      - name: Accelerated export animates a decoded GIF as main clip and offset overlay (Linux only)
+        run: node tools/browser-accelerated-gif.cjs
       - name: Compare export engines (MediaRecorder vs WebCodecs+Mediabunny), 30 s montage, A/V markers
         run: node tools/export-engine-benchmark.cjs 30 12
       - name: Verify real accelerated multipista video overlay text and independent WAV via ffprobe (Linux only)
@@ -171,6 +174,7 @@ jobs:
             wivra-progressive-export.json
             wivra-container-playback.json
             wivra-gif-main-export.json
+            wivra-accelerated-gif.json
             wivra-export-engine-benchmark.json
             wivra-multitrack-accelerated.json
             wivra-multitrack-shared-source.json

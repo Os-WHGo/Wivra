@@ -14,6 +14,7 @@ import {analyzeAcceleratedMultitrackParity} from './accelerated-multitrack-parit
 import {checkedRandomWrite} from './accelerated-cut-renderer.mjs';
 import {mixAcceleratedAudioBlocks} from './accelerated-audio-mixer.mjs';
 import {mobileCodecConfig} from './accelerated-native-codec-probe.mjs';
+import {gifFrameAt} from './gif.mjs';
 
 export const ACCELERATED_MULTITRACK_RENDERER_VERSION = 1;
 export const ACCELERATED_MULTITRACK_MAX_SECONDS = 180;
@@ -84,8 +85,11 @@ function validateAuthoring(project, ledger, media) {
       deny('invalid overlay transform');
     if (lane.lane==='main' && !['video','image'].includes(media[c.asset_id]?.kind))
       deny('main lane requires video or still image');
-    if (media[c.asset_id]?.kind==='image' &&
-        (Boolean(media[c.asset_id].gif) || media[c.asset_id].animated===true ||
+    // An animated GIF is exported with the frames the editor already decoded
+    // (app/gif.mjs), chosen by source time exactly like the stable exporter.
+    // Without those frames a GIF would silently become a still: reject.
+    if (media[c.asset_id]?.kind==='image' && !validDecodedGif(media[c.asset_id].gif) &&
+        (media[c.asset_id].gif!=null || media[c.asset_id].animated===true ||
          /^image\/gif(?:;|$)/i.test(media[c.asset_id].mime||'')))
       deny('animated GIF source requires frame-accurate decoder');
   }
@@ -101,6 +105,17 @@ function validateAuthoring(project, ledger, media) {
     deny('first multi-lane path requires a main video clip');
   if(!['original','9:16','1:1','4:5','16:9'].includes(project.format?.aspect??'original'))
     deny('unsupported aspect');
+}
+
+export const ACCELERATED_GIF_MAX_FRAMES = 1000;
+/** Shape of decodeGif() output: {w,h,frames:[{delay>0 s, rgba w*h*4}]}. — Claude */
+export function validDecodedGif(gif) {
+  if(!gif || typeof gif!=='object')return false;
+  const {w,h,frames}=gif;
+  if(!Number.isSafeInteger(w)||!Number.isSafeInteger(h)||w<=0||h<=0||w>4096||h>4096)return false;
+  if(!Array.isArray(frames)||!frames.length||frames.length>ACCELERATED_GIF_MAX_FRAMES)return false;
+  return frames.every(f=>f && Number.isFinite(f.delay) && f.delay>0 &&
+    f.rgba && typeof f.rgba.length==='number' && f.rgba.length===w*h*4);
 }
 
 function imageFactoryDefault(url) {
@@ -209,7 +224,13 @@ export async function prepareAcceleratedMultitrack({
       // Register ownership BEFORE any awaited decoder/track probe; a thrown
       // getPrimary* call must still dispose the Input it already created.
       used.set(asset.assetId,entry);
-      if(asset.kind==='image') {
+      if(asset.kind==='image' && validDecodedGif(media[asset.assetId]?.gif)) {
+        // Frames stay in the editor's decoded RGBA; one canvas per
+        // simultaneous layer is filled on demand (see gifSlots below).
+        const gif=media[asset.assetId].gif;
+        entry.gif={w:gif.w,h:gif.h,frames:gif.frames};
+        entry.gifCanvases=[];
+      } else if(asset.kind==='image') {
         const image=await imageFactory(asset.url);
         const w=image?.naturalWidth??image?.width;
         const h=image?.naturalHeight??image?.height;
@@ -268,7 +289,15 @@ export async function prepareAcceleratedMultitrack({
     // their own peak pool. End events precede starts at the same timestamp.
     let surfaceBytes=width*height*4;
     for(const [assetId,item] of used){
-      if(item.kind==='image'){
+      if(item.kind==='image' && item.gif){
+        const events=ledger.tracks.filter(l=>l.assetId===assetId &&
+          l.lane!=='audio' && l.visibleDuration>0).flatMap(l=>[
+            {time:l.start,delta:1},{time:l.renderEnd,delta:-1}]);
+        events.sort((a,b)=>a.time-b.time||a.delta-b.delta);
+        let active=0,peak=1;
+        for(const event of events){active+=event.delta;peak=Math.max(peak,active);}
+        surfaceBytes+=peak*item.gif.w*item.gif.h*4;
+      }else if(item.kind==='image'){
         surfaceBytes+=item.image.videoWidth*item.image.videoHeight*4;
       }else if(item.visualSinks){
         const events=ledger.tracks.filter(l=>l.assetId===assetId &&
@@ -471,10 +500,33 @@ async function renderPreparedMultitrack({
           asset.visualSinks[slot]=new M.CanvasSink(asset.video,asset.canvasOptions);
         return asset.visualSinks[slot].getCanvas(time);
       };
+      // Same slot discipline for GIF layers: two layers of one GIF at
+      // different source times must not share (and overwrite) one canvas.
+      const gifSlots=new Map();
+      const gifFrame=(asset,time)=>{
+        const slot=gifSlots.get(asset)??0;
+        gifSlots.set(asset,slot+1);
+        let holder=asset.gifCanvases[slot];
+        if(!holder){
+          const canvas=document.createElement('canvas');
+          canvas.width=asset.gif.w;canvas.height=asset.gif.h;
+          holder=asset.gifCanvases[slot]={canvas,ctx:canvas.getContext('2d'),index:-1};
+          if(!holder.ctx)throw new Error('GIF canvas unavailable for accelerated export.');
+        }
+        const index=gifFrameAt(asset.gif,time);
+        if(holder.index!==index){
+          holder.ctx.putImageData(new ImageData(asset.gif.frames[index].rgba,
+            asset.gif.w,asset.gif.h),0,0);
+          holder.index=index;
+        }
+        return asVisual(holder.canvas,asset.gif.w,asset.gif.h);
+      };
       let frame=null;
       if(main){
         const asset=used.get(main.asset_id);
-        if(asset.kind==='image'){
+        if(asset.gif){
+          frame=gifFrame(asset,srcTime(main,t));
+        }else if(asset.kind==='image'){
           frame=asset.image;
           if(!frame)throw new Error('Missing decoded main still image at timeline '+t);
         }else{
@@ -488,7 +540,7 @@ async function renderPreparedMultitrack({
       for(const c of overlayTimeline) {
         if(!(t>=c.start&&t<c.start+clipLength(c)))continue;
         const source=used.get(c.asset_id);
-        let visual=source.image;
+        let visual=source.gif?gifFrame(source,srcTime(c,t)):source.image;
         if(!visual){
           const wrapped=await videoFrame(source,srcTime(c,t));
           const raw=wrapped?.canvas;
