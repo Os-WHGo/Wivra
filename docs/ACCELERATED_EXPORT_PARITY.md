@@ -18,6 +18,9 @@ QA route still uses the cut renderer. Do not rebuild either editor or Director.
 | Text/subtitles, aspect, crop, shape | Shared compositor | Reuses `drawFrame`, existing text/style contracts and aspect selection | Broader rendered-pixel comparisons and mobile fonts |
 | Speed and clip fade/slide/zoom | Existing timeline contracts | Source-time mapping and shared compositor; unknown effects rejected | Physical mixed-speed A/V and all compatible effects |
 | Arbitrary project effects/transitions | Varies by existing compositor | Explicitly rejected | Implement only with complete semantics and tests |
+| Animated GIF (main clip or overlay) | Editor-decoded frames (`app/gif.mjs`); main-line GIF advanced since 2026-11-22 | Same decoded frames, `gifFrameAt(srcTime)`, one canvas per simultaneous layer; GIF without decoded frames rejected | Phone WebView memory with long/large GIFs |
+| Audio rows (`audioClips[].track` 1..4) | Layout only, all rows mixed | Accepted (validated), identical PCM | — |
+| "Volumen del video" (balanced/quiet) | One measured master gain, ±12 dB, no limiter | Same gain from the same `loudnessPlan()`; unknown levels rejected | Physical loudness check on device output |
 | Cancel/setup failure | Existing recovery | Cancel output; dispose inputs even before encoder start | Process interruption QA on devices |
 | Native random-write and publication | Existing hosts/recovery | v2 staging, codec preflight, SHA/duration/audio verification | WKWebView/WebView H264/AAC end-to-end, Photos/MediaStore physical QA |
 | Long video | Existing tests | 10/20/30/60-minute Linux soak workflow | Read final reports for each new SHA; no mobile extrapolation |
@@ -110,3 +113,16 @@ the safe zone is ignored or grain is frozen. These are controlled regressions,
 not three newly discovered production defects. The existing features passed
 without rebuilding the compositor. Synthetic Chromium/SwiftShader evidence
 still does not qualify mobile H264/AAC, HDR or physical GPU behavior.
+
+## 2026-11-22 parity additions (Claude)
+
+Found by probing `prepareAcceleratedMultitrack` with projects built from the
+real editor operations, all 10 templates, quick assembly, crossfades and cut
+transitions. Only audio rows were rejected; GIFs and loudness were rejected by
+explicit gates. Evidence (Linux Chromium, Mediabunny 1.61.6, ffmpeg; not a
+phone): `tools/browser-accelerated-gif.cjs` (H.264 MP4, main and offset overlay
+frames follow source time), `tools/browser-gif-main-export.cjs` (classic engine
+had exported a main-line GIF frozen on frame 1; fixed), a +6 dB loudness export
+measured +6.00 dB by `volumedetect`, and unit tests requiring identical PCM for
+audio rows and exact gain scaling. Failures are now explained in Spanish in the
+QA panel with the technical detail kept for reports.

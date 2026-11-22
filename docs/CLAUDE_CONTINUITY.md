@@ -39,12 +39,24 @@ Todos los commits de la rama activa llevan `[skip ci]`; ningún workflow tiene t
 | `4f1889e` | **Diario nativo de intención** de exportación acelerada (Android): `WivraExportIntentJournal`, armado antes de crear la sesión, cerrado solo tras publicación verificada o abort; `helloRandom` anuncia `exportIntentJournal`/`interruptedExport`; op `ackInterruptedExport`. La UI QA exige revisión para ambos motores si el diario nativo indica interrupción aunque se pierda `localStorage`. | IMPLEMENTADO + TEST (no APK, no dispositivo) |
 | `3b98aa8` | `tools/media-lab.cjs`: 24 herramientas de navegador ya no dependen de la ruta fija de CI (`WIVRA_MEDIA_LAB`). `.gitignore` raíz para informes JSON. | IMPLEMENTADO |
 
+### Sesión 2 (2026-11-22, continuación)
+
+| Commit | Qué | Estado |
+| --- | --- | --- |
+| `e479a35` | Filas de audio (`track` 1–4) ya no excluyen el proyecto del motor rápido; PCM idéntico. | IMPLEMENTADO + TEST |
+| `b957849` | **Bug del motor clásico**: un GIF animado en la línea principal se exportaba congelado en su primer fotograma. Corregido; `tools/browser-gif-main-export.cjs` lo verifica (falla antes, pasa después). | IMPLEMENTADO + TEST NAVEGADOR |
+| `536e92e` | GIF animados en el motor rápido (principal y capa), con los fotogramas ya decodificados por el editor. `tools/browser-accelerated-gif.cjs`. | IMPLEMENTADO + TEST NAVEGADOR (H.264 MP4) |
+| `db0c3cb` | "Volumen del video" (parejo fuerte/suave) con la misma ganancia medida en ambos motores; +6 dB medido +6,00 dB. | IMPLEMENTADO + TEST NAVEGADOR |
+| `30e653e` | Motivos de fallo del motor rápido explicados en español, con detalle técnico. | IMPLEMENTADO + TEST |
+
+Sondeo de paridad: todas las operaciones del editor, las 10 plantillas, montaje rápido, fundidos cruzados y transiciones pasan el preflight acelerado. Rechazos que quedan a propósito: guardado en memoria y exportar con medios incompletos (se ofrece MediaRecorder).
+
 ## 5. Pruebas (resultado local, este contenedor Linux, sin hardware)
 
 | Suite | Comando | Resultado |
 | --- | --- | --- |
-| Offline acelerado + LIVE + build | `node tools/wivra-accelerated-offline-check.cjs --full --live --build` | 232/232 · streaming 574 PASS + 10 TODO · build OK |
-| App completa | `node --test app/tests/*.test.mjs` | 778/778 |
+| Offline acelerado + LIVE + build | `node tools/wivra-accelerated-offline-check.cjs --full --live --build` | 241/241 (sesión 2) · streaming 574 PASS + 10 TODO · build OK |
+| App completa | `node --test app/tests/*.test.mjs` | 788/788 (sesión 2) |
 | Core | `node --test core/tests/*.test.mjs core/*.test.mjs` | 121/121 |
 | Tools | `node --test tools/*.test.cjs` | 38/38 |
 | Android JVM (Kotlin 2.2.20, API 36) | `gradle -p tools/android-jvm-check test` | 107/107 en 29 clases |
