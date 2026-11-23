@@ -80,9 +80,17 @@ Con red a `dl.google.com` y `download.swift.org`, `tools/setup-native-toolchain.
 
 Sigue sin poder hacerse aquí: compilar el código Swift que usa AVFoundation/WebKit (store y puente iOS completos) — requiere macOS; el smoke nuevo está en `meta-b0-native-build.yml`. Sin APK/IPA, emulador ni hardware por política. Hallazgo pendiente (no en CI): `browser-i18n-audit` señala 10 textos sin traducir del panel QA de diagnóstico de códecs (W66).
 
+## 6b. Sesión 4 (2026-11-23)
+
+- **Contribuciones conservadas (verificado con historia completa):** de 201 ramas `claude/*`, `chatgpt/*` y `codex/*`, 149 están incluidas en la rama activa (todas las W54–W110, W64–W109 y Codex). Las otras 52 siguen en GitHub; su código no integrado está inventariado en `docs/WIVRA_UNINTEGRATED_BRANCHES_2026-11-23.md` (licencia MIT pendiente de decisión, alertas de comunidad/OBS, TTS opcional, proxy de claves de IA, skills de terceros; el resto superado).
+- **Aviso:** un `git fetch --depth=1` sobre la rama activa recorta la historia local; usar profundidad amplia (`--depth=5000`) antes de comprobar ancestros.
+- **Verificaciones de bundle offline como CI** (`verify-accelerated-offline-bundle`, `verify-offline-native-multitrack`, `verify-normal-export-safety`): PASS.
+- **Recorridos completos del editor en Chromium** (`tools/run-local-journeys.sh`): subtítulos Whisper base en español PASS; recorrido A (importar captura → subtítulos → 9:16 + título → música → exportación estable → ffprobe) PASS; recorrido D (11 min, subtítulos largos por piezas, exportación por partes) ver commit.
+- **Idiomas:** el panel QA de diagnóstico de códecs (W66) ya está traducido a los 8 idiomas; `browser-i18n-audit` en 0. Pendiente menor: mensajes dinámicos del panel QA rápido solo en español.
+
 ## 7. Siguiente macrobloque exacto
 
 1. Ejecutar en macOS (CI `meta-b0-native-build.yml` o un Mac) la compilación iOS completa con el diario nativo (`db90623`) y sus smokes; corregir si Xcode marca algo en `WivraAcceleratedExportStore.swift`/puente.
-2. Traducir los 10 textos del panel QA de diagnóstico de códecs (coordinar con ChatGPT/Codex, área W66).
+2. Decisión del propietario sobre licencia (issue #25) y sobre las ramas pendientes del inventario.
 3. Hito físico autorizado: matar la app durante `finishRandom` y borrar datos del WebView (Android e iPhone) y comprobar que el diario nativo obliga a revisar; GIF como clip principal y sticker y "Volumen parejo" en ambos motores; H.264/AAC 10/30/60 min; LIVE RTMP/RTMPS + MP4; Ray-Ban; micrófonos.
 4. Mantener: `main` sin fusionar, `ACCELERATED_EXPORT_IMPLEMENTED=false`, MediaRecorder como alternativa, Wivra Capture separable, sin Actions de pago ni instalables.
