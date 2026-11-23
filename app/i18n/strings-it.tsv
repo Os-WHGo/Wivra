@@ -831,3 +831,13 @@ El teléfono todavía no deja leer ese archivo. Vuelve a agregar el video al pro
 Listo. Toca «Generar subtítulos» otra vez. || Fatto. Tocca di nuovo «Genera sottotitoli».
 Comprobando si «{1}» ya está en el proyecto… || Controllo se «{1}» è già nel progetto…
 Comprobando que es el mismo archivo… || Controllo che sia lo stesso file…
+Diagnóstico MP4 H.264/AAC (QA) || Diagnostica MP4 H.264/AAC (QA)
+Prueba sintética de un segundo en este navegador. Comprueba configuración, codificación, archivo, audio decodificado y reproducción silenciada. No usa tus vídeos ni habilita el motor experimental. Cada resolución y FPS requiere su propia prueba. || Test sintetico di un secondo in questo browser. Controlla configurazione, codifica, file, audio decodificato e riproduzione senza audio. Non usa i tuoi video e non attiva il motore sperimentale. Ogni risoluzione e FPS richiede un test a parte.
+Ejecutar esta prueba sintética de códecs || Esegui questo test sintetico dei codec
+Cancelar diagnóstico || Annulla diagnostica
+Informe sin datos del proyecto || Rapporto senza dati del progetto
+Seis pruebas sintéticas en orden: 320p, 720p y 1080p a 30/60 FPS. Cada una comprueba imagen y audio MP4 de un segundo. No prueba videos largos, galería, calor, batería ni certifica el teléfono. || Sei test sintetici in ordine: 320p, 720p e 1080p a 30/60 FPS. Ognuno controlla un secondo di immagine e audio MP4. Non testa video lunghi, galleria, calore né batteria e non certifica il telefono.
+Autorizo las seis pruebas sintéticas locales || Autorizzo i sei test sintetici locali
+Ejecutar las seis pruebas || Esegui i sei test
+Informe sintético || Rapporto sintetico
+Resolución y FPS del diagnóstico || Risoluzione e FPS della diagnostica
